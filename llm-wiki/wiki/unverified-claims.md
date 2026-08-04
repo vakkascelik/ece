@@ -28,6 +28,8 @@ Nothing here is a bug. They are known gaps with known closures.
 - **The seven-year retention default is an assumption**, not a citation.
 - **No airplane-mode drill has been run on a real device.** The contract the outbox relies
   on is tested; `expo-sqlite` is not.
+- **Push notification delivery has never run once.** The data model and the quiet-hours logic
+  are built and tested; delivery needs an EAS build on a real device.
 - Anything asserted about ERO taking over regulation, or the April 2026 criteria
   renumbering, came from an earlier research session in the `salix` repo and has not been
   re-checked here.
@@ -92,7 +94,25 @@ on retry, a forced double flush — against the real database, and passes 10/10.
 connection, confirm exactly three events landed and the times survived. See
 [[offline-outbox]].
 
-### 5. Warning lead times for expiring documents
+### 5. Push notifications: built, never executed
+
+| | |
+|---|---|
+| **What exists** | `push_tokens`, `notification_preferences` with quiet hours, a `notifications` queue, `apps/mobile/lib/push.ts`, and quiet-hours logic with 17 tests |
+| **What has never happened** | A single notification being delivered to a device |
+| **Why** | Expo push needs a token from a real build, and this project has not been through EAS. There is also no worker: nothing reads the queue and calls Expo's API |
+| **To close it** | An EAS build, a device, a token, and a worker. Then send one and watch it arrive |
+
+The quiet-hours arithmetic *is* verified, including the case that is normally written wrongly — a
+window that wraps midnight (20:00 → 07:00), evaluated in the centre's timezone across both sides of
+the daylight-saving switch. That part is real; delivery is not.
+
+Two design decisions were made on the assumption they are right and have not been tested against a
+real device: that suppressing foreground banners is the correct behaviour, and that a `DEFAULT`
+importance Android channel with no sound override is right for notices about a child's day. Both are
+judgement calls about not training people to silence the app.
+
+### 6. Warning lead times for expiring documents
 
 `WARNING_DAYS` in `packages/core/src/compliance.ts` — 120 days for police vetting and
 safety checks, 90 for practising certificates, 45 for first aid. These are **judgements
@@ -102,7 +122,7 @@ schema deliberately holds no validity periods at all.
 Lower stakes than the others: being early is harmless, and being late is visible. Worth
 adjusting from experience rather than from a source.
 
-### 6. Regulatory context inherited from another repo
+### 7. Regulatory context inherited from another repo
 
 The product plan in `salix/llm-wiki/wiki/possible-projects/ece-early-learning-app.md`
 asserts that the licensing criteria were renumbered on 20 April 2026 and that ERO takes
@@ -113,7 +133,7 @@ They matter because they are the timing argument for the whole product. **To clo
 confirm both, and if the ERO transfer is real, note that the evidence binder's framing may
 need to change with the regulator.
 
-### 7. Things believed on one customer's word
+### 8. Things believed on one customer's word
 
 Phase 1 built enrolment, which the product plan's Stage 0 advised against until ten
 conversations with centres had happened. Those conversations did not happen; the work
@@ -130,5 +150,6 @@ evidence nobody has gathered.
 - [[compliance-and-evidence]] — why criteria ship empty
 - [[privacy-and-retention]] — retention, and the Privacy Act correction
 - [[offline-outbox]] — what the drill covers and does not
+- [[consent-gated-media]] — where consent decisions finally do work
 
 *Last updated: 2026-08-04*

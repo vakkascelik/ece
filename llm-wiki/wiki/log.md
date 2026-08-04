@@ -52,4 +52,23 @@ runs, which made one test pass for the wrong reason; and `create or replace view
 change a column list, which made the migrations un-replayable until both offending views were
 switched to drop-then-create.
 
+2026-08-04 — Added [[consent-gated-media]] for Phase 4. The page exists mostly to record one bug
+and one rule. The bug: the consent check was written inside the permissive `media_select` policy
+while `media_write` was declared `FOR ALL` — and `FOR ALL` covers SELECT, and permissive policies
+are OR-ed, so staff matched the write policy and the consent condition never had to be satisfied. It
+hid correctly from whānau and not at all from educators, which is why it survived a first review: the
+retroactive half looked like it worked for the caller most likely to be tested. The rule that came
+out of it: a condition that must hold for *every* reader belongs in a **restrictive** policy, which
+is AND-ed with all of them and cannot be routed around by adding another; a condition about *which*
+readers belongs in a permissive one. Every other `FOR ALL` policy in the schema was re-read
+afterwards and all are narrower than their matching select policy, so `media` was the only case with
+the dangerous shape.
+
+2026-08-04 — Recorded in [[unverified-claims]] that push notification delivery has never run once.
+The model, the preferences and the quiet-hours arithmetic are built and tested — including a window
+that wraps midnight, evaluated in the centre timezone across both sides of the daylight-saving switch
+— but no notification has ever reached a device, and there is no worker reading the queue. Listed
+alongside the airplane-mode drill for the same reason: a thing that looks finished and has never
+executed is worth naming rather than discovering.
+
 *Log last updated: 2026-08-04*

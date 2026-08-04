@@ -181,12 +181,42 @@ The binder is a print stylesheet rather than a PDF library (every browser prints
 cost of no dependency and no second rendering path), and it never says "compliant" — it opens by
 stating what it is derived from and what it cannot show.
 
+### Phase 4 — parent engagement (`pending`)
+
+Pānui, learning moments, consent-gated media, messages, and a notification model.
+
+**The consent gate is the whole phase.** `has_consent()` had been a function nobody called since
+Phase 1; from here it decides whether a photograph of a child may be attached at all. Two mechanisms:
+a trigger that refuses the attachment, and a restrictive policy that re-checks on every read so a
+withdrawal is retroactive. Verified 18/18, including that restoring consent brings the media back
+because consent is events rather than a flag.
+
+Then 14/14 on storage: a private bucket, an actual 1x1 PNG uploaded and fetched through a signed URL,
+another centre's folder refused, a parent unable to upload, a disallowed mime type refused — and, the
+strongest form of the guarantee, **after withdrawing consent a signed URL cannot be issued at all**,
+for staff as well as the parent.
+
+**The bug of the phase.** The consent check was written inside the permissive `media_select` while
+`media_write` was `FOR ALL`. `FOR ALL` covers SELECT and permissive policies are OR-ed, so staff
+matched the write policy and the consent condition never had to be satisfied. It hid correctly from
+whānau and not at all from educators — which is precisely why it would have survived review, because
+the caller most likely to be tested behaved correctly. Fixed by splitting the write policy *and*
+moving consent to a **restrictive** policy, which cannot be routed around by adding another. Every
+other `FOR ALL` policy in the schema was then re-read; `media` was the only one with the dangerous
+shape.
+
+Also: the orphan sweeper found a real orphan on its first run — a post cascade removes the media row
+but not the storage object — and correctly declined to delete it for being under an hour old.
+
+Push delivery is built and has never executed. Said plainly rather than discovered later.
+
 ### Where the day ended
 
-119/119 RLS assertions, 104 unit tests, 12 migrations, lint and tokens clean, both apps building.
-Four things now need a person rather than more code: **import a checked criteria set**, **verify
-the ratio bands against Schedule 2**, **run a real airplane-mode drill on a tablet**, and **set
-the GitHub secrets so CI can actually run**. All four are in
+144/144 RLS assertions, 121 unit tests, 17 migrations, lint, tokens and doc links clean, both apps
+building (mobile at 773 modules).
+Five things now need a person rather than more code: **import a checked criteria set**, **verify the
+ratio bands against Schedule 2**, **run a real airplane-mode drill on a tablet**, **get an EAS build
+so push can be tested at all**, and **set the GitHub secrets so CI can actually run**. All four are in
 [`llm-wiki/wiki/unverified-claims.md`](llm-wiki/wiki/unverified-claims.md).
 
 *Log last updated: 2026-08-04*

@@ -28,6 +28,8 @@ and [`../schema.md`](../schema.md) for the page template.
   why the adult count is an event rather than a setting
 - [[compliance-and-evidence]] — staff records with expiry, criteria that ship empty on
   purpose, and a binder that never claims compliance
+- [[consent-gated-media]] — a photograph that cannot exist without a recorded consent decision,
+  and the RLS trap that made the first version leak to staff
 
 ## Offline
 

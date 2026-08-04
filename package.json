@@ -25,7 +25,8 @@
     "tokens:check": "tsx scripts/tokens-css.ts --check",
     "drill:offline": "node --env-file-if-exists=.env.local --import tsx scripts/offline-drill.ts",
     "import:criteria": "node --env-file-if-exists=.env.local --import tsx scripts/import-criteria.ts",
-    "check:docs": "tsx scripts/check-docs-links.ts"
+    "check:docs": "tsx scripts/check-docs-links.ts",
+    "sweep:media": "node --env-file-if-exists=.env.local --import tsx scripts/sweep-orphan-media.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",

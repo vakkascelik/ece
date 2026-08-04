@@ -141,6 +141,9 @@ export * from './roll';
 export * from './compliance';
 export * from './ratioHistory';
 
+// Quiet hours and the te reo vocabulary whanau read.
+export * from './notifications';
+
 // ---------------------------------------------------------------------------
 // Design tokens
 // ---------------------------------------------------------------------------

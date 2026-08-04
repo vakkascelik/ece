@@ -948,6 +948,313 @@ select pg_temp.expect(
 );
 
 -- ===========================================================================
+-- POSTS, MEDIA AND THE CONSENT GATE
+--
+-- The gate is two mechanisms and both are asserted: a trigger that refuses an attachment, and a
+-- RESTRICTIVE policy that re-checks on every read so withdrawing consent hides existing media.
+--
+-- The restrictive policy exists because the first version put the check inside the permissive
+-- `media_select` and separately declared `media_write` as FOR ALL. FOR ALL covers SELECT, and
+-- permissive policies are OR-ed — so staff matched the write policy and the consent check never
+-- had to be satisfied. It hid correctly from whānau, which is what made it survive review.
+-- ===========================================================================
+
+set local role postgres;
+
+-- Beau's whānau grant photo consent; Ana's do not (the Phase 1 section withdrew it).
+insert into public.consent_events (child_id, kind, granted, given_by, recorded_by)
+values ('b2222222-2222-4222-8222-222222222222', 'photo_internal', true,
+        'd2222222-2222-4222-8222-222222222222', '11111111-1111-4111-8111-111111111111');
+
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+
+do $$
+declare n integer;
+begin
+  insert into public.posts (id, centre_id, kind, title, body, author_id, published_at)
+  values ('11111111-aaaa-4aaa-8aaa-000000000001', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+          'learning_moment', 'Tower building', 'Beau built a tower.',
+          '55555555-5555-4555-8555-555555555555', now());
+  get diagnostics n = row_count;
+  perform pg_temp.expect(n = 1, 'an educator CAN publish a learning moment');
+end $$;
+
+insert into public.post_children (post_id, child_id)
+values ('11111111-aaaa-4aaa-8aaa-000000000001', 'b2222222-2222-4222-8222-222222222222');
+
+insert into public.media (id, centre_id, post_id, kind, audience, storage_path, uploaded_by)
+values ('22222222-aaaa-4aaa-8aaa-000000000001', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        '11111111-aaaa-4aaa-8aaa-000000000001', 'photo', 'journal',
+        'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/suite-1.jpg',
+        '55555555-5555-4555-8555-555555555555');
+
+-- Beau has consent.
+do $$
+declare n integer;
+begin
+  insert into public.media_children (media_id, child_id)
+  values ('22222222-aaaa-4aaa-8aaa-000000000001', 'b2222222-2222-4222-8222-222222222222');
+  get diagnostics n = row_count;
+  perform pg_temp.expect(n = 1, 'a child WITH photo consent can be tagged in media');
+end $$;
+
+-- Ana's was withdrawn earlier in this transaction. The trigger must refuse.
+do $$
+declare code text := 'none (the insert SUCCEEDED)';
+begin
+  begin
+    insert into public.media_children (media_id, child_id)
+    values ('22222222-aaaa-4aaa-8aaa-000000000001', 'a1111111-1111-4111-8111-111111111111');
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '23514',
+    'a child WITHOUT photo consent CANNOT be tagged, got ' || code);
+end $$;
+
+-- Public sharing is a different consent. Nobody in this fixture granted photo_public.
+insert into public.media (id, centre_id, post_id, kind, audience, storage_path, uploaded_by)
+values ('22222222-aaaa-4aaa-8aaa-000000000002', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        '11111111-aaaa-4aaa-8aaa-000000000001', 'photo', 'public',
+        'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/suite-2.jpg',
+        '55555555-5555-4555-8555-555555555555');
+
+do $$
+declare code text := 'none (the insert SUCCEEDED)';
+begin
+  begin
+    insert into public.media_children (media_id, child_id)
+    values ('22222222-aaaa-4aaa-8aaa-000000000002', 'b2222222-2222-4222-8222-222222222222');
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '23514',
+    'journal consent does NOT authorise public sharing, got ' || code);
+end $$;
+
+-- Widening an existing item re-opens the question.
+do $$
+declare code text := 'none (the update SUCCEEDED)';
+begin
+  begin
+    update public.media set audience = 'public'
+     where id = '22222222-aaaa-4aaa-8aaa-000000000001';
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '23514',
+    'an existing journal item CANNOT be widened to public, got ' || code);
+end $$;
+
+select pg_temp.expect(
+  (select count(*) from public.media where id = '22222222-aaaa-4aaa-8aaa-000000000001') = 1,
+  'staff can see media while consent holds'
+);
+
+-- THE RESTRICTIVE POLICY. Withdraw and it disappears, for staff as well.
+set local role postgres;
+insert into public.consent_events (child_id, kind, granted, given_by, recorded_by)
+values ('b2222222-2222-4222-8222-222222222222', 'photo_internal', false,
+        'd2222222-2222-4222-8222-222222222222', '11111111-1111-4111-8111-111111111111');
+
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+
+select pg_temp.expect(
+  (select count(*) from public.media where id = '22222222-aaaa-4aaa-8aaa-000000000001') = 0,
+  'withdrawing consent hides existing media from STAFF, not only from whānau'
+);
+
+-- And staff must still be able to delete what they can no longer read, which is why the
+-- restrictive policy is scoped to SELECT.
+do $$
+declare n integer;
+begin
+  delete from public.media where id = '22222222-aaaa-4aaa-8aaa-000000000002';
+  get diagnostics n = row_count;
+  perform pg_temp.expect(n = 1, 'but staff CAN still delete media they can no longer read');
+end $$;
+
+-- The oracle is not granted: "does child X have photo consent" is not a question anybody may ask
+-- directly.
+do $$
+declare code text := 'none (the call SUCCEEDED)';
+begin
+  begin
+    perform public.child_consent_for_audience('b2222222-2222-4222-8222-222222222222', 'journal');
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '42501',
+    'child_consent_for_audience is NOT callable by a user, got ' || code);
+end $$;
+
+-- A parent sees a pānui and a post about their own child, and neither a draft nor another
+-- family's learning moment.
+set local role postgres;
+insert into public.posts (id, centre_id, kind, title, body, author_id, published_at)
+values ('11111111-aaaa-4aaa-8aaa-000000000002', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        'panui', 'Closed Monday', 'Public holiday.',
+        '11111111-1111-4111-8111-111111111111', now()),
+       ('11111111-aaaa-4aaa-8aaa-000000000003', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        'panui', 'Draft notice', 'Not finished.',
+        '11111111-1111-4111-8111-111111111111', null);
+
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+
+select pg_temp.expect(
+  (select count(*) from public.posts
+    where id = '11111111-aaaa-4aaa-8aaa-000000000002') = 1,
+  'a parent sees a published pānui'
+);
+
+select pg_temp.expect(
+  (select count(*) from public.posts
+    where id = '11111111-aaaa-4aaa-8aaa-000000000003') = 0,
+  'and CANNOT see an unpublished draft'
+);
+
+select pg_temp.expect(
+  (select count(*) from public.posts
+    where id = '11111111-aaaa-4aaa-8aaa-000000000001') = 0,
+  'and CANNOT see a learning moment about another family''s child'
+);
+
+-- Centre B sees none of it.
+set local request.jwt.claims = '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.posts
+    where centre_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') = 0,
+  'centre B sees none of centre A''s posts'
+);
+
+-- ===========================================================================
+-- MESSAGES
+-- ===========================================================================
+
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+
+-- A parent starting a thread is the point of the feature: a centre that can message families and
+-- cannot be messaged back has built a broadcast channel.
+do $$
+declare n integer;
+begin
+  insert into public.message_threads (id, centre_id, child_id, subject, started_by)
+  values ('33333333-aaaa-4aaa-8aaa-000000000001', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+          'a1111111-1111-4111-8111-111111111111', 'Nap times',
+          '33333333-3333-4333-8333-333333333333');
+  get diagnostics n = row_count;
+  perform pg_temp.expect(n = 1, 'a parent CAN start a thread about their own child');
+end $$;
+
+do $$
+declare code text := 'none (the insert SUCCEEDED)';
+begin
+  begin
+    insert into public.message_threads (centre_id, child_id, subject, started_by)
+    values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'b2222222-2222-4222-8222-222222222222',
+            'About your child', '33333333-3333-4333-8333-333333333333');
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code in ('42501', '23514'),
+    'but NOT about another family''s child, got ' || code);
+end $$;
+
+insert into public.messages (thread_id, author_id, body)
+values ('33333333-aaaa-4aaa-8aaa-000000000001', '33333333-3333-4333-8333-333333333333',
+        'Does she still nap after lunch?');
+
+-- Append-only, both layers.
+do $$
+declare code text := 'none (the update SUCCEEDED)';
+begin
+  begin
+    update public.messages set body = 'edited'
+     where thread_id = '33333333-aaaa-4aaa-8aaa-000000000001';
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '42501', 'a message CANNOT be edited, got ' || code);
+end $$;
+
+do $$
+declare code text := 'none (the delete SUCCEEDED)';
+begin
+  begin
+    delete from public.messages where thread_id = '33333333-aaaa-4aaa-8aaa-000000000001';
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '42501', 'and CANNOT be deleted, got ' || code);
+end $$;
+
+-- Staff at the centre are in every thread, because a message to a family is centre business —
+-- the person who wrote it may be on leave when the reply arrives.
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.messages
+    where thread_id = '33333333-aaaa-4aaa-8aaa-000000000001') = 1,
+  'an educator sees a thread a parent started'
+);
+
+-- Another family must not.
+set local request.jwt.claims = '{"sub":"44444444-4444-4444-8444-444444444444","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.message_threads) = 0,
+  'another family sees no thread about somebody else''s child'
+);
+select pg_temp.expect(
+  (select count(*) from public.messages) = 0,
+  'and none of its messages'
+);
+
+-- ===========================================================================
+-- NOTIFICATIONS
+-- ===========================================================================
+
+set local role postgres;
+insert into public.push_tokens (user_id, token) values
+  ('33333333-3333-4333-8333-333333333333', 'ExponentPushToken[suite-parent]'),
+  ('55555555-5555-4555-8555-555555555555', 'ExponentPushToken[suite-educator]');
+insert into public.notifications (centre_id, user_id, kind, title, body)
+values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '33333333-3333-4333-8333-333333333333',
+        'post', 'New learning moment', 'Ana built a tower.');
+
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+
+select pg_temp.expect(
+  (select count(*) from public.push_tokens) = 1,
+  'a device token is visible only to the person it belongs to'
+);
+
+select pg_temp.expect(
+  (select count(*) from public.notifications) = 1,
+  'and a notification only to its recipient'
+);
+
+-- Not even a manager. The queue records what a specific family was told and when.
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.notifications) = 0,
+  'an owner CANNOT read a family''s notification history'
+);
+select pg_temp.expect(
+  (select count(*) from public.push_tokens) = 0,
+  'nor their device tokens'
+);
+
+-- Queueing means deciding who receives it, which is a service-role action.
+do $$
+declare code text := 'none (the insert SUCCEEDED)';
+begin
+  begin
+    insert into public.notifications (centre_id, user_id, kind, title, body)
+    values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '33333333-3333-4333-8333-333333333333',
+            'post', 'Forged', 'Not from the centre.');
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '42501',
+    'a user CANNOT put a notification in somebody else''s queue, got ' || code);
+end $$;
+
+-- ===========================================================================
 -- STAFF RECORDS, CRITERIA AND EVIDENCE
 --
 -- The interesting one here is that an educator must be able to read their OWN police

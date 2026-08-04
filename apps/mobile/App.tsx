@@ -15,14 +15,19 @@ import {
   listAttendanceToday,
   listChildren,
   listHealthByChild,
+  listMediaForPosts,
   listMyCentres,
+  listPostChildren,
+  listPosts,
   loadSession,
   readAdultsPresent,
+  signMediaUrl,
   type AttendanceState,
 } from '@ece/api';
 import {
   activeRole,
   buildRoll,
+  displayName,
   hasCriticalCondition,
   type Centre,
   type Child,
@@ -33,6 +38,8 @@ import {
 import { supabase } from './lib/supabase';
 import { enqueue, flush, pendingAttendance, type FlushReport } from './lib/outbox';
 import { ChildCard } from './components/ChildCard';
+import { PostCard, type FeedPost } from './components/PostCard';
+import { configureForegroundBehaviour, registerForPush } from './lib/push';
 import { RatioBar } from './components/RatioBar';
 import { SignInButton } from './components/SignInButton';
 import { color, font, radius, space, target, theme } from './theme';
@@ -70,6 +77,7 @@ export default function App() {
   const [adults, setAdults] = useState(0);
   const [queued, setQueued] = useState<Awaited<ReturnType<typeof pendingAttendance>>>([]);
 
+  const [feed, setFeed] = useState<FeedPost[]>([]);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [message, setMessage] = useState('');
   const [online, setOnline] = useState(true);
@@ -113,6 +121,40 @@ export default function App() {
     setServerStates(states);
     setHealth(conditions);
     setAdults(adultCount);
+
+    /**
+     * The feed.
+     *
+     * Signed one URL at a time, because signing is what the storage policy checks — a URL that
+     * cannot be issued is the consent gate reaching the file, and it must not fail the whole
+     * feed. `signMediaUrl` returns null rather than throwing for exactly that reason.
+     */
+    const posts = await listPosts(supabase, centreId, { limit: 20 });
+    const ids = posts.map((p) => p.id);
+    const [links, mediaByPost] = await Promise.all([
+      listPostChildren(supabase, ids),
+      listMediaForPosts(supabase, ids),
+    ]);
+    const nameOf = new Map(kids.map((c) => [c.id, displayName(c)]));
+
+    const built: FeedPost[] = [];
+    for (const post of posts) {
+      const media = mediaByPost.get(post.id) ?? [];
+      const withUrls = [];
+      for (const item of media) {
+        withUrls.push({ id: item.id, kind: item.kind, url: await signMediaUrl(supabase, item.storagePath) });
+      }
+      built.push({
+        id: post.id,
+        kind: post.kind,
+        title: post.title,
+        body: post.body,
+        publishedAt: post.publishedAt,
+        childNames: (links.get(post.id) ?? []).map((id) => nameOf.get(id) ?? 'a child'),
+        media: withUrls,
+      });
+    }
+    setFeed(built);
   }, []);
 
   /** Try to drain the queue, then re-read. Failure here is expected and not an error. */
@@ -144,6 +186,27 @@ export default function App() {
     },
     [loadRoll, refreshQueue],
   );
+
+  // Once, before anything can arrive. Banners are suppressed in the foreground: a parent already
+  // looking at the feed does not need a notification about the post they are reading.
+  useEffect(() => {
+    configureForegroundBehaviour();
+  }, []);
+
+  /**
+   * Register this device, once there is somebody to register it for.
+   *
+   * Fire-and-forget on purpose. Every failure path in `registerForPush` returns a reason rather
+   * than throwing, because a parent whose notification permission is off must still get a working
+   * app — losing the roll because push could not be set up would be a far worse bug than not
+   * having push.
+   *
+   * Untested against a real device: see llm-wiki/wiki/unverified-claims.md.
+   */
+  useEffect(() => {
+    if (!session) return;
+    void registerForPush(supabase);
+  }, [session]);
 
   useEffect(() => {
     let cancelled = false;
@@ -312,6 +375,19 @@ export default function App() {
               ))
             )}
           </>
+        )}
+
+        {centre && feed.length > 0 && (
+          <View style={{ marginTop: space['6'] }}>
+            <Text style={theme.h2}>{isParent ? 'From the kaiako' : 'Posts'}</Text>
+            {feed
+              // Drafts are visible to staff through the API; a feed is not where an unfinished
+              // post belongs, so this shows published ones only on both surfaces.
+              .filter((p) => p.publishedAt !== null)
+              .map((post) => (
+                <PostCard key={post.id} post={post} />
+              ))}
+          </View>
         )}
 
         {status === 'ready' && session && centres.length > 1 && !activeCentre && (

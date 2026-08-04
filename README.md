@@ -28,7 +28,7 @@ npm run dev:mobile             # Expo
 npm run typecheck              # four workspaces
 npm run lint
 npm test                       # unit tests
-npm run test:rls               # tenant isolation — 119 assertions
+npm run test:rls               # tenant isolation — 144 assertions
 npm run tokens:check           # generated CSS matches the shared tokens
 npm run check:docs             # every documentation link resolves
 npm run build                  # web
@@ -275,6 +275,8 @@ somebody posts a notice to the wrong centre.
 /children/new     enrol a child
 /children/[id]    the record: details, health, whānau, enrolment, consent, custody
 /attendance       present roll, live ratio, sign in and out, time corrections
+/posts            pānui, daily updates, learning moments; media, consent-gated
+/messages         threads between kaiako and whānau, append-only
 /compliance       staff records, ratio history, criteria gaps, evidence
 /compliance/binder  one dated document for a reviewer
 /members          roster, invitations
@@ -682,6 +684,53 @@ present but never signed in does not appear; that adult counts are figures enter
 and that the ratio thresholds have not been verified. A binder is read by somebody deciding
 whether to believe the centre, and a document that overstates its own evidence is worse than
 one honest about the gaps — the gaps are what a reviewer finds anyway.
+
+## Consent-gated media
+
+Phase 1 recorded consent decisions. Phase 4 is where they decide whether a photograph of a child may
+exist. `media.audience` picks which consent applies — `journal` needs `photo_internal`, `public`
+needs `photo_public` — which is what finally makes the two-kind split earn its place.
+
+**Two mechanisms, not one.** A trigger on `media_children` refuses the attachment with a message that
+names the child and says what to do. A **restrictive** policy on `media` re-checks on every read, so
+withdrawing consent hides existing media immediately and retroactively, with no cleanup job and no
+cache to invalidate. Either alone fails: a trigger lets a withdrawal do nothing, and a policy alone
+leaves a silent gap and a file in storage.
+
+**It applies to staff as well as whānau.** A photo a family has withdrawn consent for is not one an
+educator should be browsing either.
+
+**The gate reaches the file.** The bucket is private and reads go through short-lived signed URLs, so
+after a withdrawal a signed URL cannot be *issued* — verified for both staff and the parent. A public
+bucket would serve any object to anybody holding the path, which for photographs of children is a
+disclosure rather than a setting.
+
+### The RLS trap this uncovered
+
+The first version put the consent check inside the permissive `media_select` and separately declared
+`media_write` as `FOR ALL`. `FOR ALL` covers SELECT, and permissive policies are **OR-ed** — so
+staff matched the write policy and the consent condition never had to be satisfied. It hid correctly
+from whānau and not at all from educators, which is exactly why it survived a first review.
+
+`0015` splits the write policy and moves consent to a restrictive policy, which is AND-ed with every
+permissive one and cannot be routed around by adding another. **The rule for this schema: a condition
+that must hold for every reader belongs in a restrictive policy; a condition about which readers
+belongs in a permissive one.** Every other `FOR ALL` policy was re-read; all are narrower than their
+matching select policy, so `media` was the only one with the dangerous shape.
+
+The restriction is SELECT-only on purpose — staff must be able to *delete* media they can no longer
+read.
+
+### Push notifications are built and have never run
+
+The model, the preferences and the quiet-hours arithmetic exist and are tested, including the case
+usually written wrongly: a window that wraps midnight (20:00 → 07:00), evaluated in the centre's
+timezone across both sides of the daylight-saving switch. **No notification has ever been delivered**
+— that needs an EAS build, a device, and a worker reading the queue. Listed in
+[unverified-claims](llm-wiki/wiki/unverified-claims.md).
+
+Queue rather than send-inline, so publishing a pānui to forty families does not make an educator wait
+on Expo's API and cannot half-succeed — and so a notification held until 7am has somewhere to live.
 
 ## Retention and deletion
 
