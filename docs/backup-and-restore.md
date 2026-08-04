@@ -104,7 +104,7 @@ what one would involve rather than a claim that it is ready.
 3. **Check the schema version.** `npm run migrate -- --status` against the restored
    project. If it is behind, apply the remainder. If the checksums disagree, stop — a
    drifted schema restored under a matching version number is worse than a missing one.
-4. **Run `npm run test:rls`.** 164 assertions. A restore that comes back with the data
+4. **Run `npm run test:rls`.** 176 assertions. A restore that comes back with the data
    and without the policies is a restore that publishes every centre's records to every
    other centre, and it would look completely normal on screen.
 5. **Reconcile.** `npm run reconcile:funding` for arithmetic, and count children,

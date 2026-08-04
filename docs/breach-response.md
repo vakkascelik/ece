@@ -95,7 +95,7 @@ cause can follow, and the families' ability to protect themselves cannot.
 - Write the incident up: what happened, why it was possible, what changed.
 - **If the cause was a policy or a grant, add an assertion to
   `supabase/tests/rls_isolation.sql`.** A fix without a test is a fix that comes back. The
-  suite is at 164 assertions and every one of them exists because something could have
+  suite is at 176 assertions and every one of them exists because something could have
   gone wrong; several exist because something did.
 - If the cause was that somebody could not tell what the product was claiming — a ratio
   that read "compliant" when nothing had been verified, a funding total that looked final

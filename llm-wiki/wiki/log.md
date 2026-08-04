@@ -137,4 +137,25 @@ each was a claim about a mechanism derived from reading the code that implements
 asking the database and one by running `pwd`; none was caught by review. A claim about what the product
 enforces now belongs next to a test that fails when it stops being true.
 
-*Log last updated: 2026-08-04*
+2026-08-05 — Recorded the first real tenant. Little Pearls Educare Centre, two centres, real Ministry
+service numbers from two agreeing government directories, and **zero children** — the insurance gate
+is still open and the tenant holds nothing but a name, a number and a timezone precisely so that line
+has not been crossed. Third-party directory claims about licensed capacity and opening hours were left
+out; one of them contradicts the centre's own site about its own hours, which is a fair measure of what
+those listings are worth.
+
+2026-08-05 — Recorded the trap onboarding uncovered: the demo centres held the **real customer's
+slugs**, and `seed-demo.ts` selected its centres with `slug like 'little-pearls-%'`. The first demo
+seed after the real tenant existed would have written seven invented children — including a fabricated
+peanut anaphylaxis plan — into a live service's roll, and the following run's `purgeAll()` would have
+removed them again, so it would have looked like nothing happened. Caught by a unique index refusing
+the insert, which is luck rather than design. Demo data now lives under `demo-` and the script refuses
+to run if its pattern matches anything else.
+
+2026-08-05 — Recorded that the e2e harness leaked six centres and fifty-six accounts, because the
+teardown runs on a failing test but not on a dying process, and because it looked accounts up through
+`auth.admin.listUsers` — which returns a 500 with an empty body on this project, a fact `onboard.ts`
+had documented and this code had ignored. It now deletes by known ids and sweeps stale tenants before
+its own work, so a killed run heals on the next one.
+
+*Log last updated: 2026-08-05*

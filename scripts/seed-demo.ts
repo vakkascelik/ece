@@ -77,16 +77,57 @@ async function main() {
     return;
   }
 
+  /*
+   * `demo-%`, and it used to be `little-pearls-%`.
+   *
+   * THIS IS THE MOST DANGEROUS LINE THIS SCRIPT HAS EVER HAD.
+   *
+   * The demo centres were originally created with the real customer's own slugs, because at
+   * the time there was no real customer — only a plan naming Little Pearls as the first one.
+   * The moment that tenant was actually created, this pattern would have matched **the real
+   * centres**, and the script would have inserted seven invented children, with a fabricated
+   * peanut anaphylaxis plan and a fabricated asthma plan, into a live service's roll. Then
+   * `purgeAll()` at the top of the next run would have deleted them again, which is worse:
+   * it would have looked like nothing happened.
+   *
+   * Caught while onboarding, by the slug collision refusing the insert. That collision was
+   * luck — a unique index doing a job nobody asked it to do.
+   *
+   * So: demo data lives under `demo-`, the real tenant lives under its own name, and the
+   * guard below refuses to run if the pattern ever matches something that is not a demo
+   * centre. A prefix convention alone is a convention; the assertion is the rule.
+   */
   const { data: centres, error } = await db
     .from('centres')
     .select('id, name, slug')
-    .like('slug', 'little-pearls-%')
+    .like('slug', 'demo-%')
     .order('slug');
   if (error) die(`Could not read centres: ${error.message}`);
-  if (!centres || centres.length < 2) die('Expected both Little Pearls centres. Run `npm run onboard` first.');
+  if (!centres || centres.length < 2) {
+    die(
+      'Expected two demo centres with slugs starting `demo-`.\n  ' +
+        'Create them with:\n  ' +
+        '  npm run onboard -- --name "DEMO — Mt Albert (invented data)" --slug demo-mt-albert --owner you@example.com',
+    );
+  }
 
-  const albert = centres.find((c) => c.slug.includes('albert'))!;
-  const roskill = centres.find((c) => c.slug.includes('roskill'))!;
+  const notDemo = centres.filter((c) => !c.slug.startsWith('demo-'));
+  if (notDemo.length > 0) {
+    die(
+      `Refusing to seed invented children into: ${notDemo.map((c) => c.slug).join(', ')}.\n  ` +
+        'This script only ever writes to centres whose slug starts `demo-`.',
+    );
+  }
+
+  const albert = centres.find((c) => c.slug.includes('albert'));
+  const roskill = centres.find((c) => c.slug.includes('roskill'));
+  if (!albert || !roskill) {
+    die(
+      `Expected a demo centre matching "albert" and one matching "roskill". Found: ${centres
+        .map((c) => c.slug)
+        .join(', ')}`,
+    );
+  }
 
   // Start clean so re-running is idempotent rather than cumulative.
   await purgeAll();

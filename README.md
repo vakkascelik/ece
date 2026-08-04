@@ -29,8 +29,8 @@ npm run dev:mobile             # Expo
 npm run typecheck              # four workspaces, plus the e2e project
 npm run lint
 npm test                       # unit tests
-npm run test:rls               # tenant isolation — 164 assertions
-npm run test:e2e               # end-to-end + WCAG 2.2 AA audit, 19 screens, both roles
+npm run test:rls               # tenant isolation — 176 assertions
+npm run test:e2e               # e2e + WCAG 2.2 AA audit + the role matrix, 44 checks
 npm run tokens:check           # generated CSS matches the shared tokens
 npm run check:docs             # every documentation link resolves
 npm run check:bundle           # performance budgets, in gzipped bytes
@@ -38,6 +38,7 @@ npm run review:security        # 16 checks against the live schema
 npm run build                  # web
 
 npm run onboard                # create a centre and its first owner
+npm run sweep:audit            # drop audit tenants a killed test run left behind
 npm run drill:restore          # extract every table, reload it, compare
 ```
 
@@ -1134,7 +1135,61 @@ A four-row matrix tested at two rows is a matrix nobody has checked, which is wh
 there. `educator` is the row where a mistake is least visible — it needs real access to the
 daily screens and must reach no office screen.
 
+## The first tenant
+
+Little Pearls Educare Centre, two sites, created 2026-08-05. Details, sources and what is not
+verified: [docs/tenant-little-pearls.md](docs/tenant-little-pearls.md).
+
+| | Mt Albert | Mt Roskill |
+|---|---|---|
+| Slug | `little-pearls-mt-albert` | `little-pearls-mt-roskill` |
+| MoE service number | `46365` | `47407` |
+| Children, guardians, health records | **0** | **0** |
+
+Zero is the correct number until the insurance gate is closed. The owner is the platform
+operator, not the centre — the manager gets an account through the invitation flow when they
+are ready, which is one command and a link they open themselves rather than an account created
+for a real mailbox before anybody asked for one.
+
+The service numbers come from two Ministry directories that agree (Education Counts and ERO),
+read from URL parameters because Education Counts returns 403 to an automated fetch. **They
+print on the evidence binder and get keyed into a funding return**, so they need confirming
+against a document the centre actually holds. Nothing about licensed capacity, ratios, fees or
+opening hours from third-party directories was entered — one of them contradicts the centre's
+own site about its opening time, which is a useful reminder of what those sources are worth.
+
+### The trap this uncovered
+
+The demo centres were created with **the real customer's slugs**, because when they were
+written there was no real customer — only a plan naming Little Pearls as the first one. And
+`seed-demo.ts` found its centres with `slug like 'little-pearls-%'`.
+
+So the first demo seed after this tenant existed would have inserted seven invented children —
+including a fabricated peanut anaphylaxis plan — into a live service's roll, and the next run's
+`purgeAll()` would have deleted them again, which is worse: it would have looked like nothing
+happened.
+
+Caught by the unique index on `slug` refusing the insert. That is luck — a constraint doing a
+job nobody asked it to do. Demo data now lives under `demo-`, and the seed script **refuses to
+run** if its pattern matches a centre whose slug does not start `demo-`. A prefix convention
+alone is a convention; the assertion is the rule.
+
+### And a leak in the test harness
+
+Onboarding also turned up **six orphan audit centres and fifty-six orphan accounts**. The e2e
+fixture drops its tenant in a project teardown, which runs when tests fail but not when the
+*process* dies — and the Playwright CLI has exited on a Windows libuv assertion mid-run more
+than once here. The pre-0020 defect that made a centre undeletable accounts for the rest.
+
+Two fixes. The teardown no longer looks accounts up through `auth.admin.listUsers`, which
+intermittently returns a 500 with an empty body on this project — it deletes by the ids the
+fixture already knows, so a teardown cannot fail for that reason. And it now sweeps any
+`audit-` tenant older than two hours before doing its own work, so a killed run heals on the
+next one. `npm run sweep:audit` does the same plus the accounts, which need SQL for the same
+reason.
+
 ## Open questions
+
 
 
 
@@ -1159,9 +1214,10 @@ daily screens and must reach no office screen.
   agency. The substance of both is sound; see items 10 and 11 in
   [unverified-claims](llm-wiki/wiki/unverified-claims.md).
 - **Professional indemnity insurance is the remaining gate on real data.** The
-  services agreement with Little Pearls is in place; the insurance is not. The
-  schema and the screens exist and hold nothing but `Demo-Seed` rows, which is
-  fine — writing the code puts nobody's information anywhere. The line not to
+  services agreement with Little Pearls is in place; the insurance is not. Their two
+  centres now exist as tenants and hold **zero** children, guardians or health records —
+  everything else in the database is either `Demo-Seed` or an audit fixture, which is
+  fine, because writing the code puts nobody's information anywhere. The line not to
   cross without the cover is a real child's allergies being typed into it.
   Under-5 records are among the most sensitive personal information in the
   country, and a breach is notifiable under the Privacy Act 2020.

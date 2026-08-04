@@ -363,7 +363,51 @@ grants, because a policy restricts rows and only a grant can restrict columns. I
 unreachable table CRITICAL and nine working features broken. A review that cries critical at something
 nobody can reach trains its reader to skim, so severity is now a function of reachability.
 
+### The first tenant (`pending`)
+
+Little Pearls Educare Centre exists as two tenants: `little-pearls-mt-albert` (MoE 46365) and
+`little-pearls-mt-roskill` (MoE 47407), both Pacific/Auckland, owner the platform operator, and
+**zero children, guardians or health records** — which is the correct state while professional
+indemnity insurance is still outstanding.
+
+The facts came from the centre's own site (two addresses, two phone numbers, weekdays 7.30am to
+6.00pm, three months to five years, not-for-profit and community established). The service
+numbers came from two Ministry directories that agree — Education Counts and ERO, whose
+institution number matches the `ece=` parameter in both cases. Read from URL parameters, because
+Education Counts returns 403 to an automated fetch, so they still need confirming against a
+document the centre holds: **those numbers print on the evidence binder and get keyed into a
+funding return.**
+
+Nothing from third-party directories was entered — licensed capacity (65 and 53 FTE), an earlier
+opening time that **contradicts** the centre's own site, an opening date. One source disagreeing
+with the service about its own hours is a fair measure of what those listings are worth. And no
+fee schedule, because the site publishes no fees and an invented rate is a rate a family gets
+billed.
+
+**The trap this uncovered.** The demo centres had been created with the real customer's slugs,
+because when they were written there was no real customer — only a plan naming Little Pearls as
+the first one. `seed-demo.ts` found its centres with `slug like 'little-pearls-%'`. So the first
+demo seed after this tenant existed would have inserted seven invented children, including a
+fabricated peanut anaphylaxis plan, into a live service's roll — and the next run's `purgeAll()`
+would have deleted them again, which is worse, because it would have looked like nothing
+happened.
+
+It was caught by the unique index on `slug` refusing the insert. That is luck: a constraint doing
+a job nobody asked it to do. Demo data now lives under `demo-`, and the seed script refuses to
+run at all if its pattern matches a centre whose slug does not start `demo-`. A prefix convention
+alone is a convention; the assertion is the rule.
+
+**And a leak in the harness.** Onboarding also turned up six orphan audit centres and fifty-six
+orphan accounts. The e2e teardown runs when tests fail but not when the *process* dies, and the
+Playwright CLI has exited on a Windows libuv assertion mid-run more than once here; the pre-0020
+undeletable-centre defect accounts for the rest. Two fixes: the teardown deletes accounts by the
+ids the fixture already knows rather than through `auth.admin.listUsers` — which on this project
+intermittently returns a 500 with an empty body, something `onboard.ts` had already documented and
+this code had ignored — and it now sweeps any `audit-` tenant older than two hours first, so a
+killed run heals on the next one. A full run now leaves nothing behind, verified.
+
 ### Where the day ended
+
 
 
 

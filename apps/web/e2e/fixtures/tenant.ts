@@ -537,12 +537,51 @@ export async function destroyAuditTenant(tenant: AuditTenant): Promise<void> {
   const del = await db.from('centres').delete().in('id', [tenant.centreId, tenant.otherCentreId]);
   if (del.error) throw new Error(`drop centres: ${del.error.message}`);
 
-  for (const email of [tenant.ownerEmail, tenant.parentEmail]) {
-    const { data } = await db.auth.admin.listUsers({ page: 1, perPage: 200 });
-    const user = data?.users.find((u) => u.email === email);
-    if (user) {
-      const res = await db.auth.admin.deleteUser(user.id);
-      if (res.error) throw new Error(`drop user ${email}: ${res.error.message}`);
+  // Delete by the ids the fixture already knows, NOT by looking the emails up.
+  //
+  // This used to walk `auth.admin.listUsers`, which on this project intermittently returns
+  // a 500 with an empty body — a script depending on it fails with `{}` and no way to tell
+  // why, which `scripts/onboard.ts` had already documented. When it failed here it failed
+  // *during teardown*, so the accounts survived: fifty-six of them had accumulated by the
+  // time the first real customer was onboarded, along with six orphan centres.
+  for (const id of [tenant.ownerId, tenant.managerId, tenant.educatorId, tenant.parentId]) {
+    const res = await db.auth.admin.deleteUser(id);
+    // A missing account is the desired end state, so a 404 is success.
+    if (res.error && !/not.?found/i.test(res.error.message)) {
+      throw new Error(`drop user ${id}: ${res.error.message}`);
     }
   }
+}
+
+/**
+ * Drop audit tenants from runs that died before their teardown.
+ *
+ * Cleanup cannot depend on a graceful exit: the Playwright CLI has exited on a Windows
+ * libuv assertion mid-run more than once on this machine, and before migration 0020 a
+ * centre could not be deleted at all. Both left tenants behind, and a shared database that
+ * accumulates them means a later run's assertions start measuring somebody else's
+ * leftovers.
+ *
+ * Two hours of grace, so a run happening right now — including CI on another machine
+ * against the same project — is never touched. `npm run sweep:audit` does the same thing
+ * plus the accounts, which need SQL because listUsers cannot be relied on.
+ */
+export async function sweepStaleAuditTenants(): Promise<number> {
+  const db = admin();
+  const cutoff = new Date(Date.now() - 2 * 3_600_000).toISOString();
+
+  const { data, error } = await db
+    .from('centres')
+    .select('id, slug')
+    .like('slug', 'audit-%')
+    .lt('created_at', cutoff);
+  if (error) throw new Error(`sweep: ${error.message}`);
+  if (!data || data.length === 0) return 0;
+
+  const { error: delError } = await db
+    .from('centres')
+    .delete()
+    .in('id', data.map((c) => c.id));
+  if (delError) throw new Error(`sweep: ${delError.message}`);
+  return data.length;
 }
