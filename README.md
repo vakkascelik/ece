@@ -94,6 +94,62 @@ a parent with children at two services. So `activeCentreId` is explicit state
 and is never inferred when there is more than one choice — guessing is how
 somebody posts a notice to the wrong centre.
 
+## The web app
+
+```
+/login            password sign-in
+/no-access        signed in, no membership yet — a waiting room, not an error
+/select-centre    shown only when a person belongs to more than one centre
+/                 overview
+/members          roster: change role, revoke
+/settings         centre name and Ministry service number
+```
+
+Everything under `(app)` runs `requireCtx()` in the layout, so there is one place
+that decides "who is this and which centre are they looking at" rather than a
+check per page — which is how one page ends up rendering for a signed-out user.
+
+**The active centre lives in a cookie, and the cookie is a preference, never a
+grant.** Every request re-checks it against live memberships and discards an
+unrecognised value. RLS would refuse the queries regardless; failing here just
+produces a comprehensible screen instead of an empty one.
+
+**Two guards worth keeping.** You cannot demote or remove the last owner: a
+centre with no owner cannot be administered by anyone, including nobody who can
+promote a replacement, so it needs service-role intervention to recover. Both
+paths check `countOwners` first.
+
+**Invitations are deliberately not built.** Adding a person needs the
+service-role key, so it is a server-side flow rather than a form — and the
+self-serve version is how a stranger joins a centre.
+
+## Decisions made while building this
+
+**Mobile stays in this repo.** The shared `packages/api` is the reason. Split the
+repos and the queries get written twice; a duplicated query diverges, and the
+copy that diverges is the one that forgets a filter. StoreDash is standalone
+because it has no web counterpart sharing logic — it calls shop-platform's API.
+The cost here is fiddlier EAS builds, paid once; the cost of splitting is a
+correctness risk paid forever.
+
+**`dotenv-cli` wraps the Next scripts.** Next only reads `.env.local` from the
+app directory, so in a monorepo the root file is silently ignored — and the
+failure is delayed, because `next build` succeeds and only a real request fails.
+`loadEnvConfig()` in `next.config.ts` is not enough: it populates `process.env`
+while the config is evaluated but does not survive into the request path under
+`next start`.
+
+**Server actions that report errors need a client component.** A form `action`
+must return `void`, so an action returning `{ error }` will not typecheck against
+it. The roster and settings forms use `useActionState` — worth it, because "this
+is the only owner" is the difference between a refused click and an unreachable
+centre.
+
+**`centre_members` view uses `security_invoker = on`.** A Postgres view runs as
+its owner by default, which for a view over `memberships` would return every
+membership in the database to any caller — the whole tenant boundary defeated by
+a helper written to display an email address.
+
 ## Open questions
 
 - **First feature module.** The scaffold is domain-agnostic on purpose. The

@@ -1,0 +1,65 @@
+:root {
+  --bg: #fafaf9;
+  --panel: #ffffff;
+  --line: #e5e4e2;
+  --ink: #1a1a1a;
+  --muted: #6b6b6b;
+  --accent: #2f6f4f;
+  --danger: #b5451b;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+a { color: var(--accent); }
+
+.shell { display: flex; min-height: 100vh; }
+
+.side {
+  width: 15rem;
+  flex: 0 0 15rem;
+  border-right: 1px solid var(--line);
+  background: var(--panel);
+  padding: 1.25rem 1rem;
+}
+
+.side h2 { font-size: 0.8125rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin: 0 0 0.5rem; }
+.side nav { display: flex; flex-direction: column; gap: 0.125rem; margin-bottom: 1.5rem; }
+.side nav a { padding: 0.4rem 0.6rem; border-radius: 6px; text-decoration: none; color: var(--ink); }
+.side nav a:hover { background: #f2f1ef; }
+
+.main { flex: 1; padding: 2rem 2.5rem; max-width: 60rem; }
+
+h1 { font-size: 1.5rem; font-weight: 600; margin: 0 0 0.25rem; }
+.sub { color: var(--muted); margin: 0 0 2rem; }
+
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 1.25rem; margin-bottom: 1.25rem; }
+
+table { width: 100%; border-collapse: collapse; }
+th { text-align: left; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); padding: 0 0.5rem 0.5rem; }
+td { padding: 0.6rem 0.5rem; border-top: 1px solid var(--line); vertical-align: middle; }
+
+label { display: block; font-size: 0.8125rem; color: var(--muted); margin-bottom: 0.25rem; }
+input, select {
+  font: inherit; padding: 0.45rem 0.6rem; border: 1px solid var(--line);
+  border-radius: 6px; background: #fff; color: var(--ink); width: 100%; max-width: 24rem;
+}
+button {
+  font: inherit; padding: 0.45rem 0.9rem; border-radius: 6px; border: 1px solid var(--accent);
+  background: var(--accent); color: #fff; cursor: pointer;
+}
+button.secondary { background: #fff; color: var(--ink); border-color: var(--line); }
+button.danger { background: #fff; color: var(--danger); border-color: var(--line); }
+
+.row { display: flex; gap: 0.5rem; align-items: flex-end; flex-wrap: wrap; }
+.pill { font-size: 0.75rem; padding: 0.1rem 0.5rem; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); }
+.error { color: var(--danger); }
+.center { max-width: 24rem; margin: 6rem auto; padding: 0 1.5rem; }

@@ -3,15 +3,16 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
+    "dev": "dotenv -e ../../.env.local -- next dev",
+    "build": "dotenv -e ../../.env.local -- next build",
+    "start": "dotenv -e ../../.env.local -- next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@ece/api": "*",
     "@ece/core": "*",
+    "@next/env": "^15.3.9",
     "@supabase/ssr": "^0.5.0",
     "@supabase/supabase-js": "^2.45.0",
     "next": "15.3.9",
@@ -22,6 +23,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "dotenv-cli": "^11.0.0",
     "typescript": "^5.6.0"
   }
 }

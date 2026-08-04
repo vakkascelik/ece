@@ -156,3 +156,5 @@ export async function createCentre(
 
   return centre;
 }
+
+export * from './members';
