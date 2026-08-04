@@ -28,7 +28,7 @@ npm run dev:mobile             # Expo
 npm run typecheck              # four workspaces
 npm run lint
 npm test                       # unit tests
-npm run test:rls               # tenant isolation — 144 assertions
+npm run test:rls               # tenant isolation — 164 assertions
 npm run tokens:check           # generated CSS matches the shared tokens
 npm run check:docs             # every documentation link resolves
 npm run build                  # web
@@ -278,6 +278,7 @@ somebody posts a notice to the wrong centre.
 /posts            pānui, daily updates, learning moments; media, consent-gated
 /messages         threads between kaiako and whānau, append-only
 /compliance       staff records, ratio history, criteria gaps, evidence
+/funding          RS7 preparation figures — preparation only, never a submission
 /compliance/binder  one dated document for a reviewer
 /members          roster, invitations
 /invite/[token]   accepting an invitation — outside (app), no membership yet
@@ -637,7 +638,7 @@ Three details that matter more than they look:
   assumption.
 
 The day window is converted through `Intl`, not a fixed offset — New Zealand moves between
-+13 and +12, and [the tests](apps/web/src/app/%28app%29/compliance/__tests__/window.test.ts)
++13 and +12, and [the tests](apps/web/src/lib/__tests__/dayWindow.test.ts)
 assert a 23-hour day in September, a 25-hour day in April, and no gap or overlap between
 consecutive days across both transitions. Getting that wrong attributes a whole morning to
 the previous date.
@@ -731,6 +732,62 @@ timezone across both sides of the daylight-saving switch. **No notification has 
 
 Queue rather than send-inline, so publishing a pānui to forty families does not make an educator wait
 on Expo's API and cannot half-succeed — and so a notification held until 7am has somewhere to live.
+
+## Funding: nothing is estimated
+
+Hours become a claim on the Crown, so the organising rule of this phase is that the calculation never
+guesses.
+
+A day with a missing sign-out is **excluded and named**, not estimated up (a false claim) and not
+silently zeroed (which loses the centre funding it is owed and hides the record error). The export
+lists the dates so a manager can fix them and re-run, and shows what resolving each is worth without
+claiming it. Every rounding decision floors: `toHours(59)` is `0.98`, because a hundredth of an hour
+per child per day is still over-claiming.
+
+Two orderings that are easy to get backwards:
+
+- **The daily cap is applied before the weekly one.** An 8-hour Monday and a 4-hour Tuesday give
+  `min(8,6)+min(4,6)=10`, then `min(10,20)=10`. Weekly-first gives 12 — two hours nobody was entitled
+  to, because Monday's excess is not transferable.
+- **Corrections are resolved transitively.** A correction supersedes what it corrects; without that,
+  a fixed sign-in time is counted twice.
+
+`FUNDING_RULES_VERIFIED` is `false` and the export says so. **There are no funding rates anywhere in
+this product** — a rate is a number the Ministry publishes and changes, and inventing one would let a
+centre budget against a figure this product made up.
+
+### RS7 preparation, never submission
+
+Submitting a funding return requires being a Ministry-approved student management system integrated
+with ELI; the Ministry is not accepting integration applications, and approval requires supporting 50
+services *before* applying. That is the one thing the regulatory position genuinely forecloses.
+
+So every label says "preparation" and none say "return", "submit" or "file". A screen that looks like
+it filed something is a screen after which nobody files anything. Funding *periods* are chosen by the
+operator, because the Ministry's boundaries are published figures this product does not know and a
+guessed date range on an official-looking total is worse than asking.
+
+### Invoices come from bookings, funding from attendance
+
+Two sources pulling opposite ways, which is why they are separate tables. A family is charged for the
+days they **held**, because a centre cannot resell a Tuesday somebody did not turn up for. The Crown
+pays for hours **delivered**.
+
+**Stripe is not built, deliberately.** The pilot is free, so payment collection is speculative work
+against an unknown flow; most centres already collect through their accounting system or bank; and
+Stripe's real decisions — disputes, refunds, a live account in the centre's name — are not decidable
+while the price is NZ$0. `payments` records money that arrived; wiring Stripe later adds a source
+column and a webhook.
+
+An issued invoice **freezes**: the write policy on lines requires `status = 'draft'`, because changing
+what a family was billed after they were billed it is a different invoice, not an edit. A credit is a
+negative line rather than a second table, so the total is a sum and cannot disagree with itself.
+
+```bash
+ECE_ALLOW_DEMO_SEED=yes ECE_DRILL_PASSWORD=... npm run reconcile:funding
+```
+
+Writes a fortnight whose answer is hand-arithmetic in the script's comments and compares. 13/13.
 
 ## Retention and deletion
 

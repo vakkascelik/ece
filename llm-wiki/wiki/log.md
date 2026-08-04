@@ -71,4 +71,19 @@ that wraps midnight, evaluated in the centre timezone across both sides of the d
 alongside the airplane-mode drill for the same reason: a thing that looks finished and has never
 executed is worth naming rather than discovering.
 
+2026-08-04 — Added [[funding-and-billing]] for Phase 5. The organising rule: hours become a claim on
+the Crown, so **nothing is estimated**. A day with a missing sign-out is excluded and named rather
+than guessed up (a false claim) or silently zeroed (which loses the centre funding it is owed and
+hides the record error), and every rounding decision floors. Two orderings that are easy to get
+backwards are recorded with their arithmetic: the daily cap must be applied before the weekly one,
+because Monday's excess is not transferable to Tuesday; and corrections must be resolved
+transitively, because a fixed sign-in time otherwise counts twice.
+
+2026-08-04 — Recorded the deliberate omissions in [[unverified-claims]]: the funding caps, the fact
+that funding *periods* are a parameter rather than a guess, and that there are **no funding rates
+anywhere in the product** — a rate is a number the Ministry publishes and changes, and inventing one
+would let a centre budget against a figure this product made up. Also recorded why Stripe was not
+built: the pilot is free, most centres already collect through their own systems, and none of Stripe's
+real decisions are decidable while the price is NZ$0.
+
 *Log last updated: 2026-08-04*

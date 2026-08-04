@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dayWindow, lastSevenDays } from '../window';
+import { dayWindow, lastSevenDays } from '../dayWindow';
 
 const NZ = 'Pacific/Auckland';
 

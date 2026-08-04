@@ -1,6 +1,9 @@
 /**
  * Working out what "a day at the centre" means as a pair of instants.
  *
+ * Shared by the compliance binder and the funding export, both of which read attendance events by
+ * local day. Duplicating it would mean two conversions that agree until one is fixed.
+ *
  * Attendance events are timestamps; a day is a local concept. Getting the conversion
  * wrong shifts a whole day's evidence by up to thirteen hours, which for a report about
  * ratio compliance means attributing the morning to the wrong date.

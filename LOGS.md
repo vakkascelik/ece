@@ -210,9 +210,44 @@ but not the storage object — and correctly declined to delete it for being und
 
 Push delivery is built and has never executed. Said plainly rather than discovered later.
 
+### Phase 5 — bookings, billing, and funding preparation (`pending`)
+
+The phase where attendance turns into money, and where the organising rule is that **nothing is
+estimated** — hours become a claim on the Crown, so a guess is a false claim.
+
+A day with a missing sign-out is excluded and *named*, not estimated up and not silently zeroed. All
+rounding floors. Two orderings that are easy to get backwards are tested with their arithmetic
+written out: the daily cap before the weekly one (weekly-first claims two hours nobody was entitled
+to, because Monday's excess is not transferable), and corrections resolved transitively (otherwise a
+fixed sign-in time counts twice).
+
+**RS7 preparation, never submission.** Submission needs Ministry approval as an ELI-integrated SMS,
+which is closed to new applicants and requires supporting 50 services before you may apply. So every
+label says "preparation" and none say "return", "submit" or "file" — a screen that looks like it
+filed something is a screen after which nobody files anything. Funding periods are chosen by the
+operator, because the Ministry's boundaries are figures this product does not know.
+
+**Stripe deliberately not built.** The pilot is free, most centres already collect through their own
+systems, and none of Stripe's real decisions are decidable while the price is NZ$0. `payments`
+records money that arrived; wiring Stripe later is a column and a webhook.
+
+The reconciliation writes a fortnight whose answer is hand-arithmetic in the script's comments and
+compares — 13/13. Two things it turned up:
+
+- Its first assertion expected `unresolvedChildCount === 1` and got **4**, because other demo
+  children carried unpaired events from earlier probes that **cannot be deleted** — attendance is
+  append-only against the app and the service role alike. The fix was to assert on the child under
+  test rather than loosen the schema, and it incidentally proved the calculation correct on genuinely
+  messy data.
+- Re-running would double the figures, so the script now refuses and says how to get a clean slate.
+  The append-only guarantee protecting a test from itself.
+
+Moving `dayWindow` out of the compliance folder (two pages needed it) left a stale link in the
+README, which `check:docs` caught — the second real link it has found.
+
 ### Where the day ended
 
-144/144 RLS assertions, 121 unit tests, 17 migrations, lint, tokens and doc links clean, both apps
+164/164 RLS assertions, 156 unit tests, 19 migrations, lint, tokens and doc links clean, both apps
 building (mobile at 773 modules).
 Five things now need a person rather than more code: **import a checked criteria set**, **verify the
 ratio bands against Schedule 2**, **run a real airplane-mode drill on a tablet**, **get an EAS build

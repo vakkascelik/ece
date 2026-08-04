@@ -144,6 +144,10 @@ export * from './ratioHistory';
 // Quiet hours and the te reo vocabulary whanau read.
 export * from './notifications';
 
+// Attendance to hours to funded hours. Nothing here estimates — see the files.
+export * from './hours';
+export * from './funding';
+
 // ---------------------------------------------------------------------------
 // Design tokens
 // ---------------------------------------------------------------------------

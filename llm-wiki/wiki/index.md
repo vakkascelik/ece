@@ -30,6 +30,8 @@ and [`../schema.md`](../schema.md) for the page template.
   purpose, and a binder that never claims compliance
 - [[consent-gated-media]] — a photograph that cannot exist without a recorded consent decision,
   and the RLS trap that made the first version leak to staff
+- [[funding-and-billing]] — attendance into money: why a broken record is excluded rather than
+  estimated, why bookings and attendance are separate, and what this product cannot submit
 
 ## Offline
 

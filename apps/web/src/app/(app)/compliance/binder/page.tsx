@@ -15,7 +15,7 @@ import {
 } from '@ece/core';
 import { requireCapability } from '@/lib/auth';
 import { serverDb } from '@/lib/supabase';
-import { dayWindow, lastSevenDays } from '../window';
+import { dayWindow, lastSevenDays } from '@/lib/dayWindow';
 
 /**
  * The evidence binder: one dated document to hand to a reviewer.

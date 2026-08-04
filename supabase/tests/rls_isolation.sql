@@ -1416,6 +1416,222 @@ begin
 end $$;
 
 -- ===========================================================================
+-- BOOKINGS, WAITLIST AND BILLING
+--
+-- Money and planning. Two properties matter beyond the usual isolation: a family sees their own
+-- invoices but not the centre's pricing or the waitlist, and an issued invoice cannot have its
+-- lines changed — because altering what a family was billed after they were billed it is not an
+-- edit, it is a different invoice.
+-- ===========================================================================
+
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+
+do $$
+declare n integer;
+begin
+  insert into public.bookings (centre_id, child_id, on_date, status)
+  values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'b2222222-2222-4222-8222-222222222222',
+          current_date, 'booked');
+  get diagnostics n = row_count;
+  perform pg_temp.expect(n = 1, 'an owner CAN book a child');
+end $$;
+
+-- A booking filed against the operator's other site would put the child in the wrong roll.
+do $$
+declare code text := 'none (the insert SUCCEEDED)';
+begin
+  begin
+    insert into public.bookings (centre_id, child_id, on_date, status)
+    values ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'b2222222-2222-4222-8222-222222222222',
+            current_date + 1, 'booked');
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code in ('42501', '23514'),
+    'a booking CANNOT be filed against the wrong centre, got ' || code);
+end $$;
+
+-- Two bookings for one child on one day would double a roll and later an invoice.
+do $$
+declare code text := 'none (the insert SUCCEEDED)';
+begin
+  begin
+    insert into public.bookings (centre_id, child_id, on_date, status)
+    values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'b2222222-2222-4222-8222-222222222222',
+            current_date, 'absent');
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '23505', 'a second booking for the same day is refused, got ' || code);
+end $$;
+
+-- An educator runs the room; booking has a fee attached and a licence capacity to respect.
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+do $$
+declare code text := 'none (the insert SUCCEEDED)';
+begin
+  begin
+    insert into public.bookings (centre_id, child_id, on_date, status)
+    values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'b2222222-2222-4222-8222-222222222222',
+            current_date + 2, 'booked');
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code in ('42501', '23514'),
+    'an educator CANNOT create a booking, got ' || code);
+end $$;
+
+-- The waitlist holds other families' names and their place in the queue.
+set local role postgres;
+insert into public.waitlist (centre_id, child_name, guardian_name, contact)
+values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Waiting Child', 'Waiting Parent', '021 555 0000');
+
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.waitlist) = 0,
+  'an educator CANNOT read the waitlist'
+);
+
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.waitlist) = 0,
+  'and a parent certainly cannot — it is a list of who is ahead of them'
+);
+
+-- A guardian sees their own child's booked days, so "am I down for Thursday" needs no phone call.
+select pg_temp.expect(
+  (select count(*) from public.bookings
+    where child_id = 'b2222222-2222-4222-8222-222222222222') = 0,
+  'a parent sees no booking for another family''s child'
+);
+
+-- ---------------------------------------------------------------------------
+-- Invoices
+-- ---------------------------------------------------------------------------
+
+set local role postgres;
+insert into public.fee_schedules (centre_id, name, unit, amount_cents, gst_inclusive)
+values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Full day', 'per_day', 6500, false);
+
+insert into public.invoices (id, centre_id, guardian_id, reference, status, period_from, period_to,
+                            issued_at, created_by)
+values ('44444444-aaaa-4aaa-8aaa-000000000001', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        'd1111111-1111-4111-8111-111111111111', 'INV-0001', 'issued',
+        current_date - 30, current_date, now(), '11111111-1111-4111-8111-111111111111'),
+       -- A draft for the same guardian, which they must NOT see.
+       ('44444444-aaaa-4aaa-8aaa-000000000002', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        'd1111111-1111-4111-8111-111111111111', 'INV-0002', 'draft',
+        current_date - 30, current_date, null, '11111111-1111-4111-8111-111111111111');
+
+insert into public.invoice_lines (invoice_id, child_id, description, quantity, unit_cents)
+values ('44444444-aaaa-4aaa-8aaa-000000000001', 'a1111111-1111-4111-8111-111111111111',
+        'Full days', 8, 6500),
+       -- A credit is a negative line, not a second table, so the total cannot disagree with itself.
+       ('44444444-aaaa-4aaa-8aaa-000000000001', 'a1111111-1111-4111-8111-111111111111',
+        'Credit: centre closed', -1, 6500);
+
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+
+select pg_temp.expect(
+  (select count(*) from public.invoices) = 1,
+  'a guardian sees their ISSUED invoice'
+);
+
+select pg_temp.expect(
+  (select reference from public.invoices) = 'INV-0001',
+  'and not the draft — a half-built figure is not a bill'
+);
+
+-- A total with no breakdown is one nobody can check, and checking it is the point.
+select pg_temp.expect(
+  (select count(*) from public.invoice_lines) = 2,
+  'and can read the lines it is made of, including the credit'
+);
+
+select pg_temp.expect(
+  (select total_cents from public.invoice_totals
+    where invoice_id = '44444444-aaaa-4aaa-8aaa-000000000001') = 45500,
+  'the derived total is 7 × $65 = $455.00, credit included'
+);
+
+-- Pricing is the centre's own business; families see amounts on their invoice.
+select pg_temp.expect(
+  (select count(*) from public.fee_schedules) = 0,
+  'a guardian CANNOT read the fee schedule'
+);
+
+-- Another family's invoice.
+set local request.jwt.claims = '{"sub":"44444444-4444-4444-8444-444444444444","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.invoices) = 0,
+  'another guardian sees no invoice of theirs'
+);
+
+-- Lines cannot be added to an issued invoice.
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+do $$
+declare code text := 'none (the insert SUCCEEDED)';
+begin
+  begin
+    insert into public.invoice_lines (invoice_id, description, quantity, unit_cents)
+    values ('44444444-aaaa-4aaa-8aaa-000000000001', 'Sneaky extra', 1, 9900);
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code in ('42501', '23514'),
+    'a line CANNOT be added to an issued invoice, got ' || code);
+end $$;
+
+-- But a draft is still editable.
+do $$
+declare n integer;
+begin
+  insert into public.invoice_lines (invoice_id, description, quantity, unit_cents)
+  values ('44444444-aaaa-4aaa-8aaa-000000000002', 'Full days', 4, 6500);
+  get diagnostics n = row_count;
+  perform pg_temp.expect(n = 1, 'a draft invoice CAN still be built up');
+end $$;
+
+-- A recorded receipt is a statement that money arrived; correcting one means a reversal.
+insert into public.payments (invoice_id, amount_cents, recorded_by)
+values ('44444444-aaaa-4aaa-8aaa-000000000001', 45500, '11111111-1111-4111-8111-111111111111');
+
+do $$
+declare code text := 'none (the update SUCCEEDED)';
+begin
+  begin
+    update public.payments set amount_cents = 1
+     where invoice_id = '44444444-aaaa-4aaa-8aaa-000000000001';
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '42501', 'a payment CANNOT be edited, got ' || code);
+end $$;
+
+do $$
+declare code text := 'none (the delete SUCCEEDED)';
+begin
+  begin
+    delete from public.payments where invoice_id = '44444444-aaaa-4aaa-8aaa-000000000001';
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '42501', 'nor deleted, got ' || code);
+end $$;
+
+-- Two sites.
+set local request.jwt.claims = '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.invoices) = 0,
+  'centre B sees none of centre A''s invoices'
+);
+select pg_temp.expect(
+  (select count(*) from public.fee_schedules) = 0,
+  'nor its pricing'
+);
+select pg_temp.expect(
+  (select count(*) from public.bookings) = 0,
+  'nor its bookings'
+);
+
+-- ===========================================================================
 -- RETENTION AND PURGING
 --
 -- `purge_child` is the most destructive thing in the product and it is SECURITY

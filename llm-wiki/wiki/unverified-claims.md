@@ -30,6 +30,9 @@ Nothing here is a bug. They are known gaps with known closures.
   on is tested; `expo-sqlite` is not.
 - **Push notification delivery has never run once.** The data model and the quiet-hours logic
   are built and tested; delivery needs an EAS build on a real device.
+- **The funding caps and period boundaries are unverified.** `FUNDING_RULES_VERIFIED` is `false`,
+  and the funding export says so on every render. There are deliberately **no funding rates**
+  anywhere in the product.
 - Anything asserted about ERO taking over regulation, or the April 2026 criteria
   renumbering, came from an earlier research session in the `salix` repo and has not been
   re-checked here.
@@ -112,7 +115,29 @@ real device: that suppressing foreground banners is the correct behaviour, and t
 importance Android channel with no sound override is right for notices about a child's day. Both are
 judgement calls about not training people to silence the app.
 
-### 6. Warning lead times for expiring documents
+### 6. Funding caps and period boundaries
+
+| | |
+|---|---|
+| **What is asserted** | 20 Hours ECE capped at 6 hours per day and 20 per week |
+| **Where** | `packages/core/src/funding.ts` — `DEFAULT_CAPS` |
+| **Basis** | Commonly stated figures. **Not read against the ECE Funding Handbook.** |
+| **How the product behaves** | `FUNDING_RULES_VERIFIED` is `false`; `summariseFunding` carries the flag; `exportDisclaimer` states it; the funding page repeats it in its own section |
+| **To close it** | Read the current Funding Handbook, correct the caps if wrong, then flip the flag in a commit recording who read what |
+
+**Funding periods are a parameter, not a constant.** The Ministry publishes period boundaries this
+product does not know, so the export makes the operator choose the dates and says why — putting a
+guessed date range on an official-looking figure would be worse than asking.
+
+**There are no funding rates anywhere.** Not one dollar-per-child-hour. A rate is a number the
+Ministry publishes and changes, and inventing one would let a centre budget against a figure this
+product made up. Rates live in a fee schedule the centre enters, or nowhere.
+
+Two mitigations that make the maths safe even while the caps are wrong: nothing is ever estimated
+(a day whose record is incomplete is excluded and named, never guessed), and every rounding
+decision goes **down**, so an error in the caps cannot combine with a rounding error to over-claim.
+
+### 7. Warning lead times for expiring documents
 
 `WARNING_DAYS` in `packages/core/src/compliance.ts` — 120 days for police vetting and
 safety checks, 90 for practising certificates, 45 for first aid. These are **judgements
@@ -122,7 +147,7 @@ schema deliberately holds no validity periods at all.
 Lower stakes than the others: being early is harmless, and being late is visible. Worth
 adjusting from experience rather than from a source.
 
-### 7. Regulatory context inherited from another repo
+### 8. Regulatory context inherited from another repo
 
 The product plan in `salix/llm-wiki/wiki/possible-projects/ece-early-learning-app.md`
 asserts that the licensing criteria were renumbered on 20 April 2026 and that ERO takes
@@ -133,7 +158,7 @@ They matter because they are the timing argument for the whole product. **To clo
 confirm both, and if the ERO transfer is real, note that the evidence binder's framing may
 need to change with the regulator.
 
-### 8. Things believed on one customer's word
+### 9. Things believed on one customer's word
 
 Phase 1 built enrolment, which the product plan's Stage 0 advised against until ten
 conversations with centres had happened. Those conversations did not happen; the work
@@ -151,5 +176,6 @@ evidence nobody has gathered.
 - [[privacy-and-retention]] — retention, and the Privacy Act correction
 - [[offline-outbox]] — what the drill covers and does not
 - [[consent-gated-media]] — where consent decisions finally do work
+- [[funding-and-billing]] — why nothing is estimated, and what cannot be submitted
 
 *Last updated: 2026-08-04*

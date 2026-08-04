@@ -9,7 +9,7 @@ import {
 import { assessAll, summarise, summariseDay, todayInZone } from '@ece/core';
 import { requireCapability } from '@/lib/auth';
 import { serverDb } from '@/lib/supabase';
-import { dayWindow, lastSevenDays } from './window';
+import { dayWindow, lastSevenDays } from '@/lib/dayWindow';
 import { CriteriaGaps } from './CriteriaGaps';
 import { EvidenceList } from './EvidenceList';
 import { RatioHistory } from './RatioHistory';
