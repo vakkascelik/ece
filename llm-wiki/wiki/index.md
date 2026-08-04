@@ -43,6 +43,12 @@ and [`../schema.md`](../schema.md) for the page template.
 - [[privacy-and-retention]] — what the Privacy Act 2020 actually requires (and a correction to
   an earlier wrong claim), plus how purging coexists with append-only tables
 
+## Production readiness
+
+- [[production-readiness]] — the phase that found a centre could not be deleted, what an
+  accessibility audit of an empty page is worth, and why a restore drill has to be
+  mutation-tested
+
 ## Conventions
 
 - [[conventions]] — migrations, timezones, PostgREST traps, testing, tokens, and the versions

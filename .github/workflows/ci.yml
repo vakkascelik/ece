@@ -59,6 +59,13 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
 
+      # Gzipped bytes, measured from the build output that has just been produced.
+      # Deterministic and attributable to a commit, unlike a Lighthouse score, which
+      # measures the runner. Fails if a dependency reaches the client bundle or if the
+      # middleware grows — the middleware is paid on every single request.
+      - name: Performance budgets
+        run: npm run check:bundle
+
       # Catches what tsc cannot: a package that resolves through TypeScript's path
       # mapping but not through Metro's resolver. `metro.config.js` needs both
       # `watchFolders` and `nodeModulesPaths`, and losing either breaks only here.
@@ -115,3 +122,61 @@ jobs:
         run: npm run test:rls
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+
+      # Extract every table, reload it into a shadow schema, compare. Proves the data
+      # survives a round trip through JSON and HTTP — timestamptz, jsonb, arrays, seven
+      # enums, a daterange exclusion constraint. Drops the shadow schema and deletes the
+      # extract afterwards; the extract is written to a temp directory and never to the
+      # workspace, because it is every child's record in one file.
+      - name: Restore drill
+        run: npm run drill:restore
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+
+  # End-to-end and the WCAG 2.2 AA audit. Its own job because it needs a browser, a
+  # production build and the service-role key — it creates a throwaway tenant, audits
+  # every screen with data in it, and drops the tenant on the way out even if it failed.
+  #
+  # The service-role key is here and nowhere else in this file. It bypasses RLS, so it
+  # is the one secret whose exposure would be indistinguishable from having no policies
+  # at all.
+  audit:
+    name: e2e · accessibility
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Check credentials are configured
+        run: |
+          if [ -z "${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" ]; then
+            echo "SUPABASE_SERVICE_ROLE_KEY is not set in repository secrets."
+            echo "The audit seeds its own tenant, so it cannot run without it."
+            exit 1
+          fi
+
+      - name: Install Chromium
+        run: npx playwright install chromium --with-deps
+
+      # Builds first: the audit runs against `next start`, because a contrast
+      # measurement taken against the dev server measures something nobody is served.
+      - name: Audit
+        run: npm run test:e2e
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: apps/web/test-results
+          retention-days: 7

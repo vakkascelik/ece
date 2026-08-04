@@ -45,7 +45,9 @@ export function EvidenceList({
               <th>Criterion</th>
               <th>Where</th>
               <th>Covers</th>
-              <th style={{ width: '1%' }} />
+              <th style={{ width: '1%' }}>
+                <span className="visually-hidden">Actions</span>
+              </th>
             </tr>
           </thead>
           <tbody>

@@ -9,6 +9,7 @@ apps/mobile     Expo 57 / React Native — whānau and educators
 packages/core   types, roles, capabilities. No Node, no Next, no React Native.
 packages/api    the only place either app talks to Supabase
 supabase/       migrations. RLS is the tenant boundary.
+docs/           what a centre reads: privacy statement, retention, breach runbook
 llm-wiki/       why decisions were made, and what is asserted but unverified
 ```
 
@@ -25,15 +26,18 @@ npm run migrate                # apply pending migrations
 npm run dev:web                # http://localhost:3000
 npm run dev:mobile             # Expo
 
-npm run typecheck              # four workspaces
+npm run typecheck              # four workspaces, plus the e2e project
 npm run lint
 npm test                       # unit tests
 npm run test:rls               # tenant isolation — 164 assertions
+npm run test:e2e               # end-to-end + WCAG 2.2 AA audit, 19 screens, both roles
 npm run tokens:check           # generated CSS matches the shared tokens
 npm run check:docs             # every documentation link resolves
+npm run check:bundle           # performance budgets, in gzipped bytes
 npm run build                  # web
 
 npm run onboard                # create a centre and its first owner
+npm run drill:restore          # extract every table, reload it, compare
 ```
 
 CI runs all of those on every push. `.github/workflows/ci.yml` keeps the RLS suite in
@@ -901,8 +905,169 @@ and a mix of granted, refused and unanswered consents — which is the set neede
 see all three consent states and to check that the parent cannot reach the family
 beside them.
 
+## Production readiness
+
+Three of Phase 6's deliverables are exercises rather than opinions: you cannot audit
+accessibility by reasoning about it, verify a backup by believing in it, or delete a tenant
+by intending to. Two of the three failed the first time.
+
+### A centre could not be deleted. By anyone. Ever.
+
+The end-to-end fixture creates a throwaway centre and drops it afterwards. The drop failed:
+
+```
+insert or update on table "audit_events" violates foreign key constraint
+"audit_events_centre_id_fkey"
+```
+
+An *insert* failure, while deleting. Deleting a centre cascades to `children`, each of which
+fires the audit trigger, which inserts a row whose `centre_id` points at the centre that has
+just been removed — so the foreign key rejects it and the transaction aborts. Not by an
+owner, not by the service role, not by hand in the SQL editor.
+
+Five phases had shipped with no way to offboard a customer. Nothing in the type system, the
+policies or the 164-assertion RLS suite could have surfaced it, because none of them tries to
+delete a tenant.
+
+`0020_offboarding.sql` drops the foreign key, and that is a correction rather than a
+workaround: `audit_events` is an append-only ledger and **a ledger has to outlive its
+subject**. It was also a genuine standoff — nobody may delete an audit row, not even
+`service_role`, so no legal sequence of statements could have unblocked it. The column,
+index and policy stay, so a surviving row names a centre that no longer exists and is
+invisible to every authenticated caller.
+
+No `purge_centre()` and no button: removing a tenant is a runbook
+([docs/offboarding.md](docs/offboarding.md)), because a self-destruct control in a product
+used by tired people at 5pm is a support incident with a countdown on it.
+
+### The accessibility audit runs on loaded screens, not empty ones
+
+```bash
+npm run test:e2e     # builds, then 30 checks across 19 screens
+```
+
+19 screens, two roles, a production build, in a real browser — including the new-child form
+*showing its validation errors* and the login form *showing its error*, because error states
+are where labelling breaks and they are never audited if the audit only sees a pristine form.
+
+The fixture seeds its own tenant, and it seeds it **loaded**: a child with an anaphylaxis
+plan and one consent withheld, one signed in an hour ago so the ratio bar has something to
+assess, three staff records covering expired / due-soon / current so all three flag colours
+are measured, a thread with messages, a live invitation. axe cannot find a contrast failure
+in a table with no rows, and every screen here has an empty state that passes trivially.
+
+Two centres rather than one, because `requireCtx()` auto-selects with a single membership
+and `/select-centre` would never be audited. **Media is deliberately not seeded** — that
+would mean writing to storage and cleaning it up, and a failed clean-up leaves a child's
+photo in a bucket. So the images on `/posts` are not covered.
+
+The gate is WCAG 2.2 AA, all six axe tags (2.2 AA does not imply the earlier ones, and
+listing five silently narrows the audit). `best-practice` findings print but do not fail —
+a gate nobody can satisfy is a gate somebody disables. Currently none of either.
+
+**What it found:** `select-name`, critical. The role selector on the People screen had no
+accessible name, and neither did its Save or Remove buttons. A sighted reader takes the
+person's name from the cell to the left; a screen reader user heard "combo box, educator",
+"Save, button", "Remove, button" — once per person, with nothing to say whose row it was. On
+the screen that decides who can administer a centre.
+
+What it does **not** cover is in [unverified-claims](llm-wiki/wiki/unverified-claims.md)
+item 12: no screen reader, no keyboard-only pass. axe finds a third to a half of WCAG
+failures.
+
+### Performance is governed in gzipped bytes
+
+```bash
+npm run check:bundle
+```
+
+| Budget | Measured | Limit |
+|---|---|---|
+| First-load JS | 100.6kB gzip (342kB raw) | 106kB |
+| First-load CSS | 2.0kB | 4kB |
+| Middleware, **on every request** | 89.3kB | 94kB |
+
+A Lighthouse score measures the machine that ran it. Bytes are deterministic and
+attributable to a commit. The first-load figure agrees with what `next build` prints, which
+is a check that the script measures the right files.
+
+It is **not** a small number, and almost none of it is this app: React 19 and the App Router
+runtime are ~98kB, and each page adds 142B–3kB. Movement means a dependency reached the
+client. The middleware budget has history — a static Sentry import took it from 91kB to
+176kB raw, on every request including 404s, to catch errors in a file that never throws.
+
+The e2e suite measures the web sign-in round trip: **~930ms** click-to-present, including
+the server action, RLS and the re-render. Honest, and slower than it should be. The plan's
+100ms budget is a different number — the *mobile* optimistic write, which paints before the
+network is involved and cannot be measured without a device build.
+
+### The restore drill, and why the mutation test is the point
+
+```bash
+npm run drill:restore     # 34 tables, 485 rows, 4/4
+```
+
+Enumerates every table **from the catalogue**, so a table added by a future migration is
+covered without anyone remembering. Extracts every row as JSON to a file, sends it back,
+reloads into a shadow schema built with `like … including all`, compares row counts and a
+content fingerprint per table. Reloading uses `jsonb_populate_recordset` — handing Postgres
+its own JSON back — so there is exactly one escaping rule in the file instead of a quoting
+rule per type for timestamptz, `text[]`, jsonb, seven enums and a daterange.
+
+Then it was mutated:
+
+| Mutation | Result |
+|---|---|
+| A character appended to a **timestamptz** | Rejected at load, `22007`. Caught by the *type system*, not by the comparison |
+| A character appended to **`attendance_events.note`** | Loaded, then **failed the comparison**, naming the table — one character, one column, one row, out of 485 |
+
+The second is the one that mattered. Without it the comparison might have been comparing
+something with itself, and a green run would have meant nothing.
+
+What it does not prove is longer than what it does, and it is all in
+[docs/backup-and-restore.md](docs/backup-and-restore.md): not Supabase's own backup files,
+not `auth.users`, not Storage, and not the policies — which come back from the migrations,
+a *stronger* guarantee, because a restored dump gives the policies that were in place while
+the migrations give the ones that are supposed to be.
+
+### The documents a centre actually needs
+
+| | |
+|---|---|
+| [docs/privacy-statement.md](docs/privacy-statement.md) | Every column that holds personal information, who can see it, and what is *not* collected. A template, because the **centre** is the responsible agency and Salix holds the data as its agent |
+| [docs/retention.md](docs/retention.md) | The schedule, the purge procedure, and why the seven-year figure is an assumption in both directions — too short breaches IPP 9, too long destroys evidence |
+| [docs/breach-response.md](docs/breach-response.md) | The first hour. Contain without destroying evidence, establish the facts, decide notifiability, notify. Never exercised |
+| [docs/backup-and-restore.md](docs/backup-and-restore.md) | What exists, what the drill proves, and the seven steps of a real restore — step 4 (`test:rls`) being the one that will be skipped under pressure and must not be |
+| [docs/offboarding.md](docs/offboarding.md) | Export, archive, revoke, wait, purge, delete — and the defect that made the last step impossible |
+| [docs/store-listing.md](docs/store-listing.md) | Listing copy, the Play Data Safety declaration and Apple's privacy questionnaire, both drafted from the schema rather than typed into a web form at midnight |
+
+The listing copy says, in the store, that this product cannot submit a funding return. A
+manager who buys expecting RS7 submission is a refund and a bad review; better to lose the
+install than to mislead the sale.
+
 ## Open questions
 
+
+- **A centre could not be deleted until 2026-08-04.** Migration 0020 fixed it; the
+  procedure for removing a tenant is [docs/offboarding.md](docs/offboarding.md) and it has
+  never been run end to end against a real centre. Step 6 has been run several hundred
+  times, by the e2e fixture, which is the only reason it works at all.
+- **No screen reader has ever been used on this product.** The axe audit passes on 19
+  screens in both roles with no advisory warnings either, which is a floor rather than a
+  pass — axe finds perhaps a third to a half of WCAG failures and cannot tell whether a
+  focus order makes sense or whether an error message helps anybody.
+- **Point-in-time recovery is not enabled**, so the recovery point is up to 24 hours old —
+  for a centre, up to a day of attendance, messages and consent decisions. It costs money
+  and the decision has not been taken. It is the right thing to buy before a second centre
+  is onboarded; see [docs/backup-and-restore.md](docs/backup-and-restore.md).
+- **Nothing has been submitted to a store and no build exists.** `apps/mobile/eas.json` has
+  the profiles chosen and commented, and has never been executed. The privacy statement also
+  has to be *hosted* before either store will accept a submission — the only blocker on that
+  list that is hosting rather than writing. See [docs/store-listing.md](docs/store-listing.md).
+- **The breach runbook has never been exercised**, and two of its legal citations are
+  unchecked. So is the citation for the agent rule that makes the centre the responsible
+  agency. The substance of both is sound; see items 10 and 11 in
+  [unverified-claims](llm-wiki/wiki/unverified-claims.md).
 - **Professional indemnity insurance is the remaining gate on real data.** The
   services agreement with Little Pearls is in place; the insurance is not. The
   schema and the screens exist and hold nothing but `Demo-Seed` rows, which is

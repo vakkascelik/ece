@@ -1,0 +1,20 @@
+{
+  "// why": [
+    "The audit runs under node, not in the browser and not through Next's bundler, so",
+    "it needs its own project: node types, node module resolution, and no jsx.",
+    "Checked by `npm run typecheck -w @ece/web`, which runs this alongside the app."
+  ],
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["dom", "esnext"],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "types": ["node"],
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true
+  },
+  "include": ["**/*.ts"]
+}

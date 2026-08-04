@@ -21,5 +21,11 @@
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules"]
+  "// exclude": [
+    "e2e is excluded because `next build` typechecks whatever this file includes, and",
+    "the audit imports @playwright/test and node:crypto — a bundler-resolution,",
+    "browser-lib project. It is not unchecked: e2e/tsconfig.json checks it under node,",
+    "and `npm run typecheck` runs both."
+  ],
+  "exclude": ["node_modules", "e2e"]
 }

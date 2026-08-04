@@ -27,7 +27,7 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
 
   if (invite.status !== 'live' || !invite.email || !invite.role) {
     return (
-      <div className="center">
+      <main className="center">
         <h1>This invitation cannot be used</h1>
         <p className="sub">
           {invite.status === 'expired'
@@ -42,14 +42,14 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
           Ask the centre to send a new one, or <Link href="/login">sign in</Link> if you already
           have an account.
         </p>
-      </div>
+      </main>
     );
   }
 
   const matches = signedInAs === invite.email;
 
   return (
-    <div className="center">
+    <main className="center">
       <h1>Join {invite.centreName ?? 'the centre'}</h1>
       <p className="sub">
         You have been invited as <strong>{invite.role}</strong>, at{' '}
@@ -74,6 +74,6 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
       ) : (
         <AcceptForm token={token} email={invite.email} alreadySignedIn={matches} />
       )}
-    </div>
+    </main>
   );
 }

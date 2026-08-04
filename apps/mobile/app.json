@@ -7,16 +7,53 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "nz.co.salixtech.ece"
+      "bundleIdentifier": "nz.co.salixtech.ece",
+      "infoPlist": {
+        "//": [
+          "ITSAppUsesNonExemptEncryption declared false, because this app uses only the",
+          "HTTPS the platform provides and Apple's own exemption covers that. Declaring",
+          "it here answers the export-compliance question once instead of at every",
+          "submission, and answering it carelessly under release pressure is how a build",
+          "sits in review for a week.",
+          "",
+          "No NSPhotoLibraryUsageDescription and no NSCameraUsageDescription, because the",
+          "mobile app does not take or attach photos — media is uploaded from the web app.",
+          "A usage string for a permission the app never requests invites a reviewer to",
+          "ask why, and the honest answer would be 'it does not'."
+        ],
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
-      "package": "nz.co.salixtech.ece"
+      "package": "nz.co.salixtech.ece",
+      "//": [
+        "No `permissions` array. expo-notifications adds POST_NOTIFICATIONS itself, and",
+        "a hand-written list here would drift from what the plugins actually need. There",
+        "is no location, camera, microphone, contacts or storage permission in this app."
+      ]
     },
     "extra": {
       "//": "One binary serves every centre. The tenant is resolved at sign-in, never baked into the build — which is the whole reason this platform is pooled rather than one deployment per customer."
     },
     "plugins": [
-      "expo-sqlite"
+      "expo-sqlite",
+      "expo-secure-store",
+      "expo-notifications"
+    ],
+    "//": [
+      "MISSING AND REQUIRED BEFORE ANY STORE SUBMISSION. Listed here rather than",
+      "referenced as file paths that do not exist — a config pointing at a missing icon",
+      "fails the build with an error about a file, not about the decision:",
+      "",
+      "  • icon, 1024×1024, no transparency and no pre-rounded corners (Apple rejects both)",
+      "  • android.adaptiveIcon, foreground plus background, 108dp with a 66dp safe circle",
+      "  • a splash screen via expo-splash-screen",
+      "  • an Android notification icon, or the system draws a grey square",
+      "",
+      "docs/store-listing.md holds everything else a submission needs, including the Play",
+      "Data Safety answers and Apple's privacy questionnaire — both written out there,",
+      "because both are declarations about children's data and both are easy to answer",
+      "carelessly."
     ]
   }
 }

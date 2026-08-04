@@ -33,6 +33,11 @@ Nothing here is a bug. They are known gaps with known closures.
 - **The funding caps and period boundaries are unverified.** `FUNDING_RULES_VERIFIED` is `false`,
   and the funding export says so on every render. There are deliberately **no funding rates**
   anywhere in the product.
+- **Two legal citations in the user-facing documents are unchecked.** The agent rule that
+  makes the *centre* the responsible agency, and the section numbers and fine in the breach
+  runbook. The substance of both is sound; the citations have not been read.
+- **No screen reader has ever been used on this product.** axe passes on every page, which
+  is a floor and not a pass.
 - Anything asserted about ERO taking over regulation, or the April 2026 criteria
   renumbering, came from an earlier research session in the `salix` repo and has not been
   re-checked here.
@@ -104,7 +109,7 @@ connection, confirm exactly three events landed and the times survived. See
 | **What exists** | `push_tokens`, `notification_preferences` with quiet hours, a `notifications` queue, `apps/mobile/lib/push.ts`, and quiet-hours logic with 17 tests |
 | **What has never happened** | A single notification being delivered to a device |
 | **Why** | Expo push needs a token from a real build, and this project has not been through EAS. There is also no worker: nothing reads the queue and calls Expo's API |
-| **To close it** | An EAS build, a device, a token, and a worker. Then send one and watch it arrive |
+| **To close it** | An EAS build, a device, a token, and a worker. Then send one and watch it arrive. `apps/mobile/eas.json` now exists with the profiles chosen and commented — it has never been executed, so it is configuration and not progress |
 
 The quiet-hours arithmetic *is* verified, including the case that is normally written wrongly — a
 window that wraps midnight (20:00 → 07:00), evaluated in the centre's timezone across both sides of
@@ -168,6 +173,35 @@ paying.
 That is defensible for a free pilot and a weak basis for pricing. It is recorded here
 because it is the same class of error as an unverified figure: a decision resting on
 evidence nobody has gathered.
+
+### 10. The agent rule, in the privacy statement
+
+| | |
+|---|---|
+| **What is asserted** | Information held by Salix as agent for a centre is, in law, held by the centre — so the centre is the agency answerable to families and to the Commissioner |
+| **Where** | `docs/privacy-statement.md`, and it underpins the whole structure of that document |
+| **Basis** | Confident from general knowledge of the Privacy Act 2020. The **section number has not been read.** The equivalent in the 1993 Act was s 3(4) |
+| **Why it matters** | It decides who notifies a family after a breach, and it is the paragraph the services agreement has to match. Getting the substance right and the citation wrong in a document a family reads is a credibility problem even when the conclusion holds |
+| **To close it** | Read the Act, put the correct reference in, and make the services agreement say the same thing |
+
+### 11. The breach runbook's legal specifics
+
+| | |
+|---|---|
+| **What is asserted** | A serious-harm test; notification to the Privacy Commissioner *and* to affected individuals as soon as practicable; an offence with a fine for failing to notify |
+| **Where** | `docs/breach-response.md` |
+| **Basis** | Part 6 of the Privacy Act 2020. The **substance is not in doubt**; the exact sections and the exact maximum fine have not been checked |
+| **How the document behaves** | Says so, in a block quote, at the top |
+| **To close it** | Read Part 6. Correct the numbers, or remove them and keep the substance |
+
+### 12. Accessibility: automation only
+
+| | |
+|---|---|
+| **What exists** | A WCAG 2.2 AA audit with axe-core over 19 screens, both roles, with data loaded, including two error states. 30/30 green, no advisory warnings either |
+| **What has never happened** | Anyone using this product with a screen reader, or completing a task with a keyboard alone |
+| **Why it matters** | axe finds somewhere between a third and a half of WCAG failures. It is good at contrast, names, roles and structure. It cannot tell whether a focus order makes sense, whether an error message helps, or whether the ratio banner announces at a useful moment. A green run is a floor |
+| **To close it** | A pass with NVDA or VoiceOver on the daily screens — sign a child in, read a ratio, open a child's allergies — and a keyboard-only pass on the enrolment form |
 
 ## See Also
 

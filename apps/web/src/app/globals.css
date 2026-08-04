@@ -94,6 +94,30 @@ button.danger { background: var(--surface); color: var(--danger); border-color: 
   border-radius: 4px;
 }
 
+/* Text for a screen reader and not for the eye.
+ *
+ * Used for the header of an action column: the visual reader understands that the
+ * last column holds buttons, and a screen reader announced it as a blank column
+ * name once per row. Found by the axe audit in Phase 6.
+ *
+ * The clip-rect technique rather than `display: none` or `visibility: hidden`,
+ * both of which remove the text from the accessibility tree as well, and rather
+ * than `left: -9999px`, which some screen readers read in the wrong order and
+ * which forces a wide layout in RTL. `white-space: nowrap` stops a long string
+ * being wrapped into a 1px box and silently truncated by some engines. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* Keyboard users should not have to tab through the whole sidebar on every page
  * to reach the content (WCAG 2.4.1). Off-screen until focused. */
 .skip {

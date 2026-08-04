@@ -245,13 +245,77 @@ compares — 13/13. Two things it turned up:
 Moving `dayWindow` out of the compliance folder (two pages needed it) left a stale link in the
 README, which `check:docs` caught — the second real link it has found.
 
+### Phase 6 — production readiness (`pending`)
+
+The phase whose job was to find out what is not true. Three of its five deliverables are
+**exercises rather than opinions** — you cannot audit accessibility by reasoning about it,
+verify a backup by believing in it, or delete a tenant by intending to — and two of the three
+failed on the first attempt.
+
+**A centre could not be deleted. By anyone. Ever.** The end-to-end fixture drops its throwaway
+tenant on the way out, and the drop failed with an *insert* error while deleting: cascading
+from `centres` to `children` fires the audit trigger, which inserts a row referencing the
+centre that has just been removed, so the foreign key rejects it and the transaction aborts.
+Not an owner, not the service role, not by hand in the SQL editor. Five phases had shipped
+with no way to offboard a customer, and neither the type system nor the 164-assertion RLS
+suite could have surfaced it, because none of them tries. `0020` drops the foreign key — a
+correction, not a workaround: `audit_events` is an append-only ledger and a ledger has to
+outlive its subject. It was a genuine standoff, too, because nobody may delete an audit row,
+so no legal sequence of statements existed.
+
+**The audit runs on loaded screens.** 19 screens, both roles, a production build, in a real
+browser — including the enrolment form *showing its validation errors* and the login form
+*showing its error*. The fixture seeds a child with an anaphylaxis plan and a withheld
+consent, one signed in an hour ago, three staff records covering all three expiry states, a
+thread with messages, a live invitation. An audit of an empty page measures nothing, and every
+screen here has an empty state that passes trivially. Two centres, because `requireCtx()`
+auto-selects with one and `/select-centre` would never be audited.
+
+It found a critical failure: `select-name` on the People screen. The role selector and its
+Save and Remove buttons had no accessible name, so a screen reader user heard "combo box,
+educator", "Save, button", "Remove, button" — once per person, with nothing to say whose row
+it was, on the screen that decides who can administer a centre. Fixed with `aria-label`
+naming the person. Two smaller ones went with it: visually-hidden headers for every action
+column, and the attendance page's three sections became named regions so a screen reader can
+jump between them instead of walking the roll.
+
+**Two findings were the tests, not the app**, and both would have produced a false green. The
+setup asserted on the centre's name after choosing a centre — text that is *also* on
+`/select-centre`, so the assertion passed against the page being left and the session state
+was captured before the cookie arrived. And a run reused a server from before a fix, so a
+corrected page still reported the old violation.
+
+**The restore drill was mutation-tested, which matters more than it passing.** A character
+appended to a timestamptz was caught by the type system rather than by the comparison; a
+character appended to a free-text column loaded fine and then failed the comparison, naming
+the table — one character, one column, one row, out of 485. Without the second mutation the
+comparison might have been comparing something with itself.
+
+**Performance in gzipped bytes, not a Lighthouse score.** 100.6kB first-load JS, 2.0kB CSS,
+89.3kB middleware on every request. The first agrees with what `next build` prints, which is a
+check that the script measures the right files. It is not small, and ~98kB of it is React and
+the App Router — so movement means a dependency reached the client. The web sign-in round trip
+measures ~930ms, which is honest and slower than it should be; the plan's 100ms budget is the
+*mobile* optimistic write and is still unmeasured.
+
+Six documents in a new `docs/`: privacy statement (a template, because the **centre** is the
+responsible agency), retention, breach response, backup and restore, offboarding, and store
+submission — the last containing the Play Data Safety declaration and Apple's privacy
+questionnaire drafted from the schema rather than typed into a web form at midnight. Three new
+entries on the unverified register: two legal citations, and the fact that **no screen reader
+has ever been used on this product**.
+
 ### Where the day ended
 
-164/164 RLS assertions, 156 unit tests, 19 migrations, lint, tokens and doc links clean, both apps
-building (mobile at 773 modules).
-Five things now need a person rather than more code: **import a checked criteria set**, **verify the
-ratio bands against Schedule 2**, **run a real airplane-mode drill on a tablet**, **get an EAS build
-so push can be tested at all**, and **set the GitHub secrets so CI can actually run**. All four are in
-[`llm-wiki/wiki/unverified-claims.md`](llm-wiki/wiki/unverified-claims.md).
+
+164/164 RLS assertions, 156 unit tests, 30/30 end-to-end and accessibility checks, a 4/4
+restore drill over 34 tables, 20 migrations, lint, tokens, doc links and performance budgets
+clean, both apps building (mobile at 773 modules).
+Seven things now need a person rather than more code: **set the GitHub secrets so CI can actually
+run** (every result above is local, on one machine, at a moment I chose), **import a checked criteria
+set**, **verify the ratio bands against Schedule 2**, **verify the funding caps**, **get an EAS build**
+(which unblocks both the airplane-mode drill and push delivery), **use a screen reader on the daily
+screens**, and **host the privacy statement** so a store submission is possible at all. Every one is
+in [`llm-wiki/wiki/unverified-claims.md`](llm-wiki/wiki/unverified-claims.md).
 
 *Log last updated: 2026-08-04*

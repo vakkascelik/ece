@@ -41,7 +41,9 @@ export function WhanauPanel({
               <th>Relationship</th>
               <th>Contact</th>
               <th>Permissions</th>
-              {canEdit && <th style={{ width: '1%' }} />}
+              {canEdit && <th style={{ width: '1%' }}>
+                <span className="visually-hidden">Actions</span>
+              </th>}
             </tr>
           </thead>
           <tbody>

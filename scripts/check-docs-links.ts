@@ -26,7 +26,11 @@ function docFiles(): string[] {
   for (const entry of readdirSync(ROOT, { withFileTypes: true })) {
     if (entry.isFile() && entry.name.endsWith('.md')) out.push(path.join(ROOT, entry.name));
   }
-  for (const dir of [path.join(ROOT, 'llm-wiki'), WIKI]) {
+  // `docs/` added in Phase 6. It holds the documents a *centre* reads — the privacy
+  // statement, the breach runbook, the retention schedule — and they cross-link to each
+  // other and to the wiki. Those are the links most worth checking, because they are the
+  // ones somebody follows during an incident.
+  for (const dir of [path.join(ROOT, 'llm-wiki'), WIKI, path.join(ROOT, 'docs')]) {
     if (!existsSync(dir)) continue;
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
       if (entry.isFile() && entry.name.endsWith('.md')) out.push(path.join(dir, entry.name));

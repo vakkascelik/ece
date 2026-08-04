@@ -157,7 +157,8 @@ export default async function FundingPage({
                 <tr>
                   <th colSpan={3}>Total funded hours</th>
                   <th>{summary.totalFundedHours.toFixed(2)}</th>
-                  <th colSpan={2} />
+                  {/* A spacer, so <td> — an empty <th> announces as a blank column name. */}
+                  <td colSpan={2} />
                 </tr>
               </tfoot>
             </table>

@@ -86,4 +86,35 @@ would let a centre budget against a figure this product made up. Also recorded w
 built: the pilot is free, most centres already collect through their own systems, and none of Stripe's
 real decisions are decidable while the price is NZ$0.
 
+2026-08-04 — Added [[production-readiness]] for Phase 6, the phase whose job was to find out what is
+not true. Three of its five deliverables are exercises rather than opinions — you cannot audit
+accessibility by reasoning about it, verify a backup by believing in it, or delete a tenant by
+intending to — and two of them failed the first time.
+
+2026-08-04 — Recorded the defect the audit fixture found by needing to clean up after itself: **a
+centre could not be deleted, by anybody, ever.** Deleting a centre cascades to children, whose audit
+trigger inserts a row referencing the centre that has just been removed, so the foreign key rejects
+it and the transaction aborts. Five phases had shipped with no way to offboard a customer, and neither
+the type system nor the 164-assertion RLS suite could have surfaced it, because none of them tries.
+Migration 0020 drops the foreign key — a correction rather than a workaround, because `audit_events`
+is a ledger and **a ledger has to outlive its subject**.
+
+2026-08-04 — Recorded why the accessibility fixture seeds loaded screens rather than using empty ones:
+axe cannot find a contrast failure in a table with no rows or an unlabelled control in a form nobody
+rendered, and every screen in this product has an empty state that passes trivially. The audit found
+one critical failure — the role selector on the People screen had no accessible name, so a screen
+reader announced "combo box, educator" once per person with nothing to say whose row it was.
+
+2026-08-04 — Recorded in [[unverified-claims]] (items 10–12) that two legal citations in the new
+user-facing documents are unchecked, and that **no screen reader has ever been used on this product**.
+axe passes on 19 screens in both roles with no advisory warnings either, which is a floor and not a
+pass: it finds perhaps a third to a half of WCAG failures and cannot tell whether a focus order makes
+sense or whether an error message helps anybody.
+
+2026-08-04 — Recorded that the restore drill was **mutation-tested**, and why that matters more than
+it passing. A character appended to a timestamptz was caught by the type system, not by the
+comparison; a character appended to a free-text column loaded successfully and then failed the
+comparison, naming the table — one character, one column, one row, out of 485. Without the second
+mutation the comparison might have been comparing something with itself.
+
 *Log last updated: 2026-08-04*

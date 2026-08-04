@@ -18,3 +18,13 @@ build/
 
 .DS_Store
 *.log
+
+# Playwright — the audit's own artefacts. `tenant.json` names a throwaway account and
+# holds its password for the length of a run; it must never be committed.
+# Matched at ANY depth, on purpose. These files held `sb-<project>-auth-token` — a
+# Supabase access AND refresh token for a live account — and a path-specific rule missed
+# them once already, because Playwright resolves storageState against the process cwd
+# rather than against its config file. See apps/web/e2e/fixtures/paths.ts.
+**/e2e/.artifacts/
+apps/web/test-results/
+apps/web/playwright-report/

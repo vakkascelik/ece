@@ -27,7 +27,11 @@
     "import:criteria": "node --env-file-if-exists=.env.local --import tsx scripts/import-criteria.ts",
     "check:docs": "tsx scripts/check-docs-links.ts",
     "sweep:media": "node --env-file-if-exists=.env.local --import tsx scripts/sweep-orphan-media.ts",
-    "reconcile:funding": "node --env-file-if-exists=.env.local --import tsx scripts/reconcile-funding.ts"
+    "reconcile:funding": "node --env-file-if-exists=.env.local --import tsx scripts/reconcile-funding.ts",
+    "test:e2e": "npm run build && node --env-file-if-exists=.env.local ./node_modules/@playwright/test/cli.js test -c apps/web/playwright.config.ts",
+    "test:e2e:ui": "node --env-file-if-exists=.env.local ./node_modules/@playwright/test/cli.js test -c apps/web/playwright.config.ts --ui",
+    "check:bundle": "tsx scripts/check-bundle.ts",
+    "drill:restore": "node --env-file-if-exists=.env.local --import tsx scripts/restore-drill.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",

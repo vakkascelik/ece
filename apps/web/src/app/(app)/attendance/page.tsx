@@ -62,13 +62,19 @@ export default async function AttendancePage() {
       {/* First thing on the page, always. Not a report somebody goes and finds. */}
       <RatioBanner ratio={ratio} />
 
-      <div className="section">
-        <h2>Adults present</h2>
+      {/*
+        <section> with a name rather than <div>, so a screen reader user can jump
+        between "adults present", "here now" and "not here" instead of walking the
+        whole roll. An unnamed <section> is not exposed as a region at all, which is
+        why each carries aria-labelledby rather than just the element.
+      */}
+      <section className="section" aria-labelledby="adults-heading">
+        <h2 id="adults-heading">Adults present</h2>
         <AdultCount current={adultsPresent} canEdit={can(ctx.role, 'recordDailyPractice')} />
-      </div>
+      </section>
 
-      <div className="section">
-        <h2>Here now — {present.length}</h2>
+      <section className="section" aria-labelledby="here-heading">
+        <h2 id="here-heading">Here now — {present.length}</h2>
         {present.length === 0 ? (
           <div className="card">
             <p className="empty">Nobody signed in yet.</p>
@@ -76,10 +82,10 @@ export default async function AttendancePage() {
         ) : (
           <Table rows={present} states={byChild} health={healthByChild} />
         )}
-      </div>
+      </section>
 
-      <div className="section">
-        <h2>Not here — {away.length}</h2>
+      <section className="section" aria-labelledby="away-heading">
+        <h2 id="away-heading">Not here — {away.length}</h2>
         {away.length === 0 ? (
           <div className="card">
             <p className="empty">Everyone enrolled is signed in.</p>
@@ -87,7 +93,7 @@ export default async function AttendancePage() {
         ) : (
           <Table rows={away} states={byChild} health={healthByChild} />
         )}
-      </div>
+      </section>
     </>
   );
 }
@@ -110,7 +116,9 @@ function Table({
             <th>Age</th>
             <th>Since</th>
             <th>Flags</th>
-            <th style={{ width: '1%' }} />
+            <th style={{ width: '1%' }}>
+                <span className="visually-hidden">Actions</span>
+              </th>
           </tr>
         </thead>
         <tbody>

@@ -41,7 +41,9 @@ export function EnrolmentPanel({
               <th>Days</th>
               <th>Funded hours</th>
               <th>Status</th>
-              {canEdit && <th style={{ width: '1%' }} />}
+              {canEdit && <th style={{ width: '1%' }}>
+                <span className="visually-hidden">Actions</span>
+              </th>}
             </tr>
           </thead>
           <tbody>

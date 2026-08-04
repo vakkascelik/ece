@@ -32,7 +32,9 @@ export function StaffRecords({ assessed }: { assessed: AssessedRecord[] }) {
               <th>Record</th>
               <th>Expires</th>
               <th>Status</th>
-              <th style={{ width: '1%' }} />
+              <th style={{ width: '1%' }}>
+                <span className="visually-hidden">Actions</span>
+              </th>
             </tr>
           </thead>
           <tbody>

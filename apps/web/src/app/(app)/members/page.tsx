@@ -23,7 +23,9 @@ export default async function MembersPage() {
             <tr>
               <th>Email</th>
               <th>Role</th>
-              <th style={{ width: '1%' }} />
+              <th style={{ width: '1%' }}>
+                <span className="visually-hidden">Actions</span>
+              </th>
             </tr>
           </thead>
           <tbody>

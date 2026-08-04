@@ -74,7 +74,9 @@ export function InvitePanel({
                 <th>Email</th>
                 <th>Role</th>
                 <th>Expires</th>
-                <th style={{ width: '1%' }} />
+                <th style={{ width: '1%' }}>
+                <span className="visually-hidden">Actions</span>
+              </th>
               </tr>
             </thead>
             <tbody>
