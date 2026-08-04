@@ -110,12 +110,23 @@ lines is worse than a slow query.
 disagree with itself; two would mean an invoice total and a credit total that a reader has to
 reconcile, which they will do wrongly.
 
-### Issued invoices freeze
+### Issued invoices freeze — which took two mechanisms, not one
 
 The write policy on `invoice_lines` requires `status = 'draft'`. Changing what a family was billed
 after they were billed it is not an edit — it is a different invoice. Voiding requires a reason and
 keeps the reference, because a deleted invoice takes its number with it and the next one reuses it,
 so two different amounts end up sharing one reference in a family's records.
+
+**That policy alone did not achieve it, and this page said it did for two days.** `invoices.status`
+carries a column UPDATE grant, because an owner has to be able to issue an invoice — so the sequence
+was: set the status back to `draft`, edit the line (now permitted), re-issue. Three ordinary
+statements, no privilege escalation, and no audit trigger on `invoices` to record any of it.
+
+`0021` adds a transition trigger: no return to draft, no reinstating a void, and the reference,
+recipient, period, centre and issue date fixed once issued. A note can still be added, because a rule
+that blocks ordinary work is a rule somebody removes. A CHECK constraint could not do this — a CHECK
+sees one row and cannot see the row it replaced, and "was this already issued" is a question about the
+transition. See [[security-review]].
 
 Payments are append-only in the policies *and* the grants. Correcting a receipt means recording the
 reversal, as with attendance and consent.

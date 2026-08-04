@@ -34,6 +34,7 @@ npm run test:e2e               # end-to-end + WCAG 2.2 AA audit, 19 screens, bot
 npm run tokens:check           # generated CSS matches the shared tokens
 npm run check:docs             # every documentation link resolves
 npm run check:bundle           # performance budgets, in gzipped bytes
+npm run review:security        # 16 checks against the live schema
 npm run build                  # web
 
 npm run onboard                # create a centre and its first owner
@@ -783,9 +784,11 @@ Stripe's real decisions — disputes, refunds, a live account in the centre's na
 while the price is NZ$0. `payments` records money that arrived; wiring Stripe later adds a source
 column and a webhook.
 
-An issued invoice **freezes**: the write policy on lines requires `status = 'draft'`, because changing
-what a family was billed after they were billed it is a different invoice, not an edit. A credit is a
-negative line rather than a second table, so the total is a sum and cannot disagree with itself.
+An issued invoice **freezes**: the write policy on lines requires `status = 'draft'`, **and** a
+trigger refuses to put the status back — because changing what a family was billed after they were
+billed it is a different invoice, not an edit. The trigger is the half that was missing until the
+Phase 6 security review; the line policy alone was defeated by three ordinary statements. A credit is
+a negative line rather than a second table, so the total is a sum and cannot disagree with itself.
 
 ```bash
 ECE_ALLOW_DEMO_SEED=yes ECE_DRILL_PASSWORD=... npm run reconcile:funding
@@ -1045,7 +1048,94 @@ The listing copy says, in the store, that this product cannot submit a funding r
 manager who buys expecting RS7 submission is a refund and a bad review; better to lose the
 install than to mislead the sale.
 
+## Security review
+
+```bash
+npm run review:security      # 16 checks against the live schema
+```
+
+Written as SQL against the database rather than as a reading of the migrations, because a
+review of the files is a review of what somebody *intended* — and in every finding below,
+the code said the right thing and the database did not enforce it.
+
+### Four findings
+
+**An issued invoice did not freeze**, although this README said it did. The line policy
+required `status = 'draft'`; nothing required the status to stay put, and `invoices.status`
+carries a column UPDATE grant because an owner must be able to issue one. Three ordinary
+statements — back to draft, edit the line, re-issue — and the amount a family was billed
+differs from the amount they were shown. There was no audit trigger on `invoices` either.
+`0021` adds a transition trigger: no return to draft, no reinstating a void, and the
+reference, recipient, period and issue date fixed at issue. A CHECK could not do it, because
+a CHECK sees one row and cannot see the row it replaced.
+
+**The audit log stopped keeping up with the schema in April.** `0005` covered ten tables;
+Phases 3–5 added twelve more and nothing extended it. A missing audit row looks exactly like
+a quiet day. The serious one was `staff_records` — the table that *is* the licensing evidence
+— where an expiry date could be edited or a "sighted by" cleared with no trace. `0021`
+extends the trigger to twelve tables, and the suite now asserts audit coverage as a rule
+with the exclusions named, so the next table added without one fails the build.
+
+**There were no security headers at all**, and fixing that broke every write in the app.
+`Referrer-Policy: no-referrer` was correct reasoning — these URLs contain child UUIDs — and
+Next's server-action origin check falls back to `Referer` when `Origin` is absent, so it
+parsed the string `"null"`. Every server action is a write: the roll rendered, the ratio
+rendered, and signing a child in did nothing. `same-origin` keeps the privacy property and
+the header Next needs. `typecheck`, `lint` and `build` were all clean.
+
+**Fourteen tables carried the shape that leaked in Phase 4** — an `x_select` policy plus an
+`x_write` policy declared `FOR ALL`, where `FOR ALL` covers SELECT and permissive policies
+are OR'd. All fourteen were narrow, so nothing was leaking; that is luck about how they were
+written. `0022` splits them into `insert`/`update`/`delete` so **adding a write policy can no
+longer widen a read**, copying `qual` and `with_check` out of the catalogue rather than
+re-typing fourteen predicates. `0023` then drops the six policies the split created for verbs
+that are deliberately not granted, because a policy is a statement about what is allowed and
+if the answer is never, the absence is the design.
+
+### The review's own false positives are the more useful lesson
+
+Four of the first version's findings were wrong, all from one cause: it read
+`role_table_grants`, which shows **table-level** grants, while this schema does most of its
+write control with **column-level** grants — a policy restricts rows, and only a grant can
+restrict columns.
+
+It reported `messages` as fully append-only (`read_at` has a column UPDATE grant), flagged
+`invitations.token_hash` as HIGH (INSERT only, which the invite flow needs), called an
+unreachable `schema_migrations` CRITICAL, and called nine working features broken. A review
+that cries critical at something nobody can reach trains its reader to skim, which is worse
+than not running it. Severity is now a function of reachability.
+
+### What was already clean
+
+No service-role key or `service_role` string in any client bundle or the mobile workspace.
+No `dangerouslySetInnerHTML`, no `eval`. All 17 `SECURITY DEFINER` functions pin
+`search_path` — one unpinned function would be the entire tenant boundary, since every
+predicate here is a definer function. `auth.users` granted to nobody. One storage bucket,
+private. `anon` has no table grant at all. All four views run as the invoker.
+
+### Every route, every role
+
+```bash
+npm run test:e2e     # 44 checks, including the capability matrix
+```
+
+`apps/web/e2e/roles.spec.ts` walks all eleven authenticated routes as **owner, manager,
+educator and parent** and asserts each either renders or redirects, against a table that
+states the guard for each. Plus the second boundary, which the RLS suite proves in SQL and
+this proves through the app: a parent cannot open a child who is not theirs *even by URL*, an
+educator sees an allergy but not a custody order, a forged `ece_centre` cookie does not open a
+centre the caller is not a member of, and revoking a membership ends access on the next
+request.
+
+Mutation-tested: widening `manageMembers` to include `educator` in the capability matrix fails
+both the route check and the navigation check, naming the route.
+
+A four-row matrix tested at two rows is a matrix nobody has checked, which is why all four are
+there. `educator` is the row where a mistake is least visible — it needs real access to the
+daily screens and must reach no office screen.
+
 ## Open questions
+
 
 
 - **A centre could not be deleted until 2026-08-04.** Migration 0020 fixed it; the

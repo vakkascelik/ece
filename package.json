@@ -31,7 +31,8 @@
     "test:e2e": "npm run build && node --env-file-if-exists=.env.local ./node_modules/@playwright/test/cli.js test -c apps/web/playwright.config.ts",
     "test:e2e:ui": "node --env-file-if-exists=.env.local ./node_modules/@playwright/test/cli.js test -c apps/web/playwright.config.ts --ui",
     "check:bundle": "tsx scripts/check-bundle.ts",
-    "drill:restore": "node --env-file-if-exists=.env.local --import tsx scripts/restore-drill.ts"
+    "drill:restore": "node --env-file-if-exists=.env.local --import tsx scripts/restore-drill.ts",
+    "review:security": "node --env-file-if-exists=.env.local --import tsx scripts/security-review.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",

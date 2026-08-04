@@ -104,9 +104,16 @@ medical information to a third party.
 
 ### The pre-wipe backup
 
-`.backups/zelva-pre-wipe-2026-08-04.json` holds the previous occupant of this database: 34
-tables, 6,184 rows, six user accounts and their forum posts. It is gitignored and must stay
-that way. `.gitignore` covers `.backups/`.
+`.backups/zelva-pre-wipe-2026-08-04.json` held the previous occupant of this database: 34
+tables, 6,184 rows, six user accounts and their forum posts. **Deleted 2026-08-04.**
+`.gitignore` still covers `.backups/`, so the next one is also kept out of git.
+
+Two corrections worth keeping. It was described in an earlier session as sitting inside a
+OneDrive folder and therefore as having been copied to Microsoft — **that was wrong.** This
+repository is at `C:\dev\ece`; the OneDrive-synced repository on this machine is a
+different one. The file never left local disk. And the residual risk was not zero for the
+right reason either: gitignoring prevented it reaching git, which is a different guarantee
+from it not existing.
 
 ## See Also
 

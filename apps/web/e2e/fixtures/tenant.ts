@@ -38,12 +38,33 @@ export { TENANT_FILE } from './paths';
 export interface AuditTenant {
   tag: string;
   ownerEmail: string;
+  managerEmail: string;
+  educatorEmail: string;
   parentEmail: string;
   password: string;
+  /**
+   * The user ids, carried rather than looked up. `auth.admin.listUsers` is paginated and
+   * this project already has enough accounts to make "it was on the first page" an
+   * assumption — and an assumption that fails as `undefined.id`, which reads like a bug
+   * in the thing under test rather than in the lookup.
+   */
+  ownerId: string;
+  managerId: string;
+  educatorId: string;
+  parentId: string;
   centreId: string;
   otherCentreId: string;
   childId: string;
   childName: string;
+  /**
+   * A second child at the same centre whom the parent is NOT a guardian of.
+   *
+   * The whole point of the second access boundary: `parent` is a role *inside* a
+   * tenant, so centre-vs-centre isolation says nothing about whether one family can
+   * read another family's child. This is the child that proves it through the app
+   * rather than only in SQL.
+   */
+  otherChildId: string;
   /** Plaintext, so the audit can load the *valid* invitation screen. */
   inviteToken: string;
 }
@@ -103,23 +124,24 @@ export async function seedAuditTenant(): Promise<AuditTenant> {
   const tag = randomBytes(3).toString('hex');
   const password = `Aa1!${randomBytes(12).toString('base64url')}`;
   const ownerEmail = `audit.owner.${tag}@ece.invalid`;
+  const managerEmail = `audit.manager.${tag}@ece.invalid`;
+  const educatorEmail = `audit.educator.${tag}@ece.invalid`;
   const parentEmail = `audit.parent.${tag}@ece.invalid`;
 
-  const owner = await db.auth.admin.createUser({
-    email: ownerEmail,
-    password,
-    email_confirm: true,
-  });
-  if (owner.error) throw new Error(`create owner: ${owner.error.message}`);
-  const parent = await db.auth.admin.createUser({
-    email: parentEmail,
-    password,
-    email_confirm: true,
-  });
-  if (parent.error) throw new Error(`create parent: ${parent.error.message}`);
+  // All four roles, because a capability matrix with four rows tested at two of them is
+  // a matrix nobody has checked. `educator` is the interesting one: it is the only role
+  // that can write daily practice and must not reach the office screens, so it is where
+  // a mis-set capability would be least visible.
+  const makeUser = async (email: string) => {
+    const res = await db.auth.admin.createUser({ email, password, email_confirm: true });
+    if (res.error) throw new Error(`create ${email}: ${res.error.message}`);
+    return res.data.user.id;
+  };
 
-  const ownerId = owner.data.user.id;
-  const parentId = parent.data.user.id;
+  const ownerId = await makeUser(ownerEmail);
+  const managerId = await makeUser(managerEmail);
+  const educatorId = await makeUser(educatorEmail);
+  const parentId = await makeUser(parentEmail);
 
   const centres = must(
     'centres',
@@ -153,6 +175,8 @@ export async function seedAuditTenant(): Promise<AuditTenant> {
         // The second centre exists so /select-centre is reachable. Owner there too,
         // so the switch lands somewhere renderable rather than on /no-access.
         { centre_id: otherCentreId, user_id: ownerId, role: 'owner' },
+        { centre_id: centreId, user_id: managerId, role: 'manager' },
+        { centre_id: centreId, user_id: educatorId, role: 'educator' },
         { centre_id: centreId, user_id: parentId, role: 'parent' },
       ])
       .select('id'),
@@ -248,6 +272,43 @@ export async function seedAuditTenant(): Promise<AuditTenant> {
           response_plan: null,
         },
       ])
+      .select('id'),
+  );
+
+  // A second child at the same centre, with NO link to the parent. The parent must not
+  // be able to reach this record — not from the list, and not by typing the URL. That is
+  // the boundary the RLS suite asserts in SQL and this is the same claim made through the
+  // app, because a policy that holds and a page that leaks are both possible.
+  const otherChild = must(
+    'other child',
+    await db
+      .from('children')
+      .insert({
+        centre_id: centreId,
+        first_name: 'Mereana',
+        last_name: `NotYours-${tag}`,
+        date_of_birth: nzDate(-1200),
+        ethnicities: ['NZ European'],
+      })
+      .select('id')
+      .single(),
+  );
+  const otherChildId = otherChild.id as string;
+
+  // Custody: owner and manager only, never an educator and never a parent — including
+  // the parent it concerns. Seeded so the section has content, because "the page did not
+  // render an empty panel" and "the page did not render the panel" look identical when
+  // there is nothing to put in it.
+  must(
+    'custody_arrangements',
+    await db
+      .from('custody_arrangements')
+      .insert({
+        child_id: childId,
+        detail: 'Collection by the father is not permitted without written agreement.',
+        court_order_reference: `FAM-${tag}`,
+        recorded_by: ownerId,
+      })
       .select('id'),
   );
 
@@ -441,11 +502,18 @@ export async function seedAuditTenant(): Promise<AuditTenant> {
   return {
     tag,
     ownerEmail,
+    managerEmail,
+    educatorEmail,
     parentEmail,
     password,
+    ownerId,
+    managerId,
+    educatorId,
+    parentId,
     centreId,
     otherCentreId,
     childId,
+    otherChildId,
     childName: 'Tāne',
     inviteToken,
   };

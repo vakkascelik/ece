@@ -38,6 +38,13 @@ Nothing here is a bug. They are known gaps with known closures.
   runbook. The substance of both is sound; the citations have not been read.
 - **No screen reader has ever been used on this product.** axe passes on every page, which
   is a floor and not a pass.
+- **No adversarial security testing of any kind.** Sixteen automated checks pass; nobody has
+  attacked it. Auth rate limits and session policy are unread Supabase defaults, and the
+  service-role key has never been rotated.
+- **Four claims this repo made in writing were not true.** Two were about mechanisms the
+  database did not enforce; one was about where a file lived. All four are listed in item 14,
+  because a compliance product that overstates itself is the exact failure this page exists
+  to prevent.
 - Anything asserted about ERO taking over regulation, or the April 2026 criteria
   renumbering, came from an earlier research session in the `salix` repo and has not been
   re-checked here.
@@ -202,6 +209,36 @@ evidence nobody has gathered.
 | **What has never happened** | Anyone using this product with a screen reader, or completing a task with a keyboard alone |
 | **Why it matters** | axe finds somewhere between a third and a half of WCAG failures. It is good at contrast, names, roles and structure. It cannot tell whether a focus order makes sense, whether an error message helps, or whether the ratio banner announces at a useful moment. A green run is a floor |
 | **To close it** | A pass with NVDA or VoiceOver on the daily screens — sign a child in, read a ratio, open a child's allergies — and a keyboard-only pass on the enrolment form |
+
+### 13. Security: sixteen automated checks are not an adversary
+
+| | |
+|---|---|
+| **What exists** | `npm run review:security` — sixteen checks against the live schema, all clean. A 176-assertion RLS suite. A 44-check end-to-end suite covering four roles. No secret in any bundle, no XSS sink, every definer function pinned |
+| **What has never happened** | Any adversarial testing at all. No penetration test, no external review, no attempt to enumerate storage objects or traverse an object path, no attempt to forge a JWT |
+| **Also unread** | Supabase Auth's rate limits, session lifetime, refresh-token rotation and password policy are all defaults that nobody on this project has looked at. The service-role key has never been rotated. The personal access token the migration runner uses is account-wide, which is far more authority than this project needs |
+| **Why it matters** | The checks verify the invariants somebody thought of. Four of the five findings in the Phase 6 review were things nobody had thought of, and each one was found by *running* something rather than by reasoning |
+| **To close it** | Rotate the keys and scope the token. Read the auth settings. Then, before real child data: an external review, or at minimum a deliberate adversarial pass by somebody who did not write this |
+
+### 14. The claims this repo made that were not true
+
+Not a gap in the product — a gap in what the documentation asserted, which is worth its own
+entry because it is the failure mode the whole honesty apparatus is supposed to prevent.
+
+| Claim | Where | Reality |
+|---|---|---|
+| "An issued invoice freezes" | Phase 5 commit, README | The line policy required draft; nothing stopped the status going back to it. Fixed in `0021` |
+| "The audit trigger records every consequential change" | implied throughout | It covered ten tables while the schema had twenty-two. `staff_records` — the licensing evidence — was uncovered. Fixed in `0021` |
+| "The pre-wipe backup sat in OneDrive and was therefore copied to Microsoft" | README, two wiki pages, and said aloud twice | Wrong. This repository is at `C:\dev\ece`, which is not synced; the OneDrive repository is a different one. The file never left local disk. Deleted 2026-08-04 |
+| "Every other `FOR ALL` policy is narrower than its select policy" | Phase 4 commit | True when written, and it was a statement about fourteen hand-read expressions rather than about the design. `0022` removes the shape instead |
+
+**The pattern:** each of these was a claim about a *mechanism* derived from reading the code
+that implements it. The two that were false in substance were caught by asking the database;
+the OneDrive one was caught by running `pwd`. None was caught by review.
+
+**To close it:** nothing to build. The lesson is that a claim about what the product enforces
+belongs next to a test that fails when it stops being true — which is now the case for the
+first two, and is why `review:security` and `test:rls` both assert them.
 
 ## See Also
 

@@ -104,3 +104,56 @@ test('the binder prints as a document, not as the app', async ({ page }) => {
   await expect(page.locator('aside.side')).toBeHidden();
   await expect(page.getByRole('heading', { name: 'Licensing evidence' })).toBeVisible();
 });
+
+test('the security headers are actually on the response', async ({ page }) => {
+  // Found by the Phase 6 security review: there were none. Asserted here because a header
+  // set in middleware cannot be checked any other way — a unit test can prove the string
+  // is built correctly and only a real response proves it arrives.
+  const response = await page.goto('/attendance');
+  const headers = response!.headers();
+
+  const csp = headers['content-security-policy'];
+  expect(csp, 'no CSP on the response').toBeTruthy();
+
+  // The three directives that do the work. `script-src` must carry a nonce and must NOT
+  // carry 'unsafe-inline', which would make the whole directive decorative.
+  expect(csp).toMatch(/script-src [^;]*'nonce-/);
+  expect(csp).not.toMatch(/script-src [^;]*'unsafe-inline'/);
+  // connect-src is what stops an injected script posting a child's record elsewhere.
+  expect(csp).toMatch(/connect-src [^;]*supabase\.co/);
+  expect(csp).toContain("frame-ancestors 'none'");
+  expect(csp).toContain("object-src 'none'");
+
+  expect(headers['x-frame-options']).toBe('DENY');
+  expect(headers['x-content-type-options']).toBe('nosniff');
+  // `same-origin`, not `no-referrer`. Deliberately asserted as an exact value, because
+  // `no-referrer` broke every server action in the app — Next's origin check falls back to
+  // the Referer header, which that policy strips. See lib/securityHeaders.ts.
+  expect(headers['referrer-policy']).toBe('same-origin');
+  expect(headers['permissions-policy']).toContain('camera=()');
+  expect(headers['strict-transport-security']).toContain('max-age=');
+
+  // The nonce must differ per request, or it is a constant with a misleading name.
+  const second = await page.goto('/children');
+  const nonceOf = (h: string) => /'nonce-([^']+)'/.exec(h)?.[1];
+  expect(nonceOf(second!.headers()['content-security-policy'])).not.toBe(nonceOf(csp));
+});
+
+test('the page loads with no CSP violation', async ({ page }) => {
+  // The assertion that matters. A CSP that blocks Next's own streaming scripts produces a
+  // blank page and a console error, on every route at once — so this listens for the
+  // violation rather than trusting that the header looks right.
+  const violations: string[] = [];
+  page.on('console', (msg) => {
+    if (/Content Security Policy|Refused to (load|execute|apply)/i.test(msg.text())) {
+      violations.push(msg.text());
+    }
+  });
+
+  await visit(page, '/attendance');
+  await expect(page.getByRole('heading', { name: 'Attendance' })).toBeVisible();
+  // Interact, so the client bundle has definitely hydrated and run.
+  await expect(page.getByRole('status').first()).toBeVisible();
+
+  expect(violations, `CSP blocked something:\n${violations.join('\n')}`).toEqual([]);
+});

@@ -133,6 +133,16 @@ jobs:
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
 
+      # Sixteen checks against the live schema: RLS enablement, grants (table AND column),
+      # definer search_path, one permissive read path per table, audit coverage, storage
+      # privacy, and that an issued invoice cannot be edited. Fails on critical or high;
+      # medium and low are printed for a human, because a gate that fires on an advisory
+      # is a gate somebody turns off.
+      - name: Security review
+        run: npm run review:security
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+
   # End-to-end and the WCAG 2.2 AA audit. Its own job because it needs a browser, a
   # production build and the service-role key — it creates a throwaway tenant, audits
   # every screen with data in it, and drops the tenant on the way out even if it failed.

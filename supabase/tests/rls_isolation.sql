@@ -1938,6 +1938,212 @@ begin
   perform pg_temp.expect(not allowed, 'anon CANNOT execute member_email');
 end $$;
 
+-- ---------------------------------------------------------------------------
+-- 0021: an issued invoice freezes, and the audit log keeps up with the schema
+--
+-- Both of these were CLAIMED before they were true. The README said an issued invoice
+-- freezes; the line policy required draft, and nothing stopped the status going back to
+-- it. And the audit trigger covered ten tables while the schema had grown to
+-- twenty-two, so a police vetting expiry date could be edited with no trace.
+--
+-- These assertions exist because both failures were invisible: the code read correctly
+-- in each case. The only thing that could have caught them was asking the database.
+-- ---------------------------------------------------------------------------
+
+set local role postgres;
+
+-- A guardian and an invoice at centre A, so Alice (owner of A) can act on it.
+insert into public.guardians (id, centre_id, full_name)
+values ('44444444-4444-4444-8444-444444444444', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Invoice Recipient');
+
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+
+insert into public.invoices (id, centre_id, guardian_id, reference, status, period_from, period_to)
+values ('55555555-5555-4555-8555-555555555555', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        '44444444-4444-4444-8444-444444444444', 'RLS-FREEZE-1', 'draft',
+        current_date, current_date);
+
+-- A line, while it is still a draft. This must work — the freeze is about *after* issue.
+insert into public.invoice_lines (invoice_id, description, quantity, unit_cents)
+values ('55555555-5555-4555-8555-555555555555', 'Five days', 5, 5000);
+
+select pg_temp.expect(
+  (select count(*) from public.invoice_lines
+    where invoice_id = '55555555-5555-4555-8555-555555555555') = 1,
+  'a line can be added to a DRAFT invoice'
+);
+
+update public.invoices set status = 'issued', issued_at = now()
+ where id = '55555555-5555-4555-8555-555555555555';
+
+-- 1. The line policy. This was the half that already worked.
+do $$
+declare blocked boolean := false;
+begin
+  begin
+    update public.invoice_lines set unit_cents = 1
+     where invoice_id = '55555555-5555-4555-8555-555555555555';
+    -- The policy filters the row out rather than raising, so zero rows updated is the
+    -- refusal. Checking the value, not the row count, because a silent no-op and a
+    -- successful edit look identical from the client.
+    blocked := (select unit_cents from public.invoice_lines
+                 where invoice_id = '55555555-5555-4555-8555-555555555555') = 5000;
+  exception when insufficient_privilege or check_violation then
+    blocked := true;
+  end;
+  perform pg_temp.expect(blocked, 'a line CANNOT be changed once the invoice is ISSUED');
+end $$;
+
+-- 2. The half that did not. Reverting to draft would have re-opened the lines.
+do $$
+declare blocked boolean := false;
+begin
+  begin
+    update public.invoices set status = 'draft'
+     where id = '55555555-5555-4555-8555-555555555555';
+  exception when check_violation then
+    blocked := true;
+  end;
+  perform pg_temp.expect(blocked, 'an ISSUED invoice CANNOT be returned to draft');
+end $$;
+
+-- 3. The identifying facts. A changed reference after issue means a family holds a
+--    document that no longer matches the one in the system, and `payments` is
+--    append-only, so a receipt already recorded cannot follow it.
+do $$
+declare blocked boolean := false;
+begin
+  begin
+    update public.invoices set reference = 'RLS-FREEZE-CHANGED'
+     where id = '55555555-5555-4555-8555-555555555555';
+  exception when check_violation then
+    blocked := true;
+  end;
+  perform pg_temp.expect(blocked, 'an ISSUED invoice CANNOT have its reference changed');
+end $$;
+
+do $$
+declare blocked boolean := false;
+begin
+  begin
+    update public.invoices set period_to = current_date + 30
+     where id = '55555555-5555-4555-8555-555555555555';
+  exception when check_violation then
+    blocked := true;
+  end;
+  perform pg_temp.expect(blocked, 'an ISSUED invoice CANNOT have its period changed');
+end $$;
+
+-- 4. And an ordinary edit still has to work, or the rule is just breakage.
+update public.invoices set note = 'phoned about this one'
+ where id = '55555555-5555-4555-8555-555555555555';
+select pg_temp.expect(
+  (select note from public.invoices where id = '55555555-5555-4555-8555-555555555555')
+    = 'phoned about this one',
+  'an ISSUED invoice can still take a note'
+);
+
+-- 5. Void is terminal. Reinstating one puts a reference a family was told is void back
+--    into circulation.
+update public.invoices
+   set status = 'void', voided_at = now(), void_reason = 'wrong period'
+ where id = '55555555-5555-4555-8555-555555555555';
+
+do $$
+declare blocked boolean := false;
+begin
+  begin
+    update public.invoices set status = 'issued'
+     where id = '55555555-5555-4555-8555-555555555555';
+  exception when check_violation then
+    blocked := true;
+  end;
+  perform pg_temp.expect(blocked, 'a VOID invoice CANNOT be reinstated');
+end $$;
+
+-- 6. Every one of those operations is in the audit log, and the count is exact.
+--    insert + issue + note + void = 4. If the reversion or the reference change had
+--    succeeded there would be more, so this assertion is a second, independent check on
+--    all of the above.
+select pg_temp.expect(
+  (select count(*) from public.audit_events
+    where entity = 'invoices'
+      and entity_id = '55555555-5555-4555-8555-555555555555') = 4,
+  'the audit log holds exactly the four permitted invoice operations'
+);
+
+-- 7. And it records column NAMES, never values. The whole retention design rests on
+--    this: it is why a child can be purged while the evidence survives.
+select pg_temp.expect(
+  not exists (
+    select 1 from public.audit_events
+     where entity = 'invoices'
+       and entity_id = '55555555-5555-4555-8555-555555555555'
+       and detail::text like '%phoned about this one%'
+  ),
+  'the audit log records which columns changed and NOT what they changed to'
+);
+
+select pg_temp.expect(
+  exists (
+    select 1 from public.audit_events
+     where entity = 'invoices'
+       and entity_id = '55555555-5555-4555-8555-555555555555'
+       and detail -> 'changed' ? 'note'
+  ),
+  'the audit log names the column that changed'
+);
+
+-- ---------------------------------------------------------------------------
+-- Audit coverage, as a rule rather than as twelve separate assertions.
+--
+-- This is the assertion that would have caught the original gap. Any future table that
+-- holds consequential state and is not append-only must carry the trigger, and this
+-- fails when somebody adds one without it — which is exactly what happened three
+-- phases running.
+-- ---------------------------------------------------------------------------
+
+set local role postgres;
+
+do $$
+declare
+  missing text[];
+begin
+  select array_agg(c.relname order by c.relname) into missing
+    from pg_class c
+    join pg_namespace n on n.oid = c.relnamespace
+   where n.nspname = 'public'
+     and c.relkind = 'r'
+     -- Append-only tables: the row is its own record, so an audit row would describe an
+     -- insert that can never be followed by an edit. Reasoning from 0005.
+     and c.relname not in ('attendance_events', 'staff_count_events', 'consent_events',
+                           'messages', 'payments', 'audit_events')
+     -- Reference data, and settings that belong to a person rather than a centre — the
+     -- trigger could not attribute them to a tenant even if it fired.
+     and c.relname not in ('criteria', 'criteria_sets', 'schema_migrations',
+                           'push_tokens', 'notification_preferences', 'notifications',
+                           'invitations')
+     and not exists (
+       select 1 from pg_trigger t
+        where t.tgrelid = c.oid
+          and not t.tgisinternal
+          and t.tgname = c.relname || '_audit'
+     );
+
+  perform pg_temp.expect(
+    missing is null,
+    'every table that should carry the audit trigger has it'
+      || coalesce(' — MISSING: ' || array_to_string(missing, ', '), '')
+  );
+end $$;
+
+-- schema_migrations is deny-by-default rather than relying on nobody having granted it.
+select pg_temp.expect(
+  (select relrowsecurity from pg_class where oid = 'public.schema_migrations'::regclass),
+  'schema_migrations has RLS enabled, so it does not depend on an absent grant'
+);
+
 set local role postgres;
 select pg_temp.expect(true, 'ALL RLS ISOLATION CHECKS PASSED');
 

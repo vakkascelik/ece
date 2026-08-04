@@ -49,6 +49,11 @@ and [`../schema.md`](../schema.md) for the page template.
   accessibility audit of an empty page is worth, and why a restore drill has to be
   mutation-tested
 
+## Security
+
+- [[security-review]] — sixteen checks written as SQL against the live schema, the four
+  findings they turned up, and the four false positives the review made about itself
+
 ## Conventions
 
 - [[conventions]] — migrations, timezones, PostgREST traps, testing, tokens, and the versions

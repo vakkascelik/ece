@@ -78,11 +78,17 @@ An extract of this database is every child's name, date of birth, allergies and
 medication in one file. The drill therefore writes to a system temp directory and deletes
 it at the end. `--keep` and `--out` both print a warning naming the directory.
 
-This rule exists because it was already broken once. `.backups/zelva-pre-wipe-2026-08-04.json`
-— 2.4 MB, 34 tables, six user accounts and their posts, from the unrelated application
-this database used to host — sat inside a OneDrive folder, which means it was copied to
-Microsoft. It is gitignored, which prevented the smaller mistake and not the larger one.
-**Delete it or move it off OneDrive.**
+This rule exists because it was nearly broken once. `.backups/zelva-pre-wipe-2026-08-04.json`
+— 2.4 MB, 34 tables, six user accounts and their posts, from the unrelated application this
+database used to host — sat in the repository working tree for two weeks. It was gitignored,
+so it never reached git, and this repository lives at `C:\dev\ece` rather than inside a
+synced folder, so it never reached a cloud either. **Deleted 2026-08-04.**
+
+An earlier version of this paragraph claimed the file was inside OneDrive and had therefore
+been copied to Microsoft. That was wrong — the *other* repository on this machine is the one
+in OneDrive. The claim is corrected rather than removed, because "we thought data had left
+the machine and it had not" is exactly the kind of thing a runbook should record it got
+wrong.
 
 ## Restoring, for real
 

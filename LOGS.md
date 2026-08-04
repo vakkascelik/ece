@@ -305,12 +305,71 @@ questionnaire drafted from the schema rather than typed into a web form at midni
 entries on the unverified register: two legal citations, and the fact that **no screen reader
 has ever been used on this product**.
 
+### Security review and the four-role path audit (`pending`)
+
+The Zelva pre-wipe dump is deleted. And a correction that matters more than the deletion: it was
+described here and in two other places as sitting inside OneDrive and therefore as having been copied
+to Microsoft. **That was wrong.** This repository is at `C:\dev\ece`, which is not synced; the
+OneDrive repository on this machine is a different one. The file never left local disk. Corrected in
+both documents rather than quietly removed, because "we believed data had left the machine and it had
+not" is exactly what a runbook should record it got wrong.
+
+**Every route, every role.** `roles.spec.ts` walks all eleven authenticated routes as owner, manager,
+educator and parent against a table that states each route's guard, and asserts each either renders or
+redirects. A four-row matrix tested at two rows is a matrix nobody has checked — `educator` is the row
+where a mistake is least visible, since it needs real access to the daily screens and must reach no
+office screen. Mutation-tested: widening `manageMembers` to include `educator` fails both the route
+check and the navigation check.
+
+Plus the second boundary, proved through the app rather than only in SQL: a parent cannot open a child
+who is not theirs **even by URL**, an educator sees an anaphylaxis plan but not a custody order, a
+forged `ece_centre` cookie does not open a centre the caller has no membership in, and revoking a
+membership ends access on the next request.
+
+**The security review is sixteen SQL checks against the live schema**, not a reading of the
+migrations — which is the only reason any of it surfaced, because in each finding the code said the
+right thing and the database did not enforce it.
+
+An **issued invoice did not freeze**, though the README said it did. The line policy required
+`status = 'draft'`; nothing required the status to stay put, and `invoices.status` carries a column
+UPDATE grant because an owner must be able to issue one. Back to draft, edit the line, re-issue: three
+ordinary statements, and no audit trigger on `invoices` to record it. A CHECK could not fix it — a
+CHECK sees one row and cannot see the row it replaced.
+
+The **audit log stopped keeping up with the schema in April**. Ten tables covered, twenty-two existing.
+The serious one was `staff_records`, the table that *is* the licensing evidence: an expiry date could
+be edited or a "sighted by" cleared with no trace, and a centre could have handed a reviewer a binder
+assembled from records that had been quietly adjusted. A missing audit row looks exactly like a quiet
+day, which is why nothing surfaced it.
+
+**There were no security headers at all**, and fixing that broke every write in the application.
+`Referrer-Policy: no-referrer` was correct reasoning — these URLs carry child UUIDs — and Next's
+server-action origin check falls back to `Referer` when `Origin` is absent, so it parsed the string
+"null". Every server action is a write: the roll rendered, the ratio rendered, and signing a child in
+did nothing. `typecheck`, `lint` and `build` were all clean. `same-origin` keeps the privacy property
+and the header Next needs.
+
+**Fourteen tables carried the shape that produced the Phase 4 consent leak** — an `x_select` policy
+plus an `x_write` policy declared `FOR ALL`. All fourteen were narrow, so nothing was leaking, which
+is luck about how they were written rather than a property of the design. 0022 splits them so adding a
+write policy can no longer widen a read, copying the expressions out of the catalogue rather than
+re-typing fourteen predicates. 0023 drops the six policies the split created for verbs that are
+deliberately not granted: a policy is a statement about what is allowed, and if the answer is never,
+the absence is the design.
+
+**Four of the review's own first findings were false**, all from reading `role_table_grants`, which
+shows table-level grants only — while this schema does most of its write control with column-level
+grants, because a policy restricts rows and only a grant can restrict columns. It called an
+unreachable table CRITICAL and nine working features broken. A review that cries critical at something
+nobody can reach trains its reader to skim, so severity is now a function of reachability.
+
 ### Where the day ended
 
 
-164/164 RLS assertions, 156 unit tests, 30/30 end-to-end and accessibility checks, a 4/4
-restore drill over 34 tables, 20 migrations, lint, tokens, doc links and performance budgets
-clean, both apps building (mobile at 773 modules).
+
+176/176 RLS assertions, 156 unit tests, 44/44 end-to-end checks across four roles, 16/16
+security checks against the live schema, a 4/4 mutation-tested restore drill over 34 tables,
+23 migrations, lint, tokens, doc links and performance budgets clean, both apps building.
 Seven things now need a person rather than more code: **set the GitHub secrets so CI can actually
 run** (every result above is local, on one machine, at a moment I chose), **import a checked criteria
 set**, **verify the ratio bands against Schedule 2**, **verify the funding caps**, **get an EAS build**

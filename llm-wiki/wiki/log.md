@@ -117,4 +117,24 @@ comparison; a character appended to a free-text column loaded successfully and t
 comparison, naming the table — one character, one column, one row, out of 485. Without the second
 mutation the comparison might have been comparing something with itself.
 
+2026-08-04 — Added [[security-review]]. Sixteen checks written as SQL against the live schema rather
+than as a reading of the migrations, which is the only reason four findings surfaced: in every one the
+code said the right thing and the database did not enforce it. An issued invoice did not freeze though
+the README said it did; the audit trigger had covered ten tables since April while the schema grew to
+twenty-two, `staff_records` among the uncovered; there were no security headers at all; and fourteen
+tables still carried the `FOR ALL` shape that produced the Phase 4 consent leak.
+
+2026-08-04 — Recorded that fixing the missing security headers **broke every write in the
+application**. `Referrer-Policy: no-referrer` was correct reasoning — these URLs carry child UUIDs —
+and Next's server-action origin check falls back to `Referer` when `Origin` is absent, so it parsed the
+string "null". Every server action is a write, so the roll rendered and signing a child in did
+nothing, with typecheck, lint and build all clean. Kept as a worked example of a security control that
+fails by disabling the product rather than by permitting something.
+
+2026-08-04 — Recorded in [[unverified-claims]] as item 14 the four claims this repo made in writing
+that were not true, including one about where a file lived that was wrong for two weeks. The pattern:
+each was a claim about a mechanism derived from reading the code that implements it. Two were caught by
+asking the database and one by running `pwd`; none was caught by review. A claim about what the product
+enforces now belongs next to a test that fails when it stops being true.
+
 *Log last updated: 2026-08-04*
