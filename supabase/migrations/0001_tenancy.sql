@@ -132,11 +132,70 @@ create policy memberships_select on public.memberships
 -- Only owners and managers change who has access, and only within their centre.
 -- The WITH CHECK matters as much as the USING: without it a manager could move
 -- a membership row to a centre they do not administer.
-drop policy if exists memberships_write on public.memberships;
-create policy memberships_write on public.memberships
-  for all
+--
+-- UPDATE only, not FOR ALL. Creating a membership requires creating or looking up
+-- an auth user, which needs the service role, so it is an onboarding flow rather
+-- than something an authenticated client does — and removal is a revocation,
+-- which is an UPDATE. A FOR ALL policy here would advertise an INSERT path that
+-- the grants below deliberately do not open.
+drop policy if exists memberships_write  on public.memberships;
+drop policy if exists memberships_update on public.memberships;
+create policy memberships_update on public.memberships
+  for update
   using (public.caller_has_role(centre_id, array['owner', 'manager']::public.member_role[]))
   with check (public.caller_has_role(centre_id, array['owner', 'manager']::public.member_role[]));
+
+-- ---------------------------------------------------------------------------
+-- Privileges
+-- ---------------------------------------------------------------------------
+--
+-- RLS is not the first check, it is the second. Postgres tests the table
+-- privilege first and only then applies policies, so a table with perfect
+-- policies and no GRANT returns "permission denied for table x" to every real
+-- caller — and a table with a GRANT and no policy returns everything.
+--
+-- These were originally left implicit, relying on the ALTER DEFAULT PRIVILEGES a
+-- stock Supabase project ships with. That is a bad dependency for the tables that
+-- ARE the tenant boundary: it is ambient, it is invisible in this file, and it
+-- disappears the moment the schema is recreated. Which is how it was found —
+-- `drop schema public cascade` took the default ACLs with it and every policy in
+-- this file became unreachable.
+--
+-- So they are explicit, and column-scoped where the column list is meaningfully
+-- shorter than the table.
+
+-- Schema-level reach. A stock Supabase project already has this, so it is here
+-- for self-containment rather than because it is missing: these migrations should
+-- produce a working database from `create schema public` alone, with nothing
+-- inherited from how the project happened to be set up.
+grant usage on schema public to anon, authenticated, service_role;
+
+-- anon is the pre-login identity. It has no business with any of this.
+revoke all on public.centres     from anon;
+revoke all on public.memberships from anon;
+
+grant select on public.centres to authenticated;
+-- Not `grant update` wholesale: `slug` appears in URLs and `archived_at`
+-- decommissions a centre. Both are operator actions, and neither belongs to a
+-- form an owner can reach. The centres_update policy restricts which ROWS; this
+-- restricts which COLUMNS, which a policy cannot express.
+grant update (name, moe_service_number, timezone) on public.centres to authenticated;
+
+grant select on public.memberships to authenticated;
+-- Role changes and revocations, nothing else. Withholding UPDATE on centre_id
+-- and user_id makes "move this membership to another centre" impossible to
+-- express rather than merely refused — the WITH CHECK above would catch it; this
+-- means the attempt never reaches the policy.
+grant update (role, revoked_at) on public.memberships to authenticated;
+
+-- service_role is the onboarding and scheduled-job identity. It bypasses RLS, so
+-- it is not constrained by any policy above — but bypassing RLS is not the same as
+-- holding a grant, and it needs these stated too. Creating a centre and attaching
+-- its first owner is the one operation the product cannot perform on itself, and
+-- without these lines `scripts/onboard.ts` fails with "permission denied for
+-- table centres", which reads like a bug in the script.
+grant all on public.centres     to service_role;
+grant all on public.memberships to service_role;
 
 -- ---------------------------------------------------------------------------
 -- Convention for every future tenant-scoped table
@@ -152,8 +211,17 @@ create policy memberships_write on public.memberships
 --   create policy <thing>_rw on public.<thing>
 --     for all using (centre_id in (select public.caller_centre_ids()))
 --             with check (centre_id in (select public.caller_centre_ids()));
+--   revoke all on public.<thing> from anon;
+--   grant select, insert, update, delete on public.<thing> to authenticated;
 --
--- Both halves are required. USING controls which rows are visible; WITH CHECK
--- controls which rows may be written. A policy with only USING lets a caller
--- insert a row belonging to a centre they cannot read — silent cross-tenant
--- write, invisible in testing because the row promptly disappears from view.
+-- Both halves of the policy are required. USING controls which rows are visible;
+-- WITH CHECK controls which rows may be written. A policy with only USING lets a
+-- caller insert a row belonging to a centre they cannot read — silent
+-- cross-tenant write, invisible in testing because the row promptly disappears
+-- from view.
+--
+-- The GRANT line is not boilerplate to skip, and it is not boilerplate to paste
+-- unread either. Without it the table is unreadable by every real caller; wider
+-- than the policies contemplate and it is writable in ways nothing checks. Grant
+-- only the verbs the product performs, and add an assertion to
+-- `supabase/tests/rls_isolation.sql` in the same commit.

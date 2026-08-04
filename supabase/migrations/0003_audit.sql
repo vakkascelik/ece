@@ -57,6 +57,42 @@ create policy audit_insert on public.audit_events
 -- enforcement, not an oversight. Correcting a mistaken entry means appending a
 -- correcting entry.
 
+-- ---------------------------------------------------------------------------
+-- Privileges
+-- ---------------------------------------------------------------------------
+--
+-- Postgres checks the table privilege before it applies any policy, so these are
+-- required for the policies above to be reachable at all — see the note in 0001.
+--
+-- Here the grant list does more than enable the policies: withholding UPDATE and
+-- DELETE makes append-only true at the privilege layer as well as the policy
+-- layer. Two independent mechanisms, which matters because the value of this
+-- table is entirely in the claim that nobody can quietly edit it — and because
+-- somebody will eventually add a policy to this file without reading the comment
+-- explaining why there isn't one.
+revoke all on public.audit_events from anon, authenticated, service_role;
+grant select, insert on public.audit_events to authenticated;
+
+-- service_role bypasses RLS but not grants, so it is listed explicitly — and
+-- deliberately gets the same two verbs as everybody else.
+--
+-- This is a real choice, not an oversight. The service key is otherwise the thing
+-- that defeats every protection in this schema: it can read every centre's
+-- children in one query. It does not have to be able to rewrite the record of
+-- what it did. Withholding UPDATE and DELETE here means the only credential that
+-- can alter this table is the database owner, which is not in any application's
+-- environment. That is the difference between a log and evidence.
+--
+-- If a future scheduled job needs to prune old audit rows for retention, it needs
+-- a migration granting DELETE with a stated retention window — a deliberate,
+-- reviewable act rather than a capability that was always quietly there.
+grant select, insert on public.audit_events to service_role;
+
+-- bigserial: INSERT also needs the sequence, and the failure without it reads as
+-- "permission denied for sequence audit_events_id_seq", which does not obviously
+-- point back to this line.
+grant usage on sequence public.audit_events_id_seq to authenticated, service_role;
+
 /**
  * Helper so application code records an event in one line and cannot forget the
  * actor or the centre.

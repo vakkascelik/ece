@@ -16,9 +16,34 @@ npm install
 npm run dev:web        # http://localhost:3000
 npm run dev:mobile     # Expo
 npm run typecheck      # all four workspaces
+npm run test:rls       # tenant isolation — 32 assertions
+npm run onboard        # create a centre and its first owner (see below)
 ```
 
 Copy `.env.example` to `.env.local` first.
+
+## `npm run test:rls` is the test that matters
+
+Tenant separation is enforced by policy, and until something asserts it, it is a
+claim. [`supabase/tests/rls_isolation.sql`](supabase/tests/rls_isolation.sql)
+creates two centres with a member each and proves, from both directions, that
+neither can read or write the other's rows — plus that the audit log cannot be
+forged, altered or deleted by anyone including `service_role`.
+
+It is one self-contained script ending in `ROLLBACK`, so it needs no Docker, no
+pgTAP and no local Postgres, and is safe to point at a live project. Impersonation
+is `set local role authenticated` plus a `request.jwt.claims` blob, which is
+exactly what PostgREST does per request.
+
+**The first time it was ever executed it failed three times in a row, each on a
+real bug** — a view no authenticated caller could read, and two tables whose
+policies were unreachable for want of a `GRANT`. All three were invisible to
+`typecheck`, to `next build`, and to reading the migrations. Add an assertion here
+in the same commit as any new table.
+
+Run it against a bare `create schema public` to check the migrations are still
+self-contained; they are not allowed to depend on how a project happened to be
+set up.
 
 ---
 
@@ -54,6 +79,37 @@ Adding a table? Copy the convention at the bottom of
 `WITH CHECK` are required: `USING` alone lets a caller insert rows into a centre
 they cannot read, and the row then vanishes from their own view, so the bug is
 invisible in testing.
+
+## RLS is the second check, not the first
+
+Postgres tests the table privilege before it evaluates any policy. So there are
+two layers, and they fail in opposite directions:
+
+- **No `GRANT`** → `permission denied for table x` for every real caller. The
+  policies are perfect and unreachable.
+- **`GRANT` wider than the policies contemplate** → writes nothing checks.
+
+Both migrations therefore state their grants explicitly, including for
+`service_role`, rather than relying on the `ALTER DEFAULT PRIVILEGES` a stock
+Supabase project ships with. That dependency is invisible in the migration files
+and disappears the moment the schema is recreated — which is exactly how it was
+found: `drop schema public cascade` took the default ACLs with it and every
+policy in `0001` became unreachable at once.
+
+Two places where the grant does work a policy cannot:
+
+- **Column-scoped grants.** A policy restricts which *rows*; only a grant
+  restricts which *columns*. An owner may change their centre's name and Ministry
+  number, but not its `slug` (it appears in URLs) or `archived_at`. A member's
+  `role` and `revoked_at` are updatable; `centre_id` and `user_id` are not, which
+  makes "move this membership to another centre" impossible to express rather
+  than merely refused.
+- **`audit_events` withholds UPDATE and DELETE from everybody**, including
+  `service_role`. The service key otherwise defeats every protection in this
+  schema — it can read every centre's children in one query. It does not also
+  have to be able to rewrite the record of what it did. The only credential that
+  can alter that table is the database owner, which is in no application's
+  environment. That is the difference between a log and evidence.
 
 ## The service-role key is the one thing that breaks all of this
 
@@ -119,9 +175,52 @@ centre with no owner cannot be administered by anyone, including nobody who can
 promote a replacement, so it needs service-role intervention to recover. Both
 paths check `countOwners` first.
 
-**Invitations are deliberately not built.** Adding a person needs the
-service-role key, so it is a server-side flow rather than a form — and the
-self-serve version is how a stranger joins a centre.
+**Onboarding is a script, not a screen.** There is no INSERT policy on `centres`
+and no INSERT grant on `memberships`, so a signed-in user cannot create a tenant
+or add themselves to one. `npm run onboard` does it with the service role:
+
+```bash
+npm run onboard -- --name "Little Pearls Mt Albert" \
+                   --slug little-pearls-mt-albert \
+                   --owner manager@example.co.nz
+# second site for the same person — "already registered" is a normal path
+npm run onboard -- --name "Little Pearls Mt Roskill" \
+                   --slug little-pearls-mt-roskill \
+                   --owner manager@example.co.nz
+```
+
+It never sets or prints a password; it issues a single-use link and the person
+chooses their own. It uses `generateLink` rather than `inviteUserByEmail` because
+that returns the user id directly (there is no admin get-user-by-email, and
+`listUsers` is a paginated search that returned a bare 500 on this project) and
+because it does not require SMTP to be configured.
+
+**An in-app invitation flow is still not built.** That is a separate thing from
+the script above: it needs single-use tokens with expiry, because the self-serve
+version of "add a person" is how a stranger joins a centre.
+
+## The database
+
+Supabase project `qdgforljvddgrxxymtug`, Postgres 17.6. It previously held an
+unrelated application ("Zelva" — halal food scanning, Shariah stock screening,
+zakat calculation, a community forum) which was dormant and is not coming back.
+The `public` schema was dropped and rebuilt from these migrations.
+
+Two things to know about that:
+
+- **A pre-wipe backup exists** at `.backups/zelva-pre-wipe-2026-08-04.json` — 34
+  tables, 6,184 rows, mostly curated reference data. It is gitignored and must
+  stay that way: it contains user emails and forum posts, i.e. personal data.
+- **`auth.users` was not touched**, and still holds six accounts from that
+  project. They were left deliberately: deleting an account is the most
+  destructive operation available here, the backup captured ids and emails but
+  not password hashes, and a stale account is harmless — it signs in and lands on
+  `/no-access` with no membership. Worth clearing before this database sees real
+  centres, as a separate deliberate act.
+
+Auth config was repointed off Zelva's Railway domain, and `disable_signup` is on:
+nobody self-registers into this product, and an account with no membership is a
+dead end.
 
 ## Decisions made while building this
 
@@ -145,10 +244,29 @@ it. The roster and settings forms use `useActionState` — worth it, because "th
 is the only owner" is the difference between a refused click and an unreachable
 centre.
 
-**`centre_members` view uses `security_invoker = on`.** A Postgres view runs as
-its owner by default, which for a view over `memberships` would return every
-membership in the database to any caller — the whole tenant boundary defeated by
-a helper written to display an email address.
+**`centre_members` needs two objects, not one view.** A view runs as its owner by
+default, which over `memberships` returns every membership in the database to any
+caller — the whole tenant boundary defeated by a helper written to display an
+email address. So it declares `security_invoker = on`.
+
+That alone does not work, and the first run of the RLS suite is what proved it:
+with `security_invoker` the join to `auth.users` also runs as the caller, who has
+no privilege there, so the view threw `42501` for everybody. Supabase's hint is
+`GRANT SELECT ON auth.users TO authenticated` — which fixes the error by handing
+every authenticated caller every email in the project.
+
+The two requirements genuinely conflict: rows must be filtered as the *caller*, so
+RLS is the boundary; the email must be read as the *owner*, because the caller has
+no privilege on `auth.users` and must not be given one. So the single privileged
+read is pushed into `member_email(uuid)`, a `security definer` function narrow
+enough to audit in one screen, which re-checks the caller's membership itself
+rather than trusting its call site — PostgREST exposes every public function over
+RPC, so it is reachable without going through the view.
+
+The alternative — a view without `security_invoker` filtering on
+`caller_centre_ids()` in its own `WHERE` clause — also works and is worse: the
+tenant boundary would then live in a `WHERE` clause somebody can delete while
+simplifying a query, instead of in a policy.
 
 ## Open questions
 

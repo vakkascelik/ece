@@ -6,6 +6,10 @@ build/
 .expo/
 *.tsbuildinfo
 
+# database backups — contain user emails and user-generated content, i.e.
+# personal data. Never commit them.
+.backups/
+
 # secrets — the service-role key bypasses RLS, which is the only thing
 # separating one centre's children from another's
 .env

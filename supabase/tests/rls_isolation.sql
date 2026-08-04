@@ -18,13 +18,35 @@
 -- per request, so `set local role authenticated` plus a claims blob reproduces a
 -- real authenticated call without needing a JWT or a network round trip.
 --
+-- Results are collected into a table AND raised as notices, because the two
+-- transports show different things: psql prints notices, the Management API
+-- returns rows. A failure raises, which aborts the transaction and loses the
+-- table — that is fine, the exception message names the assertion that failed.
+--
 -- Run:  npm run test:rls
 
 begin;
 
+create temporary table results (
+  seq   serial primary key,
+  ok    boolean not null,
+  label text    not null
+) on commit drop;
+
+-- The harness records results while impersonating `authenticated` and `anon`, and
+-- this table is owned by postgres — so without these it fails with exactly the
+-- error class the suite exists to catch, which is funny once.
+--
+-- Wide on purpose: this is scaffolding inside a transaction that always rolls
+-- back, not product surface. Do not copy the shape of these two lines into a
+-- migration.
+grant insert on results to authenticated, anon, service_role;
+grant usage  on sequence results_seq_seq to authenticated, anon, service_role;
+
 create or replace function pg_temp.expect(condition boolean, label text)
 returns void language plpgsql as $$
 begin
+  insert into results (ok, label) values (coalesce(condition, false), label);
   if condition then
     raise notice 'PASS  %', label;
   else
@@ -79,13 +101,49 @@ select pg_temp.expect(
   'alice CANNOT READ centre B memberships'
 );
 
--- The view is the sharper test: a Postgres view runs as its OWNER unless
--- declared security_invoker, which would return every membership in the
--- database to any caller. This asserts 0002 got that right.
+-- ---------------------------------------------------------------------------
+-- The centre_members view and the privileged email lookup behind it.
+--
+-- The negative assertion alone is not enough here: a view that is broken and
+-- returns nothing to anybody satisfies it perfectly. The first run of this suite
+-- proved that in the least ambiguous way available — the view threw 42501
+-- because security_invoker made the auth.users join run as the caller. So the
+-- positive case is asserted too, and on the email specifically, because that
+-- column is the only reason the view exists.
+-- ---------------------------------------------------------------------------
+
+select pg_temp.expect(
+  (select count(*) from public.centre_members
+    where centre_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') = 1,
+  'centre_members returns alice her own membership'
+);
+
+select pg_temp.expect(
+  (select member_email from public.centre_members
+    where user_id = '11111111-1111-4111-8111-111111111111') = 'alice@rlstest.invalid',
+  'centre_members resolves the email (member_email is reachable by a real caller)'
+);
+
+-- A Postgres view runs as its OWNER unless declared security_invoker, which
+-- would return every membership in the database to any caller. This asserts 0002
+-- got that right.
 select pg_temp.expect(
   (select count(*) from public.centre_members
     where centre_id = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb') = 0,
   'centre_members view respects RLS (security_invoker is on)'
+);
+
+-- member_email is security definer and PostgREST exposes it over RPC, so it is
+-- reachable without going through the view. Its own membership check is
+-- therefore the access control, not a second line of defence.
+select pg_temp.expect(
+  public.member_email('22222222-2222-4222-8222-222222222222') is null,
+  'member_email REFUSES the email of a user in another centre'
+);
+
+select pg_temp.expect(
+  public.member_email('11111111-1111-4111-8111-111111111111') = 'alice@rlstest.invalid',
+  'member_email returns the email of a user the caller shares a centre with'
 );
 
 -- ---------------------------------------------------------------------------
@@ -106,6 +164,65 @@ begin
     wrote := false;
   end;
   perform pg_temp.expect(not wrote, 'alice CANNOT WRITE a membership into centre B');
+end $$;
+
+-- The one above is refused at the privilege layer, because 0001 grants no INSERT
+-- on memberships to anyone (membership creation is a service-role onboarding
+-- flow). So it does not exercise WITH CHECK. This does: UPDATE is granted, so the
+-- request reaches the policy, and the policy filters the row out — which is zero
+-- rows affected rather than an error.
+do $$
+declare n integer;
+begin
+  update public.memberships set role = 'parent'
+   where centre_id = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+  get diagnostics n = row_count;
+  perform pg_temp.expect(n = 0, 'alice CANNOT UPDATE a membership in centre B');
+end $$;
+
+-- Column-level grants, asserted separately from the policies because they are a
+-- different mechanism and regress independently — someone writing `grant update
+-- on public.memberships` while fixing an unrelated permission error would widen
+-- both of these and break no test that checks only rows.
+--
+-- The sqlstate is put in the label so a failure says which layer gave way:
+-- 42501 is the privilege refusal we want; 23514 would mean the column grant is
+-- gone and only WITH CHECK is left holding it.
+do $$
+declare code text := 'none (the update SUCCEEDED)';
+begin
+  begin
+    update public.memberships set centre_id = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
+     where user_id = '11111111-1111-4111-8111-111111111111';
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '42501',
+    'alice cannot express moving a membership between centres, got ' || code);
+end $$;
+
+do $$
+declare code text := 'none (the update SUCCEEDED)';
+begin
+  begin
+    -- Her own centre, so the row passes centres_update. Only the column grant
+    -- stands between an owner and rewriting the slug that appears in URLs.
+    update public.centres set slug = 'rls-test-hijacked'
+     where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '42501',
+    'an owner cannot rewrite their centre slug, got ' || code);
+end $$;
+
+-- And the granted columns must actually work, or the roster and settings screens
+-- are broken in a way no negative assertion above would notice.
+do $$
+declare n integer;
+begin
+  update public.centres set name = 'Renamed By Owner'
+   where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  get diagnostics n = row_count;
+  perform pg_temp.expect(n = 1, 'an owner CAN rename their own centre');
 end $$;
 
 do $$
@@ -152,6 +269,13 @@ select pg_temp.expect(
   'bob CAN read his own centre'
 );
 
+-- Symmetric on the email too, so a guard that happens to favour the first user
+-- in the table does not pass.
+select pg_temp.expect(
+  public.member_email('11111111-1111-4111-8111-111111111111') is null,
+  'member_email refuses alice''s email to bob'
+);
+
 -- ---------------------------------------------------------------------------
 -- Audit log: append-only, and not editable by the people it describes.
 -- ---------------------------------------------------------------------------
@@ -196,23 +320,85 @@ end $$;
 
 -- No UPDATE or DELETE policy exists, so both are denied by default. This is the
 -- property that makes the log evidence rather than a changelog.
+-- Append-only is enforced twice — no UPDATE/DELETE policy AND no UPDATE/DELETE
+-- grant — so refusal can arrive either as 42501 from the privilege layer or as
+-- zero rows affected from the policy layer. Both are a pass; the label records
+-- which one answered, so removing one enforcement is visible in the output even
+-- though the assertion still passes.
 do $$
-declare changed integer;
+declare code text := 'none'; n integer := -1; tampered integer;
 begin
-  update public.audit_events set action = 'tampered'
-   where centre_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
-  select count(*) into changed from public.audit_events where action = 'tampered';
-  perform pg_temp.expect(changed = 0, 'an owner CANNOT alter an audit entry');
+  begin
+    update public.audit_events set action = 'tampered'
+     where centre_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+    get diagnostics n = row_count;
+  exception when others then code := sqlstate;
+  end;
+  select count(*) into tampered from public.audit_events where action = 'tampered';
+  perform pg_temp.expect(tampered = 0 and (code = '42501' or n = 0),
+    'an owner CANNOT alter an audit entry (sqlstate ' || code || ', rows ' || n || ')');
 end $$;
 
 do $$
-declare remaining integer;
+declare code text := 'none'; n integer := -1; remaining integer;
 begin
-  delete from public.audit_events
-   where centre_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  begin
+    delete from public.audit_events
+     where centre_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+    get diagnostics n = row_count;
+  exception when others then code := sqlstate;
+  end;
   select count(*) into remaining from public.audit_events
    where centre_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
-  perform pg_temp.expect(remaining = 1, 'an owner CANNOT delete an audit entry');
+  perform pg_temp.expect(remaining = 1 and (code = '42501' or n = 0),
+    'an owner CANNOT delete an audit entry (sqlstate ' || code || ', rows ' || n || ')');
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- The service role is the credential that defeats everything else in this
+-- schema — it bypasses RLS and can read every centre in one query. It still must
+-- not be able to rewrite the record of what it did, because 0003 withholds
+-- UPDATE and DELETE from it as well. That property is the whole argument for
+-- calling this table evidence, so it gets asserted rather than commented.
+-- ---------------------------------------------------------------------------
+
+set local role service_role;
+
+select pg_temp.expect(
+  (select count(*) from public.audit_events) = 2,
+  'service_role reads every centre''s audit events (RLS bypassed, as designed)'
+);
+
+do $$
+declare code text := 'none (the update SUCCEEDED)';
+begin
+  begin
+    update public.audit_events set action = 'tampered-by-service-role';
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '42501',
+    'service_role CANNOT alter an audit entry, got ' || code);
+end $$;
+
+do $$
+declare code text := 'none (the delete SUCCEEDED)';
+begin
+  begin
+    delete from public.audit_events;
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '42501',
+    'service_role CANNOT delete an audit entry, got ' || code);
+end $$;
+
+-- But it must still be able to append, or scheduled jobs cannot record anything.
+do $$
+declare n integer;
+begin
+  insert into public.audit_events (centre_id, action, entity)
+  values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'job.ran', 'system');
+  get diagnostics n = row_count;
+  perform pg_temp.expect(n = 1, 'service_role CAN append an audit entry');
 end $$;
 
 -- ---------------------------------------------------------------------------
@@ -232,6 +418,11 @@ select pg_temp.expect(
   'a revoked member loses access immediately'
 );
 
+select pg_temp.expect(
+  (select count(*) from public.centre_members) = 0,
+  'a revoked member sees no roster'
+);
+
 -- ---------------------------------------------------------------------------
 -- Anonymous callers see nothing at all.
 -- ---------------------------------------------------------------------------
@@ -239,13 +430,42 @@ select pg_temp.expect(
 set local role anon;
 set local request.jwt.claims = '{"role":"anon"}';
 
-select pg_temp.expect(
-  (select count(*) from public.centres) = 0,
-  'anon sees no centres'
-);
+-- 0001 revokes everything on centres from anon, so this is refused before RLS is
+-- consulted at all. Accepting both outcomes because "returns no rows" and "is not
+-- permitted to ask" are both correct, and the stronger one should not read as a
+-- test failure.
+do $$
+declare code text := 'none'; n integer := -1;
+begin
+  begin
+    select count(*) into n from public.centres;
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '42501' or n = 0,
+    'anon sees no centres (sqlstate ' || code || ', rows ' || n || ')');
+end $$;
+
+-- EXECUTE was revoked from anon in 0002. Asserted because the failure mode is
+-- silent: a grant restored by a later migration would not break anything
+-- visible, it would just publish an email lookup to the internet.
+do $$
+declare allowed boolean := false;
+begin
+  begin
+    perform public.member_email('11111111-1111-4111-8111-111111111111');
+    allowed := true;
+  exception when insufficient_privilege then
+    allowed := false;
+  end;
+  perform pg_temp.expect(not allowed, 'anon CANNOT execute member_email');
+end $$;
 
 set local role postgres;
 select pg_temp.expect(true, 'ALL RLS ISOLATION CHECKS PASSED');
+
+-- Visible output for transports that return rows rather than notices.
+select seq, case when ok then 'PASS' else 'FAIL' end as result, label
+  from results order by seq;
 
 -- Nothing is kept. Safe against a live project.
 rollback;
