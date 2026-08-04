@@ -63,3 +63,77 @@ button.danger { background: #fff; color: var(--danger); border-color: var(--line
 .pill { font-size: 0.75rem; padding: 0.1rem 0.5rem; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); }
 .error { color: var(--danger); }
 .center { max-width: 24rem; margin: 6rem auto; padding: 0 1.5rem; }
+
+/* --- Phase 1 ------------------------------------------------------------- */
+
+:root {
+  --warn: #8a5a00;
+  --warn-soft: #fdf3e0;
+  --breach: #a3341c;
+  --breach-soft: #fbeae5;
+  --ok: #2f6f4f;
+  --ok-soft: #e8f1ec;
+  --pending-soft: #eef1f5;
+}
+
+/*
+ * Flags.
+ *
+ * Every one carries a symbol and a word, never colour alone (WCAG 1.4.1) — about
+ * one man in twelve cannot reliably separate the red from the green, and the
+ * information here is "this child could stop breathing". The symbol is text, not
+ * an icon font, so it survives a copy-paste into an email and needs no asset.
+ */
+.flag {
+  display: inline-flex; align-items: center; gap: 0.3em;
+  font-size: 0.75rem; font-weight: 500; white-space: nowrap;
+  padding: 0.15rem 0.5rem; border-radius: 999px; border: 1px solid transparent;
+}
+.flag-critical { background: var(--breach-soft); color: var(--breach); border-color: #eccec4; }
+.flag-warn     { background: var(--warn-soft);   color: var(--warn);   border-color: #ecdcb8; }
+.flag-ok       { background: var(--ok-soft);     color: var(--ok);     border-color: #c8ddd1; }
+.flag-quiet    { background: var(--pending-soft); color: var(--muted); border-color: var(--line); }
+
+/* Sections within a record. */
+.section { margin-bottom: 1.75rem; }
+.section > h2 {
+  font-size: 0.8125rem; text-transform: uppercase; letter-spacing: 0.04em;
+  color: var(--muted); margin: 0 0 0.6rem; font-weight: 600;
+}
+.section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
+
+/* Label/value pairs in a child record. */
+.facts { display: grid; grid-template-columns: 10rem 1fr; gap: 0.4rem 1rem; margin: 0; }
+.facts dt { color: var(--muted); font-size: 0.8125rem; }
+.facts dd { margin: 0; }
+
+.empty { color: var(--muted); font-style: italic; margin: 0; }
+.stack { display: flex; flex-direction: column; gap: 0.75rem; }
+.inline { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+
+/* Text inputs default to a max-width suited to a name; these need the room. */
+textarea {
+  font: inherit; padding: 0.45rem 0.6rem; border: 1px solid var(--line);
+  border-radius: 6px; background: #fff; color: var(--ink); width: 100%; resize: vertical;
+}
+.wide { max-width: 100%; }
+.narrow { max-width: 9rem; }
+
+/* Day-of-week checkboxes; small controls, so the label is the target. */
+.days { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+.days label {
+  display: inline-flex; align-items: center; gap: 0.3rem; margin: 0;
+  border: 1px solid var(--line); border-radius: 6px; padding: 0.35rem 0.55rem;
+  font-size: 0.8125rem; color: var(--ink); cursor: pointer; min-height: 2.5rem;
+}
+.days input { width: auto; }
+
+/* Consent rows. */
+.consent { border-top: 1px solid var(--line); padding: 0.8rem 0; }
+.consent:first-of-type { border-top: 0; }
+.consent h3 { font-size: 0.9375rem; margin: 0 0 0.15rem; font-weight: 600; }
+.consent p { margin: 0 0 0.5rem; color: var(--muted); font-size: 0.8125rem; }
+
+a.plain { color: var(--ink); text-decoration: none; }
+a.plain:hover { text-decoration: underline; }
+button.small { padding: 0.3rem 0.6rem; font-size: 0.8125rem; }

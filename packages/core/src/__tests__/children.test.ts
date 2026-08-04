@@ -1,0 +1,241 @@
+import { describe, expect, it } from 'vitest';
+import {
+  ageInMonths,
+  compareBySeverity,
+  consentFor,
+  displayName,
+  formatAge,
+  formatDays,
+  isEnrolmentCurrent,
+  isGranted,
+  isMedicationCurrent,
+  isUnderTwo,
+  missingConsents,
+  hasCriticalCondition,
+  todayISO,
+  CONSENT_DETAIL,
+  CONSENT_KINDS,
+  REQUIRED_CONSENTS,
+  type ConsentState,
+  type Enrolment,
+  type HealthCondition,
+  type MedicationAuthority,
+} from '../children';
+
+const condition = (over: Partial<HealthCondition>): HealthCondition => ({
+  id: 'x',
+  childId: 'c',
+  kind: 'allergy',
+  name: 'Thing',
+  severity: null,
+  responsePlan: null,
+  resolvedAt: null,
+  ...over,
+});
+
+describe('ageInMonths', () => {
+  it('counts whole months', () => {
+    expect(ageInMonths('2024-01-15', '2024-07-15')).toBe(6);
+    expect(ageInMonths('2024-01-15', '2025-01-15')).toBe(12);
+  });
+
+  it('does not round up before the day of the month', () => {
+    expect(ageInMonths('2024-01-15', '2024-07-14')).toBe(5);
+    expect(ageInMonths('2024-01-15', '2024-07-16')).toBe(6);
+  });
+
+  it('handles a leap-day birthday', () => {
+    // Born 29 Feb. On 28 Feb two years later they are one day short of two.
+    expect(ageInMonths('2024-02-29', '2026-02-28')).toBe(23);
+    expect(ageInMonths('2024-02-29', '2026-03-01')).toBe(24);
+  });
+
+  it('is negative for a date before birth', () => {
+    expect(ageInMonths('2026-01-01', '2025-12-01')).toBeLessThan(0);
+  });
+});
+
+describe('isUnderTwo — the regulated divide', () => {
+  it('flips on the second birthday, not before or after', () => {
+    expect(isUnderTwo('2024-03-10', '2026-03-09')).toBe(true);
+    expect(isUnderTwo('2024-03-10', '2026-03-10')).toBe(false);
+    expect(isUnderTwo('2024-03-10', '2026-03-11')).toBe(false);
+  });
+
+  it('counts 23 months as under and 24 as over', () => {
+    expect(isUnderTwo('2024-01-01', '2025-12-01')).toBe(true);
+    expect(isUnderTwo('2024-01-01', '2026-01-01')).toBe(false);
+  });
+});
+
+describe('todayISO', () => {
+  it('uses local date, not UTC', () => {
+    // 13:00 UTC on 1 July is already 2 July in New Zealand. A UTC-based
+    // implementation returns the 1st for most of a working day here, which would
+    // put a child in the wrong ratio band on their birthday.
+    const nzMorning = new Date(2026, 6, 2, 9, 30);
+    expect(todayISO(nzMorning)).toBe('2026-07-02');
+  });
+
+  it('pads single-digit months and days', () => {
+    expect(todayISO(new Date(2026, 0, 5))).toBe('2026-01-05');
+  });
+});
+
+describe('formatAge', () => {
+  it('speaks in months until two, then years', () => {
+    expect(formatAge('2024-01-01', '2024-02-01')).toBe('1 month');
+    expect(formatAge('2024-01-01', '2025-07-01')).toBe('18 months');
+    expect(formatAge('2024-01-01', '2026-01-01')).toBe('2 years');
+    expect(formatAge('2024-01-01', '2026-04-01')).toBe('2y 3m');
+  });
+});
+
+describe('consent is three-state, not a boolean', () => {
+  const states: ConsentState[] = [
+    { kind: 'photo_internal', granted: true, givenBy: 'g1', at: '2026-01-01T00:00:00Z' },
+    { kind: 'photo_public', granted: false, givenBy: 'g1', at: '2026-01-01T00:00:00Z' },
+  ];
+
+  it('distinguishes refused from never asked', () => {
+    expect(consentFor(states, 'photo_public')?.granted).toBe(false);
+    expect(consentFor(states, 'sunscreen')).toBeUndefined();
+    // Both are falsy, and they mean completely different things: one is a
+    // decision to respect, the other is an unfinished enrolment.
+    expect(isGranted(states, 'photo_public')).toBe(false);
+    expect(isGranted(states, 'sunscreen')).toBe(false);
+  });
+
+  it('reports only unanswered required consents as missing', () => {
+    // photo_public is refused, which is an answer, so it is not missing — and it
+    // is not required in any case.
+    expect(missingConsents(states)).toEqual(['medical_emergency', 'sunscreen', 'excursion']);
+  });
+
+  it('treats a fully answered child as complete', () => {
+    const all: ConsentState[] = REQUIRED_CONSENTS.map((kind) => ({
+      kind,
+      granted: false,
+      givenBy: null,
+      at: '2026-01-01T00:00:00Z',
+    }));
+    // Every required consent refused is still complete. Refusal is an answer.
+    expect(missingConsents(all)).toEqual([]);
+  });
+
+  it('gives every kind wording a parent could actually act on', () => {
+    for (const kind of CONSENT_KINDS) {
+      const { label, detail } = CONSENT_DETAIL[kind];
+      expect(label.length).toBeGreaterThan(3);
+      expect(detail.length).toBeGreaterThan(30);
+    }
+  });
+
+  it('keeps the two photo consents separate', () => {
+    // The distinction is the whole reason there are two kinds: families that
+    // agree to the journal routinely refuse Facebook.
+    expect(CONSENT_DETAIL.photo_internal.detail).not.toBe(CONSENT_DETAIL.photo_public.detail);
+    expect(REQUIRED_CONSENTS).toContain('photo_internal');
+    expect(REQUIRED_CONSENTS).not.toContain('photo_public');
+  });
+});
+
+describe('health', () => {
+  it('sorts what could kill to the top', () => {
+    const list = [
+      condition({ name: 'Hayfever', severity: 'mild' }),
+      condition({ name: 'Peanuts', severity: 'anaphylaxis' }),
+      condition({ name: 'Dairy', severity: 'moderate' }),
+      condition({ name: 'Gluten', severity: null, kind: 'dietary_requirement' }),
+      condition({ name: 'Asthma', severity: 'severe' }),
+    ];
+    expect([...list].sort(compareBySeverity).map((c) => c.name)).toEqual([
+      'Peanuts',
+      'Asthma',
+      'Dairy',
+      'Hayfever',
+      'Gluten',
+    ]);
+  });
+
+  it('flags anaphylaxis and severe as critical, and ignores resolved ones', () => {
+    expect(hasCriticalCondition([condition({ severity: 'anaphylaxis' })])).toBe(true);
+    expect(hasCriticalCondition([condition({ severity: 'severe' })])).toBe(true);
+    expect(hasCriticalCondition([condition({ severity: 'moderate' })])).toBe(false);
+    expect(
+      hasCriticalCondition([condition({ severity: 'anaphylaxis', resolvedAt: '2026-01-01' })]),
+    ).toBe(false);
+  });
+});
+
+describe('medication authorities expire', () => {
+  const auth = (over: Partial<MedicationAuthority>): MedicationAuthority => ({
+    id: 'm',
+    childId: 'c',
+    medicine: 'Amoxicillin',
+    dose: '5ml',
+    route: 'oral',
+    instructions: null,
+    authorisedBy: 'g1',
+    authorisedAt: '2026-01-01T00:00:00Z',
+    startsOn: '2026-01-01',
+    expiresOn: '2026-01-10',
+    ...over,
+  });
+
+  it('is not current before it starts or after it expires', () => {
+    expect(isMedicationCurrent(auth({}), '2025-12-31')).toBe(false);
+    expect(isMedicationCurrent(auth({}), '2026-01-05')).toBe(true);
+    expect(isMedicationCurrent(auth({}), '2026-01-10')).toBe(true);
+    expect(isMedicationCurrent(auth({}), '2026-01-11')).toBe(false);
+  });
+
+  it('treats a null expiry as open-ended', () => {
+    expect(isMedicationCurrent(auth({ expiresOn: null }), '2030-01-01')).toBe(true);
+  });
+});
+
+describe('enrolment', () => {
+  const e = (over: Partial<Enrolment>): Enrolment => ({
+    id: 'e',
+    childId: 'c',
+    centreId: 'ce',
+    startDate: '2026-02-01',
+    endDate: null,
+    fundedHoursPerWeek: 20,
+    twentyHoursEce: true,
+    days: [1, 2, 3],
+    notes: null,
+    ...over,
+  });
+
+  it('is current from the start date, open-ended by default', () => {
+    expect(isEnrolmentCurrent(e({}), '2026-01-31')).toBe(false);
+    expect(isEnrolmentCurrent(e({}), '2026-02-01')).toBe(true);
+    expect(isEnrolmentCurrent(e({}), '2030-01-01')).toBe(true);
+  });
+
+  it('ends on the end date inclusive', () => {
+    expect(isEnrolmentCurrent(e({ endDate: '2026-06-30' }), '2026-06-30')).toBe(true);
+    expect(isEnrolmentCurrent(e({ endDate: '2026-06-30' }), '2026-07-01')).toBe(false);
+  });
+
+  it('formats days in weekday order regardless of input order', () => {
+    expect(formatDays([3, 1, 5])).toBe('Mon, Wed, Fri');
+    expect(formatDays([])).toBe('No days set');
+  });
+});
+
+describe('displayName', () => {
+  it('shows the preferred name first, with the legal name in brackets', () => {
+    expect(
+      displayName({ firstName: 'Anahera', lastName: 'Test', preferredName: 'Ana' }),
+    ).toBe('Ana (Anahera) Test');
+  });
+
+  it('does not repeat itself when the names match', () => {
+    expect(displayName({ firstName: 'Ana', lastName: 'Test', preferredName: 'Ana' })).toBe('Ana Test');
+    expect(displayName({ firstName: 'Ana', lastName: 'Test', preferredName: null })).toBe('Ana Test');
+    expect(displayName({ firstName: 'Ana', lastName: 'Test', preferredName: '  ' })).toBe('Ana Test');
+  });
+});

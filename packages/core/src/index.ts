@@ -47,10 +47,30 @@ export const CAPABILITIES = {
   manageCentre: ['owner', 'manager'],
   /** Record attendance, observations, daily notes. */
   recordDailyPractice: ['owner', 'manager', 'educator'],
-  /** See a child's full record including health and custody notes. */
+  /** See a child's full record including health notes. */
   viewChildRecord: ['owner', 'manager', 'educator'],
   /** See only their own children. */
   viewOwnChildren: ['owner', 'manager', 'educator', 'parent'],
+  /** Enrol a child, edit their record, edit whānau details. Office work. */
+  manageChildren: ['owner', 'manager'],
+  /** File and amend enrolments — funded hours, days, start and end dates. */
+  manageEnrolment: ['owner', 'manager'],
+  /**
+   * Record an allergy or condition. Educators included on purpose: something
+   * disclosed at the door at 8am has to be writable by the person who was told.
+   */
+  recordHealth: ['owner', 'manager', 'educator'],
+  /**
+   * Read custody arrangements and court orders.
+   *
+   * Owner and manager only, and never a parent — a custody arrangement is a record
+   * ABOUT the guardians, so it must not be readable BY them. An educator needs to
+   * know a child must not leave with a named adult, which is the collection list,
+   * not the terms of a parenting order.
+   */
+  viewCustody: ['owner', 'manager'],
+  /** Record a consent decision. A parent may record their own; staff transcribe forms. */
+  recordConsent: ['owner', 'manager', 'educator', 'parent'],
 } as const satisfies Record<string, readonly MemberRole[]>;
 
 export type Capability = keyof typeof CAPABILITIES;
@@ -104,3 +124,21 @@ export const TERMS = {
   whanau: 'whānau',
   educator: 'educator',
 } as const;
+
+// ---------------------------------------------------------------------------
+// Children, whānau, enrolment, health and consent
+// ---------------------------------------------------------------------------
+
+export * from './children';
+
+// ---------------------------------------------------------------------------
+// Design tokens
+// ---------------------------------------------------------------------------
+//
+// Exported from the package root so the mobile theme can read them. The web app
+// still restates them in `globals.css`, which is a duplication with a deadline on
+// it — Phase 0's remaining task is to generate the Tailwind config from here so
+// there is one source for both.
+
+export * from './tokens';
+export * from './contrast';

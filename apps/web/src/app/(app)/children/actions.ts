@@ -1,0 +1,449 @@
+'use server';
+
+/**
+ * Every Phase 1 mutation.
+ *
+ * All of them return `{ error }` rather than throwing, so the forms can show a
+ * sentence in place of a Next error screen — which means the forms are client
+ * components using `useActionState`, since a form `action` must return void.
+ *
+ * None of them check who the caller is beyond a capability gate for the redirect.
+ * The policies in `0004_children.sql` are the enforcement: a parent calling
+ * `saveChild` gets a refusal from Postgres, not from here. The gates exist so a
+ * user never sees a button that would fail.
+ */
+
+import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
+import {
+  addCustodyArrangement,
+  addHealthCondition,
+  addMedicationAuthority,
+  archiveChild,
+  createChild,
+  createEnrolment,
+  createGuardian,
+  linkGuardian,
+  recordConsent,
+  resolveHealthCondition,
+  revokeGuardianLink,
+  supersedeCustodyArrangement,
+  updateChild,
+  updateEnrolment,
+} from '@ece/api';
+import {
+  CONSENT_KINDS,
+  GENDERS,
+  HEALTH_KINDS,
+  HEALTH_SEVERITIES,
+  type ConsentKind,
+  type Gender,
+  type HealthKind,
+  type HealthSeverity,
+} from '@ece/core';
+import { requireCapability, requireCtx } from '@/lib/auth';
+import { serverDb } from '@/lib/supabase';
+
+export type Result = { error: string } | { ok: true };
+
+const str = (f: FormData, k: string): string => (f.get(k) ?? '').toString().trim();
+const bool = (f: FormData, k: string): boolean => f.get(k) === 'on' || f.get(k) === 'true';
+
+/** Fails closed on an unrecognised value rather than passing it to Postgres. */
+function oneOf<T extends string>(value: string, allowed: readonly T[]): T | null {
+  return (allowed as readonly string[]).includes(value) ? (value as T) : null;
+}
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+// ---------------------------------------------------------------------------
+// Child record
+// ---------------------------------------------------------------------------
+
+export async function enrolChild(_prev: unknown, form: FormData): Promise<Result> {
+  const ctx = await requireCapability('manageChildren');
+  const db = await serverDb();
+
+  const firstName = str(form, 'firstName');
+  const lastName = str(form, 'lastName');
+  const dateOfBirth = str(form, 'dateOfBirth');
+
+  if (!firstName || !lastName) return { error: 'A first and last name are both required.' };
+  if (!ISO_DATE.test(dateOfBirth)) return { error: 'A date of birth is required.' };
+  if (dateOfBirth > new Date().toISOString().slice(0, 10)) {
+    return { error: 'That date of birth is in the future.' };
+  }
+
+  const gender = str(form, 'gender');
+
+  try {
+    const child = await createChild(db, ctx.centre.id, {
+      firstName,
+      lastName,
+      preferredName: str(form, 'preferredName') || null,
+      dateOfBirth,
+      moeNsn: str(form, 'moeNsn') || null,
+      // Up to three; the database enforces the cap too.
+      ethnicities: str(form, 'ethnicities')
+        .split(',')
+        .map((e) => e.trim())
+        .filter(Boolean)
+        .slice(0, 3),
+      iwi: str(form, 'iwi') || null,
+      firstLanguage: str(form, 'firstLanguage') || null,
+      gender: gender ? oneOf<Gender>(gender, GENDERS) : null,
+    });
+    redirect(`/children/${child.id}`);
+  } catch (e) {
+    // `redirect` throws by design, so it must not be swallowed as a failure.
+    if (e instanceof Error && e.message === 'NEXT_REDIRECT') throw e;
+    if (e && typeof e === 'object' && 'digest' in e) throw e;
+    const message = e instanceof Error ? e.message : 'Could not enrol the child.';
+    if (message.includes('children_nsn_unique_per_centre')) {
+      return { error: 'Another child at this centre already has that NSN.' };
+    }
+    return { error: message };
+  }
+}
+
+export async function saveChild(_prev: unknown, form: FormData): Promise<Result> {
+  await requireCapability('manageChildren');
+  const db = await serverDb();
+  const childId = str(form, 'childId');
+  if (!childId) return { error: 'Missing child.' };
+
+  const gender = str(form, 'gender');
+
+  try {
+    await updateChild(db, childId, {
+      firstName: str(form, 'firstName'),
+      lastName: str(form, 'lastName'),
+      preferredName: str(form, 'preferredName') || null,
+      moeNsn: str(form, 'moeNsn') || null,
+      ethnicities: str(form, 'ethnicities')
+        .split(',')
+        .map((e) => e.trim())
+        .filter(Boolean)
+        .slice(0, 3),
+      iwi: str(form, 'iwi') || null,
+      firstLanguage: str(form, 'firstLanguage') || null,
+      gender: gender ? oneOf<Gender>(gender, GENDERS) : null,
+    });
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Could not save.' };
+  }
+
+  revalidatePath(`/children/${childId}`);
+  return { ok: true };
+}
+
+export async function archive(_prev: unknown, form: FormData): Promise<Result> {
+  await requireCapability('manageChildren');
+  const db = await serverDb();
+  const childId = str(form, 'childId');
+  if (!childId) return { error: 'Missing child.' };
+  try {
+    await archiveChild(db, childId);
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Could not archive.' };
+  }
+  revalidatePath('/children');
+  redirect('/children');
+}
+
+// ---------------------------------------------------------------------------
+// Whānau
+// ---------------------------------------------------------------------------
+
+export async function addGuardian(_prev: unknown, form: FormData): Promise<Result> {
+  const ctx = await requireCapability('manageChildren');
+  const db = await serverDb();
+
+  const childId = str(form, 'childId');
+  const fullName = str(form, 'fullName');
+  const relationship = str(form, 'relationship');
+  if (!childId) return { error: 'Missing child.' };
+  if (!fullName) return { error: 'A name is required.' };
+  if (!relationship) {
+    return { error: 'Say how they are related — "mother", "grandmother", "whāngai caregiver".' };
+  }
+
+  try {
+    // A guardian record and the link to the child are two things, because one
+    // person is often guardian to siblings and should not be entered twice.
+    const guardian = await createGuardian(db, ctx.centre.id, {
+      fullName,
+      email: str(form, 'email') || null,
+      phone: str(form, 'phone') || null,
+      address: str(form, 'address') || null,
+    });
+    await linkGuardian(db, {
+      childId,
+      guardianId: guardian.id,
+      relationship,
+      isPrimary: bool(form, 'isPrimary'),
+      canCollect: bool(form, 'canCollect'),
+      isEmergencyContact: bool(form, 'isEmergencyContact'),
+      contactPriority: Number(str(form, 'contactPriority')) || 100,
+    });
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Could not add them.' };
+  }
+
+  revalidatePath(`/children/${childId}`);
+  return { ok: true };
+}
+
+export async function unlinkGuardian(_prev: unknown, form: FormData): Promise<Result> {
+  await requireCapability('manageChildren');
+  const db = await serverDb();
+  const linkId = str(form, 'linkId');
+  const childId = str(form, 'childId');
+  if (!linkId) return { error: 'Missing link.' };
+  try {
+    await revokeGuardianLink(db, linkId);
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Could not remove them.' };
+  }
+  revalidatePath(`/children/${childId}`);
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Enrolment
+// ---------------------------------------------------------------------------
+
+export async function fileEnrolment(_prev: unknown, form: FormData): Promise<Result> {
+  const ctx = await requireCapability('manageEnrolment');
+  const db = await serverDb();
+
+  const childId = str(form, 'childId');
+  const startDate = str(form, 'startDate');
+  const endDate = str(form, 'endDate');
+  if (!childId) return { error: 'Missing child.' };
+  if (!ISO_DATE.test(startDate)) return { error: 'A start date is required.' };
+  if (endDate && !ISO_DATE.test(endDate)) return { error: 'That end date is not a date.' };
+  if (endDate && endDate < startDate) return { error: 'The end date is before the start date.' };
+
+  const hours = Number(str(form, 'fundedHoursPerWeek') || '0');
+  if (!Number.isFinite(hours) || hours < 0 || hours > 50) {
+    return { error: 'Funded hours must be between 0 and 50.' };
+  }
+
+  const days = form
+    .getAll('days')
+    .map((d) => Number(d.toString()))
+    .filter((d) => d >= 1 && d <= 7);
+
+  try {
+    await createEnrolment(db, {
+      childId,
+      centreId: ctx.centre.id,
+      startDate,
+      endDate: endDate || null,
+      fundedHoursPerWeek: hours,
+      twentyHoursEce: bool(form, 'twentyHoursEce'),
+      days,
+      notes: str(form, 'notes') || null,
+    });
+  } catch (e) {
+    // createEnrolment already translates the overlap constraint into a sentence a
+    // centre manager can act on.
+    return { error: e instanceof Error ? e.message : 'Could not file the enrolment.' };
+  }
+
+  revalidatePath(`/children/${childId}`);
+  return { ok: true };
+}
+
+export async function endEnrolment(_prev: unknown, form: FormData): Promise<Result> {
+  await requireCapability('manageEnrolment');
+  const db = await serverDb();
+  const enrolmentId = str(form, 'enrolmentId');
+  const childId = str(form, 'childId');
+  const endDate = str(form, 'endDate');
+  if (!enrolmentId) return { error: 'Missing enrolment.' };
+  if (!ISO_DATE.test(endDate)) return { error: 'A last day is required.' };
+
+  try {
+    await updateEnrolment(db, enrolmentId, { endDate });
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Could not end the enrolment.' };
+  }
+  revalidatePath(`/children/${childId}`);
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Health
+// ---------------------------------------------------------------------------
+
+export async function addCondition(_prev: unknown, form: FormData): Promise<Result> {
+  await requireCapability('recordHealth');
+  const db = await serverDb();
+
+  const childId = str(form, 'childId');
+  const name = str(form, 'name');
+  const kind = oneOf<HealthKind>(str(form, 'kind'), HEALTH_KINDS);
+  const severityRaw = str(form, 'severity');
+  const severity = severityRaw ? oneOf<HealthSeverity>(severityRaw, HEALTH_SEVERITIES) : null;
+
+  if (!childId) return { error: 'Missing child.' };
+  if (!name) return { error: 'What is it? e.g. "Peanuts", "Asthma".' };
+  if (!kind) return { error: 'Choose allergy, condition or dietary requirement.' };
+  if (severityRaw && !severity) return { error: 'That severity is not one of the options.' };
+  // The response plan is what an educator reads while it is happening. An
+  // anaphylaxis entry without one is worse than no entry, because it looks handled.
+  if (severity === 'anaphylaxis' && !str(form, 'responsePlan')) {
+    return { error: 'Anaphylaxis needs a response plan — what to do, and where the EpiPen is.' };
+  }
+
+  try {
+    await addHealthCondition(db, {
+      childId,
+      kind,
+      name,
+      severity,
+      responsePlan: str(form, 'responsePlan') || null,
+    });
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Could not record it.' };
+  }
+  revalidatePath(`/children/${childId}`);
+  return { ok: true };
+}
+
+export async function resolveCondition(_prev: unknown, form: FormData): Promise<Result> {
+  await requireCapability('recordHealth');
+  const db = await serverDb();
+  const id = str(form, 'conditionId');
+  const childId = str(form, 'childId');
+  if (!id) return { error: 'Missing condition.' };
+  try {
+    await resolveHealthCondition(db, id);
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Could not resolve it.' };
+  }
+  revalidatePath(`/children/${childId}`);
+  return { ok: true };
+}
+
+export async function addMedication(_prev: unknown, form: FormData): Promise<Result> {
+  await requireCapability('recordHealth');
+  const db = await serverDb();
+
+  const childId = str(form, 'childId');
+  const medicine = str(form, 'medicine');
+  const dose = str(form, 'dose');
+  const startsOn = str(form, 'startsOn');
+  const expiresOn = str(form, 'expiresOn');
+  const authorisedBy = str(form, 'authorisedBy');
+
+  if (!childId) return { error: 'Missing child.' };
+  if (!medicine) return { error: 'Which medicine?' };
+  if (!dose) return { error: 'What dose?' };
+  if (!ISO_DATE.test(startsOn)) return { error: 'A start date is required.' };
+  if (expiresOn && expiresOn < startsOn) return { error: 'The expiry is before the start date.' };
+  // Administering medicine without a guardian's authority is a licensing breach,
+  // so the authority is not optional here.
+  if (!authorisedBy) return { error: 'Record which guardian authorised this.' };
+
+  try {
+    await addMedicationAuthority(db, {
+      childId,
+      medicine,
+      dose,
+      route: str(form, 'route') || null,
+      instructions: str(form, 'instructions') || null,
+      authorisedBy,
+      startsOn,
+      expiresOn: expiresOn || null,
+    });
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Could not record the authority.' };
+  }
+  revalidatePath(`/children/${childId}`);
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Consent
+// ---------------------------------------------------------------------------
+
+/**
+ * Record a grant or a withdrawal.
+ *
+ * `givenBy` is the guardian whose decision it is, which for staff is whichever
+ * guardian signed the form and for a parent is themselves. The policy refuses a
+ * parent naming anybody else, so the select shown to staff and the hidden field
+ * shown to a parent are the same field with the same enforcement behind it.
+ */
+export async function setConsent(_prev: unknown, form: FormData): Promise<Result> {
+  const ctx = await requireCtx();
+  const db = await serverDb();
+
+  const childId = str(form, 'childId');
+  const kind = oneOf<ConsentKind>(str(form, 'kind'), CONSENT_KINDS);
+  const granted = str(form, 'granted') === 'true';
+  const givenBy = str(form, 'givenBy');
+
+  if (!childId) return { error: 'Missing child.' };
+  if (!kind) return { error: 'That is not a consent we record.' };
+  if (!givenBy) {
+    return {
+      error:
+        ctx.role === 'parent'
+          ? 'You are not recorded as a guardian for this child, so consent cannot be attributed to you.'
+          : 'Choose which guardian gave this decision.',
+    };
+  }
+
+  try {
+    await recordConsent(db, { childId, kind, granted, givenBy, note: str(form, 'note') || null });
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Could not record the decision.' };
+  }
+  revalidatePath(`/children/${childId}`);
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Custody
+// ---------------------------------------------------------------------------
+
+export async function addCustody(_prev: unknown, form: FormData): Promise<Result> {
+  await requireCapability('viewCustody');
+  const db = await serverDb();
+
+  const childId = str(form, 'childId');
+  const detail = str(form, 'detail');
+  if (!childId) return { error: 'Missing child.' };
+  if (!detail) return { error: 'Describe the arrangement.' };
+
+  try {
+    await addCustodyArrangement(db, {
+      childId,
+      detail,
+      courtOrderReference: str(form, 'courtOrderReference') || null,
+    });
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Could not record it.' };
+  }
+  revalidatePath(`/children/${childId}`);
+  return { ok: true };
+}
+
+export async function supersedeCustody(_prev: unknown, form: FormData): Promise<Result> {
+  await requireCapability('viewCustody');
+  const db = await serverDb();
+  const id = str(form, 'arrangementId');
+  const childId = str(form, 'childId');
+  if (!id) return { error: 'Missing arrangement.' };
+  try {
+    await supersedeCustodyArrangement(db, id);
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Could not close it.' };
+  }
+  revalidatePath(`/children/${childId}`);
+  return { ok: true };
+}

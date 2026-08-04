@@ -80,6 +80,84 @@ Adding a table? Copy the convention at the bottom of
 they cannot read, and the row then vanishes from their own view, so the bug is
 invisible in testing.
 
+## The second boundary: guardianship, not just tenancy
+
+Everything above concerns one boundary — centre against centre. Phase 1 introduced
+a second one that lives *inside* a single centre, and it is the more dangerous of
+the two, because `parent` is a role within the tenant.
+
+A parent at Little Pearls Mt Albert is a legitimate member of that centre. They
+must see their own child's allergies and must never see the child sitting next to
+them. A policy keyed on `centre_id` alone satisfies every test written before
+Phase 1 and hands one family another family's medical records.
+
+Three predicates carry it, all `SECURITY DEFINER` for the same reason
+`caller_centre_ids()` is — they read tables that are themselves under RLS:
+
+| Predicate | Answers |
+|---|---|
+| `caller_staff_centre_ids()` | centres where the caller is owner/manager/educator |
+| `caller_ward_ids()` | children the caller is a guardian of |
+| `caller_guardian_ids()` | the caller's own guardian records |
+
+**Each one joins to a live membership.** Revoking a parent's access therefore
+closes their own child's record immediately. Guardianship is recorded on the
+guardian row and would otherwise outlive the access — it reads as obviously
+handled and is not, so the suite asserts it.
+
+Three decisions inside that model are worth not re-litigating:
+
+**Custody arrangements are their own table.** They could have been a column on the
+whānau record. They are not, because the visibility rule runs the opposite way to
+everything around it: a custody arrangement is a record *about* the guardians, so
+it must not be readable *by* them — including the guardian it concerns. "Father is
+not to collect, parenting order in place" is information the centre needs and the
+other parent must not read in the app. A policy cannot restrict some columns of a
+row to one role and other columns to another, and a column-level `GRANT` cannot
+vary by role either. A separate table says it once and cannot be got wrong by
+somebody adding a field later. Educators cannot read it either — what they need is
+on the collection list.
+
+**A parent sees only their own guardian record, not co-guardians.** Not tidiness:
+in a domain where separated parents and protection orders are ordinary, an app that
+hands one parent the other's current phone number and address on request is a
+safety problem. Staff see the whole list, which is who needs it.
+
+**Consent is events, not state.** "Do we have photo consent" and "did we have photo
+consent in March, when we published that newsletter" are different questions, and
+only the second matters once somebody complains. So `consent_events` is append-only
+— withdrawal is a new row — with `current_consents` as the view and
+`has_consent(child, kind)` as the check. That function is `security invoker`, so a
+caller who cannot see the child gets `false` and the write is refused. Failing
+closed is the only safe direction for a question about a photograph of a child.
+
+Consent is also **three-state in the UI**, because "refused" and "never asked" are
+both falsy and are completely different facts: one is a decision to respect, the
+other is an enrolment that is not finished. And `photo_internal` is separate from
+`photo_public` — families who agree to the private journal routinely refuse
+Facebook, and one flag forces the centre to either over-collect or over-share.
+
+## Auditing is a trigger, not a convention
+
+`0003` gave the audit log its guarantees and a `record_audit()` helper for the
+application to call. That was the weak part: an audit entry the application has to
+remember is one that will eventually not be written, and the omission is invisible
+— the screen works, the data saves, only the log is wrong. Which is discovered
+during a licensing review.
+
+So `0005` records writes with a trigger on every consequential table. `packages/api`
+contains no audit calls at all, deliberately.
+
+`detail` holds column **names, never values** — `{"changed": ["severity"]}`. A
+generic trigger logging `to_jsonb(NEW)` would copy every allergy and every custody
+order into a table nobody thinks of as holding them, and audit rows outlive the
+records they describe. Asserted both ways in the suite: that the trigger fired
+without being asked, and that no medical value reached the log.
+
+Not applied to the high-volume append-only tables Phase 2 adds. An audit row per
+attendance event doubles the write volume of the busiest table in the product to
+record something the table already records; append-only data is its own audit trail.
+
 ## RLS is the second check, not the first
 
 Postgres tests the table privilege before it evaluates any policy. So there are
@@ -157,9 +235,26 @@ somebody posts a notice to the wrong centre.
 /no-access        signed in, no membership yet — a waiting room, not an error
 /select-centre    shown only when a person belongs to more than one centre
 /                 overview
+/children         the roll for staff; a parent's own child only, from the same query
+/children/new     enrol a child
+/children/[id]    the record: details, health, whānau, enrolment, consent, custody
 /members          roster: change role, revoke
 /settings         centre name and Ministry service number
 ```
+
+`/children` is one route serving three quite different readers. A manager
+maintains it, an educator reads it, a parent checks their own child — and each sees
+a different amount without the page filtering for any of it. A parent who reaches
+another family's URL gets a 404, because `getChild` returns null; "cannot see" and
+"does not exist" are deliberately indistinguishable, since confirming that a child
+exists at a centre you cannot see is itself a disclosure.
+
+**The allergy flag is on the list row, not inside the record.** An educator
+scanning a roll of forty needs to see "this one could stop breathing" without
+opening anything, and a flag you have to click is a flag nobody reads. Every flag
+carries a symbol *and* a word, never colour alone (WCAG 1.4.1) — about one man in
+twelve cannot reliably separate the red from the green, and on a sun-washed tablet
+in a playground nobody can.
 
 Everything under `(app)` runs `requireCtx()` in the layout, so there is one place
 that decides "who is this and which centre are they looking at" rather than a
@@ -268,18 +363,60 @@ The alternative — a view without `security_invoker` filtering on
 tenant boundary would then live in a `WHERE` clause somebody can delete while
 simplifying a query, instead of in a policy.
 
+**PostgREST bulk inserts do not apply column defaults.** It builds one `INSERT`
+from the *union* of keys across the array, so a key present in one object and
+absent from another is sent as an explicit `NULL`. Omitting `is_primary` on one row
+of a three-row batch failed with "null value in column is_primary violates not-null
+constraint" — which reads like a schema problem and is a client one. Give every
+object in a batch every key. Found by `scripts/seed-demo.ts`, which was also
+swallowing the returned error, so what actually surfaced was "the parent cannot see
+their own child" two steps later.
+
+## Demo data
+
+```bash
+ECE_ALLOW_DEMO_SEED=yes npm run seed:demo            # five children across both sites
+ECE_ALLOW_DEMO_SEED=yes npm run seed:demo -- --purge # remove exactly what it made
+```
+
+Guarded, because it writes invented children into whatever database `.env.local`
+points at and that database holds real records. Everything it creates is tagged
+`Demo-Seed`, and the emails use the `.invalid` TLD, which RFC 2606 reserves and
+which cannot resolve — so a stray notification can never reach a real person.
+
+It seeds one anaphylaxis case with a response plan, one custody arrangement, a
+parent account holding one child at a centre where another family is also enrolled,
+and a mix of granted, refused and unanswered consents — which is the set needed to
+see all three consent states and to check that the parent cannot reach the family
+beside them.
+
 ## Open questions
 
-- **First feature module.** The scaffold is domain-agnostic on purpose. The
-  product plan in the `salix` repo
-  (`llm-wiki/wiki/possible-projects/ece-early-learning-app.md`) argues for a
-  licensing-evidence tool over enrolment or funding, on the grounds that
-  Ministry ELI integration is closed to new vendors and Storypark anchors price
-  at NZ$1.89/child/month. That plan's Stage 0 — ten conversations, no code — has
-  not been run.
+- **Professional indemnity insurance is the remaining gate on real data.** The
+  services agreement with Little Pearls is in place; the insurance is not. The
+  schema and the screens exist and hold nothing but `Demo-Seed` rows, which is
+  fine — writing the code puts nobody's information anywhere. The line not to
+  cross without the cover is a real child's allergies being typed into it.
+  Under-5 records are among the most sensitive personal information in the
+  country, and a breach is notifiable under the Privacy Act 2020.
+- **Retention and deletion are not built.** Children are archived, never deleted,
+  and consent and audit rows are append-only by design — which means there is
+  currently no answer to "delete everything about this child", and the Privacy Act
+  gives a right to request it. The tension is genuine: retention obligations and
+  audit integrity point one way, principle 6 and 7 requests the other. It needs a
+  documented retention schedule and a deletion path that is deliberate rather than
+  an `UPDATE` somebody discovers.
+- **`photo_public` consent is recorded and not yet enforced anywhere**, because
+  there is no media pipeline until Phase 4. `has_consent()` exists so that
+  enforcement can live in SQL when it arrives, rather than in a check somebody
+  remembers to write.
 - **Whether mobile should be its own repo.** StoreDash is a separate repo.
   Keeping it here buys one shared query layer; splitting it would simplify EAS
   builds. Reversible either way.
-- **Nothing holds child data yet**, and it should not until there is a written
-  agreement and professional indemnity insurance in place. Under-5 records are
-  among the most sensitive personal information in the country.
+- **Stage 0 of the product plan was never run.** The plan in the `salix` repo
+  (`llm-wiki/wiki/possible-projects/ece-early-learning-app.md`) called for ten
+  conversations with centres before any code, and argued for a licensing-evidence
+  tool ahead of enrolment on the grounds that Ministry ELI integration is closed
+  to new vendors and Storypark anchors price at NZ$1.89/child/month. Phase 1 built
+  enrolment anyway, on the strength of one pilot customer. That is a defensible
+  call for a free pilot and a weak basis for pricing.

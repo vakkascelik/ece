@@ -26,6 +26,12 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
 
         <nav>
           <Link href="/">Overview</Link>
+          {/*
+            Shown to parents too, where it lists their own child and nothing else —
+            the policy on `children` keys on guardianship, so the same link is a
+            roll for staff and a single record for a parent.
+          */}
+          <Link href="/children">{ctx.role === 'parent' ? 'Your tamariki' : 'Children'}</Link>
           {can(ctx.role, 'manageMembers') && <Link href="/members">People</Link>}
           {can(ctx.role, 'manageCentre') && <Link href="/settings">Settings</Link>}
         </nav>

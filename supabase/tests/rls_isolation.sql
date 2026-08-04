@@ -291,16 +291,50 @@ values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
 set local role authenticated;
 set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
 
+-- Scoped to action = 'test' throughout this section. Since 0005 every fixture
+-- write above fires an audit trigger, so an unfiltered count here would measure
+-- the fixture rather than the policy — and would need editing every time a test
+-- above it changes.
 select pg_temp.expect(
   (select count(*) from public.audit_events
-    where centre_id = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb') = 0,
+    where centre_id = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb' and action = 'test') = 0,
   'alice CANNOT READ centre B audit events'
 );
 
 select pg_temp.expect(
   (select count(*) from public.audit_events
-    where centre_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') = 1,
+    where centre_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' and action = 'test') = 1,
   'alice CAN read her own centre audit events'
+);
+
+-- The triggers from 0005 are the reason the application cannot forget to audit,
+-- so their output is asserted rather than assumed. `an owner CAN rename their own
+-- centre` ran earlier in this transaction; this is the record of it.
+select pg_temp.expect(
+  (select count(*) from public.audit_events
+    where centre_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+      and entity = 'centres' and action = 'update') >= 1,
+  'the audit trigger recorded the centre rename without being asked'
+);
+
+select pg_temp.expect(
+  (select detail -> 'changed' ? 'name' from public.audit_events
+    where centre_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+      and entity = 'centres' and action = 'update'
+    order by id desc limit 1),
+  'and named the column that changed'
+);
+
+-- The constraint from 0003: audit rows outlive the record they describe, so they
+-- carry column names and never values. A generic trigger logging to_jsonb(NEW)
+-- would have copied allergies and custody orders in here.
+select pg_temp.expect(
+  not exists (
+    select 1 from public.audit_events
+     where centre_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+       and detail::text like '%Renamed By Owner%'
+  ),
+  'and did NOT copy the value into the audit row'
 );
 
 -- An audit entry blaming somebody else is worse than no log at all.
@@ -349,7 +383,7 @@ begin
   exception when others then code := sqlstate;
   end;
   select count(*) into remaining from public.audit_events
-   where centre_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+   where centre_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' and action = 'test';
   perform pg_temp.expect(remaining = 1 and (code = '42501' or n = 0),
     'an owner CANNOT delete an audit entry (sqlstate ' || code || ', rows ' || n || ')');
 end $$;
@@ -365,7 +399,7 @@ end $$;
 set local role service_role;
 
 select pg_temp.expect(
-  (select count(*) from public.audit_events) = 2,
+  (select count(*) from public.audit_events where action = 'test') = 2,
   'service_role reads every centre''s audit events (RLS bypassed, as designed)'
 );
 
@@ -400,6 +434,369 @@ begin
   get diagnostics n = row_count;
   perform pg_temp.expect(n = 1, 'service_role CAN append an audit entry');
 end $$;
+
+-- ===========================================================================
+-- PHASE 1 — children, whānau, health and consent
+--
+-- Everything above tests one boundary: centre against centre. These test a second
+-- one that lives inside a single centre, because `parent` is a role within the
+-- tenant. Priya and Quinn are both parents at centre A with a child each. Every
+-- assertion in this section would pass if the policies keyed on centre_id alone,
+-- and the product would be handing one family another family's medical records.
+-- ===========================================================================
+
+set local role postgres;
+
+insert into auth.users (id, email, instance_id, aud, role, created_at, updated_at)
+values
+  ('33333333-3333-4333-8333-333333333333', 'priya@rlstest.invalid',
+   '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', now(), now()),
+  ('44444444-4444-4444-8444-444444444444', 'quinn@rlstest.invalid',
+   '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', now(), now()),
+  ('55555555-5555-4555-8555-555555555555', 'ed@rlstest.invalid',
+   '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', now(), now())
+on conflict (id) do nothing;
+
+-- Two parents and an educator, all at centre A. Alice is already its owner.
+insert into public.memberships (centre_id, user_id, role) values
+  ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '33333333-3333-4333-8333-333333333333', 'parent'),
+  ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '44444444-4444-4444-8444-444444444444', 'parent'),
+  ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '55555555-5555-4555-8555-555555555555', 'educator');
+
+-- Ana and Beau are at the same centre, in different families. Cody is at centre B.
+insert into public.children (id, centre_id, first_name, last_name, date_of_birth) values
+  ('a1111111-1111-4111-8111-111111111111', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+   'Ana',  'Test', current_date - interval '3 years'),
+  ('b2222222-2222-4222-8222-222222222222', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+   'Beau', 'Test', current_date - interval '18 months'),
+  ('c3333333-3333-4333-8333-333333333333', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+   'Cody', 'Test', current_date - interval '4 years');
+
+insert into public.guardians (id, centre_id, user_id, full_name) values
+  ('d1111111-1111-4111-8111-111111111111', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+   '33333333-3333-4333-8333-333333333333', 'Priya Test'),
+  ('d2222222-2222-4222-8222-222222222222', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+   '44444444-4444-4444-8444-444444444444', 'Quinn Test'),
+  -- Ana's other guardian, with no app account — the ordinary case for a
+  -- grandparent on the collection list.
+  ('d3333333-3333-4333-8333-333333333333', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+   null, 'Ana Other-Guardian');
+
+insert into public.child_guardians (child_id, guardian_id, relationship) values
+  ('a1111111-1111-4111-8111-111111111111', 'd1111111-1111-4111-8111-111111111111', 'mother'),
+  ('a1111111-1111-4111-8111-111111111111', 'd3333333-3333-4333-8333-333333333333', 'grandmother'),
+  ('b2222222-2222-4222-8222-222222222222', 'd2222222-2222-4222-8222-222222222222', 'father');
+
+insert into public.health_conditions (child_id, kind, name, severity, response_plan) values
+  ('a1111111-1111-4111-8111-111111111111', 'allergy', 'Peanuts', 'anaphylaxis', 'EpiPen in the office'),
+  ('b2222222-2222-4222-8222-222222222222', 'allergy', 'Dairy',   'moderate',    'No milk');
+
+insert into public.custody_arrangements (child_id, detail) values
+  ('a1111111-1111-4111-8111-111111111111', 'Parenting order in place. Do not discuss with either party.');
+
+insert into public.enrolments (child_id, centre_id, start_date, funded_hours_per_week, days) values
+  ('a1111111-1111-4111-8111-111111111111', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+   current_date - interval '6 months', 20, '{1,2,3}');
+
+-- ---------------------------------------------------------------------------
+-- Priya: her own child, and nobody else's
+-- ---------------------------------------------------------------------------
+
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+
+select pg_temp.expect(
+  (select count(*) from public.children) = 1,
+  'a parent sees exactly one child — their own'
+);
+
+select pg_temp.expect(
+  (select first_name from public.children) = 'Ana',
+  'and it is the right one'
+);
+
+-- The assertion this whole section exists for.
+select pg_temp.expect(
+  (select count(*) from public.children
+    where id = 'b2222222-2222-4222-8222-222222222222') = 0,
+  'a parent CANNOT read another family''s child at the same centre'
+);
+
+select pg_temp.expect(
+  (select count(*) from public.health_conditions
+    where child_id = 'b2222222-2222-4222-8222-222222222222') = 0,
+  'a parent CANNOT read another family''s medical records'
+);
+
+select pg_temp.expect(
+  (select name from public.health_conditions
+    where child_id = 'a1111111-1111-4111-8111-111111111111') = 'Peanuts',
+  'a parent CAN read their own child''s allergy — they disclosed it'
+);
+
+-- Co-guardian privacy. Separated parents and protection orders are ordinary in
+-- this domain, so the app does not hand one guardian another's contact details.
+select pg_temp.expect(
+  (select count(*) from public.guardians) = 1,
+  'a parent sees only their own guardian record, not co-guardians'
+);
+
+select pg_temp.expect(
+  (select count(*) from public.guardians
+    where id = 'd2222222-2222-4222-8222-222222222222') = 0,
+  'a parent CANNOT read another family''s guardian record'
+);
+
+-- The reason custody_arrangements is its own table rather than a column.
+select pg_temp.expect(
+  (select count(*) from public.custody_arrangements) = 0,
+  'a parent CANNOT read the custody arrangement for their own child'
+);
+
+select pg_temp.expect(
+  (select count(*) from public.enrolments
+    where child_id = 'a1111111-1111-4111-8111-111111111111') = 1,
+  'a parent CAN read their own child''s enrolment'
+);
+
+do $$
+declare code text := 'none (the insert SUCCEEDED)';
+begin
+  begin
+    insert into public.children (centre_id, first_name, last_name, date_of_birth)
+    values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Rogue', 'Child', current_date - interval '2 years');
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code in ('42501', '23514'), 'a parent CANNOT enrol a child, got ' || code);
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- Consent: a parent may grant their own and only their own
+-- ---------------------------------------------------------------------------
+
+do $$
+declare n integer;
+begin
+  insert into public.consent_events (child_id, kind, granted, given_by, recorded_by)
+  values ('a1111111-1111-4111-8111-111111111111', 'photo_internal', true,
+          'd1111111-1111-4111-8111-111111111111', '33333333-3333-4333-8333-333333333333');
+  get diagnostics n = row_count;
+  perform pg_temp.expect(n = 1, 'a parent CAN record their own consent');
+end $$;
+
+select pg_temp.expect(
+  public.has_consent('a1111111-1111-4111-8111-111111111111', 'photo_internal'),
+  'has_consent reflects the grant'
+);
+
+-- Withdrawal is a new event, so the history survives. This is the question that
+-- gets asked after a photo appears somewhere it should not have.
+do $$
+begin
+  insert into public.consent_events (child_id, kind, granted, given_by, recorded_by)
+  values ('a1111111-1111-4111-8111-111111111111', 'photo_internal', false,
+          'd1111111-1111-4111-8111-111111111111', '33333333-3333-4333-8333-333333333333');
+  perform pg_temp.expect(
+    not public.has_consent('a1111111-1111-4111-8111-111111111111', 'photo_internal'),
+    'withdrawing consent flips has_consent without deleting the history'
+  );
+  perform pg_temp.expect(
+    (select count(*) from public.consent_events
+      where child_id = 'a1111111-1111-4111-8111-111111111111' and kind = 'photo_internal') = 2,
+    'and both events remain on the record'
+  );
+end $$;
+
+select pg_temp.expect(
+  not public.has_consent('a1111111-1111-4111-8111-111111111111', 'photo_public'),
+  'consent defaults to false — photo_public was never granted by granting photo_internal'
+);
+
+-- One parent granting permission on another guardian's behalf.
+do $$
+declare code text := 'none (the insert SUCCEEDED)';
+begin
+  begin
+    insert into public.consent_events (child_id, kind, granted, given_by, recorded_by)
+    values ('a1111111-1111-4111-8111-111111111111', 'photo_public', true,
+            'd3333333-3333-4333-8333-333333333333', '33333333-3333-4333-8333-333333333333');
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code in ('42501', '23514'),
+    'a parent CANNOT record consent as a different guardian, got ' || code);
+end $$;
+
+do $$
+declare code text := 'none (the update SUCCEEDED)';
+begin
+  begin
+    update public.consent_events set granted = true
+     where child_id = 'a1111111-1111-4111-8111-111111111111';
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '42501',
+    'consent history CANNOT be altered, got ' || code);
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- The educator: every child at the centre, but not the parenting orders
+-- ---------------------------------------------------------------------------
+
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+
+select pg_temp.expect(
+  (select count(*) from public.children) = 2,
+  'an educator sees every child at their centre'
+);
+
+select pg_temp.expect(
+  (select count(*) from public.health_conditions) = 2,
+  'an educator sees every allergy at their centre'
+);
+
+-- An educator needs to know a child must not go home with a named adult. That
+-- belongs on the collection list, not in the terms of a court order.
+select pg_temp.expect(
+  (select count(*) from public.custody_arrangements) = 0,
+  'an educator CANNOT read custody arrangements'
+);
+
+do $$
+declare n integer;
+begin
+  insert into public.health_conditions (child_id, kind, name, severity)
+  values ('b2222222-2222-4222-8222-222222222222', 'allergy', 'Bee stings', 'severe');
+  get diagnostics n = row_count;
+  perform pg_temp.expect(n = 1,
+    'an educator CAN record an allergy disclosed at the door');
+end $$;
+
+do $$
+declare code text := 'none (the insert SUCCEEDED)';
+begin
+  begin
+    insert into public.enrolments (child_id, centre_id, start_date)
+    values ('b2222222-2222-4222-8222-222222222222',
+            'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', current_date);
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code in ('42501', '23514'),
+    'an educator CANNOT file an enrolment, got ' || code);
+end $$;
+
+-- The audit trigger fired for that allergy without the query layer asking, and
+-- the log records who and when without restating the medical detail. Asserted on
+-- a health table specifically, because this is the table where getting it wrong
+-- copies a child's medical information into somewhere nobody is looking after it.
+set local role postgres;
+select pg_temp.expect(
+  exists (
+    select 1 from public.audit_events
+     where entity = 'health_conditions' and action = 'insert'
+       and actor_id = '55555555-5555-4555-8555-555555555555'
+  ),
+  'the audit trigger attributed the allergy to the educator who recorded it'
+);
+
+select pg_temp.expect(
+  not exists (select 1 from public.audit_events where detail::text like '%Bee stings%'),
+  'and kept the medical detail out of the audit row'
+);
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+
+-- ---------------------------------------------------------------------------
+-- The owner: custody visible, and the enrolment guards hold
+-- ---------------------------------------------------------------------------
+
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+
+select pg_temp.expect(
+  (select count(*) from public.custody_arrangements) = 1,
+  'an owner CAN read custody arrangements'
+);
+
+-- Overlapping enrolments double-count funded hours, and the error surfaces months
+-- later as a funding discrepancy nobody can trace back.
+do $$
+declare code text := 'none (the insert SUCCEEDED)';
+begin
+  begin
+    insert into public.enrolments (child_id, centre_id, start_date)
+    values ('a1111111-1111-4111-8111-111111111111',
+            'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', current_date);
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '23P01',
+    'an overlapping enrolment is refused by the database, got ' || code);
+end $$;
+
+-- Filing a child's enrolment against the operator's other site would put the
+-- funded hours in the wrong roll return.
+do $$
+declare code text := 'none (the insert SUCCEEDED)';
+begin
+  begin
+    insert into public.enrolments (child_id, centre_id, start_date)
+    values ('c3333333-3333-4333-8333-333333333333',
+            'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', current_date);
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code in ('42501', '23514'),
+    'an enrolment CANNOT be filed against the wrong centre, got ' || code);
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- Two sites, one operator: the check the plan asks for at the end of every phase
+-- ---------------------------------------------------------------------------
+
+set local request.jwt.claims = '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}';
+
+select pg_temp.expect(
+  (select count(*) from public.children) = 1,
+  'staff at centre B see only centre B''s children'
+);
+
+select pg_temp.expect(
+  (select count(*) from public.children
+    where centre_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') = 0,
+  'Mt Albert''s children are invisible from Mt Roskill'
+);
+
+select pg_temp.expect(
+  (select count(*) from public.health_conditions) = 0,
+  'and so are their medical records'
+);
+
+-- ---------------------------------------------------------------------------
+-- Revoking a parent's membership closes their own child's record.
+--
+-- The access predicates all join to a live membership specifically for this. It
+-- reads as obviously true and is easy to get wrong, because guardianship is
+-- recorded on the guardian row and would otherwise outlive the access.
+-- ---------------------------------------------------------------------------
+
+set local role postgres;
+update public.memberships set revoked_at = now()
+ where user_id = '33333333-3333-4333-8333-333333333333';
+
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+
+select pg_temp.expect(
+  (select count(*) from public.children) = 0,
+  'a revoked parent loses access to their own child immediately'
+);
+
+select pg_temp.expect(
+  (select count(*) from public.health_conditions) = 0,
+  'and to the health record'
+);
+
+select pg_temp.expect(
+  not public.has_consent('a1111111-1111-4111-8111-111111111111', 'photo_internal'),
+  'has_consent fails closed for a caller who can no longer see the child'
+);
 
 -- ---------------------------------------------------------------------------
 -- A revoked membership must end access immediately.

@@ -18,7 +18,8 @@
     "lint": "npm run lint --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "test:rls": "node --env-file-if-exists=.env.local --import tsx scripts/test-rls.ts",
-    "onboard": "node --env-file-if-exists=.env.local --import tsx scripts/onboard.ts"
+    "onboard": "node --env-file-if-exists=.env.local --import tsx scripts/onboard.ts",
+    "seed:demo": "node --env-file-if-exists=.env.local --import tsx scripts/seed-demo.ts"
   },
   "devDependencies": {
     "@types/pg": "^8.20.3",
