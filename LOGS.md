@@ -406,6 +406,47 @@ intermittently returns a 500 with an empty body, something `onboard.ts` had alre
 this code had ignored — and it now sweeps any `audit-` tenant older than two hours first, so a
 killed run heals on the next one. A full run now leaves nothing behind, verified.
 
+### Preparing the Railway deploy (`pending`)
+
+Three things that would each have been a deploy failure were checked rather than assumed, and
+two of them needed no change at all — which is the useful result. `dotenv-cli` exits 0 on a
+missing file, so `dotenv -e ../../.env.local` in the web scripts is harmless on a host that has
+no such file. `next start` reads `PORT` through commander's `.env('PORT')` and binds `0.0.0.0`
+by default, verified by starting it on 3999. The third does need handling: `npm ci` under
+`NODE_ENV=production` omits devDependencies, which here means `typescript` and the `@types`
+packages `next build` requires, and the failure reads as a TypeScript error in the application
+rather than as a missing dependency — hence `--include=dev` in the build command.
+
+`railway.json` and `.nvmrc` are committed rather than configured in the dashboard: a build
+command that exists only in somebody's browser cannot be reviewed and cannot be restored.
+
+**The health check is about configuration, not liveness.** `/api/health` returns 200 when the
+three required variables are present and 503 naming the missing one — verified in both
+directions. It deliberately does not touch Supabase, because a health check that did would turn
+a blip in a third-party service into a container restart, so a dependency's outage would become
+an outage of the deploy's own making. What it catches is the failure that is actually likely: a
+missing variable, before the host routes traffic, rather than as a 500 on whichever page
+somebody opens first.
+
+**The deploy's real cost is a service-role key in the container.** The invitation flow calls the
+GoTrue admin API to create an account and no Postgres function can substitute, so the key has to
+be a Railway variable — and it bypasses every policy. The blast radius of the Railway
+environment is the whole database. Recorded plainly in the runbook, along with the consequence:
+the project's member list is now the list of people who can read every child's medical record.
+
+**Two findings on the Supabase side.** `site_url` was `http://localhost:3000`, and every
+invitation and recovery link GoTrue issues lands on it — so without the post-deploy step a real
+staff member clicks their invitation and their browser tries to open a server on their own
+laptop. And `password_min_length` was **6** while the invitation form has always refused
+anything under ten: the product was promising a stronger minimum than the service enforced, and
+any route that set a password without going through that form was held to the weaker rule.
+Raised to 10 immediately; the URL change waits for a domain.
+
+Also noted for before it goes public: `seed:demo` prints a parent password, and once the app is
+on the internet that password reaches a login page. The data is fabricated so the harm is
+bounded, but reseeding or purging is one command and leaving a known password on a public login
+page is not a state to be in.
+
 ### Where the day ended
 
 

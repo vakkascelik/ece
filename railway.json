@@ -1,0 +1,66 @@
+{
+  "$schema": "https://railway.com/railway.schema.json",
+
+  "//": [
+    "Railway deployment for the web app. Committed rather than configured only in the",
+    "dashboard, because a build command that exists solely in somebody's browser is a",
+    "build command nobody can review and nobody can restore.",
+    "",
+    "The mobile app is not deployed from here — it ships through EAS to the stores and",
+    "talks to the same Supabase project directly.",
+    "",
+    "Full procedure, including the Supabase side, in docs/deploy-railway.md."
+  ],
+
+  "build": {
+    "builder": "NIXPACKS",
+
+    "//": [
+      "`--include=dev` is not redundant. Nixpacks sets NODE_ENV=production, and under that",
+      "npm omits devDependencies — which here means typescript, @types/react and",
+      "@types/node. `next build` needs all three, and the failure reads as a TypeScript",
+      "error in the app rather than as a missing dependency, so it sends you looking in the",
+      "wrong place.",
+      "",
+      "`npm run build` at the root builds core, then api, then web, in that order: the two",
+      "packages ship TypeScript source and are transpiled by Next, so their `build` scripts",
+      "are typechecks. Web last, because it depends on both.",
+      "",
+      "The NEXT_PUBLIC_* variables must exist at BUILD time, not just at runtime — Next",
+      "inlines them into the client bundle. A deploy that has them only as runtime",
+      "variables produces a browser bundle pointing at `undefined`."
+    ],
+    "buildCommand": "npm ci --include=dev && npm run build"
+  },
+
+  "deploy": {
+    "//": [
+      "`next start` needs no port flag: it reads PORT (commander `.env('PORT')`, default",
+      "3000) and binds 0.0.0.0 by default. Verified rather than assumed — PORT=3999 and it",
+      "served on 3999.",
+      "",
+      "The workspace flag matters: `npm run start` at the root has no start script, and",
+      "`cd apps/web && npm start` loses npm's workspace symlinks for @ece/core and @ece/api."
+    ],
+    "startCommand": "npm run start -w @ece/web",
+
+    "//healthcheck": [
+      "Checks that the container booted with its configuration, not that Supabase is up.",
+      "A missing environment variable is the most likely way this deploy fails, and without",
+      "this the symptom is a 500 on whichever page somebody opens first, minutes after the",
+      "deploy reported success. See apps/web/src/app/api/health/route.ts."
+    ],
+    "healthcheckPath": "/api/health",
+    "healthcheckTimeout": 100,
+
+    "//restart": [
+      "ON_FAILURE with a small retry count. Not ALWAYS: this process has no reason to exit",
+      "on its own, so an exit is a fault, and restarting it forever turns a crash loop into",
+      "a quiet one that looks like uptime."
+    ],
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 3,
+
+    "numReplicas": 1
+  }
+}

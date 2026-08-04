@@ -9,7 +9,7 @@ apps/mobile     Expo 57 / React Native — whānau and educators
 packages/core   types, roles, capabilities. No Node, no Next, no React Native.
 packages/api    the only place either app talks to Supabase
 supabase/       migrations. RLS is the tenant boundary.
-docs/           what a centre reads: privacy statement, retention, breach runbook
+docs/           what a centre reads, plus the runbooks: privacy, retention, breach, deploy
 llm-wiki/       why decisions were made, and what is asserted but unverified
 ```
 
@@ -40,6 +40,7 @@ npm run build                  # web
 npm run onboard                # create a centre and its first owner
 npm run sweep:audit            # drop audit tenants a killed test run left behind
 npm run drill:restore          # extract every table, reload it, compare
+npm run deploy:auth            # point Supabase Auth at the deployed app
 ```
 
 CI runs all of those on every push. `.github/workflows/ci.yml` keeps the RLS suite in
@@ -1187,6 +1188,57 @@ fixture already knows, so a teardown cannot fail for that reason. And it now swe
 `audit-` tenant older than two hours before doing its own work, so a killed run heals on the
 next one. `npm run sweep:audit` does the same plus the accounts, which need SQL for the same
 reason.
+
+## Deploying
+
+Railway, web app only — the mobile app ships through EAS and talks to Supabase directly.
+Full procedure and the post-deploy checks: [docs/deploy-railway.md](docs/deploy-railway.md).
+`railway.json` and `.nvmrc` are committed, so the build and start commands live in the repo
+rather than in somebody's browser.
+
+**Migrations are not part of the deploy, deliberately.** A build that migrated would run on
+every redeploy, in parallel across replicas, with no way to stop half way. So the rule is
+**migrate first, then deploy**, and `npm run migrate -- --status` is how you find out whether
+the schema and the code agree.
+
+Three things that were verified rather than assumed, because each would have been a deploy
+failure:
+
+- **`dotenv-cli` exits 0 on a missing file**, so `dotenv -e ../../.env.local` in the web
+  scripts is harmless on a host that has no such file. Tested; the scripts needed no change.
+- **`next start` reads `PORT`** (commander `.env('PORT')`) and binds `0.0.0.0` by default.
+  Tested with `PORT=3999`; it served on 3999.
+- **`npm ci` under `NODE_ENV=production` omits devDependencies**, which here means
+  `typescript` and the `@types` packages that `next build` needs. Hence `--include=dev` in the
+  build command; without it the failure reads as a TypeScript error in the app.
+
+### The health check is about configuration, not liveness
+
+`/api/health` returns `{"ok":true}`, or 503 naming the missing variable. It does **not** touch
+Supabase: a health check that did would turn a blip in a third-party service into a container
+restart, making a dependency's outage into an outage of the deploy's own making. What it
+catches is the actual likely failure — a missing or misspelled variable — before the host
+routes traffic, instead of as a 500 on whichever page somebody opens first.
+
+### The deploy's real cost: a service-role key in the container
+
+The invitation flow calls the GoTrue admin API to create an account, and no Postgres function
+can stand in for that. So `SUPABASE_SERVICE_ROLE_KEY` has to be a Railway variable — and that
+key **bypasses every policy**. The blast radius of the Railway environment is therefore the
+whole database, every centre. Keep the project's member list as short as the list of people
+who should be able to read every child's medical record, because they are now the same list.
+
+### Two things the deploy changed on the Supabase side
+
+`site_url` was `http://localhost:3000`, and **every invitation and recovery link this product
+issues lands on `site_url`** — so until `npm run deploy:auth -- --domain https://…` is run
+after the first deploy, a staff member clicks their invitation and their browser tries to open
+a server on their own laptop.
+
+And `password_min_length` was **6**, already raised to **10**. The invitation form has always
+refused anything shorter, so the product was promising a stronger minimum than the service
+enforced, and any route that set a password without going through that form was held to the
+weaker rule.
 
 ## Open questions
 
