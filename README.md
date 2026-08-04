@@ -1191,6 +1191,13 @@ reason.
 
 ## Deploying
 
+**One service serves every centre — it is not a per-customer deploy.** Nothing about a centre
+is in the build: no tenant in an environment variable, no centre id in the bundle, no hostname
+that means anything. A second customer is a row in `centres` and a row in `memberships`, which
+is what `npm run onboard` does. So do not name the Railway service or a custom domain after the
+first customer — `ece-web`, not `little-pearls`. See [Why this is pooled and not
+siloed](#why-this-is-pooled-and-not-siloed) for why mobile forces this.
+
 Railway, web app only — the mobile app ships through EAS and talks to Supabase directly.
 Full procedure and the post-deploy checks: [docs/deploy-railway.md](docs/deploy-railway.md).
 `railway.json` and `.nvmrc` are committed, so the build and start commands live in the repo

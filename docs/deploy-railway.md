@@ -6,6 +6,57 @@ Supabase project directly — Railway is not in its path at all.
 Nothing here has been deployed yet. Every command below has been run or tested locally
 except the ones that need a Railway project, and those are marked.
 
+## One service, every centre — not one per customer
+
+**This is not a Little Pearls deployment.** It is *the* deployment, and every centre that ever
+uses this product signs in to the same hostname. The question is worth answering in the first
+paragraph because the other platforms in this account work the opposite way: `shop-platform`
+and `charity-platform` put one deployment and one database schema per customer, and five live
+shop storefronts each have their own. That is right for them — each customer wants their own
+website on their own domain.
+
+It cannot work here, and the reason is the mobile app. **You cannot publish one App Store
+binary per childcare centre.** One app has to serve every centre, so the tenant has to be
+resolved after sign-in rather than chosen by which deployment you happened to reach — and once
+that is true for mobile, having the web work differently would mean two tenancy models to keep
+correct instead of one.
+
+So nothing about a centre is in the build. There is no tenant in an environment variable, no
+centre id in the bundle, and no hostname that means anything. Every request resolves the tenant
+the same way:
+
+1. the session cookie gives Supabase a JWT, which gives `auth.uid()`;
+2. `listMyCentres()` returns the caller's **live** memberships — RLS decides that, not the app;
+3. the `ece_centre` cookie picks between them, and it is a **preference, never a grant**: every
+   request re-checks it against the memberships and discards a value that is not backed by one.
+
+A second centre is therefore a row in `centres` and a row in `memberships`. Not a deploy, not a
+service, not a variable. `npm run onboard` is the whole operation.
+
+### What that means for what you name things
+
+**Do not name the Railway service, or any custom domain, after Little Pearls.** The second
+customer would sign in at a URL bearing another centre's name, and by the time that matters it
+is a URL people have bookmarked, staff have been trained on, and invitation links in mailboxes
+point at.
+
+Name it for the product: service `ece-web`, and later a domain like `app.<yourdomain>.nz`. The
+per-centre identity belongs on the screen after sign-in, which is where it already is — the
+sidebar shows the centre name and the service number.
+
+### The trade this makes, stated plainly
+
+Pooled tenancy buys one deployment, one database, one migration to apply, and a mobile app that
+can exist at all. It costs two things, and both are real:
+
+- **A policy mistake exposes every centre at once**, not one. That is why the RLS suite is 176
+  assertions, why it is a separate CI job, and why a red cross there means something different
+  from a failing unit test. It is the compensating control for this decision and the reason it
+  gets more attention than anything else in the repo.
+- **One deploy is a single point of failure for every centre.** A bad release takes everybody's
+  roll offline at 7.30am, whereas a per-customer deploy would take one centre offline. There is
+  no staging environment yet, which makes that worse rather than theoretical.
+
 ## What the deploy is, and what it is not
 
 Railway runs **one Next.js process**. It is not the database, it does not run migrations, and
