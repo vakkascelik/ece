@@ -1,0 +1,14 @@
+{
+  "expo": {
+    "name": "ECE",
+    "slug": "ece",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "ios": { "supportsTablet": true, "bundleIdentifier": "nz.co.salixtech.ece" },
+    "android": { "package": "nz.co.salixtech.ece" },
+    "extra": {
+      "//": "One binary serves every centre. The tenant is resolved at sign-in, never baked into the build — which is the whole reason this platform is pooled rather than one deployment per customer."
+    }
+  }
+}

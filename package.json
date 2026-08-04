@@ -1,0 +1,15 @@
+{
+  "name": "ece",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Multi-tenant platform for New Zealand early learning services. Web admin plus a mobile app for whanau and educators, one deployment serving every centre.",
+  "engines": { "node": ">=20.0.0" },
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "dev:web": "npm run dev -w @ece/web",
+    "dev:mobile": "npm run start -w @ece/mobile",
+    "build": "npm run build -w @ece/core && npm run build -w @ece/api && npm run build -w @ece/web",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present"
+  }
+}

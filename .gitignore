@@ -1,0 +1,16 @@
+node_modules/
+.next/
+out/
+dist/
+build/
+.expo/
+*.tsbuildinfo
+
+# secrets — the service-role key bypasses RLS, which is the only thing
+# separating one centre's children from another's
+.env
+.env.*
+!.env.example
+
+.DS_Store
+*.log
