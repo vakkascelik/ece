@@ -9,7 +9,13 @@ apps/mobile     Expo 57 / React Native — whānau and educators
 packages/core   types, roles, capabilities. No Node, no Next, no React Native.
 packages/api    the only place either app talks to Supabase
 supabase/       migrations. RLS is the tenant boundary.
+llm-wiki/       why decisions were made, and what is asserted but unverified
 ```
+
+**Working on this with an agent?** Start at [AGENTS.md](AGENTS.md), then
+[llm-wiki/wiki/unverified-claims.md](llm-wiki/wiki/unverified-claims.md) — the register of
+everything this product asserts that nobody has checked. [LOGS.md](LOGS.md) is the
+session-by-session narrative.
 
 ```bash
 npm install
@@ -24,6 +30,7 @@ npm run lint
 npm test                       # unit tests
 npm run test:rls               # tenant isolation — 119 assertions
 npm run tokens:check           # generated CSS matches the shared tokens
+npm run check:docs             # every documentation link resolves
 npm run build                  # web
 
 npm run onboard                # create a centre and its first owner
@@ -628,7 +635,7 @@ Three details that matter more than they look:
   assumption.
 
 The day window is converted through `Intl`, not a fixed offset — New Zealand moves between
-+13 and +12, and [the tests](apps/web/src/app/(app)/compliance/__tests__/window.test.ts)
++13 and +12, and [the tests](apps/web/src/app/%28app%29/compliance/__tests__/window.test.ts)
 assert a 23-hour day in September, a 25-hour day in April, and no gap or overlap between
 consecutive days across both transitions. Getting that wrong attributes a whole morning to
 the previous date.

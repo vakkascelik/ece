@@ -1,0 +1,159 @@
+# Conventions
+
+Migrations, testing, tokens, timezones and the traps this repo has already fallen into.
+
+## Overview
+
+The rules that are cheap to follow and expensive to rediscover. Most of them exist because
+something broke.
+
+## Key Points
+
+- **Every new table needs a policy *and* a grant**, and an assertion in the isolation suite in
+  the same commit.
+- **Migrations are applied by `npm run migrate`**, which refuses to continue if a file changed
+  after it was applied.
+- **Migrations must be replayable** against a populated database.
+- **Never compute "today" as UTC.** Use `todayInZone(centre.timezone)`.
+- **PostgREST bulk inserts do not apply column defaults.**
+- **Design tokens have one source**, and CI fails on drift.
+
+## Details
+
+### The convention for a new tenant-scoped table
+
+```sql
+create table public.<thing> (
+  id        uuid primary key default gen_random_uuid(),
+  centre_id uuid not null references public.centres(id) on delete cascade,
+  ...
+);
+create index <thing>_centre_idx on public.<thing> (centre_id);
+alter table public.<thing> enable row level security;
+create policy <thing>_rw on public.<thing>
+  for all using (centre_id in (select public.caller_centre_ids()))
+          with check (centre_id in (select public.caller_centre_ids()));
+revoke all on public.<thing> from anon;
+grant select, insert, update, delete on public.<thing> to authenticated;
+```
+
+Both halves of the policy are required. `USING` alone lets a caller insert a row belonging to
+a centre they cannot read — a silent cross-tenant write, invisible in testing because the row
+promptly disappears from view.
+
+**The GRANT line is not boilerplate to skip, and not boilerplate to paste unread.** Postgres
+checks the table privilege *before* it evaluates a policy: without a grant the table is
+unreadable by every real caller; wider than the policies contemplate and it is writable in
+ways nothing checks. Grant only the verbs the product performs, and remember
+`service_role` — it bypasses RLS but **not** grants.
+
+For anything append-only, withhold `UPDATE`/`DELETE` from `service_role` too. That is what
+makes the claim "this cannot be altered" true rather than aspirational.
+
+### Migrations
+
+```bash
+npm run migrate                  # apply anything pending
+npm run migrate -- --status      # show state, change nothing
+npm run migrate -- --baseline    # record as applied WITHOUT running
+```
+
+Each file is applied once, in order, with a checksum recorded. **If a file changed after it
+was applied the runner refuses to continue**, because that means the database and the repo
+disagree about the schema and only a person knows which is right.
+
+**They must replay cleanly against a populated database.** `create or replace view` refuses to
+change a view's column list, so a later migration adding a column to a view makes replaying
+the earlier one fail with "cannot drop columns from view". Use `drop view if exists` then
+`create view`. Found by the runner on its first real use.
+
+### Timezones — the trap this repo fell into twice
+
+`current_date` in Postgres uses the session timezone, and PostgREST connects as **UTC**. New
+Zealand is 12 or 13 hours ahead, so for the whole New Zealand morning UTC is *yesterday*.
+
+The consequences were real: a `CHECK` constraint rejected a baby born that morning as being
+born in the future, and a same-day enrolment was missing from the roll until lunchtime.
+
+- In SQL, use `(now() at time zone 'Pacific/Auckland')::date`, not `current_date`.
+- In TypeScript, use `todayInZone(centre.timezone)` from `@ece/core`. Never
+  `toISOString().slice(0, 10)`, and never the device's local date on a server — a Next server
+  runs in UTC.
+- For a *window* of a local day, use `dayWindow()` in the compliance folder, which goes
+  through `Intl`. A fixed +12 is wrong for half the year; the tests assert a 23-hour day in
+  September and a 25-hour day in April.
+
+### PostgREST traps
+
+- **Bulk inserts do not apply column defaults.** One `INSERT` is built from the *union* of
+  keys, so a key present in one object and absent from another is sent as an explicit `NULL`.
+  Give every object in a batch every key. Cost a debugging session that looked like an RLS bug.
+- **Unbounded `select()` is capped at 1000 rows** by default. Cosmetic in a report, a
+  correctness bug in a dedupe.
+- **A to-one embed is typed as an array.** Two plain queries are clearer than a cast that
+  reads like a mistake.
+- **`upsert` without `ignoreDuplicates` needs `UPDATE` privilege.** On an append-only table it
+  fails with `42501` before any `CHECK` is evaluated — which can make a test pass for the
+  wrong reason.
+
+### Testing
+
+| Command | What it covers |
+|---|---|
+| `npm run typecheck` | four workspaces |
+| `npm run lint` | flat ESLint config at the root; `next lint` is deprecated and prompts interactively with no config, which in CI hangs |
+| `npm test` | unit tests in `@ece/core` and `@ece/web` |
+| `npm run test:rls` | **the one that matters** — 119 assertions as at 2026-08-04 |
+| `npm run tokens:check` | generated CSS matches the shared tokens |
+| `npm run drill:offline` | the outbox contract against the real database |
+
+**Mutation-test a new policy.** If a suite passes first run, weaken the policy deliberately
+and confirm the suite fails on the right assertion. A test that cannot fail is not a test.
+
+The RLS suite is one self-contained SQL script ending in `ROLLBACK`, so it needs no Docker and
+no local Postgres and is safe against a live project. Impersonation is `set local role
+authenticated` plus a `request.jwt.claims` blob, which is what PostgREST does per request.
+
+### Design tokens
+
+`packages/core/src/tokens.ts` is the single source. The mobile theme reads it as data;
+`apps/web/src/app/tokens.css` is **generated** by `npm run tokens` and CI fails on drift.
+
+That check exists because the duplication was not hypothetical: the two copies had already
+diverged, with the page background `#fafaf9` against `#faf9f7` and the muted grey a full
+contrast point worse than the value the contrast test was asserting. The tests passed and the
+screens rendered the other values.
+
+Flags always carry a **symbol and a word**, never colour alone (WCAG 1.4.1). What they carry
+is "this child could stop breathing", and about one man in twelve cannot reliably separate the
+red from the green.
+
+### Versions worth not re-litigating
+
+- **Expo 57 / React Native 0.86 / React 19.** Expo 55 and 56 peer-require React 18, which
+  cannot coexist with Next 15 in one hoisted workspace.
+- **Expo modules are versioned `57.x`**, matching the SDK major — not the old independent
+  `~14.2.4` scheme. `shop-admin-app` predates the change; do not copy its ranges.
+- **`expo-secure-store`, not AsyncStorage**, for the auth session. AsyncStorage is an
+  unencrypted file and this token authorises reads of children's health notes.
+- **`metro.config.js` needs `watchFolders` *and* `resolver.nodeModulesPaths`.**
+- **`dotenv-cli` wraps the Next scripts.** Next ignores a monorepo root `.env.local`, and the
+  failure is delayed — `next build` succeeds and only a real request fails.
+
+### Server actions
+
+A form `action` must return `void`, so an action returning `{ error }` needs `useActionState`
+in a client component. Catches go through `actionError`, which reports the failure and scrubs
+the message — Postgres quotes offending values back, and a constraint violation can put a
+child's name on screen.
+
+Closing a panel on success belongs in a `useEffect`, not the render body: calling the parent's
+`setState` during render is a React error that only shows up in the console.
+
+## See Also
+
+- [[tenancy-and-rls]] — the policy half of the convention
+- [[unverified-claims]]
+- [[offline-outbox]]
+
+*Last updated: 2026-08-04*

@@ -40,6 +40,12 @@ jobs:
       - name: Design tokens are in sync
         run: npm run tokens:check
 
+      # Caught a real one on its first run: the README linked to a path containing
+      # `(app)`, whose closing parenthesis ends a markdown link early, so it rendered
+      # broken on GitHub while looking correct in the source.
+      - name: Documentation links resolve
+        run: npm run check:docs
+
       - name: Unit tests
         run: npm test
 
