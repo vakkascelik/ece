@@ -92,7 +92,7 @@ export default async function ChildPage({ params }: { params: Promise<{ id: stri
 
       {/* Above everything, because it is the reason to look at this page in a hurry. */}
       {critical && (
-        <div className="card" style={{ borderColor: '#eccec4', background: 'var(--breach-soft)' }}>
+        <div className="card" style={{ borderColor: 'var(--breach-border)', background: 'var(--breach-soft)' }}>
           {sorted
             .filter((c) => c.severity === 'anaphylaxis' || c.severity === 'severe')
             .map((c) => (

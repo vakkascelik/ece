@@ -6,12 +6,14 @@
     "dev": "dotenv -e ../../.env.local -- next dev",
     "build": "dotenv -e ../../.env.local -- next build",
     "start": "dotenv -e ../../.env.local -- next start",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@ece/api": "*",
     "@ece/core": "*",
     "@next/env": "^15.3.9",
+    "@sentry/nextjs": "^10.69.0",
     "@supabase/ssr": "^0.5.0",
     "@supabase/supabase-js": "^2.45.0",
     "next": "15.3.9",

@@ -44,6 +44,7 @@ import {
   type HealthKind,
   type HealthSeverity,
 } from '@ece/core';
+import { actionError } from '@/lib/actionError';
 import { requireCapability, requireCtx } from '@/lib/auth';
 import { serverDb } from '@/lib/supabase';
 
@@ -136,7 +137,7 @@ export async function saveChild(_prev: unknown, form: FormData): Promise<Result>
       gender: gender ? oneOf<Gender>(gender, GENDERS) : null,
     });
   } catch (e) {
-    return { error: e instanceof Error ? e.message : 'Could not save.' };
+    return actionError(e, 'saveChild');
   }
 
   revalidatePath(`/children/${childId}`);
@@ -151,7 +152,7 @@ export async function archive(_prev: unknown, form: FormData): Promise<Result> {
   try {
     await archiveChild(db, childId);
   } catch (e) {
-    return { error: e instanceof Error ? e.message : 'Could not archive.' };
+    return actionError(e, 'archive');
   }
   revalidatePath('/children');
   redirect('/children');
@@ -193,7 +194,7 @@ export async function addGuardian(_prev: unknown, form: FormData): Promise<Resul
       contactPriority: Number(str(form, 'contactPriority')) || 100,
     });
   } catch (e) {
-    return { error: e instanceof Error ? e.message : 'Could not add them.' };
+    return actionError(e, 'addGuardian');
   }
 
   revalidatePath(`/children/${childId}`);
@@ -237,7 +238,7 @@ export async function editGuardian(_prev: unknown, form: FormData): Promise<Resu
       contactPriority: Number(str(form, 'contactPriority')) || 100,
     });
   } catch (e) {
-    return { error: e instanceof Error ? e.message : 'Could not save.' };
+    return actionError(e, 'editGuardian');
   }
 
   revalidatePath(`/children/${childId}`);
@@ -253,7 +254,7 @@ export async function unlinkGuardian(_prev: unknown, form: FormData): Promise<Re
   try {
     await revokeGuardianLink(db, linkId);
   } catch (e) {
-    return { error: e instanceof Error ? e.message : 'Could not remove them.' };
+    return actionError(e, 'unlinkGuardian');
   }
   revalidatePath(`/children/${childId}`);
   return { ok: true };
@@ -318,7 +319,7 @@ export async function endEnrolment(_prev: unknown, form: FormData): Promise<Resu
   try {
     await updateEnrolment(db, enrolmentId, { endDate });
   } catch (e) {
-    return { error: e instanceof Error ? e.message : 'Could not end the enrolment.' };
+    return actionError(e, 'endEnrolment');
   }
   revalidatePath(`/children/${childId}`);
   return { ok: true };
@@ -357,7 +358,7 @@ export async function addCondition(_prev: unknown, form: FormData): Promise<Resu
       responsePlan: str(form, 'responsePlan') || null,
     });
   } catch (e) {
-    return { error: e instanceof Error ? e.message : 'Could not record it.' };
+    return actionError(e, 'addCondition');
   }
   revalidatePath(`/children/${childId}`);
   return { ok: true };
@@ -372,7 +373,7 @@ export async function resolveCondition(_prev: unknown, form: FormData): Promise<
   try {
     await resolveHealthCondition(db, id);
   } catch (e) {
-    return { error: e instanceof Error ? e.message : 'Could not resolve it.' };
+    return actionError(e, 'resolveCondition');
   }
   revalidatePath(`/children/${childId}`);
   return { ok: true };
@@ -410,7 +411,7 @@ export async function addMedication(_prev: unknown, form: FormData): Promise<Res
       expiresOn: expiresOn || null,
     });
   } catch (e) {
-    return { error: e instanceof Error ? e.message : 'Could not record the authority.' };
+    return actionError(e, 'addMedication');
   }
   revalidatePath(`/children/${childId}`);
   return { ok: true };
@@ -451,7 +452,7 @@ export async function setConsent(_prev: unknown, form: FormData): Promise<Result
   try {
     await recordConsent(db, { childId, kind, granted, givenBy, note: str(form, 'note') || null });
   } catch (e) {
-    return { error: e instanceof Error ? e.message : 'Could not record the decision.' };
+    return actionError(e, 'setConsent');
   }
   revalidatePath(`/children/${childId}`);
   return { ok: true };
@@ -477,7 +478,7 @@ export async function addCustody(_prev: unknown, form: FormData): Promise<Result
       courtOrderReference: str(form, 'courtOrderReference') || null,
     });
   } catch (e) {
-    return { error: e instanceof Error ? e.message : 'Could not record it.' };
+    return actionError(e, 'addCustody');
   }
   revalidatePath(`/children/${childId}`);
   return { ok: true };
@@ -492,7 +493,7 @@ export async function supersedeCustody(_prev: unknown, form: FormData): Promise<
   try {
     await supersedeCustodyArrangement(db, id);
   } catch (e) {
-    return { error: e instanceof Error ? e.message : 'Could not close it.' };
+    return actionError(e, 'supersedeCustody');
   }
   revalidatePath(`/children/${childId}`);
   return { ok: true };

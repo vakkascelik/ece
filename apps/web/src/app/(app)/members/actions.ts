@@ -1,10 +1,22 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { countOwners, listMembers, revokeMember, setMemberRole } from '@ece/api';
+import { headers } from 'next/headers';
+import {
+  countOwners,
+  createInvitation,
+  listMembers,
+  revokeInvitation,
+  revokeMember,
+  setMemberRole,
+} from '@ece/api';
 import { MEMBER_ROLES, type MemberRole } from '@ece/core';
 import { requireCapability } from '@/lib/auth';
+import { hashInviteToken, inviteExpiry, newInviteToken } from '@/lib/inviteToken';
 import { serverDb } from '@/lib/supabase';
+
+/** The link is returned once and never stored — see `invite` below. */
+export type InviteResult = { error: string } | { ok: true; email: string; link: string };
 
 /**
  * Roster changes.
@@ -68,4 +80,88 @@ export async function revoke(_prev: unknown, form: FormData) {
   await revokeMember(db, membershipId);
   revalidatePath('/members');
   return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Invitations
+// ---------------------------------------------------------------------------
+
+/**
+ * Issue an invitation and return the link.
+ *
+ * The raw token is generated here, hashed for storage, and returned to the caller
+ * exactly once — it is never persisted and cannot be recovered. Losing the link
+ * means issuing another, which is the correct trade for not keeping usable tokens
+ * in a database.
+ *
+ * No email is sent, because this project has no mailer configured. The link is
+ * shown to the manager to pass on however they already talk to their staff, which
+ * is honest about what the system actually does rather than claiming to have sent
+ * something. Wiring a mailer changes only this function.
+ */
+export async function invite(_prev: unknown, form: FormData): Promise<InviteResult> {
+  const ctx = await requireCapability('manageMembers');
+  const db = await serverDb();
+
+  const email = String(form.get('email') ?? '')
+    .trim()
+    .toLowerCase();
+  const role = String(form.get('role') ?? '') as MemberRole;
+
+  if (!email.includes('@') || email.length < 5) return { error: 'That is not an email address.' };
+  if (!MEMBER_ROLES.includes(role)) return { error: 'Unknown role.' };
+
+  // Inviting a second owner is legitimate — a two-site operator usually has two —
+  // but it is not something to do by accident, so it is spelled out rather than
+  // sitting quietly in a dropdown.
+  const members = await listMembers(db, ctx.centre.id);
+  if (members.some((m) => m.email?.toLowerCase() === email)) {
+    return { error: 'They are already at this centre.' };
+  }
+
+  const token = newInviteToken();
+  try {
+    await createInvitation(db, {
+      centreId: ctx.centre.id,
+      email,
+      role,
+      tokenHash: hashInviteToken(token),
+      invitedBy: ctx.userId,
+      expiresAt: inviteExpiry(),
+    });
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Could not create the invitation.' };
+  }
+
+  revalidatePath('/members');
+  return { ok: true, email, link: `${await originOf()}/invite/${token}` };
+}
+
+export async function withdrawInvite(_prev: unknown, form: FormData) {
+  await requireCapability('manageMembers');
+  const id = String(form.get('invitationId') ?? '');
+  if (!id) return { error: 'Missing invitation.' };
+  const db = await serverDb();
+  try {
+    await revokeInvitation(db, id);
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Could not withdraw it.' };
+  }
+  revalidatePath('/members');
+  return { ok: true as const };
+}
+
+/**
+ * The origin to build the invitation link against.
+ *
+ * From the request headers rather than a configured base URL, so the link works on
+ * localhost, on a preview deployment and in production without three settings. The
+ * `x-forwarded-*` pair is what a proxy sets; `host` is the fallback for running
+ * `next start` directly.
+ */
+async function originOf(): Promise<string> {
+  const h = await headers();
+  const host = h.get('x-forwarded-host') ?? h.get('host') ?? 'localhost:3000';
+  const proto = h.get('x-forwarded-proto') ?? (host.startsWith('localhost') ? 'http' : 'https');
+  return `${proto}://${host}`;
 }

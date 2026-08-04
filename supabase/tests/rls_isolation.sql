@@ -768,6 +768,224 @@ select pg_temp.expect(
   'and so are their medical records'
 );
 
+-- ===========================================================================
+-- RETENTION AND PURGING
+--
+-- `purge_child` is the most destructive thing in the product and it is SECURITY
+-- DEFINER, so it bypasses every policy above. Every one of its guards is therefore
+-- the only thing standing between a caller and another centre's records.
+-- ===========================================================================
+
+-- An educator, who must not be able to purge anything.
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+
+do $$
+declare msg text := 'none (the purge SUCCEEDED)';
+begin
+  begin
+    perform public.purge_child('b2222222-2222-4222-8222-222222222222', 'testing whether this is allowed');
+  exception when others then msg := sqlstate;
+  end;
+  perform pg_temp.expect(msg <> 'none (the purge SUCCEEDED)',
+    'an educator CANNOT purge a child record');
+end $$;
+
+-- A parent, on their own child.
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+do $$
+declare msg text := 'none (the purge SUCCEEDED)';
+begin
+  begin
+    perform public.purge_child('a1111111-1111-4111-8111-111111111111', 'a parent asking for erasure');
+  exception when others then msg := sqlstate;
+  end;
+  perform pg_temp.expect(msg <> 'none (the purge SUCCEEDED)',
+    'a parent CANNOT purge their own child''s record');
+end $$;
+
+-- The owner of the OTHER centre. security definer means the function itself has to
+-- check this; nothing else would.
+set local request.jwt.claims = '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}';
+do $$
+declare msg text := 'none (the purge SUCCEEDED)';
+begin
+  begin
+    perform public.purge_child('a1111111-1111-4111-8111-111111111111', 'purging another centre''s child');
+  exception when others then msg := sqlstate;
+  end;
+  perform pg_temp.expect(msg <> 'none (the purge SUCCEEDED)',
+    'an owner of another centre CANNOT purge this centre''s child');
+end $$;
+
+-- The right owner, but the child is still enrolled. This is the guard against
+-- removing a record that has become inconvenient while the child still attends.
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+do $$
+declare msg text := 'none';
+begin
+  begin
+    perform public.purge_child('a1111111-1111-4111-8111-111111111111', 'no longer needed, please remove');
+  exception when others then msg := sqlerrm;
+  end;
+  perform pg_temp.expect(msg like '%still enrolled%',
+    'an owner CANNOT purge a child who is still enrolled');
+end $$;
+
+-- A blank reason is refused, because the reason is what makes the audit row mean
+-- anything at all.
+do $$
+declare msg text := 'none';
+begin
+  begin
+    perform public.purge_child('a1111111-1111-4111-8111-111111111111', 'ok');
+  exception when others then msg := sqlerrm;
+  end;
+  perform pg_temp.expect(msg like '%reason%', 'a purge without a stated reason is refused');
+end $$;
+
+-- Archive first, then it works — and the audit trail survives the record.
+set local role postgres;
+update public.children set archived_at = now() - interval '8 years'
+ where id = 'a1111111-1111-4111-8111-111111111111';
+
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+
+select pg_temp.expect(
+  (select count(*) from public.children_due_for_purge(7)
+    where child_id = 'a1111111-1111-4111-8111-111111111111') = 1,
+  'a child archived eight years ago is listed as due for purge'
+);
+
+do $$
+begin
+  perform public.purge_child('a1111111-1111-4111-8111-111111111111',
+                             'retention period expired, seven years since leaving');
+  perform pg_temp.expect(
+    (select count(*) from public.children where id = 'a1111111-1111-4111-8111-111111111111') = 0,
+    'an owner CAN purge an archived child past retention'
+  );
+end $$;
+
+-- The cascade reached everything hanging off the child.
+select pg_temp.expect(
+  (select count(*) from public.health_conditions
+    where child_id = 'a1111111-1111-4111-8111-111111111111') = 0,
+  'and the purge took the health record with it'
+);
+
+select pg_temp.expect(
+  (select count(*) from public.consent_events
+    where child_id = 'a1111111-1111-4111-8111-111111111111') = 0,
+  'and the consent history'
+);
+
+-- The payoff from 0005 keeping values out of `detail`: the evidence that a record
+-- existed and was destroyed survives, and contains nothing about the child.
+select pg_temp.expect(
+  (select count(*) from public.audit_events
+    where action = 'purge' and entity = 'children'
+      and entity_id = 'a1111111-1111-4111-8111-111111111111') = 1,
+  'the purge itself is recorded in the audit log'
+);
+
+select pg_temp.expect(
+  (select detail ->> 'reason' from public.audit_events
+    where action = 'purge' and entity = 'children' limit 1) like '%retention period expired%',
+  'with the stated reason'
+);
+
+select pg_temp.expect(
+  not exists (
+    select 1 from public.audit_events
+     where entity_id = 'a1111111-1111-4111-8111-111111111111'
+       and (detail::text like '%Ana%' or detail::text like '%Peanuts%')
+  ),
+  'and no name or medical detail survives in the audit trail'
+);
+
+-- ===========================================================================
+-- INVITATIONS
+--
+-- An invitation is a grant of access to children's records, so who may issue one
+-- is as consequential as who may read the roster. And the token hash must not be
+-- readable by anybody through the API — the whole point of storing only a hash is
+-- that a database read yields nothing usable.
+-- ===========================================================================
+
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+
+do $$
+declare n integer;
+begin
+  insert into public.invitations (centre_id, email, role, token_hash, invited_by, expires_at)
+  values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'newkaiako@rlstest.invalid', 'educator',
+          repeat('a', 64), '11111111-1111-4111-8111-111111111111', now() + interval '7 days');
+  get diagnostics n = row_count;
+  perform pg_temp.expect(n = 1, 'an owner CAN issue an invitation');
+end $$;
+
+-- Column-level: the manager who created it cannot read the hash back out.
+do $$
+declare code text := 'none (the select SUCCEEDED)';
+begin
+  begin
+    perform token_hash from public.invitations limit 1;
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '42501',
+    'token_hash is NOT readable by authenticated, got ' || code);
+end $$;
+
+select pg_temp.expect(
+  (select count(*) from public.invitations where email = 'newkaiako@rlstest.invalid') = 1,
+  'but the rest of the invitation is'
+);
+
+-- Attribution cannot be forged: "who let them in" has to be answerable.
+do $$
+declare code text := 'none (the insert SUCCEEDED)';
+begin
+  begin
+    insert into public.invitations (centre_id, email, role, token_hash, invited_by, expires_at)
+    values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'forged@rlstest.invalid', 'educator',
+            repeat('b', 64), '22222222-2222-4222-8222-222222222222', now() + interval '7 days');
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code in ('42501', '23514'),
+    'an invitation CANNOT be attributed to somebody else, got ' || code);
+end $$;
+
+-- An educator runs the room and does not decide who else gets access to it.
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+
+select pg_temp.expect(
+  (select count(*) from public.invitations) = 0,
+  'an educator CANNOT read invitations'
+);
+
+do $$
+declare code text := 'none (the insert SUCCEEDED)';
+begin
+  begin
+    insert into public.invitations (centre_id, email, role, token_hash, invited_by, expires_at)
+    values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'byeducator@rlstest.invalid', 'manager',
+            repeat('c', 64), '55555555-5555-4555-8555-555555555555', now() + interval '7 days');
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code in ('42501', '23514'),
+    'an educator CANNOT issue an invitation, got ' || code);
+end $$;
+
+-- Staff at the other centre must not see who Mt Albert is hiring.
+set local request.jwt.claims = '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.invitations) = 0,
+  'centre B cannot read centre A''s invitations'
+);
+
 -- ---------------------------------------------------------------------------
 -- Revoking a parent's membership closes their own child's record.
 --

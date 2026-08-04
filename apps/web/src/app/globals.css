@@ -1,11 +1,24 @@
+/*
+ * Every colour, size and radius comes from packages/core/src/tokens.ts via a
+ * generated file. `npm run tokens` writes it; `npm run tokens:check` fails in CI if
+ * it drifts.
+ *
+ * This file used to declare its own copy, and the two had already diverged: the
+ * background was #fafaf9 here against #faf9f7 in the tokens, and the muted grey was
+ * #6b6b6b — about a full contrast point worse than the #605d58 the contrast test was
+ * actually asserting. The tests passed and the screens rendered the other values.
+ */
+@import './tokens.css';
+
 :root {
-  --bg: #fafaf9;
-  --panel: #ffffff;
-  --line: #e5e4e2;
-  --ink: #1a1a1a;
-  --muted: #6b6b6b;
-  --accent: #2f6f4f;
-  --danger: #b5451b;
+  /*
+   * Aliases for names this stylesheet already used. Kept rather than renamed
+   * throughout, because the token vocabulary is the one that has to be shared with
+   * the mobile theme and these are only local shorthand.
+   */
+  --panel: var(--surface);
+  --muted: var(--ink-muted);
+  --danger: var(--breach);
 }
 
 * { box-sizing: border-box; }
@@ -34,7 +47,7 @@ a { color: var(--accent); }
 .side h2 { font-size: 0.8125rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin: 0 0 0.5rem; }
 .side nav { display: flex; flex-direction: column; gap: 0.125rem; margin-bottom: 1.5rem; }
 .side nav a { padding: 0.4rem 0.6rem; border-radius: 6px; text-decoration: none; color: var(--ink); }
-.side nav a:hover { background: #f2f1ef; }
+.side nav a:hover { background: var(--surface-sunken); }
 
 .main { flex: 1; padding: 2rem 2.5rem; max-width: 60rem; }
 
@@ -50,14 +63,14 @@ td { padding: 0.6rem 0.5rem; border-top: 1px solid var(--line); vertical-align: 
 label { display: block; font-size: 0.8125rem; color: var(--muted); margin-bottom: 0.25rem; }
 input, select {
   font: inherit; padding: 0.45rem 0.6rem; border: 1px solid var(--line);
-  border-radius: 6px; background: #fff; color: var(--ink); width: 100%; max-width: 24rem;
+  border-radius: 6px; background: var(--surface); color: var(--ink); width: 100%; max-width: 24rem;
 }
 button {
   font: inherit; padding: 0.45rem 0.9rem; border-radius: 6px; border: 1px solid var(--accent);
-  background: var(--accent); color: #fff; cursor: pointer;
+  background: var(--accent); color: var(--ink-inverse); cursor: pointer;
 }
-button.secondary { background: #fff; color: var(--ink); border-color: var(--line); }
-button.danger { background: #fff; color: var(--danger); border-color: var(--line); }
+button.secondary { background: var(--surface); color: var(--ink); border-color: var(--line); }
+button.danger { background: var(--surface); color: var(--danger); border-color: var(--line); }
 
 .row { display: flex; gap: 0.5rem; align-items: flex-end; flex-wrap: wrap; }
 .pill { font-size: 0.75rem; padding: 0.1rem 0.5rem; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); }
@@ -101,16 +114,6 @@ button.danger { background: #fff; color: var(--danger); border-color: var(--line
 
 /* --- Phase 1 ------------------------------------------------------------- */
 
-:root {
-  --warn: #8a5a00;
-  --warn-soft: #fdf3e0;
-  --breach: #a3341c;
-  --breach-soft: #fbeae5;
-  --ok: #2f6f4f;
-  --ok-soft: #e8f1ec;
-  --pending-soft: #eef1f5;
-}
-
 /*
  * Flags.
  *
@@ -124,9 +127,9 @@ button.danger { background: #fff; color: var(--danger); border-color: var(--line
   font-size: 0.75rem; font-weight: 500; white-space: nowrap;
   padding: 0.15rem 0.5rem; border-radius: 999px; border: 1px solid transparent;
 }
-.flag-critical { background: var(--breach-soft); color: var(--breach); border-color: #eccec4; }
-.flag-warn     { background: var(--warn-soft);   color: var(--warn);   border-color: #ecdcb8; }
-.flag-ok       { background: var(--ok-soft);     color: var(--ok);     border-color: #c8ddd1; }
+.flag-critical { background: var(--breach-soft); color: var(--breach); border-color: var(--breach-border); }
+.flag-warn     { background: var(--warn-soft);   color: var(--warn);   border-color: var(--warn-border); }
+.flag-ok       { background: var(--ok-soft);     color: var(--ok);     border-color: var(--ok-border); }
 .flag-quiet    { background: var(--pending-soft); color: var(--muted); border-color: var(--line); }
 
 /* Sections within a record. */
@@ -149,7 +152,7 @@ button.danger { background: #fff; color: var(--danger); border-color: var(--line
 /* Text inputs default to a max-width suited to a name; these need the room. */
 textarea {
   font: inherit; padding: 0.45rem 0.6rem; border: 1px solid var(--line);
-  border-radius: 6px; background: #fff; color: var(--ink); width: 100%; resize: vertical;
+  border-radius: 6px; background: var(--surface); color: var(--ink); width: 100%; resize: vertical;
 }
 .wide { max-width: 100%; }
 .narrow { max-width: 9rem; }

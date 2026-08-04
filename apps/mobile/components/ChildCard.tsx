@@ -97,7 +97,7 @@ export function ChildCard({
 }
 
 const styles = StyleSheet.create({
-  criticalCard: { borderColor: '#eccec4' },
+  criticalCard: { borderColor: color.breachBorder },
   name: { fontSize: font.size.lg, fontWeight: font.weight.semibold, color: color.ink },
   criticalBlock: {
     marginTop: space['3'],

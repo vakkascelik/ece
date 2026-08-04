@@ -1,0 +1,83 @@
+/*
+ * GENERATED FILE — do not edit.
+ *
+ * Written by `npm run tokens` from packages/core/src/tokens.ts, which is also
+ * what the mobile theme reads. Edit the tokens, not this.
+ *
+ * `npm run tokens:check` fails if this is out of date, so a colour changed in one
+ * place cannot silently disagree with the other.
+ */
+
+:root {
+  /* Colour */
+  --bg: #faf9f7;
+  --surface: #ffffff;
+  --surface-sunken: #f2f1ee;
+  --line: #e3e1dd;
+  --ink: #1b1a18;
+  --ink-muted: #605d58;
+  --ink-inverse: #ffffff;
+  --accent: #2f6f4f;
+  --accent-hover: #25583f;
+  --accent-soft: #e8f1ec;
+  --ok: #2f6f4f;
+  --ok-soft: #e8f1ec;
+  --warn: #8a5a00;
+  --warn-soft: #fdf3e0;
+  --breach: #a3341c;
+  --breach-soft: #fbeae5;
+  --ok-border: #c8ddd1;
+  --warn-border: #ecdcb8;
+  --breach-border: #eccec4;
+  --pending: #2f5d8a;
+  --pending-soft: #e9f0f7;
+
+  /* Spacing */
+  --space-0: 0px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+
+  /* Radius */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
+
+  /* Type scale */
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-base: 15px;
+  --text-mobile-base: 17px;
+  --text-lg: 18px;
+  --text-xl: 22px;
+  --text-2xl: 28px;
+  --text-3xl: 36px;
+
+  /*
+   * Touch targets. The token calls 44px the minimum for anything interactive,
+   * which is written for a thumb on a tablet. The web app uses 32px for buttons
+   * inside a table row — above the WCAG 2.2 AA floor of 24px, below this, and a
+   * deliberate compromise for a desk screen with a mouse.
+   */
+  --target-min: 44px;
+  --target-comfortable: 56px;
+  --target-primary: 64px;
+}
+
+/*
+ * Measured contrast, recomputed at generation time:
+ *   body text        16.53:1  passes AA (needs 4.5:1)
+ *   muted text       6.23:1  passes AA (needs 4.5:1)
+ *   muted on card    6.55:1  passes AA (needs 4.5:1)
+ *   primary button   5.99:1  passes AA (needs 4.5:1)
+ *   ratio ok         5.20:1  passes AA (needs 4.5:1)
+ *   ratio warning    5.38:1  passes AA (needs 4.5:1)
+ *   ratio breach     5.87:1  passes AA (needs 4.5:1)
+ *   pending sync     5.98:1  passes AA (needs 4.5:1)
+ */

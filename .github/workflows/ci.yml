@@ -1,0 +1,111 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A second push to the same branch cancels the first. Nothing here is a deployment,
+# so an in-flight run of an older commit is only burning minutes.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Everything that needs no database. Kept as one job because the steps share an
+  # install, and `npm ci` on this workspace costs more than all of them together.
+  checks:
+    name: typecheck · lint · tests · build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck (four workspaces)
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      # The web app's CSS custom properties are generated from the shared tokens.
+      # Before this check they were two hand-maintained copies that had already
+      # drifted — the tests asserted one set of colours and the screens rendered
+      # another.
+      - name: Design tokens are in sync
+        run: npm run tokens:check
+
+      - name: Unit tests
+        run: npm test
+
+      # The build needs the public Supabase values present, because `next build`
+      # evaluates server components that construct a client. They are not secrets —
+      # the anon key is shipped to every browser by design — but they must exist or
+      # the build fails on a missing-URL error that reads like a code fault.
+      - name: Build web
+        run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+
+      # Catches what tsc cannot: a package that resolves through TypeScript's path
+      # mapping but not through Metro's resolver. `metro.config.js` needs both
+      # `watchFolders` and `nodeModulesPaths`, and losing either breaks only here.
+      - name: Bundle mobile
+        run: npx expo export --platform android --output-dir /tmp/ece-bundle
+        working-directory: apps/mobile
+        env:
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+
+  # The one that matters. Separate because it needs credentials, and because a red
+  # cross here means something different from a failing unit test: it means one
+  # centre can reach another centre's children.
+  #
+  # Skipped on pull requests from forks, where secrets are not available — GitHub
+  # withholds them by design, and a job that cannot possibly pass is noise. Pushes
+  # to main always run it.
+  tenant-isolation:
+    name: RLS isolation
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      # Fails loudly rather than skipping. A green tick that silently tested nothing
+      # is worse than a red one, and this is the suite that would be missed.
+      - name: Check credentials are configured
+        run: |
+          if [ -z "${{ secrets.SUPABASE_DB_URL }}" ]; then
+            echo "SUPABASE_DB_URL is not set in repository secrets."
+            echo "The RLS suite is the only thing proving one centre cannot read"
+            echo "another centre's data. It is not optional."
+            exit 1
+          fi
+
+      # Refuses if a migration file changed after being applied, which means the
+      # schema being tested is not the schema in this commit.
+      - name: Migration status
+        run: npm run migrate -- --status
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+
+      # Ends in ROLLBACK, so it leaves nothing behind and is safe against a live
+      # project. Worth moving to a dedicated CI database before this holds real
+      # children's records — safe is not the same as appropriate.
+      - name: Tenant isolation
+        run: npm run test:rls
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}

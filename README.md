@@ -13,14 +13,43 @@ supabase/       migrations. RLS is the tenant boundary.
 
 ```bash
 npm install
-npm run dev:web        # http://localhost:3000
-npm run dev:mobile     # Expo
-npm run typecheck      # all four workspaces
-npm run test:rls       # tenant isolation — 32 assertions
-npm run onboard        # create a centre and its first owner (see below)
+cp .env.example .env.local     # fill it in first
+
+npm run migrate                # apply pending migrations
+npm run dev:web                # http://localhost:3000
+npm run dev:mobile             # Expo
+
+npm run typecheck              # four workspaces
+npm run lint
+npm test                       # unit tests
+npm run test:rls               # tenant isolation — 87 assertions
+npm run tokens:check           # generated CSS matches the shared tokens
+npm run build                  # web
+
+npm run onboard                # create a centre and its first owner
 ```
 
-Copy `.env.example` to `.env.local` first.
+CI runs all of those on every push. `.github/workflows/ci.yml` keeps the RLS suite in
+its own job, because a red cross there means something different from a failing unit
+test: it means one centre can reach another centre's children.
+
+## Migrations
+
+```bash
+npm run migrate                  # apply anything pending
+npm run migrate -- --status      # show state, change nothing
+npm run migrate -- --baseline    # record as applied WITHOUT running (adopting an existing db)
+```
+
+Applies each file once, in order, and records a checksum. **If a migration changed
+after it was applied it refuses to continue** rather than guessing — that means the
+database and the repo disagree about the schema, and only a person knows which is
+right.
+
+The runner is also what proved the migrations replay cleanly against a populated
+database. It found one that did not: 0004 recreated `current_consents` with
+`create or replace`, and once 0006 had added a column to that view, replaying 0004
+died with "cannot drop columns from view". Both now drop and recreate.
 
 ## `npm run test:rls` is the test that matters
 
@@ -290,9 +319,43 @@ that returns the user id directly (there is no admin get-user-by-email, and
 `listUsers` is a paginated search that returned a bare 500 on this project) and
 because it does not require SMTP to be configured.
 
-**An in-app invitation flow is still not built.** That is a separate thing from
-the script above: it needs single-use tokens with expiry, because the self-serve
-version of "add a person" is how a stranger joins a centre.
+**Adding the fifth educator is a form, not a script.** `/members` issues an
+invitation; the person sets their own password and joins. A manager should be able to
+do that on a Tuesday without anybody's laptop.
+
+**Only the SHA-256 of each token is stored.** A leaked backup, an errant service-role
+query or a support person with dashboard access then yields nothing usable, because
+the tokens themselves exist only in the emails they were sent in — the same reasoning
+as never storing a password. The consequence is that a link cannot be recovered:
+losing it means issuing a new one, which supersedes the old.
+
+The manager who created an invitation cannot read the hash back either. That is a
+column-level `GRANT`, and it is the only mechanism that can express it — there is no
+reason for a browser to hold those values.
+
+Three checks on acceptance, none optional:
+
+- **The token matches something live** — not accepted, not withdrawn, not past seven
+  days.
+- **The signed-in email is the invited one.** Without this the link is a bearer token
+  for access to children's records, and a forwarded email — or one sitting in a shared
+  inbox — becomes a way in. The cost is that somebody who signed up under a different
+  address has to be re-invited, which is the right way round.
+- **It has not already been used.** Claiming and creating the membership are two
+  statements, so the claim is written first and made conditional on the row still
+  being unaccepted. Two simultaneous clicks cannot both win.
+
+Signups are disabled on the project, so an invited educator cannot create an account
+for themselves — which makes the invitation the authorisation. Possessing a token
+sent to a mailbox is proof of holding that mailbox, exactly what an email
+verification link proves, so acceptance creates the account with the address already
+confirmed. The account is created *before* the invitation is claimed: the other order
+leaves a failed signup with a spent invitation and somebody locked out.
+
+**No email is sent**, because no mailer is configured. The link is shown to the
+manager once, to pass on however they already talk to their staff. Saying that
+plainly beats a "we've sent an email" that never arrives; wiring a mailer changes one
+function.
 
 ## The database
 
@@ -372,6 +435,100 @@ object in a batch every key. Found by `scripts/seed-demo.ts`, which was also
 swallowing the returned error, so what actually surfaced was "the parent cannot see
 their own child" two steps later.
 
+## Retention and deletion
+
+**A correction first.** This README previously said the Privacy Act 2020 "gives a
+right to request" deletion. It does not. The Act gives a right of **access** (IPP 6)
+and a right to request **correction** (IPP 7). There is no general right to erasure
+in New Zealand law — that is GDPR Article 17 and it does not apply here.
+
+What the Act does impose is **IPP 9**: personal information must not be kept for
+longer than it is required for the purposes for which it may lawfully be used. That
+is an obligation on the centre discharged by following a retention schedule, not an
+endpoint an individual triggers. The design follows from that distinction.
+
+```sql
+select * from children_due_for_purge(7);           -- the scheduled sweep
+select purge_child('<uuid>', 'reason, recorded');   -- the exception
+select purge_orphaned_guardians('<centre uuid>');   -- contacts with no children left
+```
+
+`purge_child` is the most destructive thing in the product, so: **owners only**,
+**archived children only**, and **a reason is required** and written to the audit log
+before anything is deleted. The archived-only rule is the important one — it is the
+guard against "delete this child" being used to remove a record that has become
+inconvenient while they still attend, which after an incident is the scenario worth
+designing against.
+
+**Retention periods are a parameter, not a constant.** The default is seven years
+from the date a child leaves, on the assumption that funding-relevant records have to
+survive a Ministry funding audit. That figure needs checking against the current ECE
+Funding Handbook before it is used on real records, which is exactly why it is an
+argument rather than a compiled-in number.
+
+**Why purging is possible at all, given an append-only audit log.** Because of the
+decision in 0005 to record column names and never values: the audit trail holds no
+personal information about a child, only "somebody changed `health_conditions` on this
+date". So a record can be destroyed while the evidence that it existed — and that it
+was deliberately deleted, by whom, and why — survives. Had the trigger logged
+`to_jsonb(NEW)`, this would be impossible without also destroying the audit trail.
+The suite asserts both halves: that the purge is recorded, and that no name or
+medical detail survives in it.
+
+## Error tracking
+
+Sentry, and **inert without `NEXT_PUBLIC_SENTRY_DSN`** — nothing sent, nothing
+queued, and `report()` still writes to the log so an unconfigured integration never
+makes errors quieter than they were before it was added.
+
+Two things about it are specific to this product rather than boilerplate.
+
+**Scrubbing is not optional here.** An error report is a copy of whatever state the
+app was in when it broke, and this app holds children's names, allergies, medication
+doses and custody arrangements. Postgres is helpful in exactly the wrong way: a
+constraint violation quotes the offending value back, so "Key (moe_nsn)=(123456789)
+already exists" carries a Ministry identifier into the report. So `sendDefaultPii` is
+off, breadcrumbs and request bodies are dropped, stack-frame locals are stripped, and
+`beforeSend` redacts emails, phone numbers, dates of birth and quoted row values.
+UUIDs are kept — they identify a row without describing a person, and they are what
+makes a report actionable. [The scrubbing has its own
+tests](apps/web/src/lib/__tests__/observability.test.ts), because a bug there does not
+produce a wrong screen; it sends a child's medical information to a third party.
+
+The same scrubbing runs on messages shown to the *user*, via `actionError` — same
+rules for the screen as for a third party. Every action used to return `e.message`
+raw, which put constraint values on screen and recorded the failure nowhere.
+
+**The SDK is dynamically imported, and there is no `instrumentation.ts`.** Both are
+measured decisions, not style. A static import put 75 kB into the shared client
+bundle — every page, every visit, including a parent checking an allergy on mobile
+data — for an integration doing nothing without a DSN. And Next's instrumentation
+hook bundles into the **edge** runtime, which is what middleware runs: 91 kB → 176 kB
+on every single request. The `NEXT_RUNTIME` guard does not help, because it is a
+runtime check and the bundler still follows the import. Initialisation happens on
+first `report()` instead. Net cost of adding error tracking: about 1 kB.
+
+What that gives up is `onRequestError`, which forwards Next's own nested server render
+errors. Those are still logged by Next, and the boundaries in `global-error.tsx` and
+`(app)/error.tsx` report the cases a user actually sees. Worth revisiting if
+middleware moves to the Node runtime.
+
+## Design tokens have one source
+
+`packages/core/src/tokens.ts` is it. The mobile theme reads it as data;
+`apps/web/src/app/tokens.css` is **generated** from it by `npm run tokens`, and
+`npm run tokens:check` fails CI if the committed file drifts.
+
+That check exists because the duplication was not hypothetical. `globals.css` kept its
+own copy and the two had already diverged: the page background was `#fafaf9` against
+`#faf9f7` in the tokens, and the muted grey was `#6b6b6b` — about a full contrast
+point worse than the `#605d58` the contrast test was actually asserting. The tests
+passed and the screens rendered the other values.
+
+The generated file also carries the measured contrast ratios as a comment,
+recomputed each time, so a change that breaks conformance shows up in that file's
+diff as well as in a failing test.
+
 ## Demo data
 
 ```bash
@@ -399,17 +556,26 @@ beside them.
   cross without the cover is a real child's allergies being typed into it.
   Under-5 records are among the most sensitive personal information in the
   country, and a breach is notifiable under the Privacy Act 2020.
-- **Retention and deletion are not built.** Children are archived, never deleted,
-  and consent and audit rows are append-only by design — which means there is
-  currently no answer to "delete everything about this child", and the Privacy Act
-  gives a right to request it. The tension is genuine: retention obligations and
-  audit integrity point one way, principle 6 and 7 requests the other. It needs a
-  documented retention schedule and a deletion path that is deliberate rather than
-  an `UPDATE` somebody discovers.
+- **The retention period is a guess that needs checking.** Seven years from the date
+  a child leaves, on the assumption that funding-relevant records must survive a
+  Ministry funding audit. It is a parameter rather than a constant precisely so it can
+  be corrected, but it should be confirmed against the current ECE Funding Handbook
+  before it decides what gets destroyed.
+- **No scheduled sweep runs the purge.** `children_due_for_purge()` lists what is
+  due and `purge_child()` does it, but nothing calls them on a timer — so retention is
+  currently a thing somebody has to remember. That is a cron job and a decision about
+  whether deletion should ever be automatic without a human looking at the list first.
+- **Mobile has no crash reporting.** `@sentry/react-native` needs native
+  configuration through an Expo config plugin, and there has been no EAS build yet, so
+  wiring it now would be configuring something unbuildable. It belongs with the first
+  real build.
 - **`photo_public` consent is recorded and not yet enforced anywhere**, because
   there is no media pipeline until Phase 4. `has_consent()` exists so that
   enforcement can live in SQL when it arrives, rather than in a check somebody
   remembers to write.
+- **The RLS suite runs against the live project.** It ends in `ROLLBACK` so it leaves
+  nothing behind, and safe is not the same as appropriate — it should get its own
+  database before this one holds a real child's record.
 - **Whether mobile should be its own repo.** StoreDash is a separate repo.
   Keeping it here buys one shared query layer; splitting it would simplify EAS
   builds. Reversible either way.

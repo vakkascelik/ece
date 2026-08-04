@@ -1,12 +1,16 @@
-import { listMembers } from '@ece/api';
+import { listMembers, listPendingInvitations } from '@ece/api';
 import { requireCapability } from '@/lib/auth';
 import { serverDb } from '@/lib/supabase';
+import { InvitePanel } from './InvitePanel';
 import { MemberRow } from './MemberRow';
 
 export default async function MembersPage() {
   const ctx = await requireCapability('manageMembers');
   const db = await serverDb();
-  const members = await listMembers(db, ctx.centre.id);
+  const [members, invitations] = await Promise.all([
+    listMembers(db, ctx.centre.id),
+    listPendingInvitations(db, ctx.centre.id),
+  ]);
 
   return (
     <>
@@ -36,15 +40,7 @@ export default async function MembersPage() {
         </table>
       </div>
 
-      <div className="card">
-        <h2 style={{ fontSize: '1rem', margin: '0 0 0.5rem' }}>Adding someone</h2>
-        <p className="sub" style={{ margin: 0 }}>
-          Invitations are not built. Adding a person means creating their account and their
-          membership, which needs the service-role key and therefore a deliberate server-side
-          flow — not a form on this page. Left until there is an agreed onboarding process,
-          because the self-serve version is how a stranger joins a centre.
-        </p>
-      </div>
+      <InvitePanel invitations={invitations} centreName={ctx.centre.name} />
     </>
   );
 }

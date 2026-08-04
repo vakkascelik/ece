@@ -29,9 +29,9 @@ export function Flag({ tone, children }: { tone: FlagTone; children: string }) {
 }
 
 const TONES: Record<FlagTone, { bg: string; fg: string; border: string; symbol: string; spoken: string }> = {
-  critical: { bg: color.breachSoft, fg: color.breach, border: '#eccec4', symbol: '▲', spoken: 'Critical' },
-  warn: { bg: color.warnSoft, fg: color.warn, border: '#ecdcb8', symbol: '●', spoken: 'Warning' },
-  ok: { bg: color.okSoft, fg: color.ok, border: '#c8ddd1', symbol: '✓', spoken: 'Confirmed' },
+  critical: { bg: color.breachSoft, fg: color.breach, border: color.breachBorder, symbol: '▲', spoken: 'Critical' },
+  warn: { bg: color.warnSoft, fg: color.warn, border: color.warnBorder, symbol: '●', spoken: 'Warning' },
+  ok: { bg: color.okSoft, fg: color.ok, border: color.okBorder, symbol: '✓', spoken: 'Confirmed' },
   quiet: { bg: color.surfaceSunken, fg: color.inkMuted, border: color.line, symbol: '◌', spoken: 'Note' },
 };
 

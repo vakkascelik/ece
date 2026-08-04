@@ -407,7 +407,15 @@ $$;
 
 -- Latest event per child and kind. security_invoker so the caller's own RLS on
 -- consent_events applies — see the note in 0002 about what a view does otherwise.
-create or replace view public.current_consents
+--
+-- `drop` then `create`, not `create or replace`. 0006 adds `centre_id` to this
+-- view, and `create or replace` refuses to change a view's column list — so with
+-- the replace form, replaying the migrations in order died here with "cannot drop
+-- columns from view" the moment 0006 had ever run. Dropping first makes the whole
+-- set replayable: this recreates the original shape and 0006 then restores the
+-- current one.
+drop view if exists public.current_consents;
+create view public.current_consents
 with (security_invoker = on) as
   select distinct on (child_id, kind)
     child_id, kind, granted, given_by, at

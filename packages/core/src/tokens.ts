@@ -52,6 +52,27 @@ export const color = {
   breach: '#a3341c',
   breachSoft: '#fbeae5',
 
+  /**
+   * Borders for the state chips.
+   *
+   * Here rather than written into two stylesheets and two React Native components,
+   * which is where they were: five copies of #eccec4 with nothing keeping them equal.
+   *
+   * These are **decorative and measured at roughly 1.3:1** against both the fill and
+   * the page — well under the 3:1 that WCAG 1.4.11 asks of a non-text boundary. That
+   * is deliberate and it is allowed, for a specific reason: 1.4.11 applies to
+   * boundaries that carry information, and these carry none. Every chip states its
+   * meaning as a symbol *and* a word inside it, and that text is checked to AA
+   * against the fill by `CONTRAST_PAIRS` below. Remove the text and these borders
+   * would have to be about three times darker.
+   *
+   * (An earlier version of this comment claimed they satisfied 1.4.11. They do not,
+   * and measuring beat asserting.)
+   */
+  okBorder: '#c8ddd1',
+  warnBorder: '#ecdcb8',
+  breachBorder: '#eccec4',
+
   // Pending sync. A queued-offline write is a normal state, not an error, so it
   // gets its own neutral-blue rather than borrowing the warning colour.
   pending: '#2f5d8a',
