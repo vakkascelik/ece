@@ -33,12 +33,26 @@ export function ChildCard({
   consents,
   enrolment,
   showConsentGaps,
+  present = false,
+  since = null,
+  pending = false,
 }: {
   child: Child;
   conditions: HealthCondition[];
   consents: ConsentState[];
   enrolment: Enrolment | undefined;
   showConsentGaps: boolean;
+  present?: boolean;
+  since?: string | null;
+  /**
+   * The event behind this state is still in the outbox.
+   *
+   * Shown as a badge rather than hidden, because an educator needs to know the
+   * difference between "the office can see this" and "this is on my tablet". A
+   * pending sign-in is a normal state on a bad connection, not an error — which is why
+   * it gets the neutral tone and not the warning one.
+   */
+  pending?: boolean;
 }) {
   const sorted = [...conditions].sort(compareBySeverity);
   const critical = sorted.filter((c) => c.severity === 'anaphylaxis' || c.severity === 'severe');
@@ -52,6 +66,14 @@ export function ChildCard({
       <View style={[theme.row, { marginTop: space['1'] }]}>
         <Text style={theme.muted}>{formatAge(child.dateOfBirth)}</Text>
         {isUnderTwo(child.dateOfBirth) && <Flag tone="quiet">under 2</Flag>}
+        {present ? (
+          <Flag tone="ok">
+            {since
+              ? `In since ${new Date(since).toLocaleTimeString('en-NZ', { hour: '2-digit', minute: '2-digit' })}`
+              : 'Here'}
+          </Flag>
+        ) : null}
+        {pending && <Flag tone="quiet">not sent yet</Flag>}
       </View>
 
       {critical.length > 0 && (

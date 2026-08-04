@@ -769,6 +769,185 @@ select pg_temp.expect(
 );
 
 -- ===========================================================================
+-- ATTENDANCE
+--
+-- Append-only, and the record a funding claim rests on. Three properties matter:
+-- who may write it, that it cannot be rewritten, and that a retried offline flush
+-- lands once. The last of those is the whole reason `client_uuid` exists.
+-- ===========================================================================
+
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+
+do $$
+declare n integer;
+begin
+  insert into public.attendance_events (child_id, kind, at, client_uuid, recorded_by)
+  values ('a1111111-1111-4111-8111-111111111111', 'in', now(),
+          '00000000-0000-4000-8000-000000000001', '55555555-5555-4555-8555-555555555555');
+  get diagnostics n = row_count;
+  perform pg_temp.expect(n = 1, 'an educator CAN sign a child in');
+end $$;
+
+-- The idempotency contract. A flush whose response was lost retries the same key.
+do $$
+declare n integer;
+begin
+  insert into public.attendance_events (child_id, kind, at, client_uuid, recorded_by)
+  values ('a1111111-1111-4111-8111-111111111111', 'in', now(),
+          '00000000-0000-4000-8000-000000000001', '55555555-5555-4555-8555-555555555555')
+  on conflict (client_uuid) do nothing;
+  get diagnostics n = row_count;
+  perform pg_temp.expect(n = 0, 'retrying the same client_uuid writes nothing');
+end $$;
+
+select pg_temp.expect(
+  (select count(*) from public.attendance_events
+    where client_uuid = '00000000-0000-4000-8000-000000000001') = 1,
+  'so exactly one event exists after a double flush'
+);
+
+-- Attribution cannot be forged: a funding claim has to answer "who signed this in".
+do $$
+declare code text := 'none (the insert SUCCEEDED)';
+begin
+  begin
+    insert into public.attendance_events (child_id, kind, at, client_uuid, recorded_by)
+    values ('a1111111-1111-4111-8111-111111111111', 'in', now(),
+            '00000000-0000-4000-8000-000000000002', '11111111-1111-4111-8111-111111111111');
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code in ('42501', '23514'),
+    'attendance CANNOT be attributed to another person, got ' || code);
+end $$;
+
+-- A sign-in dated into the future would let somebody pre-record attendance.
+do $$
+declare code text := 'none (the insert SUCCEEDED)';
+begin
+  begin
+    insert into public.attendance_events (child_id, kind, at, client_uuid)
+    values ('a1111111-1111-4111-8111-111111111111', 'in', now() + interval '6 hours',
+            '00000000-0000-4000-8000-000000000003');
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '23514', 'a future-dated sign-in is refused, got ' || code);
+end $$;
+
+-- But a device with a slightly wrong clock still works.
+do $$
+declare n integer;
+begin
+  insert into public.attendance_events (child_id, kind, at, client_uuid)
+  values ('b2222222-2222-4222-8222-222222222222', 'in', now() + interval '30 minutes',
+          '00000000-0000-4000-8000-000000000004');
+  get diagnostics n = row_count;
+  perform pg_temp.expect(n = 1, 'half an hour of device clock skew is tolerated');
+end $$;
+
+-- Backdating attendance is how a funding claim becomes fraud.
+do $$
+declare code text := 'none (the insert SUCCEEDED)';
+begin
+  begin
+    insert into public.attendance_events (child_id, kind, at, client_uuid)
+    values ('a1111111-1111-4111-8111-111111111111', 'in', now() - interval '20 days',
+            '00000000-0000-4000-8000-000000000005');
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '23514', 'attendance cannot be backdated a fortnight, got ' || code);
+end $$;
+
+-- A correction is a new row, and it has to say why.
+do $$
+declare code text := 'none (the insert SUCCEEDED)';
+begin
+  begin
+    insert into public.attendance_events (child_id, kind, at, client_uuid, corrects)
+    values ('a1111111-1111-4111-8111-111111111111', 'in', now(),
+            '00000000-0000-4000-8000-000000000006',
+            (select id from public.attendance_events
+              where client_uuid = '00000000-0000-4000-8000-000000000001'));
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '23514', 'a correction without a reason is refused, got ' || code);
+end $$;
+
+-- Append-only, enforced at both layers as with the audit log.
+do $$
+declare code text := 'none (the update SUCCEEDED)';
+begin
+  begin
+    update public.attendance_events set kind = 'out'
+     where client_uuid = '00000000-0000-4000-8000-000000000001';
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '42501', 'attendance CANNOT be updated, got ' || code);
+end $$;
+
+do $$
+declare code text := 'none (the delete SUCCEEDED)';
+begin
+  begin
+    delete from public.attendance_events
+     where client_uuid = '00000000-0000-4000-8000-000000000001';
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '42501', 'attendance CANNOT be deleted, got ' || code);
+end $$;
+
+-- The derived roll, which is computed and never stored.
+select pg_temp.expect(
+  (select kind::text from public.attendance_today
+    where child_id = 'a1111111-1111-4111-8111-111111111111') = 'in',
+  'attendance_today shows the child as present'
+);
+
+-- A guardian signs their own child in, because in New Zealand the attendance record
+-- underpinning a funding claim carries a parent's signature.
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+
+do $$
+declare n integer;
+begin
+  insert into public.attendance_events (child_id, kind, at, client_uuid, recorded_by)
+  values ('a1111111-1111-4111-8111-111111111111', 'out', now(),
+          '00000000-0000-4000-8000-000000000007', '33333333-3333-4333-8333-333333333333');
+  get diagnostics n = row_count;
+  perform pg_temp.expect(n = 1, 'a guardian CAN sign their own child out');
+end $$;
+
+do $$
+declare code text := 'none (the insert SUCCEEDED)';
+begin
+  begin
+    insert into public.attendance_events (child_id, kind, at, client_uuid, recorded_by)
+    values ('b2222222-2222-4222-8222-222222222222', 'in', now(),
+            '00000000-0000-4000-8000-000000000008', '33333333-3333-4333-8333-333333333333');
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code in ('42501', '23514'),
+    'a guardian CANNOT sign another family''s child in, got ' || code);
+end $$;
+
+select pg_temp.expect(
+  (select count(*) from public.attendance_events
+    where child_id = 'b2222222-2222-4222-8222-222222222222') = 0,
+  'and cannot read another family''s attendance either'
+);
+
+-- Two sites, one operator.
+set local request.jwt.claims = '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.attendance_events) = 0,
+  'centre B sees none of centre A''s attendance'
+);
+select pg_temp.expect(
+  (select count(*) from public.attendance_today) = 0,
+  'and none of its present roll'
+);
+
+-- ===========================================================================
 -- RETENTION AND PURGING
 --
 -- `purge_child` is the most destructive thing in the product and it is SECURITY

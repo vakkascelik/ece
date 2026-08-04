@@ -9,7 +9,7 @@
     "ios": "expo start --ios",
     "typecheck": "tsc --noEmit"
   },
-  "//": "Expo 57 / RN 0.86 is the first pairing that runs React 19. Expo 55 and 56 peer-require React 18, which cannot coexist with Next 15 in one hoisted workspace \u2014 the shared query layer is only worth having if both apps agree on React.",
+  "//": "Expo 57 / RN 0.86 is the first pairing that runs React 19. Expo 55 and 56 peer-require React 18, which cannot coexist with Next 15 in one hoisted workspace — the shared query layer is only worth having if both apps agree on React.",
   "dependencies": {
     "@ece/api": "*",
     "@ece/core": "*",
@@ -18,8 +18,10 @@
     "@react-navigation/native-stack": "^7.0.0",
     "@supabase/supabase-js": "^2.45.0",
     "expo": "~57.0.0",
+    "expo-crypto": "~57.0.1",
     "expo-notifications": "~57.0.8",
     "expo-secure-store": "~57.0.1",
+    "expo-sqlite": "~57.0.1",
     "expo-status-bar": "~57.0.1",
     "react": "^19.2.3",
     "react-native": "0.86.2",

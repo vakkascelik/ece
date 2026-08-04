@@ -22,7 +22,7 @@ npm run dev:mobile             # Expo
 npm run typecheck              # four workspaces
 npm run lint
 npm test                       # unit tests
-npm run test:rls               # tenant isolation — 87 assertions
+npm run test:rls               # tenant isolation — 103 assertions
 npm run tokens:check           # generated CSS matches the shared tokens
 npm run build                  # web
 
@@ -267,7 +267,9 @@ somebody posts a notice to the wrong centre.
 /children         the roll for staff; a parent's own child only, from the same query
 /children/new     enrol a child
 /children/[id]    the record: details, health, whānau, enrolment, consent, custody
-/members          roster: change role, revoke
+/attendance       present roll, live ratio, sign in and out, time corrections
+/members          roster, invitations
+/invite/[token]   accepting an invitation — outside (app), no membership yet
 /settings         centre name and Ministry service number
 ```
 
@@ -435,6 +437,137 @@ object in a batch every key. Found by `scripts/seed-demo.ts`, which was also
 swallowing the returned error, so what actually surfaced was "the parent cannot see
 their own child" two steps later.
 
+## Attendance, and the ratio
+
+The feature that makes the app open every morning, and the reason the offline design
+exists.
+
+**Append-only, for a different reason than the audit log.** `audit_events` is
+append-only so it cannot be doctored. `attendance_events` is append-only because it
+makes offline sync tractable: a sign-in is an event that happened at a moment, so two
+tablets in the same room cannot produce a conflict. There is nothing to merge, only to
+order and de-duplicate — which is the entire reason PowerSync, ElectricSQL and
+WatermelonDB are not in this project. Conflict resolution is the expensive part of
+offline, and append-only data has no conflicts. A correction is a new row pointing at
+the one it corrects, with a reason.
+
+**`client_uuid` is the whole idempotency contract.** Generated on the device *before*
+the first attempt and reused on every retry. A flush whose response was lost retries
+the same key, and the unique constraint turns the second attempt into a no-op rather
+than a second sign-in. `recordAttendance` uses `ON CONFLICT DO NOTHING` and reports
+`duplicate` instead of throwing, so the device never has to parse an error message to
+work out whether its write landed.
+
+**`at` comes from the client, and has to.** A sign-in made in the carpark with no
+signal and flushed forty minutes later happened at 8:05, not 8:45 — and attendance
+times decide funded hours. So the device states the time and the database sanity-checks
+it: two hours of clock skew tolerated, the future refused, backdating past a fortnight
+refused.
+
+**Nothing is stored as "present".** There is no `children.is_present` and there will
+not be one. A counter drifts on a missed sign-out or a failed write, and drift in a
+ratio does not report itself as broken — it reports itself as compliant. The roll is
+derived from the events on every read, scoped to today in the *centre's* timezone.
+
+### Merging the queue with the server
+
+[`buildRoll`](packages/core/src/roll.ts) is pure and tested, because it is the part of
+offline that is easy to get subtly wrong. The rule: for each child, whichever event is
+**latest by its own timestamp** wins, server or queued.
+
+Neither obvious shortcut works. "Queued wins" leaves a child signed in offline at 8:05
+showing present all evening after they were signed out on a working tablet at 15:00.
+"Server wins" loses the offline sign-in entirely. Ordering by the event's own time is
+also what the database does deriving `attendance_today`, so the device and the server
+*converge* rather than merely resemble each other — asserted directly.
+
+**Queued sign-ins count toward the ratio.** Not a UI nicety: if an offline sign-in were
+invisible to the ratio, an educator would see fewer children than are in the room,
+which is wrong in the dangerous direction.
+
+### The outbox
+
+[`apps/mobile/lib/outbox.ts`](apps/mobile/lib/outbox.ts), on `expo-sqlite`. Three
+properties matter, and the third is the one that gets forgotten:
+
+1. The key is generated once, at enqueue — never per attempt.
+2. Queued events are readable, so the ratio can count them.
+3. **A permanently refused write is not retried forever.** A queue re-sending something
+   the server will always refuse is a jammed queue that blocks everything behind it.
+   Postgres says which kind of failure it was: `23514` (aged past the time window),
+   `42501` (membership revoked) and `23503` (the child was purged) are permanent and get
+   set aside for a person; anything else is transient and stays queued. Discarding one
+   takes a deliberate act, because attendance silently going missing is the failure this
+   whole mechanism exists to prevent.
+
+A tap writes locally and returns — no spinner, no disabled button. On a bad connection
+those make a working app feel broken, and the write has genuinely already succeeded
+locally; the card carries a "not sent yet" badge instead. A flush runs on mount, on
+return to the foreground, and after each tap. There is no connectivity library, because
+the flush attempt *is* the connectivity check.
+
+### Ratios: the numbers are not verified
+
+**`RATIO_TABLES_VERIFIED` is `false`.** The bands in
+[`ratios.ts`](packages/core/src/ratios.ts) are a good-faith reading of Schedule 2 of the
+Education (Early Childhood Services) Regulations 2008 that **nobody has checked against
+the regulation**. This is the one place in the product where being approximately right
+is worse than being obviously unfinished: a ratio display that is confidently wrong
+tells a manager they are compliant when they are not.
+
+So the figures are data with a citation attached, `assessRatio` returns the flag, and
+both the web banner and the mobile bar show a notice while it is false. Confirm the
+bands, then flip it, in a commit that says who read what. Do not flip it to make the
+notice go away.
+
+The maths is tested independently of the numbers, and the tests say so: a green suite
+means the bands are *applied* correctly, not that they are right.
+
+Three states, because two are not enough. `breach` reports the shortfall, since "you
+are non-compliant" is not actionable. `at-limit` is the one worth building — **the
+warning has to arrive while the parent is still at the door**, not after the child is in
+the room. An empty, unstaffed room is `ok` rather than `at-limit`: it satisfies "one
+more child would need an adult" trivially, and an indicator that cries wolf on a closed
+centre is one people learn to ignore.
+
+The two age bands are computed separately and summed. Schedule 2 publishes different
+tables depending on whether under-2s are present at all, so summing is the conservative
+reading — if verification finds the combined figures lower this becomes generous rather
+than wrong, which is the right direction for the error to run.
+
+### How many adults
+
+[`0010`](supabase/migrations/0010_staff_present.sql) records it as an append-only event
+rather than holding it in a cookie, and that is deliberate. Phase 3 treats ratio history
+as licensing evidence, and a ratio you cannot reconstruct for 10:40 last Tuesday —
+because half of it was in somebody's browser — is not evidence of anything.
+
+It is a count entered by a person, not derived from staff sign-in. Individual staff
+attendance means rosters, qualifications and who counts while on a break: a real feature
+belonging with centre operations rather than smuggled in here. An unrecorded count reads
+as **zero**, which makes the room show a breach — the failure direction somebody notices
+and fixes, rather than silently assuming yesterday's staffing.
+
+### The offline drill
+
+```bash
+ECE_ALLOW_DEMO_SEED=yes ECE_DRILL_PASSWORD=... npm run drill:offline
+```
+
+Replays what the outbox does — keys fixed up front, the same keys reused, a flush
+repeated — against the real database, and checks that exactly three events land, keep
+the time they happened, that two devices agree, and that a 20-day-old event is refused
+with a code the outbox classifies as permanent.
+
+**It does not exercise `expo-sqlite`.** That needs a device, and a real airplane-mode
+drill on a tablet is still required before Little Pearls uses this.
+
+Writing it turned up something worth keeping. The script's first version began by
+deleting the day's events with the service role and silently did nothing, because 0009
+grants `service_role` select and insert only — attendance is append-only against the
+application's most privileged credential too. The fix was to assert on the run's own
+keys, not to widen the grant.
+
 ## Retention and deletion
 
 **A correction first.** This README previously said the Privacy Act 2020 "gives a
@@ -565,6 +698,15 @@ beside them.
   due and `purge_child()` does it, but nothing calls them on a timer — so retention is
   currently a thing somebody has to remember. That is a cron job and a decision about
   whether deletion should ever be automatic without a human looking at the list first.
+- **The ratio bands are unverified.** `RATIO_TABLES_VERIFIED` is `false` and the UI
+  says so. This is the highest-priority open item in the repo: the rest are gaps, and
+  this one is a number a manager might rely on.
+- **No real airplane-mode drill has been run.** `npm run drill:offline` proves the
+  contract the outbox depends on against the real database, but not the `expo-sqlite`
+  queue itself — that needs a tablet, before a centre relies on it.
+- **Staff attendance is not modelled**, so the adult count is a human assertion rather
+  than a derived figure. Deliberate for now (see 0010), and it means the ratio is only
+  as good as somebody remembering to update the count when two people go to lunch.
 - **Mobile has no crash reporting.** `@sentry/react-native` needs native
   configuration through an Expo config plugin, and there has been no EAS build yet, so
   wiring it now would be configuring something unbuildable. It belongs with the first

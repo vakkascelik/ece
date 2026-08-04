@@ -160,3 +160,4 @@ export async function createCentre(
 export * from './members';
 export * from './children';
 export * from './invitations';
+export * from './attendance';

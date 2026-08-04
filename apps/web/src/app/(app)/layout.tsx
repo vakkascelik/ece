@@ -37,6 +37,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
             roll for staff and a single record for a parent.
           */}
           <Link href="/children">{ctx.role === 'parent' ? 'Your tamariki' : 'Children'}</Link>
+          {can(ctx.role, 'recordDailyPractice') && <Link href="/attendance">Attendance</Link>}
           {can(ctx.role, 'manageMembers') && <Link href="/members">People</Link>}
           {can(ctx.role, 'manageCentre') && <Link href="/settings">Settings</Link>}
         </nav>

@@ -1,0 +1,302 @@
+/**
+ * Attendance.
+ *
+ * The one part of the query layer designed around being called from a device that
+ * may have no connection. Everything here is safe to retry, because every write
+ * carries a `clientUuid` the device generated before it tried — see the note on
+ * `signIn`.
+ *
+ * As everywhere, no tenant or guardianship filtering. The policies in 0009 restrict
+ * reads and writes to children the caller may see, so a parent signing their own
+ * child in and an educator signing the room in call the same function.
+ */
+
+import { assessRatio, splitByAgeBand, type RatioAssessment } from '@ece/core';
+import type { Db } from './index';
+
+export type AttendanceKind = 'in' | 'out';
+
+export interface AttendanceEvent {
+  id: number;
+  childId: string;
+  kind: AttendanceKind;
+  at: string;
+  recordedBy: string | null;
+  clientUuid: string;
+  corrects: number | null;
+  note: string | null;
+  createdAt: string;
+}
+
+const COLUMNS = 'id, child_id, kind, at, recorded_by, client_uuid, corrects, note, created_at';
+
+interface Row {
+  id: number;
+  child_id: string;
+  kind: AttendanceKind;
+  at: string;
+  recorded_by: string | null;
+  client_uuid: string;
+  corrects: number | null;
+  note: string | null;
+  created_at: string;
+}
+
+const toEvent = (r: Row): AttendanceEvent => ({
+  id: r.id,
+  childId: r.child_id,
+  kind: r.kind,
+  at: r.at,
+  recordedBy: r.recorded_by,
+  clientUuid: r.client_uuid,
+  corrects: r.corrects,
+  note: r.note,
+  createdAt: r.created_at,
+});
+
+// ---------------------------------------------------------------------------
+// Writing
+// ---------------------------------------------------------------------------
+
+export interface RecordAttendanceInput {
+  childId: string;
+  kind: AttendanceKind;
+  /**
+   * When it happened, ISO. Supplied by the caller because an offline sign-in flushed
+   * forty minutes later happened at 8:05, not at 8:45 — and attendance times decide
+   * funded hours.
+   */
+  at: string;
+  /**
+   * The device-generated idempotency key. Generate it **before** the first attempt
+   * and reuse it on every retry of the same event; a fresh one per attempt turns a
+   * flaky connection into duplicate sign-ins.
+   */
+  clientUuid: string;
+  /** Set when correcting an earlier event. A note is then required. */
+  corrects?: number | null;
+  note?: string | null;
+}
+
+export type RecordResult =
+  /** Written by this call. */
+  | { outcome: 'recorded'; event: AttendanceEvent }
+  /**
+   * Already present with this `clientUuid`, so this call changed nothing.
+   *
+   * Not an error. It is the expected result of retrying a flush whose response was
+   * lost, and the caller should treat it exactly like a success — the event is in the
+   * database, which is what it wanted.
+   */
+  | { outcome: 'duplicate' };
+
+/**
+ * Record a sign-in or sign-out.
+ *
+ * Uses `upsert … ignoreDuplicates` on `client_uuid` rather than an insert that throws.
+ * The distinction matters for the outbox: an insert that raises on conflict forces the
+ * device to parse an error message to decide whether its write actually landed, and
+ * getting that wrong either drops an event or duplicates one. This returns a clear
+ * answer instead.
+ */
+export async function recordAttendance(
+  db: Db,
+  input: RecordAttendanceInput,
+): Promise<RecordResult> {
+  const { data: auth } = await db.auth.getUser();
+
+  const { data, error } = await db
+    .from('attendance_events')
+    .upsert(
+      {
+        child_id: input.childId,
+        kind: input.kind,
+        at: input.at,
+        client_uuid: input.clientUuid,
+        recorded_by: auth.user?.id ?? null,
+        corrects: input.corrects ?? null,
+        note: input.note?.trim() || null,
+      },
+      { onConflict: 'client_uuid', ignoreDuplicates: true },
+    )
+    .select(COLUMNS);
+  if (error) throw new Error(`recordAttendance: ${error.message}`);
+
+  // `ignoreDuplicates` returns no rows when the conflict was ignored, which is how
+  // we know this exact event had already landed.
+  const rows = (data ?? []) as Row[];
+  if (rows.length === 0) return { outcome: 'duplicate' };
+  return { outcome: 'recorded', event: toEvent(rows[0]) };
+}
+
+/**
+ * Correct an earlier event.
+ *
+ * Appends rather than edits, and requires a reason. "Signed in at 8:05, actually it
+ * was 7:50" is two rows: after an incident the question is what was recorded at the
+ * time, and an edited row cannot answer it.
+ */
+export async function correctAttendance(
+  db: Db,
+  input: {
+    childId: string;
+    kind: AttendanceKind;
+    at: string;
+    clientUuid: string;
+    corrects: number;
+    note: string;
+  },
+): Promise<RecordResult> {
+  if (input.note.trim().length < 3) {
+    throw new Error('correctAttendance: a reason is required.');
+  }
+  return recordAttendance(db, input);
+}
+
+// ---------------------------------------------------------------------------
+// Reading
+// ---------------------------------------------------------------------------
+
+export interface AttendanceState {
+  childId: string;
+  centreId: string;
+  eventId: number;
+  kind: AttendanceKind;
+  at: string;
+}
+
+/**
+ * Today's latest event per child, from the `attendance_today` view.
+ *
+ * Derived every time, never a stored flag. A cached `is_present` drifts on a missed
+ * sign-out or a failed write, and drift in a ratio reports itself as compliant.
+ */
+export async function listAttendanceToday(db: Db, centreId: string): Promise<AttendanceState[]> {
+  const { data, error } = await db
+    .from('attendance_today')
+    .select('child_id, centre_id, event_id, kind, at')
+    .eq('centre_id', centreId);
+  if (error) throw new Error(`listAttendanceToday: ${error.message}`);
+  return (
+    data as { child_id: string; centre_id: string; event_id: number; kind: AttendanceKind; at: string }[]
+  ).map((r) => ({
+    childId: r.child_id,
+    centreId: r.centre_id,
+    eventId: r.event_id,
+    kind: r.kind,
+    at: r.at,
+  }));
+}
+
+/** One child's history, newest first. The roll return and any later question read this. */
+export async function listAttendanceForChild(
+  db: Db,
+  childId: string,
+  opts: { since?: string; limit?: number } = {},
+): Promise<AttendanceEvent[]> {
+  let q = db.from('attendance_events').select(COLUMNS).eq('child_id', childId);
+  if (opts.since) q = q.gte('at', opts.since);
+  const { data, error } = await q.order('at', { ascending: false }).limit(opts.limit ?? 200);
+  if (error) throw new Error(`listAttendanceForChild: ${error.message}`);
+  return (data as Row[]).map(toEvent);
+}
+
+// ---------------------------------------------------------------------------
+// How many adults are here
+// ---------------------------------------------------------------------------
+
+/**
+ * The most recent adult count recorded today, or 0 if none.
+ *
+ * Zero rather than a guess. An unrecorded count is unknown, not "the same as
+ * yesterday", and a ratio computed against yesterday's staffing is confidently
+ * wrong — whereas zero reads as a breach, which is the failure direction somebody
+ * notices and fixes.
+ */
+export async function readAdultsPresent(db: Db, centreId: string): Promise<number> {
+  const { data, error } = await db.rpc('adults_present_now', { p_centre: centreId });
+  if (error) throw new Error(`readAdultsPresent: ${error.message}`);
+  return typeof data === 'number' ? data : 0;
+}
+
+/**
+ * Landed, or already there. Same idempotency contract as attendance, so the mobile
+ * outbox can carry these events too without a second code path.
+ */
+export type WriteOutcome = 'recorded' | 'duplicate';
+
+/** Record how many adults are present. Append-only, like attendance. */
+export async function recordAdultsPresent(
+  db: Db,
+  input: { centreId: string; adults: number; clientUuid: string; at?: string; note?: string | null },
+): Promise<WriteOutcome> {
+  const { data: auth } = await db.auth.getUser();
+  const { data, error } = await db
+    .from('staff_count_events')
+    .upsert(
+      {
+        centre_id: input.centreId,
+        adults: Math.max(0, Math.trunc(input.adults)),
+        at: input.at ?? new Date().toISOString(),
+        client_uuid: input.clientUuid,
+        recorded_by: auth.user?.id ?? null,
+        note: input.note?.trim() || null,
+      },
+      { onConflict: 'client_uuid', ignoreDuplicates: true },
+    )
+    .select('id');
+  if (error) throw new Error(`recordAdultsPresent: ${error.message}`);
+  return (data ?? []).length === 0 ? 'duplicate' : 'recorded';
+}
+
+// ---------------------------------------------------------------------------
+// The ratio
+// ---------------------------------------------------------------------------
+
+export interface PresentChild {
+  id: string;
+  dateOfBirth: string;
+  since: string;
+}
+
+export interface RollState {
+  present: PresentChild[];
+  absent: string[];
+  ratio: RatioAssessment;
+}
+
+/**
+ * The whole live picture: who is here, and whether the room is legal.
+ *
+ * `adultsPresent` is a parameter and not derived from anything, because nothing in
+ * this system knows it. Staff attendance is not modelled — Phase 2 signs *children*
+ * in — so the number comes from whoever is looking at the screen. Inferring it from
+ * `memberships` would be worse than asking: it would count an educator who is on
+ * leave and produce a ratio that is confidently wrong.
+ */
+export async function readRoll(
+  db: Db,
+  input: { centreId: string; timeZone?: string; adultsPresent: number },
+  children: { id: string; dateOfBirth: string }[],
+): Promise<RollState> {
+  const states = await listAttendanceToday(db, input.centreId);
+  const byChild = new Map(states.map((s) => [s.childId, s]));
+
+  const present: PresentChild[] = [];
+  const absent: string[] = [];
+  for (const child of children) {
+    const state = byChild.get(child.id);
+    if (state?.kind === 'in') {
+      present.push({ id: child.id, dateOfBirth: child.dateOfBirth, since: state.at });
+    } else {
+      absent.push(child.id);
+    }
+  }
+
+  const { underTwo, twoAndOver } = splitByAgeBand(present, input.timeZone);
+  return {
+    present,
+    absent,
+    ratio: assessRatio({ underTwo, twoAndOver, adultsPresent: input.adultsPresent }),
+  };
+}

@@ -131,6 +131,12 @@ export const TERMS = {
 
 export * from './children';
 
+// Regulated ratios. The bands are unverified data with citations — see the file.
+export * from './ratios';
+
+// Merging server state with an offline queue. Pure, and tested.
+export * from './roll';
+
 // ---------------------------------------------------------------------------
 // Design tokens
 // ---------------------------------------------------------------------------
