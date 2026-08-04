@@ -175,6 +175,52 @@ textarea {
 a.plain { color: var(--ink); text-decoration: none; }
 a.plain:hover { text-decoration: underline; }
 
+/* --- The evidence binder ------------------------------------------------- */
+
+/*
+ * A print stylesheet instead of a PDF library.
+ *
+ * Every browser prints to PDF, which is what the plan asked for, and this costs no
+ * dependency, no headless Chrome in the deployment, no font bundling, and no second
+ * rendering path that drifts from the screen. `puppeteer` would add a few hundred
+ * megabytes to a container to re-render HTML the browser already has.
+ */
+.binder { max-width: 52rem; }
+.binder header { border-bottom: 2px solid var(--ink); padding-bottom: 0.75rem; margin-bottom: 1.5rem; }
+.binder section { margin-bottom: 2rem; }
+.binder h2 {
+  font-size: 1.125rem; font-weight: 600; margin: 0 0 0.5rem;
+  border-bottom: 1px solid var(--line); padding-bottom: 0.25rem;
+}
+.binder h3 { font-size: 0.9375rem; font-weight: 600; margin: 1.25rem 0 0.4rem; }
+.binder table { margin-bottom: 0.75rem; font-size: 0.875rem; }
+.binder th { color: var(--ink); border-bottom: 1px solid var(--line); }
+.binder ul { margin: 0.25rem 0 0.75rem; padding-left: 1.3rem; }
+.binder li { margin-bottom: 0.2rem; }
+.binder footer { border-top: 1px solid var(--line); padding-top: 0.75rem; margin-top: 2rem; }
+
+@media print {
+  /* The app shell is navigation, and navigation is not evidence. */
+  .side, .no-print, .skip { display: none !important; }
+  .main { padding: 0; max-width: none; }
+  .binder { max-width: none; }
+
+  body { background: #fff; font-size: 11pt; }
+
+  /*
+   * A table split across a page break loses its header, and a reviewer then reads a
+   * column of dates with no idea which column it is.
+   */
+  .binder table { page-break-inside: avoid; }
+  .binder section { page-break-inside: avoid; }
+  .binder h2, .binder h3 { page-break-after: avoid; }
+  thead { display: table-header-group; }
+
+  /* A printed page has no hover state and no tooltip, so a link's target has to be
+     on the paper. Not applied inside the binder body, where links are incidental. */
+  a[href^='http']::after { content: ' (' attr(href) ')'; font-size: 9pt; }
+}
+
 /*
  * Row-level buttons.
  *

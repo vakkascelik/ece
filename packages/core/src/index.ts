@@ -137,6 +137,10 @@ export * from './ratios';
 // Merging server state with an offline queue. Pure, and tested.
 export * from './roll';
 
+// Compliance record-keeping and ratio history. No regulation text — see the files.
+export * from './compliance';
+export * from './ratioHistory';
+
 // ---------------------------------------------------------------------------
 // Design tokens
 // ---------------------------------------------------------------------------

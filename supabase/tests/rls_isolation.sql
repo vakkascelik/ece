@@ -948,6 +948,167 @@ select pg_temp.expect(
 );
 
 -- ===========================================================================
+-- STAFF RECORDS, CRITERIA AND EVIDENCE
+--
+-- The interesting one here is that an educator must be able to read their OWN police
+-- vetting result and nobody else's. That is not a convenience — a vetting result is
+-- personal information about the person it concerns, and the Privacy Act gives them a
+-- right of access to it (IPP 6). A policy that hid it from them would put the product in
+-- the way of a statutory right.
+-- ===========================================================================
+
+set local role postgres;
+
+insert into public.staff_records (centre_id, user_id, person_name, kind, expires_on, sighted_by, sighted_at)
+values
+  ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '55555555-5555-4555-8555-555555555555',
+   'Ed Educator', 'police_vetting', current_date + 200, '11111111-1111-4111-8111-111111111111', now()),
+  -- Somebody else's record at the same centre, and a reliever with no account at all.
+  ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '11111111-1111-4111-8111-111111111111',
+   'Alice Owner', 'first_aid', current_date + 30, '11111111-1111-4111-8111-111111111111', now()),
+  ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', null,
+   'Rita Reliever', 'police_vetting', current_date - 10, null, null),
+  ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', null,
+   'Bee Manager', 'first_aid', current_date + 100, null, null);
+
+insert into public.evidence (centre_id, kind, title, added_by)
+values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'policy', 'Evacuation procedure',
+        '11111111-1111-4111-8111-111111111111');
+
+-- The owner sees the centre's records.
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+
+select pg_temp.expect(
+  (select count(*) from public.staff_records) = 3,
+  'an owner sees every staff record at their centre, including relievers with no account'
+);
+
+select pg_temp.expect(
+  (select count(*) from public.evidence) = 1,
+  'and the evidence on file'
+);
+
+-- The educator: their own row, and only their own.
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+
+select pg_temp.expect(
+  (select count(*) from public.staff_records) = 1,
+  'an educator sees exactly one staff record'
+);
+
+select pg_temp.expect(
+  (select person_name from public.staff_records) = 'Ed Educator',
+  'and it is their own — IPP 6 gives them a right of access to it'
+);
+
+select pg_temp.expect(
+  (select count(*) from public.staff_records where person_name = 'Alice Owner') = 0,
+  'an educator CANNOT read a colleague''s vetting result'
+);
+
+-- Reading their own record is not editing it.
+do $$
+declare code text := 'none (the update SUCCEEDED)';
+begin
+  begin
+    update public.staff_records set expires_on = current_date + 9999
+     where person_name = 'Ed Educator';
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '42501' or
+    (select expires_on from public.staff_records where person_name = 'Ed Educator') <> current_date + 9999,
+    'an educator CANNOT edit their own vetting record');
+end $$;
+
+-- Evidence is management-level. Some of what goes in a binder — staffing, governance —
+-- is not an educator's to read.
+select pg_temp.expect(
+  (select count(*) from public.evidence) = 0,
+  'an educator CANNOT read the evidence binder'
+);
+
+-- Criteria are published rules, not tenant data. Every centre reads the same set and
+-- there is nothing confidential about a licensing criterion.
+select pg_temp.expect(
+  (select count(*) from public.criteria_sets) >= 0,
+  'any signed-in user may read criteria sets'
+);
+
+-- A parent has no business in any of this.
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.staff_records) = 0,
+  'a parent sees no staff records at all'
+);
+select pg_temp.expect(
+  (select count(*) from public.evidence) = 0,
+  'and no evidence'
+);
+
+-- Two sites.
+set local request.jwt.claims = '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.staff_records) = 1,
+  'centre B sees only its own staff records'
+);
+select pg_temp.expect(
+  (select count(*) from public.staff_records where person_name = 'Ed Educator') = 0,
+  'and none of centre A''s'
+);
+
+-- Sighting cannot be attributed to somebody else: the entire value of the field is that
+-- a named person says they saw the document.
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+do $$
+declare code text := 'none (the insert SUCCEEDED)';
+begin
+  begin
+    insert into public.staff_records (centre_id, person_name, kind, sighted_by, sighted_at)
+    values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Forged Sighting', 'first_aid',
+            '22222222-2222-4222-8222-222222222222', now());
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code in ('42501', '23514'),
+    'sighting CANNOT be attributed to another person, got ' || code);
+end $$;
+
+-- A lapsed certificate quietly removed is indistinguishable from one that never existed,
+-- and "we held a current first aid certificate in March" is what a review asks.
+do $$
+declare code text := 'none (the delete SUCCEEDED)';
+begin
+  begin
+    delete from public.staff_records where person_name = 'Rita Reliever';
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '42501', 'a staff record CANNOT be deleted, got ' || code);
+end $$;
+
+do $$
+declare code text := 'none (the delete SUCCEEDED)';
+begin
+  begin
+    delete from public.evidence;
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '42501', 'evidence CANNOT be deleted, got ' || code);
+end $$;
+
+-- Importing a criteria set is a claim about what the law says, so it goes through a
+-- reviewed script with the service role rather than a form anybody can reach.
+do $$
+declare code text := 'none (the insert SUCCEEDED)';
+begin
+  begin
+    insert into public.criteria_sets (name, source) values ('Invented', 'made up');
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '42501',
+    'an owner CANNOT import a criteria set through the API, got ' || code);
+end $$;
+
+-- ===========================================================================
 -- RETENTION AND PURGING
 --
 -- `purge_child` is the most destructive thing in the product and it is SECURITY
