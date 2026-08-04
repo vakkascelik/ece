@@ -82,7 +82,7 @@ export function NewChildForm() {
           <input id="firstLanguage" name="firstLanguage" autoComplete="off" />
         </div>
 
-        {error && <p className="error">{error}</p>}
+        {error && <p className="error" role="alert">{error}</p>}
 
         <div>
           <button type="submit" disabled={pending}>

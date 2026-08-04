@@ -72,7 +72,7 @@ function Arrangement({
         {arrangement.courtOrderReference && <>Order {arrangement.courtOrderReference} · </>}
         recorded {new Date(arrangement.at).toLocaleDateString('en-NZ')}
       </p>
-      {error && <p className="error">{error}</p>}
+      {error && <p className="error" role="alert">{error}</p>}
       <form action={action} style={{ marginTop: '0.4rem' }}>
         <input type="hidden" name="arrangementId" value={arrangement.id} />
         <input type="hidden" name="childId" value={childId} />
@@ -115,7 +115,7 @@ function CustodyForm({ childId, onDone }: { childId: string; onDone: () => void 
           <input className="narrow" id="courtOrderReference" name="courtOrderReference" />
         </div>
 
-        {error && <p className="error">{error}</p>}
+        {error && <p className="error" role="alert">{error}</p>}
 
         <div className="inline">
           <button type="submit" disabled={pending}>

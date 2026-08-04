@@ -147,7 +147,7 @@ export function hasCriticalCondition(conditions: HealthCondition[]): boolean {
  * know which ones they may still act on, and a lapsed authority displayed the same
  * way as a live one is how medicine gets given without one.
  */
-export function isMedicationCurrent(m: MedicationAuthority, on: string = todayISO()): boolean {
+export function isMedicationCurrent(m: MedicationAuthority, on: string = todayInZone()): boolean {
   if (m.startsOn > on) return false;
   return m.expiresOn === null || m.expiresOn >= on;
 }
@@ -252,15 +252,43 @@ export function missingConsents(states: ConsentState[]): ConsentKind[] {
 // Age
 // ---------------------------------------------------------------------------
 
+export const NZ_TIMEZONE = 'Pacific/Auckland';
+
 /**
- * Today as `YYYY-MM-DD`.
+ * Today as `YYYY-MM-DD` in a named timezone.
  *
- * Local, not UTC. A centre in New Zealand is up to 13 hours ahead of UTC, so
- * `toISOString().slice(0, 10)` is yesterday for most of the working day — which
- * would put a child in the wrong ratio band on their birthday and mis-date a
- * medication authority.
+ * Neither UTC nor "local" is correct here, and both were wrong in the first cut of
+ * this file.
+ *
+ * New Zealand is 12 or 13 hours ahead of UTC, so `toISOString().slice(0, 10)` is
+ * *yesterday* for the whole New Zealand morning — which put a child in the wrong
+ * ratio band on their birthday, mis-dated a medication authority, and made the
+ * enrolment form reject a baby born that morning as "in the future".
+ *
+ * And the device's own date is right on a tablet standing in the centre but wrong
+ * in a Next server component, because the server runs in UTC. So the zone is a
+ * parameter, and the caller passes the centre's own `timezone` where it has it.
  */
-export function todayISO(now: Date = new Date()): string {
+export function todayInZone(timeZone: string = NZ_TIMEZONE, now: Date = new Date()): string {
+  try {
+    // formatToParts rather than a locale that happens to format ISO-ish, so the
+    // result does not depend on locale data quirks.
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(now);
+    const get = (type: string) => parts.find((p) => p.type === type)?.value;
+    const [y, m, d] = [get('year'), get('month'), get('day')];
+    if (y && m && d) return `${y}-${m}-${d}`;
+  } catch {
+    /* falls through */
+  }
+  // Last resort, not a default: a JS runtime without full ICU, or a zone name it
+  // does not know. The device's own date is correct on a tablet in the centre and
+  // a day out on a UTC server, which is still better than throwing while somebody
+  // signs a child in.
   const y = now.getFullYear();
   const m = `${now.getMonth() + 1}`.padStart(2, '0');
   const d = `${now.getDate()}`.padStart(2, '0');
@@ -280,7 +308,7 @@ function parts(iso: string): { y: number; m: number; d: number } {
  * dividing by 30.44 days gets "23 months" for a child who turned two yesterday,
  * and that answer moves them into the wrong ratio band.
  */
-export function ageInMonths(dateOfBirth: string, on: string = todayISO()): number {
+export function ageInMonths(dateOfBirth: string, on: string = todayInZone()): number {
   const a = parts(dateOfBirth);
   const b = parts(on);
   let months = (b.y - a.y) * 12 + (b.m - a.m);
@@ -295,7 +323,7 @@ export function ageInMonths(dateOfBirth: string, on: string = todayISO()): numbe
  * The bands themselves belong to Phase 2; this is the one boundary the child
  * record needs in order to display correctly.
  */
-export function isUnderTwo(dateOfBirth: string, on: string = todayISO()): boolean {
+export function isUnderTwo(dateOfBirth: string, on: string = todayInZone()): boolean {
   return ageInMonths(dateOfBirth, on) < 24;
 }
 
@@ -304,7 +332,7 @@ export function isUnderTwo(dateOfBirth: string, on: string = todayISO()): boolea
  *
  * Nobody in an early learning centre describes an eighteen-month-old as "1y 6m".
  */
-export function formatAge(dateOfBirth: string, on: string = todayISO()): string {
+export function formatAge(dateOfBirth: string, on: string = todayInZone()): string {
   const months = ageInMonths(dateOfBirth, on);
   if (months < 0) return 'not yet born';
   if (months < 24) return months === 1 ? '1 month' : `${months} months`;
@@ -334,7 +362,7 @@ export function formatDays(days: number[]): string {
 }
 
 /** Is this enrolment in force on the given date? */
-export function isEnrolmentCurrent(e: Enrolment, on: string = todayISO()): boolean {
+export function isEnrolmentCurrent(e: Enrolment, on: string = todayInZone()): boolean {
   if (e.startDate > on) return false;
   return e.endDate === null || e.endDate >= on;
 }

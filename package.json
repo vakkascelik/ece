@@ -15,15 +15,19 @@
     "dev:mobile": "npm run start -w @ece/mobile",
     "build": "npm run build -w @ece/core && npm run build -w @ece/api && npm run build -w @ece/web",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "lint": "npm run lint --workspaces --if-present",
+    "lint": "eslint .",
     "test": "npm run test --workspaces --if-present",
     "test:rls": "node --env-file-if-exists=.env.local --import tsx scripts/test-rls.ts",
     "onboard": "node --env-file-if-exists=.env.local --import tsx scripts/onboard.ts",
     "seed:demo": "node --env-file-if-exists=.env.local --import tsx scripts/seed-demo.ts"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.5",
     "@types/pg": "^8.20.3",
+    "eslint": "^9.39.5",
+    "eslint-plugin-react-hooks": "^5.2.0",
     "pg": "^8.22.0",
-    "tsx": "^4.23.5"
+    "tsx": "^4.23.5",
+    "typescript-eslint": "^8.66.0"
   }
 }

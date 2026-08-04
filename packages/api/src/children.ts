@@ -12,6 +12,7 @@
  * layer has to remember is one that will eventually be missed.
  */
 
+import { todayInZone } from '@ece/core';
 import type {
   Child,
   ChildGuardian,
@@ -472,9 +473,19 @@ export async function listEnrolments(db: Db, childId: string): Promise<Enrolment
   return (data as EnrolmentRow[]).map(toEnrolment);
 }
 
-/** Every current enrolment at a centre, for the roll and the child list. */
-export async function listCurrentEnrolments(db: Db, centreId: string): Promise<Enrolment[]> {
-  const today = new Date().toISOString().slice(0, 10);
+/**
+ * Every current enrolment at a centre, for the roll and the child list.
+ *
+ * `today` is a parameter because the answer depends on which day it is *at the
+ * centre*. Computing it here with `toISOString()` would use UTC, and for the whole
+ * New Zealand morning that is yesterday — so an enrolment starting today would be
+ * missing from the roll until lunchtime. Callers pass `todayInZone(centre.timezone)`.
+ */
+export async function listCurrentEnrolments(
+  db: Db,
+  centreId: string,
+  today: string = todayInZone(),
+): Promise<Enrolment[]> {
   const { data, error } = await db
     .from('enrolments')
     .select(ENROLMENT_COLUMNS)
@@ -563,23 +574,27 @@ export async function listHealthConditions(
 /**
  * Every unresolved condition for a whole centre, keyed by child.
  *
- * One query rather than one per child: the child list shows an allergy flag on
- * every row, and doing that per child is how a roll of forty becomes forty-one
- * round trips.
+ * One query, not one per child: the roll shows an allergy flag on every row, and
+ * doing that per child turns a list of forty into forty-one round trips.
+ *
+ * The centre filter goes through an inner-join embed rather than fetching the
+ * child ids first and passing them back as `in.(…)`. That earlier version worked
+ * and had three problems: two round trips, a URL that grew with the roll, and a
+ * silent dependency on PostgREST's default 1000-row cap applying to the id query.
+ *
+ * The embed also preserves the guardianship rule rather than working around it —
+ * `children` RLS applies to the joined side, so an inner join keeps only the
+ * children the caller may actually see. A parent gets their own child's conditions
+ * from the same call an educator uses to get the room's.
  */
 export async function listHealthByChild(
   db: Db,
   centreId: string,
 ): Promise<Map<string, HealthCondition[]>> {
-  const children = await db.from('children').select('id').eq('centre_id', centreId);
-  if (children.error) throw new Error(`listHealthByChild: ${children.error.message}`);
-  const ids = (children.data as { id: string }[]).map((c) => c.id);
-  if (ids.length === 0) return new Map();
-
   const { data, error } = await db
     .from('health_conditions')
-    .select(HEALTH_COLUMNS)
-    .in('child_id', ids)
+    .select(`${HEALTH_COLUMNS}, children!inner(centre_id)`)
+    .eq('children.centre_id', centreId)
     .is('resolved_at', null);
   if (error) throw new Error(`listHealthByChild: ${error.message}`);
 
@@ -684,19 +699,21 @@ export async function listConsents(db: Db, childId: string): Promise<ConsentStat
   }));
 }
 
+/**
+ * Current consent state for a whole centre, keyed by child.
+ *
+ * `current_consents` carries `centre_id` (added in 0006) so this is one query. A
+ * view cannot be embedded through a foreign key, which is why the column exists on
+ * the view rather than this doing the same inner-join trick as `listHealthByChild`.
+ */
 export async function listConsentsByChild(
   db: Db,
   centreId: string,
 ): Promise<Map<string, ConsentState[]>> {
-  const children = await db.from('children').select('id').eq('centre_id', centreId);
-  if (children.error) throw new Error(`listConsentsByChild: ${children.error.message}`);
-  const ids = (children.data as { id: string }[]).map((c) => c.id);
-  if (ids.length === 0) return new Map();
-
   const { data, error } = await db
     .from('current_consents')
     .select('child_id, kind, granted, given_by, at')
-    .in('child_id', ids);
+    .eq('centre_id', centreId);
   if (error) throw new Error(`listConsentsByChild: ${error.message}`);
 
   const out = new Map<string, ConsentState[]>();

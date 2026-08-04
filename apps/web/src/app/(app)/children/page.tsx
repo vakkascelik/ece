@@ -9,8 +9,11 @@ import {
   hasCriticalCondition,
   isUnderTwo,
   missingConsents,
+  todayInZone,
   type Child,
+  type ConsentState,
   type Enrolment,
+  type HealthCondition,
 } from '@ece/core';
 import { requireCtx } from '@/lib/auth';
 import { serverDb } from '@/lib/supabase';
@@ -36,7 +39,7 @@ export default async function ChildrenPage() {
     listChildren(db, ctx.centre.id),
     listHealthByChild(db, ctx.centre.id),
     listConsentsByChild(db, ctx.centre.id),
-    listCurrentEnrolments(db, ctx.centre.id),
+    listCurrentEnrolments(db, ctx.centre.id, todayInZone(ctx.centre.timezone)),
   ]);
 
   const enrolmentByChild = new Map<string, Enrolment>();
@@ -111,8 +114,8 @@ function ChildRow({
 }: {
   child: Child;
   enrolment: Enrolment | undefined;
-  health: Parameters<typeof compareBySeverity>[0][];
-  consents: Parameters<typeof missingConsents>[0];
+  health: HealthCondition[];
+  consents: ConsentState[];
   showConsentGap: boolean;
 }) {
   const critical = hasCriticalCondition(health);

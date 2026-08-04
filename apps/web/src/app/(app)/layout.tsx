@@ -17,6 +17,11 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="shell">
+      {/* WCAG 2.4.1 — the sidebar repeats on every page and is otherwise ten tab
+          stops between a keyboard user and the content. */}
+      <a className="skip" href="#main">
+        Skip to content
+      </a>
       <aside className="side">
         <h2>Centre</h2>
         <div style={{ marginBottom: '0.35rem' }}>
@@ -47,7 +52,9 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
         </form>
       </aside>
 
-      <main className="main">{children}</main>
+      <main className="main" id="main">
+        {children}
+      </main>
     </div>
   );
 }

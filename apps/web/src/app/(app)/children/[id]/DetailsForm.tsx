@@ -107,7 +107,7 @@ export function DetailsForm({ child, readOnly }: { child: Child; readOnly: boole
           entitlement, so correcting it is handled separately.
         </p>
 
-        {error && <p className="error">{error}</p>}
+        {error && <p className="error" role="alert">{error}</p>}
         {saved && <p style={{ color: 'var(--ok)', margin: 0 }}>Saved.</p>}
 
         <div>

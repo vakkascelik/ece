@@ -18,9 +18,11 @@ import {
   hasCriticalCondition,
   isUnderTwo,
   missingConsents,
+  todayInZone,
 } from '@ece/core';
 import { requireCtx } from '@/lib/auth';
 import { serverDb } from '@/lib/supabase';
+import { ArchivePanel } from './ArchivePanel';
 import { ConsentPanel } from './ConsentPanel';
 import { CustodyPanel } from './CustodyPanel';
 import { DetailsForm } from './DetailsForm';
@@ -47,6 +49,11 @@ export default async function ChildPage({ params }: { params: Promise<{ id: stri
   // exists at a centre you cannot see is itself a disclosure.
   if (!child) notFound();
 
+  // The date at the centre, resolved once on the server and passed down. A client
+  // component computing it gets the browser's timezone, which is the manager's and
+  // not necessarily the centre's; computing it on the server without a zone gets
+  // UTC, which is yesterday all New Zealand morning.
+  const today = todayInZone(ctx.centre.timezone);
   const canManage = can(ctx.role, 'manageChildren');
   const canViewCustody = can(ctx.role, 'viewCustody');
 
@@ -121,6 +128,7 @@ export default async function ChildPage({ params }: { params: Promise<{ id: stri
           medications={medications}
           guardians={whanau.map((g) => ({ id: g.guardian.id, name: g.guardian.fullName }))}
           canEdit={can(ctx.role, 'recordHealth')}
+          today={today}
         />
       </div>
 
@@ -135,6 +143,7 @@ export default async function ChildPage({ params }: { params: Promise<{ id: stri
           childId={child.id}
           enrolments={enrolments}
           canEdit={can(ctx.role, 'manageEnrolment')}
+          today={today}
         />
       </div>
 
@@ -160,6 +169,13 @@ export default async function ChildPage({ params }: { params: Promise<{ id: stri
         <div className="section">
           <h2>Custody and court orders</h2>
           <CustodyPanel childId={child.id} arrangements={custody} />
+        </div>
+      )}
+
+      {canManage && !child.archivedAt && (
+        <div className="section">
+          <h2>Leaving</h2>
+          <ArchivePanel childId={child.id} name={child.preferredName || child.firstName} />
         </div>
       )}
     </>

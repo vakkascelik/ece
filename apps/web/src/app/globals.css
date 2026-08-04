@@ -64,6 +64,41 @@ button.danger { background: #fff; color: var(--danger); border-color: var(--line
 .error { color: var(--danger); }
 .center { max-width: 24rem; margin: 6rem auto; padding: 0 1.5rem; }
 
+/* --- Accessibility ------------------------------------------------------- */
+
+/*
+ * Focus visibility (WCAG 2.4.7). This was missing entirely — custom-styled
+ * buttons had whatever the browser default gave them, which on a green filled
+ * button is close to nothing.
+ *
+ * `--ink` rather than the accent, with an offset so the ring sits on the page
+ * background: an accent-coloured ring is invisible on the accent-coloured primary
+ * button, which is the one control every screen has.
+ */
+:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Keyboard users should not have to tab through the whole sidebar on every page
+ * to reach the content (WCAG 2.4.1). Off-screen until focused. */
+.skip {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+}
+.skip:focus {
+  left: 0.5rem;
+  top: 0.5rem;
+  z-index: 20;
+  background: var(--panel);
+  border: 1px solid var(--ink);
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  text-decoration: none;
+}
+
 /* --- Phase 1 ------------------------------------------------------------- */
 
 :root {
@@ -136,4 +171,19 @@ textarea {
 
 a.plain { color: var(--ink); text-decoration: none; }
 a.plain:hover { text-decoration: underline; }
-button.small { padding: 0.3rem 0.6rem; font-size: 0.8125rem; }
+
+/*
+ * Row-level buttons.
+ *
+ * 32px, not the 28px this started at. WCAG 2.2 AA (2.5.8) sets the floor at 24px
+ * and 28 cleared it, but the tokens file calls 44 the smallest anything
+ * interactive should be — and that is written for a thumb on a tablet, which is
+ * how the mobile app is used. This is a desk screen with a mouse and several
+ * controls per table row, so 32 is the compromise: comfortably above the
+ * conformance floor, honest about not being the 44 the token asks for.
+ */
+button.small {
+  padding: 0.35rem 0.65rem;
+  font-size: 0.8125rem;
+  min-height: 32px;
+}

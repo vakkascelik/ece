@@ -30,12 +30,15 @@ import {
   supersedeCustodyArrangement,
   updateChild,
   updateEnrolment,
+  updateGuardian,
+  updateGuardianLink,
 } from '@ece/api';
 import {
   CONSENT_KINDS,
   GENDERS,
   HEALTH_KINDS,
   HEALTH_SEVERITIES,
+  todayInZone,
   type ConsentKind,
   type Gender,
   type HealthKind,
@@ -70,7 +73,10 @@ export async function enrolChild(_prev: unknown, form: FormData): Promise<Result
 
   if (!firstName || !lastName) return { error: 'A first and last name are both required.' };
   if (!ISO_DATE.test(dateOfBirth)) return { error: 'A date of birth is required.' };
-  if (dateOfBirth > new Date().toISOString().slice(0, 10)) {
+  // The centre's date, not the server's. A Next server runs in UTC, which is
+  // yesterday for the whole New Zealand morning — so this rejected a baby born
+  // that morning as being "in the future".
+  if (dateOfBirth > todayInZone(ctx.centre.timezone)) {
     return { error: 'That date of birth is in the future.' };
   }
 
@@ -188,6 +194,50 @@ export async function addGuardian(_prev: unknown, form: FormData): Promise<Resul
     });
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Could not add them.' };
+  }
+
+  revalidatePath(`/children/${childId}`);
+  return { ok: true };
+}
+
+/**
+ * Edit a guardian and their relationship to this child in one submit.
+ *
+ * Two tables, because one person is often guardian to siblings: their phone number
+ * belongs to them and is shared across their children, while `can_collect` and the
+ * ring order belong to the link and can differ per child. Splitting it into two
+ * forms would make that distinction the user's problem.
+ */
+export async function editGuardian(_prev: unknown, form: FormData): Promise<Result> {
+  await requireCapability('manageChildren');
+  const db = await serverDb();
+
+  const childId = str(form, 'childId');
+  const guardianId = str(form, 'guardianId');
+  const linkId = str(form, 'linkId');
+  const fullName = str(form, 'fullName');
+  const relationship = str(form, 'relationship');
+
+  if (!childId || !guardianId || !linkId) return { error: 'Missing details.' };
+  if (!fullName) return { error: 'A name is required.' };
+  if (!relationship) return { error: 'Say how they are related.' };
+
+  try {
+    await updateGuardian(db, guardianId, {
+      fullName,
+      email: str(form, 'email') || null,
+      phone: str(form, 'phone') || null,
+      address: str(form, 'address') || null,
+    });
+    await updateGuardianLink(db, linkId, {
+      relationship,
+      isPrimary: bool(form, 'isPrimary'),
+      canCollect: bool(form, 'canCollect'),
+      isEmergencyContact: bool(form, 'isEmergencyContact'),
+      contactPriority: Number(str(form, 'contactPriority')) || 100,
+    });
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Could not save.' };
   }
 
   revalidatePath(`/children/${childId}`);

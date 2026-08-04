@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useState } from 'react';
 import type { GuardianOfChild } from '@ece/api';
-import { addGuardian, unlinkGuardian, type Result } from '../actions';
+import { addGuardian, editGuardian, unlinkGuardian, type Result } from '../actions';
 
 /**
  * The child's whānau, and the collection list.
@@ -81,7 +81,18 @@ function GuardianRow({
   canEdit: boolean;
 }) {
   const [state, action, pending] = useActionState<Result | null, FormData>(unlinkGuardian, null);
+  const [editing, setEditing] = useState(false);
   const error = state && 'error' in state ? state.error : null;
+
+  if (editing) {
+    return (
+      <tr>
+        <td colSpan={canEdit ? 5 : 4}>
+          <EditGuardianForm childId={childId} entry={entry} onDone={() => setEditing(false)} />
+        </td>
+      </tr>
+    );
+  }
 
   return (
     <tr>
@@ -93,7 +104,7 @@ function GuardianRow({
             <span className="flag flag-quiet">has an account</span>
           </>
         )}
-        {error && <div className="error">{error}</div>}
+        {error && <div className="error" role="alert">{error}</div>}
       </td>
       <td>{entry.relationship}</td>
       <td>
@@ -119,16 +130,110 @@ function GuardianRow({
       </td>
       {canEdit && (
         <td>
-          <form action={action}>
-            <input type="hidden" name="linkId" value={entry.id} />
-            <input type="hidden" name="childId" value={childId} />
-            <button className="danger small" type="submit" disabled={pending}>
-              Remove
+          <span className="inline">
+            <button className="secondary small" type="button" onClick={() => setEditing(true)}>
+              Edit
             </button>
-          </form>
+            <form action={action}>
+              <input type="hidden" name="linkId" value={entry.id} />
+              <input type="hidden" name="childId" value={childId} />
+              <button className="danger small" type="submit" disabled={pending}>
+                Remove
+              </button>
+            </form>
+          </span>
         </td>
       )}
     </tr>
+  );
+}
+
+/**
+ * Editing touches both tables at once.
+ *
+ * The phone number belongs to the person and is shared across their children; the
+ * collection permission and ring order belong to this child's link and can differ
+ * between siblings. One form, two updates — the distinction is real but it is not
+ * the user's problem.
+ */
+function EditGuardianForm({
+  childId,
+  entry,
+  onDone,
+}: {
+  childId: string;
+  entry: GuardianOfChild;
+  onDone: () => void;
+}) {
+  const [state, action, pending] = useActionState<Result | null, FormData>(editGuardian, null);
+  const error = state && 'error' in state ? state.error : null;
+  useEffect(() => {
+    if (state && 'ok' in state) onDone();
+  }, [state, onDone]);
+
+  return (
+    <form action={action}>
+      <input type="hidden" name="childId" value={childId} />
+      <input type="hidden" name="guardianId" value={entry.guardian.id} />
+      <input type="hidden" name="linkId" value={entry.id} />
+      <div className="stack">
+        <div className="row">
+          <div>
+            <label htmlFor={`name-${entry.id}`}>Name</label>
+            <input id={`name-${entry.id}`} name="fullName" defaultValue={entry.guardian.fullName} required />
+          </div>
+          <div>
+            <label htmlFor={`rel-${entry.id}`}>Relationship</label>
+            <input id={`rel-${entry.id}`} name="relationship" defaultValue={entry.relationship} required />
+          </div>
+        </div>
+        <div className="row">
+          <div>
+            <label htmlFor={`phone-${entry.id}`}>Phone</label>
+            <input id={`phone-${entry.id}`} name="phone" type="tel" defaultValue={entry.guardian.phone ?? ''} />
+          </div>
+          <div>
+            <label htmlFor={`email-${entry.id}`}>Email</label>
+            <input id={`email-${entry.id}`} name="email" type="email" defaultValue={entry.guardian.email ?? ''} />
+          </div>
+        </div>
+        <div>
+          <label htmlFor={`addr-${entry.id}`}>Address</label>
+          <input className="wide" id={`addr-${entry.id}`} name="address" defaultValue={entry.guardian.address ?? ''} />
+        </div>
+        <div className="days">
+          <label>
+            <input type="checkbox" name="canCollect" defaultChecked={entry.canCollect} /> May collect
+          </label>
+          <label>
+            <input type="checkbox" name="isPrimary" defaultChecked={entry.isPrimary} /> Primary contact
+          </label>
+          <label>
+            <input type="checkbox" name="isEmergencyContact" defaultChecked={entry.isEmergencyContact} /> Emergency
+            contact
+          </label>
+          <label>
+            Ring order
+            <input
+              name="contactPriority"
+              type="number"
+              min={1}
+              defaultValue={entry.contactPriority}
+              style={{ width: '4.5rem' }}
+            />
+          </label>
+        </div>
+        {error && <p className="error" role="alert">{error}</p>}
+        <div className="inline">
+          <button type="submit" disabled={pending}>
+            {pending ? 'Saving…' : 'Save'}
+          </button>
+          <button className="secondary" type="button" onClick={onDone}>
+            Cancel
+          </button>
+        </div>
+      </div>
+    </form>
   );
 }
 
@@ -192,7 +297,7 @@ function GuardianForm({ childId, onDone }: { childId: string; onDone: () => void
           </label>
         </div>
 
-        {error && <p className="error">{error}</p>}
+        {error && <p className="error" role="alert">{error}</p>}
 
         <div className="inline">
           <button type="submit" disabled={pending}>

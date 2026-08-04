@@ -24,12 +24,15 @@ export function HealthPanel({
   medications,
   guardians,
   canEdit,
+  today,
 }: {
   childId: string;
   conditions: HealthCondition[];
   medications: MedicationAuthority[];
   guardians: { id: string; name: string }[];
   canEdit: boolean;
+  /** The date at the centre. Passed in rather than computed — see the child page. */
+  today: string;
 }) {
   const [adding, setAdding] = useState(false);
   const [addingMed, setAddingMed] = useState(false);
@@ -84,7 +87,7 @@ export function HealthPanel({
             </thead>
             <tbody>
               {medications.map((m) => {
-                const current = isMedicationCurrent(m);
+                const current = isMedicationCurrent(m, today);
                 return (
                   <tr key={m.id}>
                     <td>
@@ -125,7 +128,7 @@ export function HealthPanel({
           </p>
         )}
         {canEdit && addingMed && (
-          <MedicationForm childId={childId} guardians={guardians} onDone={() => setAddingMed(false)} />
+          <MedicationForm childId={childId} guardians={guardians} today={today} onDone={() => setAddingMed(false)} />
         )}
       </div>
     </>
@@ -148,7 +151,7 @@ function ConditionRow({
     <tr>
       <td>
         <strong>{condition.name}</strong>
-        {error && <div className="error">{error}</div>}
+        {error && <div className="error" role="alert">{error}</div>}
       </td>
       <td>{HEALTH_KIND_LABELS[condition.kind]}</td>
       <td>
@@ -239,7 +242,7 @@ function ConditionForm({ childId, onDone }: { childId: string; onDone: () => voi
           />
         </div>
 
-        {error && <p className="error">{error}</p>}
+        {error && <p className="error" role="alert">{error}</p>}
 
         <div className="inline">
           <button type="submit" disabled={pending}>
@@ -257,10 +260,12 @@ function ConditionForm({ childId, onDone }: { childId: string; onDone: () => voi
 function MedicationForm({
   childId,
   guardians,
+  today,
   onDone,
 }: {
   childId: string;
   guardians: { id: string; name: string }[];
+  today: string;
   onDone: () => void;
 }) {
   const [state, action, pending] = useActionState<Result | null, FormData>(addMedication, null);
@@ -270,8 +275,6 @@ function MedicationForm({
   useEffect(() => {
     if (state && 'ok' in state) onDone();
   }, [state, onDone]);
-
-  const today = new Date().toISOString().slice(0, 10);
 
   return (
     <form action={action} style={{ marginTop: '1rem', borderTop: '1px solid var(--line)', paddingTop: '1rem' }}>
@@ -322,9 +325,9 @@ function MedicationForm({
         </div>
 
         {guardians.length === 0 && (
-          <p className="error">Add a guardian first — an authority has to come from someone.</p>
+          <p className="error" role="alert">Add a guardian first — an authority has to come from someone.</p>
         )}
-        {error && <p className="error">{error}</p>}
+        {error && <p className="error" role="alert">{error}</p>}
 
         <div className="inline">
           <button type="submit" disabled={pending || guardians.length === 0}>

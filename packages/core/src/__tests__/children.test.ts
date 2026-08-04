@@ -12,7 +12,8 @@ import {
   isUnderTwo,
   missingConsents,
   hasCriticalCondition,
-  todayISO,
+  todayInZone,
+  NZ_TIMEZONE,
   CONSENT_DETAIL,
   CONSENT_KINDS,
   REQUIRED_CONSENTS,
@@ -68,17 +69,41 @@ describe('isUnderTwo — the regulated divide', () => {
   });
 });
 
-describe('todayISO', () => {
-  it('uses local date, not UTC', () => {
-    // 13:00 UTC on 1 July is already 2 July in New Zealand. A UTC-based
-    // implementation returns the 1st for most of a working day here, which would
-    // put a child in the wrong ratio band on their birthday.
-    const nzMorning = new Date(2026, 6, 2, 9, 30);
-    expect(todayISO(nzMorning)).toBe('2026-07-02');
+describe('todayInZone — the bug that broke enrolment every NZ morning', () => {
+  it('returns the New Zealand date, not the UTC date', () => {
+    // 21:00 UTC on 4 August is 09:00 on 5 August in Auckland. UTC says the 4th
+    // for the whole New Zealand morning, which made the enrolment form reject a
+    // baby born that morning as "in the future" and dropped a same-day enrolment
+    // off the roll until lunchtime.
+    const nzMorning = new Date('2026-08-04T21:00:00Z');
+    expect(todayInZone(NZ_TIMEZONE, nzMorning)).toBe('2026-08-05');
+    expect(nzMorning.toISOString().slice(0, 10)).toBe('2026-08-04');
+  });
+
+  it('handles both sides of the New Zealand DST switch', () => {
+    // NZDT (+13) through to early April, NZST (+12) after. 11:30 UTC is the same
+    // calendar day in NZ under NZDT and the next day under... neither, but the
+    // hour differs, and a naive fixed +12 would be wrong for half the year.
+    const inNZDT = new Date('2026-01-15T11:30:00Z'); // 00:30 on the 16th, NZDT
+    const inNZST = new Date('2026-06-15T11:30:00Z'); // 23:30 on the 15th, NZST
+    expect(todayInZone(NZ_TIMEZONE, inNZDT)).toBe('2026-01-16');
+    expect(todayInZone(NZ_TIMEZONE, inNZST)).toBe('2026-06-15');
   });
 
   it('pads single-digit months and days', () => {
-    expect(todayISO(new Date(2026, 0, 5))).toBe('2026-01-05');
+    expect(todayInZone(NZ_TIMEZONE, new Date('2026-01-05T03:00:00Z'))).toBe('2026-01-05');
+  });
+
+  it('defaults to New Zealand', () => {
+    const t = new Date('2026-08-04T21:00:00Z');
+    expect(todayInZone(undefined, t)).toBe(todayInZone(NZ_TIMEZONE, t));
+  });
+
+  it('falls back to the device date rather than throwing on an unknown zone', () => {
+    // A runtime without full ICU is a real possibility on Hermes. Signing a child
+    // in must not fail because of it.
+    const t = new Date(2026, 7, 4, 12, 0);
+    expect(todayInZone('Not/AZone', t)).toBe('2026-08-04');
   });
 });
 

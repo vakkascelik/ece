@@ -41,5 +41,8 @@ export async function middleware(request: NextRequest) {
 export const config = {
   // Skip static assets and images: running auth refresh on every icon request
   // multiplies the auth server's load by the number of assets on the page.
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
+  // `\\.` not `\.`: this is a string, so `\.` collapses to a bare `.` and the
+  // compiled pattern matches any character where a literal dot was meant. Harmless
+  // in practice and still wrong — "logosvg" would have been treated as an asset.
+  matcher: ['/((?!_next/static|_next/image|favicon\\.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
 };

@@ -17,10 +17,13 @@ export function EnrolmentPanel({
   childId,
   enrolments,
   canEdit,
+  today,
 }: {
   childId: string;
   enrolments: Enrolment[];
   canEdit: boolean;
+  /** The date at the centre. Passed in rather than computed — see the child page. */
+  today: string;
 }) {
   const [filing, setFiling] = useState(false);
   const hasOpen = enrolments.some((e) => e.endDate === null);
@@ -43,7 +46,7 @@ export function EnrolmentPanel({
           </thead>
           <tbody>
             {enrolments.map((e) => (
-              <EnrolmentRow key={e.id} childId={childId} enrolment={e} canEdit={canEdit} />
+              <EnrolmentRow key={e.id} childId={childId} enrolment={e} canEdit={canEdit} today={today} />
             ))}
           </tbody>
         </table>
@@ -70,10 +73,12 @@ function EnrolmentRow({
   childId,
   enrolment,
   canEdit,
+  today,
 }: {
   childId: string;
   enrolment: Enrolment;
   canEdit: boolean;
+  today: string;
 }) {
   const [state, action, pending] = useActionState<Result | null, FormData>(endEnrolment, null);
   const [ending, setEnding] = useState(false);
@@ -82,7 +87,7 @@ function EnrolmentRow({
     if (state && 'ok' in state) setEnding(false);
   }, [state]);
 
-  const current = isEnrolmentCurrent(enrolment);
+  const current = isEnrolmentCurrent(enrolment, today);
 
   return (
     <tr>
@@ -104,7 +109,7 @@ function EnrolmentRow({
         ) : (
           <span className="flag flag-quiet">ended</span>
         )}
-        {error && <div className="error">{error}</div>}
+        {error && <div className="error" role="alert">{error}</div>}
       </td>
       {canEdit && (
         <td>
@@ -118,7 +123,7 @@ function EnrolmentRow({
                   name="endDate"
                   type="date"
                   required
-                  defaultValue={new Date().toISOString().slice(0, 10)}
+                  defaultValue={today}
                   aria-label="Last day"
                 />
                 <button className="small" type="submit" disabled={pending}>
@@ -202,7 +207,7 @@ function EnrolmentForm({ childId, onDone }: { childId: string; onDone: () => voi
           <textarea id="notes" name="notes" rows={2} />
         </div>
 
-        {error && <p className="error">{error}</p>}
+        {error && <p className="error" role="alert">{error}</p>}
 
         <div className="inline">
           <button type="submit" disabled={pending}>

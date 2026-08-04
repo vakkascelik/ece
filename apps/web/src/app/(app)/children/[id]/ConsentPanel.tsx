@@ -51,7 +51,7 @@ export function ConsentPanel({
           </p>
         )}
         {isParent && !ownGuardianId && (
-          <p className="error">
+          <p className="error" role="alert">
             You are not recorded as a guardian for this child, so the centre needs to add you
             before you can record consent here.
           </p>
@@ -178,7 +178,7 @@ function ConsentRow({
               <span className="flag flag-quiet">Not asked</span>
             </p>
           )}
-          {error && <p className="error">{error}</p>}
+          {error && <p className="error" role="alert">{error}</p>}
         </div>
 
         {canRecord && (
