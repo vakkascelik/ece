@@ -277,6 +277,34 @@ deletion Apple asks for.
 | **Why it matters** | That attribution *is* the licensing evidence this product exists to produce. An account deletion feature built the obvious way would quietly destroy it |
 | **To close it** | A tombstone table holding the person's display name — not their email — outside the FK, so attribution survives a deletion. Plus a guard refusing to close the account of the only remaining owner of a centre, because creating a membership needs the service role and a self-service feature would otherwise brick a tenant |
 
+### 18. Password reset emails have never been sent
+
+The forgot-password flow (see [[password-recovery]]) calls Supabase's `resetPasswordForEmail`,
+which sends through the project's mailer. No custom SMTP is configured, so that is Supabase's
+built-in service — rate-limited to a handful of messages an hour and described by Supabase as
+not for production. Nobody has requested a reset against the live project and received the
+email.
+
+| | |
+|---|---|
+| **The claim** | A user who taps "Send reset link" gets an email |
+| **What is actually verified** | Everything after the email. Drilled on 2026-08-05 against live Postgres with a disposable account: a recovery token establishes a session at `/auth/confirm`, `/reset-password` refuses a short password and a mismatched confirmation, sets the new one, the new password signs in, the old one does not, and the link cannot be replayed. That the emailed link carries `?code=` rather than a fragment was confirmed from the installed SDK source, not the docs |
+| **Still unverified** | That the mailer sends anything at all, and that the message arrives |
+| **To close it** | Request a reset for a real account on the live project; check the mailbox and the auth logs. Before real centres depend on it, configure custom SMTP and verify again |
+
+### 19. The product name has not been cleared
+
+The design handoff gives the product a working name, **Doorway**, and says in its own first
+paragraph that the name has not been trademark- or domain-checked. Nothing in this repo uses it
+yet — the web app still says "ECE Platform" — so there is no exposure today, and that is exactly
+why it is worth recording before a screen, a store listing or a manifest starts carrying it.
+
+| | |
+|---|---|
+| **The claim** | "Doorway" is available to use as a product name in New Zealand |
+| **What is actually verified** | Nothing. The handoff states the check has not been done |
+| **To close it** | IPONZ trade mark search in the relevant classes, a companies-register check, and the domain. Before any store submission or marketing asset, not after |
+
 ## See Also
 
 - [[attendance-and-ratios]] — where the ratio bands are used
@@ -286,4 +314,4 @@ deletion Apple asks for.
 - [[consent-gated-media]] — where consent decisions finally do work
 - [[funding-and-billing]] — why nothing is estimated, and what cannot be submitted
 
-*Last updated: 2026-08-04*
+*Last updated: 2026-08-05*

@@ -5,6 +5,57 @@ says so.*
 
 ---
 
+2026-08-06 — Started applying the `design_handoff_ece_platform/` pack. New page
+[[design-system]]. The tokens already agreed with the handoff on every colour, size, radius,
+target and the motion curve — the pack and the repo describe the same system — so the work is
+not a re-tokening but bringing screens up to a spec the tokens were built for. Four values did
+diverge, all borders: the three state borders were close but unequal, and a pending-sync border
+did not exist, so the offline strip fell back to `line`, a warmer grey from a different family
+than the blue around it. New ratios were **measured** (1.17–1.45:1) rather than carried over.
+`elevation.card` alpha .05 → .06.
+
+Screens 1 (web login) and the no-access half of 7 are built; 2–6 and 8–13 are not, and
+[[design-system]] says so explicitly rather than letting a wiki page imply the product looks
+like the board. One constraint in the master prompt was **refused**: it forbids password reset
+and omits its routes, which would mean deleting the feature built the day before at the owner's
+request. The property that constraint protects — no account enumeration — is preserved by the
+uniform response; the recovery path it points at has never worked. Recorded as a deviation
+through the handoff's own mechanism, and cross-linked from [[password-recovery]]. The unchecked
+product name went to [[unverified-claims]] as item 19.
+
+Verifying screen 1 failed the e2e suite on an attendance assertion three hundred lines from
+anything that changed, and the first explanation was wrong: not "the run crossed midnight" but
+the fixture stamping its sign-in at `now - 1 hour`, which lands on yesterday for the first hour
+of a New Zealand day. **The suite failed for one hour in twenty-four and passed the other
+twenty-three.** The adult count had the same defect at `now - 3_700_000`, which would have left
+the ratio reading "no adult count recorded" instead of "within ratio". Third instance of this
+trap in the repo and the first inside a test; mechanism in [[conventions]]. The product was
+correct throughout.
+
+2026-08-05 — Password recovery built, and the design stance it replaces corrected. The design
+handoff's login screen said "no password reset here — ask your centre to re-invite you", but the
+invite flow refuses to set a password for an existing account (deliberately — it would be a
+takeover), so the documented recovery path dead-ended at "sign in first", the one thing the
+person cannot do: a forgotten password was a permanent lockout. New page [[password-recovery]]
+records the flows (uniform-response `/forgot-password`, `/auth/confirm` route handler,
+`/reset-password`, and `/account` change requiring the current password) and the rejected
+alternatives. [[mobile-app]] corrected: its wall #3 said "there is no mailer, so a
+password-reset link has nowhere to go", and the reset flow now sends through Supabase's built-in
+mailer — whether those emails actually deliver is [[unverified-claims]] item 18.
+
+Drilled rather than assumed, and it paid: two findings came out of pointing the flow at the live
+auth server. First, GoTrue's `/verify` hands the session back in two different shapes, and only
+one is readable by a server route — `resetPasswordForEmail` registers a PKCE challenge and gets
+`?code=`, while `admin.generateLink` registers none and gets `#access_token=` in the fragment.
+Second, that makes the link `onboard.ts` prints a **dead end**: nothing in the web app reads a
+fragment, because `browserDb()` is exported and called from nowhere. A new owner following the
+onboarding output lands signed out with no error. Pre-existing, not caused by this work,
+correction written into [[invitations]] over the claim that `recovery` was "the correct artefact
+anyway", mechanism and the fix in [[password-recovery]]. The fix is deliberately not applied in
+this commit: it changes tenant onboarding and deserves its own. Also confirmed in passing, and
+worth knowing before debugging a link that "goes to the wrong place": a `redirectTo` absent from
+`uri_allow_list` is replaced with `site_url` **silently**.
+
 2026-08-05 — `onboard.ts` gained `--role manager` (default stays `owner`), stopping at those
 two roles: educators and whānau are invited from the app so the decision and its audit trail
 stay inside the tenant. Occasion: attaching the platform owner's personal account as manager

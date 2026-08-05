@@ -47,7 +47,7 @@ interface AuthConfig {
   mailer_autoconfirm?: boolean;
 }
 
-/** The app's own minimum, in `invite/[token]/actions.ts`. Kept in step deliberately. */
+/** The app's own minimum, in `apps/web/src/lib/password.ts`. Kept in step deliberately. */
 const APP_PASSWORD_MIN = 10;
 
 function die(message: string): never {

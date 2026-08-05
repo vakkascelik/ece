@@ -1,7 +1,6 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { headers } from 'next/headers';
 import {
   countOwners,
   createInvitation,
@@ -13,6 +12,7 @@ import {
 import { MEMBER_ROLES, type MemberRole } from '@ece/core';
 import { requireCapability } from '@/lib/auth';
 import { hashInviteToken, inviteExpiry, newInviteToken } from '@/lib/inviteToken';
+import { originOf } from '@/lib/origin';
 import { serverDb } from '@/lib/supabase';
 
 /** The link is returned once and never stored — see `invite` below. */
@@ -149,19 +149,4 @@ export async function withdrawInvite(_prev: unknown, form: FormData) {
   }
   revalidatePath('/members');
   return { ok: true as const };
-}
-
-/**
- * The origin to build the invitation link against.
- *
- * From the request headers rather than a configured base URL, so the link works on
- * localhost, on a preview deployment and in production without three settings. The
- * `x-forwarded-*` pair is what a proxy sets; `host` is the fallback for running
- * `next start` directly.
- */
-async function originOf(): Promise<string> {
-  const h = await headers();
-  const host = h.get('x-forwarded-host') ?? h.get('host') ?? 'localhost:3000';
-  const proto = h.get('x-forwarded-proto') ?? (host.startsWith('localhost') ? 'http' : 'https');
-  return `${proto}://${host}`;
 }

@@ -21,6 +21,8 @@ and [`../schema.md`](../schema.md) for the page template.
   isolation suite found on its first run
 - [[invitations]] — a two-step handshake with only the token hash stored; why signups are
   disabled and what that makes an invitation
+- [[password-recovery]] — self-serve reset and in-app change, and why the design documents'
+  "no password reset, ask for a re-invitation" was a lockout mechanism, not a safety property
 
 ## Domain
 
@@ -66,6 +68,12 @@ and [`../schema.md`](../schema.md) for the page template.
 
 - [[deployment]] — one Railway service for every centre, why that is forced rather than chosen,
   and a security header that made the whole product read-only
+
+## Design
+
+- [[design-system]] — applying the Doorway handoff: the four token values that diverged, the
+  one master-prompt constraint that had to be refused, and which of the thirteen screens are
+  actually done
 
 ## Conventions
 

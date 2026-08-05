@@ -58,25 +58,31 @@ export const color = {
    * Here rather than written into two stylesheets and two React Native components,
    * which is where they were: five copies of #eccec4 with nothing keeping them equal.
    *
-   * These are **decorative and measured at roughly 1.3:1** against both the fill and
-   * the page — well under the 3:1 that WCAG 1.4.11 asks of a non-text boundary. That
-   * is deliberate and it is allowed, for a specific reason: 1.4.11 applies to
-   * boundaries that carry information, and these carry none. Every chip states its
-   * meaning as a symbol *and* a word inside it, and that text is checked to AA
-   * against the fill by `CONTRAST_PAIRS` below. Remove the text and these borders
+   * These are **decorative and measured between 1.17:1 and 1.45:1** against both the
+   * fill and the page — well under the 3:1 that WCAG 1.4.11 asks of a non-text
+   * boundary. That is deliberate and it is allowed, for a specific reason: 1.4.11
+   * applies to boundaries that carry information, and these carry none. Every chip
+   * states its meaning as a symbol *and* a word inside it, and that text is checked to
+   * AA against the fill by `CONTRAST_PAIRS` below. Remove the text and these borders
    * would have to be about three times darker.
    *
    * (An earlier version of this comment claimed they satisfied 1.4.11. They do not,
-   * and measuring beat asserting.)
+   * and measuring beat asserting. The values changed on 2026-08-05 to match the
+   * design handoff's token table, and the range above was re-measured rather than
+   * carried over — the previous set sat at 1.23–1.41.)
    */
-  okBorder: '#c8ddd1',
-  warnBorder: '#ecdcb8',
-  breachBorder: '#eccec4',
+  okBorder: '#cfe2d7',
+  warnBorder: '#ecd9ae',
+  breachBorder: '#eccabe',
 
   // Pending sync. A queued-offline write is a normal state, not an error, so it
   // gets its own neutral-blue rather than borrowing the warning colour.
   pending: '#2f5d8a',
   pendingSoft: '#e9f0f7',
+  // The fourth border, which the tinted-block set was missing — the offline strip
+  // and the pending chip were falling back to `line`, a warmer grey that reads as
+  // a different family from the blue it surrounds.
+  pendingBorder: '#d3e0ed',
 } as const;
 
 export const space = {
@@ -124,8 +130,15 @@ export const motion = {
   ease: 'cubic-bezier(0.2, 0, 0, 1)',
 } as const;
 
+/**
+ * Shadows are near-flat by design, and there is exactly one place a shadow is used:
+ * the modal dialog. `card` is the handoff's `0 1px 2px rgba(27,26,24,.06)`.
+ *
+ * `raised` is not in the design system and is currently consumed by nothing — left
+ * in place rather than removed, because deleting it is unrelated to this change.
+ */
 export const elevation = {
-  card: '0 1px 2px rgba(27, 26, 24, 0.05)',
+  card: '0 1px 2px rgba(27, 26, 24, 0.06)',
   raised: '0 4px 12px rgba(27, 26, 24, 0.08)',
 } as const;
 

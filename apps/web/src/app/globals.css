@@ -77,6 +77,101 @@ button.danger { background: var(--surface); color: var(--danger); border-color: 
 .error { color: var(--danger); }
 .center { max-width: 24rem; margin: 6rem auto; padding: 0 1.5rem; }
 
+/* --- Auth screens (design handoff, screen 1) ------------------------------ */
+
+/*
+ * The signed-out panel: login, invitation acceptance, and the two password screens.
+ *
+ * 520px on the page background with a hairline and a 10px radius — deliberately not
+ * `.card`, which is white. The panel is the same colour as the page and is separated
+ * from it by the border alone, so nothing on this screen competes with the one thing
+ * the person is here to do.
+ *
+ * 48px on the submit is the handoff's web primary height. It sits between the 44px
+ * the token file calls the interactive minimum and the 56px it calls comfortable,
+ * because this is a mouse-and-keyboard screen where 56 reads as oversized.
+ */
+.auth {
+  width: 100%;
+  max-width: 520px;
+  margin: 4rem auto;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 56px 48px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.auth h1 { font-size: var(--text-2xl); font-weight: 600; margin: 0; line-height: 1.2; }
+.auth-head { display: flex; flex-direction: column; gap: 6px; }
+.auth-head p { margin: 0; font-size: var(--text-base); color: var(--ink-muted); }
+
+/* The form is the panel's own flow, so its gap matches the panel's. */
+.auth form { display: flex; flex-direction: column; gap: var(--space-5); margin: 0; }
+
+/*
+ * Label above field, 13/600 in ink — not the muted 13 the rest of the app uses for
+ * labels. On a screen with two fields and nothing else, the field names are content.
+ */
+.auth-field { display: flex; flex-direction: column; gap: 6px; }
+.auth-field > span {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--ink);
+}
+.auth-field input {
+  height: var(--target-min);
+  max-width: none;
+  padding: 0 12px;
+  font-size: var(--text-base);
+  border-radius: var(--radius-sm);
+}
+/* The failed state is carried by the alert's words; this is the second signal, and
+   it is never the only one. */
+.auth-field input[aria-invalid='true'] { border-color: var(--breach); }
+
+.auth button[type='submit'] {
+  height: 48px;
+  width: 100%;
+  border: 0;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-base);
+  font-weight: 600;
+}
+.auth button[type='submit']:hover:not(:disabled) { background: var(--accent-hover); }
+
+/*
+ * One error block, above the fields, and it takes focus when it appears — a message
+ * rendered below a submit button on a short form is announced late and read last.
+ */
+.auth-alert {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  background: var(--breach-soft);
+  color: var(--breach);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  font-size: var(--text-base);
+  font-weight: 500;
+  margin: 0;
+}
+.auth-alert:focus-visible { outline: 2px solid var(--breach); outline-offset: 2px; }
+
+.auth-note { margin: 0; font-size: var(--text-base); color: var(--ink-muted); line-height: 1.6; }
+.auth-note a { color: var(--accent); }
+
+/* 44px outline, the handoff's secondary height, on the waiting-room and reset panels. */
+.auth-secondary {
+  height: var(--target-min);
+  width: 100%;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-base);
+  font-weight: 500;
+}
+
 /* --- Accessibility ------------------------------------------------------- */
 
 /*

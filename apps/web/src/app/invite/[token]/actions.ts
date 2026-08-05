@@ -17,6 +17,7 @@
 import { redirect } from 'next/navigation';
 import { acceptInvitation, findInvitationForDisplay } from '@ece/api';
 import { hashInviteToken } from '@/lib/inviteToken';
+import { passwordProblem } from '@/lib/password';
 import { CENTRE_COOKIE } from '@/lib/auth';
 import { serverDb, serviceDb } from '@/lib/supabase';
 import { cookies } from 'next/headers';
@@ -40,12 +41,8 @@ export async function acceptWithNewAccount(
   const confirm = (form.get('confirm') ?? '').toString();
 
   if (!token) return { error: 'This link is incomplete.' };
-  if (password.length < 10) {
-    // Length over composition rules. NIST dropped the mixed-character advice years
-    // ago because it produces Password1! and nothing else.
-    return { error: 'Use at least 10 characters. Longer is better than more symbols.' };
-  }
-  if (password !== confirm) return { error: 'Those two passwords do not match.' };
+  const problem = passwordProblem(password, confirm);
+  if (problem) return { error: problem };
 
   const admin = serviceDb();
   const invite = await findInvitationForDisplay(admin, hashInviteToken(token));

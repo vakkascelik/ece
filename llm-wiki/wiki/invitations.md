@@ -97,6 +97,18 @@ path for a manager's second site, for whom `recovery` is the correct artefact an
 
 It never sets or prints a password.
 
+**Correction, 2026-08-05: the link it prints does not sign anybody in.** The claim above that
+`recovery` "is the correct artefact anyway" was half right — a recovery token is the right
+*token*, but the `action_link` built around it is the wrong *artefact*. Measured: GoTrue's
+`/verify` responds to an admin-generated link with a `303` whose `Location` carries
+`#access_token=…` in the **fragment**, because `generateLink` registers no PKCE challenge. A
+fragment is never sent to a server, and nothing in the web app reads one — `browserDb()` is
+exported from `apps/web/src/lib/supabase.ts` and called from nowhere, so `detectSessionInUrl`
+never runs. The owner lands on `site_url`, signed out, with nothing to act on. Since
+`/auth/confirm` now exists, the fix is to print
+`{origin}/auth/confirm?token_hash={properties.hashed_token}&type=recovery` instead. Not yet
+applied. See [[password-recovery]] for the measurement and the table of both shapes.
+
 The `listUsers` 500, run to ground on 2026-08-05: two `auth.users` rows inherited from the
 Zelva era carry NULL in token columns (`confirmation_token` and friends) that the current
 GoTrue scans into non-nullable strings, so any page containing either row fails with

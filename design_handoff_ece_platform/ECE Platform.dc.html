@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<style>
+  body { margin:0; background:#faf9f7; }
+  a { color:#2f6f4f; }
+  a:hover { color:#25583f; }
+  @keyframes pend { 0%,100% { opacity:1 } 50% { opacity:.55 } }
+  @media (prefers-reduced-motion: reduce) { * { animation:none !important; transition:none !important } }
+</style>
+</helmet>
+<div style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#1b1a18;background:#faf9f7;padding:56px 56px 96px;display:flex;flex-direction:column;gap:72px;-webkit-font-smoothing:antialiased">
+
+  <header style="display:flex;flex-direction:column;gap:12px;max-width:900px">
+    <div style="font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#605d58;font-weight:600">Design pack · v1</div>
+    <h1 style="font-size:36px;line-height:1.1;font-weight:600;margin:0">ECE Platform — staff web &amp; whānau/kaiako mobile</h1>
+    <p style="font-size:15px;line-height:1.6;color:#605d58;margin:0;text-wrap:pretty">Screens built inside the shipped token set. Unhappy states are designed first: at-limit and in-breach ratio, offline queues, the sign-out refusal, the single login error, withdrawn photo consent, and the empty centre. Nothing new was invented in the palette or the route list.</p>
+  </header>
+
+  <!-- ══ TOKENS ══ -->
+  <section style="display:flex;flex-direction:column;gap:20px">
+    <h2 style="font-size:22px;font-weight:600;margin:0">1 · Tokens in use</h2>
+    <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;max-width:1180px">
+      <div style="background:#ffffff;border:1px solid #e3e1dd;border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:12px">
+        <div style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#605d58;font-weight:600">Surfaces</div>
+        <div style="display:flex;flex-direction:column;gap:8px;font-size:13px;color:#605d58">
+          <div style="display:flex;align-items:center;gap:10px"><span style="width:28px;height:28px;border-radius:6px;background:#faf9f7;border:1px solid #e3e1dd"></span>bg #faf9f7</div>
+          <div style="display:flex;align-items:center;gap:10px"><span style="width:28px;height:28px;border-radius:6px;background:#ffffff;border:1px solid #e3e1dd"></span>card #ffffff</div>
+          <div style="display:flex;align-items:center;gap:10px"><span style="width:28px;height:28px;border-radius:6px;background:#f2f1ee;border:1px solid #e3e1dd"></span>sunken #f2f1ee</div>
+          <div style="display:flex;align-items:center;gap:10px"><span style="width:28px;height:28px;border-radius:6px;background:#e3e1dd"></span>hairline #e3e1dd</div>
+        </div>
+      </div>
+      <div style="background:#ffffff;border:1px solid #e3e1dd;border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:12px">
+        <div style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#605d58;font-weight:600">Text &amp; accent</div>
+        <div style="display:flex;flex-direction:column;gap:8px;font-size:13px;color:#605d58">
+          <div style="display:flex;align-items:center;gap:10px"><span style="width:28px;height:28px;border-radius:6px;background:#1b1a18"></span>ink #1b1a18</div>
+          <div style="display:flex;align-items:center;gap:10px"><span style="width:28px;height:28px;border-radius:6px;background:#605d58"></span>muted #605d58</div>
+          <div style="display:flex;align-items:center;gap:10px"><span style="width:28px;height:28px;border-radius:6px;background:#2f6f4f"></span>green #2f6f4f</div>
+          <div style="display:flex;align-items:center;gap:10px"><span style="width:28px;height:28px;border-radius:6px;background:#e8f1ec;border:1px solid #e3e1dd"></span>soft #e8f1ec</div>
+        </div>
+      </div>
+      <div style="background:#ffffff;border:1px solid #e3e1dd;border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:12px">
+        <div style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#605d58;font-weight:600">State pairs (icon + words)</div>
+        <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-start">
+          <span style="display:inline-flex;align-items:center;gap:6px;background:#e8f1ec;color:#2f6f4f;font-size:13px;font-weight:600;padding:5px 10px;border-radius:999px">✓ Within ratio</span>
+          <span style="display:inline-flex;align-items:center;gap:6px;background:#fdf3e0;color:#8a5a00;font-size:13px;font-weight:600;padding:5px 10px;border-radius:999px">▲ At limit</span>
+          <span style="display:inline-flex;align-items:center;gap:6px;background:#fbeae5;color:#a3341c;font-size:13px;font-weight:600;padding:5px 10px;border-radius:999px">▲ Ratio breach</span>
+          <span style="display:inline-flex;align-items:center;gap:6px;background:#e9f0f7;color:#2f5d8a;font-size:13px;font-weight:600;padding:5px 10px;border-radius:999px">↻ Waiting to send</span>
+        </div>
+      </div>
+      <div style="background:#ffffff;border:1px solid #e3e1dd;border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:12px">
+        <div style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#605d58;font-weight:600">Metrics</div>
+        <div style="font-size:13px;line-height:1.7;color:#605d58">
+          Type 12/13/15/17/18/22/28/36 · weights 400/500/600<br>
+          Space 4–64 · radii 6/10/16/pill<br>
+          Targets 44 min / 56 comfortable / 64 primary<br>
+          Motion 120/180/260ms · cubic-bezier(.2,0,0,1)
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ INVENTORY ══ -->
+  <section style="display:flex;flex-direction:column;gap:20px">
+    <h2 style="font-size:22px;font-weight:600;margin:0">2 · Component inventory</h2>
+    <p style="font-size:15px;color:#605d58;margin:0;max-width:820px;line-height:1.6">Two sets, one token file. Web components are dense and pointer-first; mobile components are large and thumb-first. Nothing is shared but the meaning of the colours.</p>
+    <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px;max-width:1400px">
+
+      <div style="background:#ffffff;border:1px solid #e3e1dd;border-radius:10px;overflow:hidden">
+        <div style="padding:14px 18px;border-bottom:1px solid #e3e1dd;font-size:15px;font-weight:600">Web (desk, manager density)</div>
+        <div style="display:grid;grid-template-columns:1.1fr 1.5fr 1.3fr;gap:12px;padding:10px 18px;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#605d58;font-weight:600;background:#f2f1ee">
+          <div>Name</div><div>Anatomy</div><div>States</div>
+        </div>
+        <sc-for list="{{ webParts }}" as="p" hint-placeholder-count="6">
+          <div style="display:grid;grid-template-columns:1.1fr 1.5fr 1.3fr;gap:12px;padding:12px 18px;border-top:1px solid #e3e1dd;font-size:13px;line-height:1.55">
+            <div style="font-weight:600">{{ p.name }}</div>
+            <div style="color:#605d58">{{ p.anatomy }}</div>
+            <div style="color:#605d58">{{ p.states }}</div>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="background:#ffffff;border:1px solid #e3e1dd;border-radius:10px;overflow:hidden">
+        <div style="padding:14px 18px;border-bottom:1px solid #e3e1dd;font-size:15px;font-weight:600">Mobile (in the room, one-handed)</div>
+        <div style="display:grid;grid-template-columns:1.1fr 1.5fr 1.3fr;gap:12px;padding:10px 18px;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#605d58;font-weight:600;background:#f2f1ee">
+          <div>Name</div><div>Anatomy</div><div>States</div>
+        </div>
+        <sc-for list="{{ mobileParts }}" as="p" hint-placeholder-count="6">
+          <div style="display:grid;grid-template-columns:1.1fr 1.5fr 1.3fr;gap:12px;padding:12px 18px;border-top:1px solid #e3e1dd;font-size:13px;line-height:1.55">
+            <div style="font-weight:600">{{ p.name }}</div>
+            <div style="color:#605d58">{{ p.anatomy }}</div>
+            <div style="color:#605d58">{{ p.states }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ WEB SCREENS ══ -->
+  <section style="display:flex;flex-direction:column;gap:24px">
+    <h2 style="font-size:22px;font-weight:600;margin:0">3 · Web screens</h2>
+
+    <!-- LOGIN -->
+    <div style="display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start">
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="font-size:13px;font-weight:600;color:#605d58">Login — default</div>
+        <div style="width:520px;background:#faf9f7;border:1px solid #e3e1dd;border-radius:10px;padding:56px 48px;display:flex;flex-direction:column;gap:24px">
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <div style="font-size:28px;font-weight:600">Nau mai</div>
+            <div style="font-size:15px;color:#605d58">Sign in to your centre.</div>
+          </div>
+          <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600">Email
+            <input type="email" style="height:44px;border:1px solid #e3e1dd;border-radius:6px;background:#ffffff;padding:0 12px;font-size:15px;font-family:inherit;color:#1b1a18" value="kaiako@littlepearls.nz">
+          </label>
+          <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600">Password
+            <input type="password" style="height:44px;border:1px solid #e3e1dd;border-radius:6px;background:#ffffff;padding:0 12px;font-size:15px;font-family:inherit" value="············">
+          </label>
+          <button style="height:48px;border:0;border-radius:6px;background:#2f6f4f;color:#ffffff;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer" style-hover="background:#25583f">Sign in</button>
+          <p style="font-size:13px;color:#605d58;margin:0;line-height:1.6">Access to a centre comes from an invitation. There is no sign-up and no password reset here — ask your centre to re-invite you.</p>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="font-size:13px;font-weight:600;color:#a3341c">Login — failure (one string, every cause)</div>
+        <div style="width:520px;background:#faf9f7;border:1px solid #e3e1dd;border-radius:10px;padding:56px 48px;display:flex;flex-direction:column;gap:24px">
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <div style="font-size:28px;font-weight:600">Nau mai</div>
+            <div style="font-size:15px;color:#605d58">Sign in to your centre.</div>
+          </div>
+          <div role="alert" style="display:flex;gap:10px;align-items:flex-start;background:#fbeae5;color:#a3341c;border-radius:6px;padding:12px 14px;font-size:15px;font-weight:500">
+            <span aria-hidden="true">▲</span><span>Those details are not right.</span>
+          </div>
+          <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600">Email
+            <input type="email" style="height:44px;border:1px solid #a3341c;border-radius:6px;background:#ffffff;padding:0 12px;font-size:15px;font-family:inherit;color:#1b1a18" value="kaiako@littlepearls.nz">
+          </label>
+          <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600">Password
+            <input type="password" style="height:44px;border:1px solid #a3341c;border-radius:6px;background:#ffffff;padding:0 12px;font-size:15px;font-family:inherit" value="······">
+          </label>
+          <button style="height:48px;border:0;border-radius:6px;background:#2f6f4f;color:#ffffff;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer" style-hover="background:#25583f">Sign in</button>
+        </div>
+      </div>
+
+      <div style="width:300px;background:#f2f1ee;border:1px solid #e3e1dd;border-radius:10px;padding:16px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;line-height:1.7;color:#605d58">
+        <div style="font-weight:600;color:#1b1a18;margin-bottom:8px">a11y — login</div>
+        email: role=textbox, label "Email", 44px, autocomplete=username<br>
+        password: role=textbox, label "Password", 44px, autocomplete=current-password<br>
+        submit: role=button, "Sign in", 48px<br>
+        error: role=alert, focus moves to it, text-carried (not colour)<br>
+        <div style="margin-top:10px;color:#1b1a18">rationale</div>
+        Same string for unknown email, wrong password, disabled account. Distinct errors would let a stranger enumerate staff at a named childcare centre.
+      </div>
+    </div>
+
+    <!-- ROLL DEFAULT -->
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="font-size:13px;font-weight:600;color:#605d58">Roll / attendance — default (within ratio)</div>
+      <div style="width:1280px;display:flex;background:#faf9f7;border:1px solid #e3e1dd;border-radius:10px;overflow:hidden">
+        <nav style="width:224px;flex:none;background:#ffffff;border-right:1px solid #e3e1dd;padding:20px 16px;display:flex;flex-direction:column;gap:20px">
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <div style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#605d58;font-weight:600">Centre</div>
+            <div style="font-size:15px;font-weight:600;line-height:1.35">Little Pearls Educare Centre — Mt Albert</div>
+            <span style="align-self:flex-start;font-size:12px;color:#605d58;border:1px solid #e3e1dd;border-radius:999px;padding:2px 10px">manager</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:2px;font-size:15px">
+            <a href="#" style="padding:9px 10px;border-radius:6px;color:#1b1a18;text-decoration:none">Overview</a>
+            <a href="#" style="padding:9px 10px;border-radius:6px;color:#1b1a18;text-decoration:none">Children</a>
+            <a href="#" style="padding:9px 10px;border-radius:6px;color:#1b1a18;text-decoration:none">Posts</a>
+            <a href="#" style="padding:9px 10px;border-radius:6px;color:#1b1a18;text-decoration:none">Messages</a>
+            <a href="#" aria-current="page" style="padding:9px 10px;border-radius:6px;background:#e8f1ec;color:#2f6f4f;font-weight:600;text-decoration:none">Attendance</a>
+            <a href="#" style="padding:9px 10px;border-radius:6px;color:#1b1a18;text-decoration:none">People</a>
+            <a href="#" style="padding:9px 10px;border-radius:6px;color:#1b1a18;text-decoration:none">Compliance</a>
+            <a href="#" style="padding:9px 10px;border-radius:6px;color:#1b1a18;text-decoration:none">Funding</a>
+            <a href="#" style="padding:9px 10px;border-radius:6px;color:#1b1a18;text-decoration:none">Settings</a>
+          </div>
+          <div style="margin-top:auto;display:flex;flex-direction:column;gap:10px">
+            <a href="#" style="font-size:13px;color:#2f6f4f">Switch centre</a>
+            <button style="height:44px;border:1px solid #e3e1dd;border-radius:6px;background:#ffffff;font-size:15px;font-family:inherit;cursor:pointer">Sign out</button>
+          </div>
+        </nav>
+        <main style="flex:1;padding:28px 32px;display:flex;flex-direction:column;gap:20px">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px">
+            <div style="display:flex;flex-direction:column;gap:4px">
+              <h3 style="font-size:28px;font-weight:600;margin:0">Attendance</h3>
+              <div style="font-size:13px;color:#605d58">Wednesday 5 August 2026 · all synced 10:22 am</div>
+            </div>
+            <div style="display:flex;gap:8px">
+              <button style="height:44px;padding:0 16px;border:1px solid #e3e1dd;border-radius:6px;background:#ffffff;font-size:15px;font-family:inherit;cursor:pointer">Record adult count</button>
+              <button style="height:44px;padding:0 16px;border:0;border-radius:6px;background:#2f6f4f;color:#ffffff;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer" style-hover="background:#25583f">Sign a child in</button>
+            </div>
+          </div>
+
+          <div style="background:#e8f1ec;border:1px solid #cfe2d7;border-radius:10px;padding:18px 20px;display:flex;flex-direction:column;gap:12px">
+            <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+              <span style="display:inline-flex;align-items:center;gap:8px;background:#ffffff;color:#2f6f4f;font-size:15px;font-weight:600;padding:7px 14px;border-radius:999px">✓ Within ratio</span>
+              <span style="font-size:22px;font-weight:600">4 kaiako · 17 tamariki</span>
+              <span style="font-size:15px;color:#2f6f4f;font-weight:500">3 under 2 · 14 aged 2 and over · requires 4</span>
+            </div>
+            <div style="height:14px;border-radius:999px;background:#ffffff;overflow:hidden"><div style="height:100%;width:88%;background:#2f6f4f;border-radius:999px"></div></div>
+            <div style="font-size:13px;color:#2f6f4f">88% of the adults recorded today. Headroom for 2 more tamariki aged 2+.</div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#605d58;font-weight:600">Here now — 17</div>
+            <div style="background:#ffffff;border:1px solid #e3e1dd;border-radius:10px">
+              <div style="display:grid;grid-template-columns:44px 1fr auto auto;gap:16px;align-items:center;padding:14px 18px">
+                <span style="width:44px;height:44px;border-radius:999px;background:#f2f1ee;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;color:#605d58">AN</span>
+                <div style="display:flex;flex-direction:column;gap:4px">
+                  <div style="font-size:18px;font-weight:600">Aroha Ngata</div>
+                  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                    <span style="font-size:13px;color:#605d58">3 yrs · Kōwhai room</span>
+                    <span style="display:inline-flex;align-items:center;gap:6px;background:#fbeae5;color:#a3341c;font-size:13px;font-weight:600;padding:3px 10px;border-radius:999px">▲ Allergy: peanuts</span>
+                  </div>
+                </div>
+                <div style="font-size:13px;color:#605d58">In 8:12 am</div>
+                <button style="height:44px;padding:0 16px;border:1px solid #e3e1dd;border-radius:6px;background:#ffffff;font-size:15px;font-family:inherit;cursor:pointer">Sign out</button>
+              </div>
+              <div style="display:grid;grid-template-columns:44px 1fr auto auto;gap:16px;align-items:center;padding:14px 18px;border-top:1px solid #e3e1dd">
+                <span style="width:44px;height:44px;border-radius:999px;background:#f2f1ee;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;color:#605d58">TM</span>
+                <div style="display:flex;flex-direction:column;gap:4px">
+                  <div style="font-size:18px;font-weight:600">Tama Māhuta</div>
+                  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                    <span style="font-size:13px;color:#605d58">1 yr 4 mths · Pēpi room</span>
+                    <span style="display:inline-flex;align-items:center;gap:6px;background:#fdf3e0;color:#8a5a00;font-size:13px;font-weight:600;padding:3px 10px;border-radius:999px">▲ Medication: 12:30 pm</span>
+                  </div>
+                </div>
+                <div style="font-size:13px;color:#605d58">In 7:55 am</div>
+                <button style="height:44px;padding:0 16px;border:1px solid #e3e1dd;border-radius:6px;background:#ffffff;font-size:15px;font-family:inherit;cursor:pointer">Sign out</button>
+              </div>
+              <div style="display:grid;grid-template-columns:44px 1fr auto auto;gap:16px;align-items:center;padding:14px 18px;border-top:1px solid #e3e1dd">
+                <span style="width:44px;height:44px;border-radius:999px;background:#f2f1ee;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;color:#605d58">SP</span>
+                <div style="display:flex;flex-direction:column;gap:4px">
+                  <div style="font-size:18px;font-weight:600">Sione Palu</div>
+                  <div style="font-size:13px;color:#605d58">4 yrs · Kōwhai room</div>
+                </div>
+                <div style="font-size:13px;color:#605d58">In 8:40 am</div>
+                <button style="height:44px;padding:0 16px;border:1px solid #e3e1dd;border-radius:6px;background:#ffffff;font-size:15px;font-family:inherit;cursor:pointer">Sign out</button>
+              </div>
+              <div style="display:grid;grid-template-columns:44px 1fr auto auto;gap:16px;align-items:center;padding:14px 18px;border-top:1px solid #e3e1dd">
+                <span style="width:44px;height:44px;border-radius:999px;background:#f2f1ee;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;color:#605d58">MK</span>
+                <div style="display:flex;flex-direction:column;gap:4px">
+                  <div style="font-size:18px;font-weight:600">Maia Kingi</div>
+                  <div style="font-size:13px;color:#605d58">2 yrs 7 mths · Rātā room</div>
+                </div>
+                <div style="font-size:13px;color:#605d58">In 8:47 am</div>
+                <button style="height:44px;padding:0 16px;border:1px solid #e3e1dd;border-radius:6px;background:#ffffff;font-size:15px;font-family:inherit;cursor:pointer">Sign out</button>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#605d58;font-weight:600">Not here — 6</div>
+            <div style="background:#ffffff;border:1px solid #e3e1dd;border-radius:10px;display:grid;grid-template-columns:44px 1fr auto;gap:16px;align-items:center;padding:14px 18px">
+              <span style="width:44px;height:44px;border-radius:999px;background:#f2f1ee;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;color:#605d58">HW</span>
+              <div style="font-size:18px;font-weight:600">Hemi Walker <span style="font-size:13px;font-weight:400;color:#605d58">· 3 yrs</span></div>
+              <button style="height:44px;padding:0 16px;border:0;border-radius:6px;background:#2f6f4f;color:#ffffff;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer" style-hover="background:#25583f">Sign in</button>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+
+    <!-- ROLL BREACH + OFFLINE -->
+    <div style="display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start">
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="font-size:13px;font-weight:600;color:#605d58">Ratio bar — three states (web scale)</div>
+        <div style="width:760px;display:flex;flex-direction:column;gap:14px">
+          <div style="background:#fdf3e0;border:1px solid #ecd9ae;border-radius:10px;padding:18px 20px;display:flex;flex-direction:column;gap:12px">
+            <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+              <span style="display:inline-flex;align-items:center;gap:8px;background:#ffffff;color:#8a5a00;font-size:15px;font-weight:600;padding:7px 14px;border-radius:999px">▲ At limit</span>
+              <span style="font-size:22px;font-weight:600">4 kaiako · 20 tamariki</span>
+              <span style="font-size:15px;color:#8a5a00;font-weight:500">requires 4 · no headroom</span>
+            </div>
+            <div style="height:14px;border-radius:999px;background:#ffffff;overflow:hidden"><div style="height:100%;width:100%;background:#8a5a00;border-radius:999px"></div></div>
+            <div style="font-size:13px;color:#8a5a00">One more child signed in puts this centre out of ratio.</div>
+          </div>
+          <div style="background:#fbeae5;border:1px solid #eccabe;border-radius:10px;padding:18px 20px;display:flex;flex-direction:column;gap:12px">
+            <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+              <span style="display:inline-flex;align-items:center;gap:8px;background:#ffffff;color:#a3341c;font-size:15px;font-weight:600;padding:7px 14px;border-radius:999px">▲ Ratio breach</span>
+              <span style="font-size:22px;font-weight:600">3 kaiako · 20 tamariki</span>
+              <span style="font-size:15px;color:#a3341c;font-weight:500">requires 4 — 1 adult short</span>
+            </div>
+            <div style="display:flex;gap:4px;align-items:center">
+              <div style="flex:1;height:14px;border-radius:999px;background:#ffffff;overflow:hidden"><div style="height:100%;width:100%;background:#a3341c;border-radius:999px"></div></div>
+              <div style="width:56px;height:14px;border-radius:999px;background:#a3341c;opacity:.45"></div>
+            </div>
+            <div style="font-size:13px;color:#a3341c">Recorded at 10:22 am. This appears in Compliance → ratio history.</div>
+          </div>
+          <div style="background:#ffffff;border:1px solid #e3e1dd;border-radius:10px;padding:18px 20px;display:flex;flex-direction:column;gap:8px">
+            <div style="font-size:13px;font-weight:600">Anatomy</div>
+            <div style="font-size:13px;color:#605d58;line-height:1.65">Status pill (icon + words) · headline count at 22/600 · requirement sentence · proportional track · consequence line. The bar never appears without the sentence: colour is the second signal, never the first.</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="width:300px;background:#f2f1ee;border:1px solid #e3e1dd;border-radius:10px;padding:16px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;line-height:1.7;color:#605d58">
+        <div style="font-weight:600;color:#1b1a18;margin-bottom:8px">a11y — ratio bar</div>
+        container: role=status, aria-live=polite<br>
+        announced: "Ratio breach. 3 kaiako, 20 tamariki, requires 4, 1 adult short."<br>
+        track: aria-hidden (decorative duplicate of the sentence)<br>
+        no target — not interactive<br>
+        <div style="margin-top:10px;color:#1b1a18">rationale</div>
+        Breach is not a toast. It is a persistent region at the top of the roll, because the condition persists until an adult arrives or a child leaves.
+      </div>
+    </div>
+
+    <div style="display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start">
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="font-size:13px;font-weight:600;color:#605d58">Roll — offline, three queued sign-ins</div>
+        <div style="width:760px;background:#ffffff;border:1px solid #e3e1dd;border-radius:10px;overflow:hidden">
+          <div style="background:#e9f0f7;padding:14px 18px;display:flex;align-items:center;gap:12px;border-bottom:1px solid #d3e0ed">
+            <span style="display:inline-flex;align-items:center;gap:8px;background:#ffffff;color:#2f5d8a;font-size:13px;font-weight:600;padding:5px 12px;border-radius:999px;animation:pend 2s infinite">↻ Offline</span>
+            <span style="font-size:15px;color:#2f5d8a">3 sign-ins are saved on this device and will send when the centre is back online.</span>
+          </div>
+          <div style="display:grid;grid-template-columns:44px 1fr auto auto;gap:16px;align-items:center;padding:14px 18px">
+            <span style="width:44px;height:44px;border-radius:999px;background:#f2f1ee;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;color:#605d58">AN</span>
+            <div style="display:flex;flex-direction:column;gap:4px">
+              <div style="font-size:18px;font-weight:600">Aroha Ngata</div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <span style="display:inline-flex;align-items:center;gap:6px;background:#e9f0f7;color:#2f5d8a;font-size:13px;font-weight:600;padding:3px 10px;border-radius:999px">↻ Waiting to send</span>
+                <span style="display:inline-flex;align-items:center;gap:6px;background:#fbeae5;color:#a3341c;font-size:13px;font-weight:600;padding:3px 10px;border-radius:999px">▲ Allergy: peanuts</span>
+              </div>
+            </div>
+            <div style="font-size:13px;color:#605d58">In 8:12 am</div>
+            <button style="height:44px;padding:0 16px;border:1px solid #e3e1dd;border-radius:6px;background:#ffffff;font-size:15px;font-family:inherit;cursor:pointer">Sign out</button>
+          </div>
+          <div style="display:grid;grid-template-columns:44px 1fr auto auto;gap:16px;align-items:center;padding:14px 18px;border-top:1px solid #e3e1dd">
+            <span style="width:44px;height:44px;border-radius:999px;background:#f2f1ee;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;color:#605d58">TM</span>
+            <div style="display:flex;flex-direction:column;gap:4px">
+              <div style="font-size:18px;font-weight:600">Tama Māhuta</div>
+              <span style="align-self:flex-start;display:inline-flex;align-items:center;gap:6px;background:#e9f0f7;color:#2f5d8a;font-size:13px;font-weight:600;padding:3px 10px;border-radius:999px">↻ Waiting to send</span>
+            </div>
+            <div style="font-size:13px;color:#605d58">In 8:18 am</div>
+            <button style="height:44px;padding:0 16px;border:1px solid #e3e1dd;border-radius:6px;background:#ffffff;font-size:15px;font-family:inherit;cursor:pointer">Sign out</button>
+          </div>
+          <div style="display:grid;grid-template-columns:44px 1fr auto auto;gap:16px;align-items:center;padding:14px 18px;border-top:1px solid #e3e1dd">
+            <span style="width:44px;height:44px;border-radius:999px;background:#f2f1ee;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;color:#605d58">MK</span>
+            <div style="display:flex;flex-direction:column;gap:4px">
+              <div style="font-size:18px;font-weight:600">Maia Kingi</div>
+              <span style="align-self:flex-start;display:inline-flex;align-items:center;gap:6px;background:#e9f0f7;color:#2f5d8a;font-size:13px;font-weight:600;padding:3px 10px;border-radius:999px">↻ Waiting to send</span>
+            </div>
+            <div style="font-size:13px;color:#605d58">In 8:31 am</div>
+            <button style="height:44px;padding:0 16px;border:1px solid #e3e1dd;border-radius:6px;background:#ffffff;font-size:15px;font-family:inherit;cursor:pointer">Sign out</button>
+          </div>
+          <div style="display:grid;grid-template-columns:44px 1fr auto auto;gap:16px;align-items:center;padding:14px 18px;border-top:1px solid #e3e1dd">
+            <span style="width:44px;height:44px;border-radius:999px;background:#f2f1ee;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;color:#605d58">SP</span>
+            <div style="display:flex;flex-direction:column;gap:4px">
+              <div style="font-size:18px;font-weight:600">Sione Palu</div>
+              <div style="font-size:13px;color:#605d58">Sent 8:40 am</div>
+            </div>
+            <div style="font-size:13px;color:#605d58">In 8:40 am</div>
+            <button style="height:44px;padding:0 16px;border:1px solid #e3e1dd;border-radius:6px;background:#ffffff;font-size:15px;font-family:inherit;cursor:pointer">Sign out</button>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="font-size:13px;font-weight:600;color:#605d58">Sign-out — refused</div>
+        <div style="width:440px;background:#f2f1ee;border:1px solid #e3e1dd;border-radius:10px;padding:32px;display:flex;align-items:center;justify-content:center">
+          <div role="dialog" aria-modal="true" style="width:100%;background:#ffffff;border:1px solid #e3e1dd;border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:16px;box-shadow:0 1px 2px rgba(27,26,24,.06)">
+            <span style="align-self:flex-start;display:inline-flex;align-items:center;gap:8px;background:#e9f0f7;color:#2f5d8a;font-size:13px;font-weight:600;padding:5px 12px;border-radius:999px">↻ 3 records not sent</span>
+            <h4 style="font-size:22px;font-weight:600;margin:0;line-height:1.25">You can't sign out yet</h4>
+            <p style="font-size:15px;line-height:1.6;color:#605d58;margin:0">Three sign-ins from this morning are still saved only on this tablet. Signing out clears them, and attendance is what the funding return is built from.</p>
+            <div style="background:#f2f1ee;border-radius:6px;padding:12px 14px;font-size:13px;color:#605d58;line-height:1.7">Aroha Ngata · 8:12 am<br>Tama Māhuta · 8:18 am<br>Maia Kingi · 8:31 am</div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <button style="height:48px;border:0;border-radius:6px;background:#2f6f4f;color:#ffffff;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer" style-hover="background:#25583f">Try sending now</button>
+              <button style="height:44px;border:1px solid #e3e1dd;border-radius:6px;background:#ffffff;font-size:15px;font-family:inherit;cursor:pointer">Stay signed in</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="width:300px;background:#f2f1ee;border:1px solid #e3e1dd;border-radius:10px;padding:16px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;line-height:1.7;color:#605d58">
+        <div style="font-weight:600;color:#1b1a18;margin-bottom:8px">a11y — offline &amp; refusal</div>
+        offline banner: role=status, aria-live=polite, "Offline. 3 sign-ins waiting to send."<br>
+        chip: text node, not a title attribute<br>
+        dialog: role=dialog aria-modal, labelled by the h4, focus trapped, initial focus "Try sending now" (48px)<br>
+        Esc closes to "Stay signed in" — the safe branch<br>
+        <div style="margin-top:10px;color:#1b1a18">rationale</div>
+        No "sign out anyway". A destructive escape hatch on a screen an educator taps forty times a day is how attendance gets lost. Blue, not amber: a queue is normal.
+      </div>
+    </div>
+
+    <!-- CHILD DETAIL + EMPTY ROLL -->
+    <div style="display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start">
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="font-size:13px;font-weight:600;color:#605d58">Child detail (web, kaiako/manager)</div>
+        <div style="width:760px;background:#ffffff;border:1px solid #e3e1dd;border-radius:10px;padding:28px 32px;display:flex;flex-direction:column;gap:24px">
+          <div style="display:flex;gap:16px;align-items:center">
+            <span style="width:56px;height:56px;border-radius:999px;background:#f2f1ee;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:600;color:#605d58">AN</span>
+            <div style="display:flex;flex-direction:column;gap:4px">
+              <h3 style="font-size:28px;font-weight:600;margin:0">Aroha Ngata</h3>
+              <div style="font-size:13px;color:#605d58">3 yrs 2 mths · Kōwhai room · enrolled 4 Feb 2025</div>
+            </div>
+            <span style="margin-left:auto;display:inline-flex;align-items:center;gap:6px;background:#e8f1ec;color:#2f6f4f;font-size:13px;font-weight:600;padding:5px 12px;border-radius:999px">✓ Signed in 8:12 am</span>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <div style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#605d58;font-weight:600">Health</div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <div style="display:flex;gap:12px;align-items:flex-start;background:#fbeae5;border-radius:6px;padding:12px 14px">
+                <span aria-hidden="true" style="color:#a3341c">▲</span>
+                <div><div style="font-size:15px;font-weight:600;color:#a3341c">Allergy: peanuts</div><div style="font-size:13px;color:#a3341c;line-height:1.6">Anaphylaxis. EpiPen in the Kōwhai room cabinet, expires 11/2026.</div></div>
+              </div>
+              <div style="display:flex;gap:12px;align-items:flex-start;background:#fdf3e0;border-radius:6px;padding:12px 14px">
+                <span aria-hidden="true" style="color:#8a5a00">▲</span>
+                <div><div style="font-size:15px;font-weight:600;color:#8a5a00">Medication: Ventolin, as needed</div><div style="font-size:13px;color:#8a5a00;line-height:1.6">Last given 22 July, 2:10 pm by W. Tapsell.</div></div>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <div style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#605d58;font-weight:600">Consents</div>
+            <div style="border:1px solid #e3e1dd;border-radius:6px">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 14px">
+                <div><div style="font-size:15px;font-weight:500">Photos in the pānui feed</div><div style="font-size:13px;color:#605d58">Withdrawn by Mere Ngata, 28 July 2026</div></div>
+                <span style="display:inline-flex;align-items:center;gap:6px;background:#f2f1ee;color:#1b1a18;font-size:13px;font-weight:600;padding:5px 12px;border-radius:999px">✕ Withdrawn</span>
+              </div>
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 14px;border-top:1px solid #e3e1dd">
+                <div><div style="font-size:15px;font-weight:500">Sunscreen</div><div style="font-size:13px;color:#605d58">Given 4 Feb 2025</div></div>
+                <span style="display:inline-flex;align-items:center;gap:6px;background:#e8f1ec;color:#2f6f4f;font-size:13px;font-weight:600;padding:5px 12px;border-radius:999px">✓ Given</span>
+              </div>
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 14px;border-top:1px solid #e3e1dd">
+                <div><div style="font-size:15px;font-weight:500">Excursions in the local area</div><div style="font-size:13px;color:#605d58">Never recorded</div></div>
+                <button style="height:44px;padding:0 16px;border:1px solid #e3e1dd;border-radius:6px;background:#ffffff;font-size:15px;font-family:inherit;cursor:pointer">Record</button>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <div style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#605d58;font-weight:600">Guardians</div>
+              <div style="font-size:15px;line-height:1.7">Mere Ngata <span style="font-size:13px;color:#605d58">· mother · 021 555 0132</span><br>Rāwiri Ngata <span style="font-size:13px;color:#605d58">· father · 021 555 0198</span></div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <div style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#605d58;font-weight:600">Enrolment</div>
+              <div style="font-size:15px;line-height:1.7">Mon–Thu, 8:00–3:00<br><span style="font-size:13px;color:#605d58">20 Hours ECE from 4 Feb 2025</span></div>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <div style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#605d58;font-weight:600">Custody</div>
+            <div style="background:#f2f1ee;border-radius:6px;padding:12px 14px;font-size:15px;line-height:1.6">No court order recorded. <span style="color:#605d58;font-size:13px">Visible to kaiako and managers only.</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:24px;width:440px">
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div style="font-size:13px;font-weight:600;color:#605d58">Roll — brand-new centre (empty)</div>
+          <div style="background:#ffffff;border:1px solid #e3e1dd;border-radius:10px;padding:40px 32px;display:flex;flex-direction:column;gap:12px;align-items:flex-start">
+            <div style="font-size:18px;font-weight:600">Nobody is enrolled yet.</div>
+            <p style="font-size:15px;color:#605d58;margin:0;line-height:1.6">Enrol your first tamaiti and the roll starts here tomorrow morning.</p>
+            <button style="height:48px;padding:0 20px;border:0;border-radius:6px;background:#2f6f4f;color:#ffffff;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;margin-top:4px" style-hover="background:#25583f">Enrol a child</button>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div style="font-size:13px;font-weight:600;color:#605d58">No-access — a waiting room, not an error</div>
+          <div style="background:#ffffff;border:1px solid #e3e1dd;border-radius:10px;padding:40px 32px;display:flex;flex-direction:column;gap:12px;align-items:flex-start">
+            <div style="font-size:18px;font-weight:600">You're signed in. No centre yet.</div>
+            <p style="font-size:15px;color:#605d58;margin:0;line-height:1.6">When your centre accepts you, it will appear here — nothing else is needed from you.</p>
+            <button style="height:44px;padding:0 16px;border:1px solid #e3e1dd;border-radius:6px;background:#ffffff;font-size:15px;font-family:inherit;cursor:pointer;margin-top:4px">Check again</button>
+          </div>
+        </div>
+        <div style="background:#f2f1ee;border:1px solid #e3e1dd;border-radius:10px;padding:16px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;line-height:1.7;color:#605d58">
+          <div style="font-weight:600;color:#1b1a18;margin-bottom:8px">a11y — child detail</div>
+          health flags: role=note, text reads "Allergy: peanuts. Anaphylaxis…" — never a bare dot or colour<br>
+          consent rows: role=switch where recordable, label "Sunscreen consent", 44px<br>
+          Record: role=button, 44px, label "Record excursions consent for Aroha Ngata"<br>
+          sections: h2/h3 landmarks, in DOM order Health → Consents → Guardians → Enrolment → Custody<br>
+          <div style="margin-top:10px;color:#1b1a18">rationale</div>
+          Health sits above everything, including identity metadata. It is the only block on this page someone reads under time pressure.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ MOBILE ══ -->
+  <section style="display:flex;flex-direction:column;gap:24px">
+    <h2 style="font-size:22px;font-weight:600;margin:0">4 · Mobile (one binary, role-aware)</h2>
+    <div style="display:flex;flex-wrap:wrap;gap:28px;align-items:flex-start">
+
+      <!-- sign in -->
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="font-size:13px;font-weight:600;color:#605d58">Sign-in — failure</div>
+        <div style="width:390px;height:780px;background:#faf9f7;border:1px solid #e3e1dd;border-radius:32px;padding:16px;display:flex;flex-direction:column">
+          <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:600;padding:6px 12px 14px;color:#1b1a18"><span>8:41</span><span>▮▮▮</span></div>
+          <div style="flex:1;display:flex;flex-direction:column;gap:20px;padding:24px 12px">
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <div style="font-size:36px;font-weight:600;line-height:1.05">Nau mai</div>
+              <div style="font-size:17px;color:#605d58">Sign in to your centre.</div>
+            </div>
+            <div role="alert" style="display:flex;gap:10px;background:#fbeae5;color:#a3341c;border-radius:10px;padding:14px 16px;font-size:17px;font-weight:500"><span aria-hidden="true">▲</span>Those details are not right.</div>
+            <label style="display:flex;flex-direction:column;gap:8px;font-size:13px;font-weight:600">Email
+              <input type="email" style="height:56px;border:1px solid #a3341c;border-radius:10px;background:#ffffff;padding:0 14px;font-size:17px;font-family:inherit;color:#1b1a18" value="kaiako@littlepearls.nz">
+            </label>
+            <label style="display:flex;flex-direction:column;gap:8px;font-size:13px;font-weight:600">Password
+              <input type="password" style="height:56px;border:1px solid #a3341c;border-radius:10px;background:#ffffff;padding:0 14px;font-size:17px;font-family:inherit" value="········">
+            </label>
+            <button style="height:64px;border:0;border-radius:10px;background:#2f6f4f;color:#ffffff;font-size:17px;font-weight:600;font-family:inherit;cursor:pointer">Sign in</button>
+            <p style="font-size:15px;color:#605d58;margin:0;line-height:1.6">Your centre invites you. There is no sign-up here, and no password reset — ask your centre to send a new invitation.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- staff roll breach + offline -->
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="font-size:13px;font-weight:600;color:#605d58">Staff · Roll — breach + offline queue</div>
+        <div style="width:390px;height:780px;background:#faf9f7;border:1px solid #e3e1dd;border-radius:32px;padding:16px 16px 0;display:flex;flex-direction:column">
+          <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:600;padding:6px 12px 10px"><span>10:22</span><span>▮▮▮</span></div>
+          <div style="flex:1;display:flex;flex-direction:column;gap:12px;overflow:hidden">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;padding:0 4px"><div style="font-size:28px;font-weight:600">Roll</div><div style="font-size:13px;color:#605d58">Kōwhai room</div></div>
+            <div role="status" style="background:#fbeae5;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px">
+              <span style="align-self:flex-start;display:inline-flex;align-items:center;gap:8px;background:#ffffff;color:#a3341c;font-size:15px;font-weight:600;padding:6px 14px;border-radius:999px">▲ Ratio breach</span>
+              <div style="font-size:28px;font-weight:600;line-height:1.1">3 kaiako · 20 tamariki</div>
+              <div style="font-size:17px;color:#a3341c;font-weight:500">Requires 4 — one adult short.</div>
+              <div style="height:12px;border-radius:999px;background:#ffffff;overflow:hidden"><div style="height:100%;width:100%;background:#a3341c"></div></div>
+            </div>
+            <div style="background:#e9f0f7;border-radius:10px;padding:12px 14px;display:flex;gap:10px;align-items:center">
+              <span style="color:#2f5d8a" aria-hidden="true">↻</span><span style="font-size:15px;color:#2f5d8a">Offline · 3 sign-ins waiting to send</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px;overflow:hidden">
+              <div style="background:#ffffff;border:1px solid #e3e1dd;border-radius:16px;padding:14px;display:flex;gap:12px;align-items:center">
+                <span style="width:48px;height:48px;flex:none;border-radius:999px;background:#f2f1ee;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:600;color:#605d58">AN</span>
+                <div style="flex:1;display:flex;flex-direction:column;gap:6px;min-width:0">
+                  <div style="font-size:17px;font-weight:600">Aroha Ngata</div>
+                  <div style="display:flex;gap:6px;flex-wrap:wrap">
+                    <span style="display:inline-flex;align-items:center;gap:5px;background:#fbeae5;color:#a3341c;font-size:13px;font-weight:600;padding:3px 9px;border-radius:999px">▲ Allergy: peanuts</span>
+                    <span style="display:inline-flex;align-items:center;gap:5px;background:#e9f0f7;color:#2f5d8a;font-size:13px;font-weight:600;padding:3px 9px;border-radius:999px">↻ Waiting</span>
+                  </div>
+                </div>
+                <button style="width:88px;height:56px;flex:none;border:1px solid #e3e1dd;border-radius:10px;background:#ffffff;font-size:15px;font-weight:600;font-family:inherit">Sign out</button>
+              </div>
+              <div style="background:#ffffff;border:1px solid #e3e1dd;border-radius:16px;padding:14px;display:flex;gap:12px;align-items:center">
+                <span style="width:48px;height:48px;flex:none;border-radius:999px;background:#f2f1ee;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:600;color:#605d58">TM</span>
+                <div style="flex:1;display:flex;flex-direction:column;gap:6px;min-width:0">
+                  <div style="font-size:17px;font-weight:600">Tama Māhuta</div>
+                  <span style="align-self:flex-start;display:inline-flex;align-items:center;gap:5px;background:#e9f0f7;color:#2f5d8a;font-size:13px;font-weight:600;padding:3px 9px;border-radius:999px">↻ Waiting</span>
+                </div>
+                <button style="width:88px;height:56px;flex:none;border:1px solid #e3e1dd;border-radius:10px;background:#ffffff;font-size:15px;font-weight:600;font-family:inherit">Sign out</button>
+              </div>
+              <div style="background:#ffffff;border:1px solid #e3e1dd;border-radius:16px;padding:14px;display:flex;gap:12px;align-items:center">
+                <span style="width:48px;height:48px;flex:none;border-radius:999px;background:#f2f1ee;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:600;color:#605d58">HW</span>
+                <div style="flex:1;display:flex;flex-direction:column;gap:6px;min-width:0">
+                  <div style="font-size:17px;font-weight:600">Hemi Walker</div>
+                  <div style="font-size:15px;color:#605d58">Not here</div>
+                </div>
+                <button style="width:88px;height:56px;flex:none;border:0;border-radius:10px;background:#2f6f4f;color:#ffffff;font-size:15px;font-weight:600;font-family:inherit">Sign in</button>
+              </div>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid #e3e1dd;padding:10px 0 18px;margin:0 -16px;background:#ffffff;border-radius:0 0 24px 24px">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;font-weight:600;color:#2f6f4f"><span style="font-size:17px">●</span>Roll</div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;color:#605d58"><span style="font-size:17px">◇</span>Pānui</div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;color:#605d58"><span style="font-size:17px">◇</span>Messages</div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;color:#605d58"><span style="font-size:17px">◇</span>Settings</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- whanau child detail -->
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="font-size:13px;font-weight:600;color:#605d58">Whānau · Child detail (no custody section)</div>
+        <div style="width:390px;height:780px;background:#faf9f7;border:1px solid #e3e1dd;border-radius:32px;padding:16px 16px 0;display:flex;flex-direction:column">
+          <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:600;padding:6px 12px 10px"><span>10:22</span><span>▮▮▮</span></div>
+          <div style="flex:1;display:flex;flex-direction:column;gap:14px;overflow:hidden">
+            <div style="display:flex;gap:12px;align-items:center;padding:0 4px">
+              <span style="width:56px;height:56px;border-radius:999px;background:#f2f1ee;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:600;color:#605d58">AN</span>
+              <div><div style="font-size:28px;font-weight:600;line-height:1.1">Aroha</div><div style="font-size:15px;color:#605d58">Kōwhai room · 3 yrs</div></div>
+            </div>
+            <div style="background:#e8f1ec;border-radius:16px;padding:14px 16px;display:flex;align-items:center;gap:10px">
+              <span style="color:#2f6f4f" aria-hidden="true">✓</span><span style="font-size:17px;color:#2f6f4f;font-weight:500">Signed in at 8:12 am today</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <div style="font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:#605d58;font-weight:600;padding:0 4px">Health · read-only</div>
+              <div style="background:#fbeae5;border-radius:16px;padding:14px 16px;display:flex;gap:10px">
+                <span aria-hidden="true" style="color:#a3341c">▲</span>
+                <div><div style="font-size:17px;font-weight:600;color:#a3341c">Allergy: peanuts</div><div style="font-size:15px;color:#a3341c;line-height:1.5">Anaphylaxis · EpiPen held at the centre</div></div>
+              </div>
+              <p style="font-size:15px;color:#605d58;margin:0;padding:0 4px;line-height:1.5">Message the centre to change anything here.</p>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <div style="font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:#605d58;font-weight:600;padding:0 4px">Consents · you can change these</div>
+              <div style="background:#ffffff;border:1px solid #e3e1dd;border-radius:16px;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px">
+                <div><div style="font-size:17px;font-weight:500">Photos in the pānui feed</div><div style="font-size:15px;color:#605d58">Withdrawn 28 July</div></div>
+                <span role="switch" aria-checked="false" style="width:56px;height:32px;border-radius:999px;background:#e3e1dd;display:flex;align-items:center;padding:3px"><span style="width:26px;height:26px;border-radius:999px;background:#ffffff"></span></span>
+              </div>
+              <div style="background:#ffffff;border:1px solid #e3e1dd;border-radius:16px;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px">
+                <div><div style="font-size:17px;font-weight:500">Sunscreen</div><div style="font-size:15px;color:#605d58">Given 4 Feb 2025</div></div>
+                <span role="switch" aria-checked="true" style="width:56px;height:32px;border-radius:999px;background:#2f6f4f;display:flex;align-items:center;justify-content:flex-end;padding:3px"><span style="width:26px;height:26px;border-radius:999px;background:#ffffff"></span></span>
+              </div>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid #e3e1dd;padding:10px 0 18px;margin:0 -16px;background:#ffffff;border-radius:0 0 24px 24px">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;font-weight:600;color:#2f6f4f"><span style="font-size:17px">●</span>Tamariki</div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;color:#605d58"><span style="font-size:17px">◇</span>Pānui</div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;color:#605d58"><span style="font-size:17px">◇</span>Messages</div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;color:#605d58"><span style="font-size:17px">◇</span>Settings</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- pānui feed with withdrawn consent -->
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="font-size:13px;font-weight:600;color:#605d58">Pānui — a post whose photo consent was withdrawn</div>
+        <div style="width:390px;height:780px;background:#faf9f7;border:1px solid #e3e1dd;border-radius:32px;padding:16px 16px 0;display:flex;flex-direction:column">
+          <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:600;padding:6px 12px 10px"><span>10:22</span><span>▮▮▮</span></div>
+          <div style="flex:1;display:flex;flex-direction:column;gap:12px;overflow:hidden">
+            <div style="font-size:28px;font-weight:600;padding:0 4px">Pānui</div>
+            <div style="background:#ffffff;border:1px solid #e3e1dd;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px">
+              <div style="font-size:15px;color:#605d58">Whaea Ana · yesterday</div>
+              <div style="font-size:17px;line-height:1.55">The Kōwhai tamariki spent the whole morning building a pā out of the big blocks, then defended it from the wind.</div>
+            </div>
+            <div style="background:#ffffff;border:1px solid #e3e1dd;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px">
+              <div style="font-size:15px;color:#605d58">Whaea Ana · Monday</div>
+              <div style="height:180px;border-radius:10px;background:#f2f1ee;display:flex;align-items:center;justify-content:center;font-family:ui-monospace,Menlo,monospace;font-size:12px;color:#605d58">photo of the block pā</div>
+              <div style="font-size:17px;line-height:1.55">Water play in the afternoon sun.</div>
+            </div>
+            <div style="background:#ffffff;border:1px solid #e3e1dd;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px">
+              <div style="font-size:15px;color:#605d58">Matua Reweti · Friday</div>
+              <div style="font-size:17px;line-height:1.55">Mud kitchen day. Bring a spare change of clothes on Fridays if you can.</div>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid #e3e1dd;padding:10px 0 18px;margin:0 -16px;background:#ffffff;border-radius:0 0 24px 24px">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;color:#605d58"><span style="font-size:17px">◇</span>Tamariki</div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;font-weight:600;color:#2f6f4f"><span style="font-size:17px">●</span>Pānui</div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;color:#605d58"><span style="font-size:17px">◇</span>Messages</div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;color:#605d58"><span style="font-size:17px">◇</span>Settings</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- empties + notes -->
+      <div style="width:390px;display:flex;flex-direction:column;gap:16px">
+        <div style="font-size:13px;font-weight:600;color:#605d58">Empty states</div>
+        <div style="background:#ffffff;border:1px solid #e3e1dd;border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:10px;align-items:flex-start">
+          <div style="font-size:18px;font-weight:600">No tamariki linked yet</div>
+          <p style="font-size:17px;color:#605d58;margin:0;line-height:1.5">Your centre links your child to your account.</p>
+          <button style="height:56px;padding:0 20px;border:0;border-radius:10px;background:#2f6f4f;color:#ffffff;font-size:17px;font-weight:600;font-family:inherit">Message the centre</button>
+        </div>
+        <div style="background:#ffffff;border:1px solid #e3e1dd;border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:10px;align-items:flex-start">
+          <div style="font-size:18px;font-weight:600">Nothing posted yet</div>
+          <p style="font-size:17px;color:#605d58;margin:0;line-height:1.5">Kaiako share moments from the day here.</p>
+        </div>
+        <div style="background:#ffffff;border:1px solid #e3e1dd;border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:10px;align-items:flex-start">
+          <div style="font-size:18px;font-weight:600">Nau mai. No centre yet.</div>
+          <p style="font-size:17px;color:#605d58;margin:0;line-height:1.5">Your invitation is still to be accepted by your centre.</p>
+          <button style="height:56px;padding:0 20px;border:1px solid #e3e1dd;border-radius:10px;background:#ffffff;font-size:17px;font-weight:600;font-family:inherit">Check again</button>
+        </div>
+        <div style="background:#f2f1ee;border:1px solid #e3e1dd;border-radius:10px;padding:16px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;line-height:1.7;color:#605d58">
+          <div style="font-weight:600;color:#1b1a18;margin-bottom:8px">a11y — mobile</div>
+          sign in/out: role=button, 88×56, label "Sign Aroha Ngata out"<br>
+          consent switch: role=switch, 56×32 visual inside a 56px row target, label "Photos in the pānui feed"<br>
+          tabs: role=tab, 4 items, 64px tall bar, current tab aria-selected + filled glyph<br>
+          withdrawn photo: nothing rendered, nothing announced — no empty figure, no alt text<br>
+          <div style="margin-top:10px;color:#1b1a18">rationale</div>
+          The whānau child screen has no custody heading at all. An empty "Custody" section on a parent's phone tells that parent an order exists — or that one does not. Neither is ours to say.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ TABLET 3M ══ -->
+  <section style="display:flex;flex-direction:column;gap:20px">
+    <h2 style="font-size:22px;font-weight:600;margin:0">5 · Tablet at three metres</h2>
+    <p style="font-size:15px;color:#605d58;margin:0;max-width:820px;line-height:1.6">Sign-in tablet, 11″ landscape, wall-mounted by the door. The ratio block is sized so its status line subtends the same angle at 3 m as 15px body text does at 40 cm — roughly 112px of cap height on a 10.5″-wide panel. The proof is the second panel: the same render at 13% scale is the retinal size of the first at three metres.</p>
+    <div style="display:flex;flex-wrap:wrap;gap:32px;align-items:flex-start">
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="font-size:13px;font-weight:600;color:#605d58">Actual pixels · {{ tabletLabel }}</div>
+        <div style="width:1180px;background:#1b1a18;border-radius:24px;padding:18px">
+          <div role="status" style="border-radius:16px;padding:40px 48px;display:flex;flex-direction:column;gap:24px;background:{{ tabletBg }}">
+            <div style="display:flex;align-items:center;gap:24px;flex-wrap:wrap">
+              <span style="display:inline-flex;align-items:center;gap:16px;background:#ffffff;font-size:44px;font-weight:600;padding:14px 32px;border-radius:999px;color:{{ tabletFg }}">{{ tabletIcon }} {{ tabletLabel }}</span>
+              <span style="font-size:88px;font-weight:600;line-height:1">{{ tabletCounts }}</span>
+            </div>
+            <div style="font-size:44px;font-weight:500;color:{{ tabletFg }}">{{ tabletDetail }}</div>
+            <div style="height:32px;border-radius:999px;background:#ffffff;overflow:hidden"><div style="height:100%;border-radius:999px;width:{{ tabletFill }};background:{{ tabletFg }}"></div></div>
+          </div>
+          <div style="display:flex;gap:18px;margin-top:18px">
+            <button style="flex:1;height:112px;border:0;border-radius:16px;background:#2f6f4f;color:#ffffff;font-size:32px;font-weight:600;font-family:inherit">Sign a child in</button>
+            <button style="flex:1;height:112px;border:1px solid #e3e1dd;border-radius:16px;background:#ffffff;font-size:32px;font-weight:600;font-family:inherit">Sign a child out</button>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="font-size:13px;font-weight:600;color:#605d58">Same panel, retinal size at 3 m</div>
+        <div style="width:200px;background:#1b1a18;border-radius:6px;padding:4px">
+          <div style="border-radius:4px;padding:7px 8px;display:flex;flex-direction:column;gap:4px;background:{{ tabletBg }}">
+            <div style="display:flex;align-items:center;gap:4px">
+              <span style="background:#ffffff;font-size:7px;font-weight:600;padding:2px 5px;border-radius:999px;color:{{ tabletFg }}">{{ tabletIcon }} {{ tabletLabel }}</span>
+              <span style="font-size:15px;font-weight:600;line-height:1">{{ tabletCounts }}</span>
+            </div>
+            <div style="font-size:7px;font-weight:500;color:{{ tabletFg }}">{{ tabletDetail }}</div>
+            <div style="height:5px;border-radius:999px;background:#ffffff;overflow:hidden"><div style="height:100%;border-radius:999px;width:{{ tabletFill }};background:{{ tabletFg }}"></div></div>
+          </div>
+          <div style="display:flex;gap:3px;margin-top:3px">
+            <div style="flex:1;height:19px;border-radius:3px;background:#2f6f4f;color:#ffffff;font-size:6px;font-weight:600;display:flex;align-items:center;justify-content:center">Sign a child in</div>
+            <div style="flex:1;height:19px;border-radius:3px;background:#ffffff;border:1px solid #e3e1dd;font-size:6px;font-weight:600;display:flex;align-items:center;justify-content:center">Sign a child out</div>
+          </div>
+        </div>
+        <p style="width:200px;font-size:13px;color:#605d58;line-height:1.55;margin:0">Squint test: state, both numbers and the bar still separate. The words survive because they are set at the same weight as the numerals.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ RATIONALE ══ -->
+  <section style="display:flex;flex-direction:column;gap:20px">
+    <h2 style="font-size:22px;font-weight:600;margin:0">6 · Departures from the common pattern</h2>
+    <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;max-width:1400px">
+      <sc-for list="{{ rationale }}" as="r" hint-placeholder-count="6">
+        <div style="background:#ffffff;border:1px solid #e3e1dd;border-radius:10px;padding:18px 20px;display:flex;flex-direction:column;gap:8px">
+          <div style="font-size:15px;font-weight:600">{{ r.choice }}</div>
+          <div style="font-size:13px;color:#605d58;line-height:1.65">{{ r.why }}</div>
+          <div style="font-size:12px;color:#605d58;font-family:ui-monospace,Menlo,monospace">{{ r.token }}</div>
+        </div>
+      </sc-for>
+    </div>
+  </section>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;tabletState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;ok&quot;,&quot;limit&quot;,&quot;breach&quot;],&quot;default&quot;:&quot;breach&quot;,&quot;tsType&quot;:&quot;'ok'|'limit'|'breach'&quot;,&quot;section&quot;:&quot;Tablet mock&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const state = this.props.tabletState ?? 'breach';
+    const map = {
+      ok:     { label:'Within ratio', icon:'✓', fg:'#2f6f4f', bg:'#e8f1ec', counts:'4 · 17', detail:'4 kaiako for 17 tamariki — requires 4', fill:'88%' },
+      limit:  { label:'At limit',     icon:'▲', fg:'#8a5a00', bg:'#fdf3e0', counts:'4 · 20', detail:'4 kaiako for 20 tamariki — no headroom', fill:'100%' },
+      breach: { label:'Ratio breach', icon:'▲', fg:'#a3341c', bg:'#fbeae5', counts:'3 · 20', detail:'3 kaiako for 20 tamariki — one adult short', fill:'100%' }
+    };
+    const t = map[state] || map.breach;
+    return {
+      tabletLabel: t.label, tabletIcon: t.icon, tabletFg: t.fg, tabletBg: t.bg,
+      tabletCounts: t.counts, tabletDetail: t.detail, tabletFill: t.fill,
+      webParts: [
+        { name:'RatioBlock', anatomy:'status pill + count headline + requirement line + track + consequence line', states:'ok · at limit · breach · unknown (no adult count recorded)' },
+        { name:'RollRow', anatomy:'44px initials · name 18/600 · flag chips · time · action button', states:'in · out · queued · flagged · queued+flagged' },
+        { name:'FlagChip', anatomy:'glyph + full sentence label, pill radius', states:'allergy (breach) · medication (warn) · dietary (warn)' },
+        { name:'SyncChip', anatomy:'↻ + "Waiting to send", pending-blue', states:'queued · sending · sent (chip removed, not greyed)' },
+        { name:'RefusalDialog', anatomy:'count pill · title · reason · itemised list · retry (48px) + stay (44px)', states:'unsent attendance · unsent consents' },
+        { name:'ConsentRow', anatomy:'label + provenance line + switch or Record button', states:'given · withdrawn · never recorded' },
+        { name:'SectionEmpty', anatomy:'one line of state, one warm sentence, one action', states:'new centre · no results · no access' },
+        { name:'ExpiryRow (compliance)', anatomy:'name · document · date · status chip', states:'current · expires <30d (warn) · expired (breach) · unsighted' }
+      ],
+      mobileParts: [
+        { name:'RatioCard', anatomy:'16-radius block, 28/600 counts, pill, full-width track', states:'ok · at limit · breach' },
+        { name:'ChildCard', anatomy:'48px initials · 17/600 name · chip row · 88×56 action', states:'in · out · queued · flagged' },
+        { name:'OfflineStrip', anatomy:'↻ + count sentence, pending-blue, above the list not over it', states:'offline · sending · hidden' },
+        { name:'BigAction', anatomy:'64px primary / 56px secondary, 10-radius, full width', states:'default · pressed · disabled-with-reason' },
+        { name:'ConsentSwitch', anatomy:'label + provenance + 56×32 switch in a 56px row', states:'on · off · saving (queued)' },
+        { name:'HealthCard', anatomy:'glyph + heading + detail, read-only for whānau', states:'allergy · medication · none recorded' },
+        { name:'PostCard', anatomy:'author + time · optional image · body 17/400', states:'text only · with photo · photo consent withdrawn (image node absent)' },
+        { name:'TabBar', anatomy:'4 tabs, role-swapped labels, 64px bar', states:'staff (Roll) · whānau (Tamariki)' }
+      ],
+      rationale: [
+        { choice:'Pending sync is blue, not amber.', why:'A queued write on a tablet in a concrete-walled centre is the normal case, not a fault. Amber would train educators to ignore amber.', token:'#2f5d8a on #e9f0f7' },
+        { choice:'Sign-out refuses; there is no "sign out anyway".', why:'Attendance is the source of the funding return. A destructive escape hatch on a control tapped dozens of times a day will eventually be tapped by accident.', token:'RefusalDialog · 48px primary = retry' },
+        { choice:'One login error string for every cause.', why:'"No such account" at a named childcare centre is a staff-enumeration oracle. The cost is one confused password reset; the alternative is a roster leak.', token:'#a3341c on #fbeae5, role=alert' },
+        { choice:'Whānau child detail has no custody heading.', why:'Rendering an empty section discloses by absence. The section is not hidden-if-empty; it does not exist in the whānau build.', token:'role-gated at route level' },
+        { choice:'Flags are chips with sentences, never dots.', why:'"Allergy: peanuts" reads identically to a screen reader, a colour-blind kaiako and a relief teacher who has never met the child.', token:'WCAG 1.4.1 · text carries state' },
+        { choice:'A withdrawn photo renders nothing.', why:'No placeholder, no "photo removed" notice. A notice is itself a disclosure, and the correct rendering of a withdrawn consent is absence.', token:'image node not emitted' },
+        { choice:'The ratio block is a persistent region, not a toast.', why:'The condition persists until an adult arrives or a child leaves. Toasts expire; breaches do not.', token:'role=status, aria-live=polite' },
+        { choice:'Mobile targets are 56px, primaries 64px.', why:'Measured against one-handed use while carrying a child. 44px is the floor for secondary controls only.', token:'44 / 56 / 64' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

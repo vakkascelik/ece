@@ -26,11 +26,12 @@
   --warn-soft: #fdf3e0;
   --breach: #a3341c;
   --breach-soft: #fbeae5;
-  --ok-border: #c8ddd1;
-  --warn-border: #ecdcb8;
-  --breach-border: #eccec4;
+  --ok-border: #cfe2d7;
+  --warn-border: #ecd9ae;
+  --breach-border: #eccabe;
   --pending: #2f5d8a;
   --pending-soft: #e9f0f7;
+  --pending-border: #d3e0ed;
 
   /* Spacing */
   --space-0: 0px;

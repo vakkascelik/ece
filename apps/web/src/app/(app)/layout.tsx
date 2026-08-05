@@ -44,6 +44,8 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           {can(ctx.role, 'manageCentre') && <Link href="/compliance">Compliance</Link>}
           {can(ctx.role, 'manageCentre') && <Link href="/funding">Funding</Link>}
           {can(ctx.role, 'manageCentre') && <Link href="/settings">Settings</Link>}
+          {/* Everyone: this is the user's own account, not the centre's. */}
+          <Link href="/account">Account</Link>
         </nav>
 
         {ctx.centres.length > 1 && (

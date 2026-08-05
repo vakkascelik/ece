@@ -85,6 +85,21 @@ born in the future, and a same-day enrolment was missing from the roll until lun
   through `Intl`. A fixed +12 is wrong for half the year; the tests assert a 23-hour day in
   September and a 25-hour day in April.
 
+**Third time, 2026-08-06, and this one was in a test fixture.** The e2e seed stamped its
+sign-in at `Date.now() - 3_600_000` and its adult count at `Date.now() - 3_700_000`. The roll
+and the ratio are scoped to today in Auckland, so between midnight and 1am those timestamps
+land on *yesterday*: the roll loses its row, the ratio drops to "no adult count recorded", and
+`Here now — 2` cannot be satisfied. **The suite failed for one hour in every twenty-four and
+passed the other twenty-three**, which is worse than failing outright — at 00:07 the obvious
+conclusion is that whatever you just changed broke attendance, and it takes a while to stop
+believing that. Found while verifying a change to the login screen, which had nothing to do
+with it. The product was correct the whole time: a new day starts an empty roll.
+
+The lesson generalises past this repo. A relative timestamp (`now - an hour`) is not
+day-safe, and a fixture that is only wrong inside a narrow window is a fixture that will be
+wrong while somebody is debugging something else. `recentlyToday()` in
+`apps/web/e2e/fixtures/tenant.ts` clamps it.
+
 ### PostgREST traps
 
 - **Bulk inserts do not apply column defaults.** One `INSERT` is built from the *union* of

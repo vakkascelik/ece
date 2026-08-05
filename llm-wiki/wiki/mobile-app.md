@@ -19,8 +19,9 @@ checks can tell you that the product has no front door.
 
 - **One binary serves every centre.** The tenant is resolved after sign-in, never baked into the
   build — which is what forced pooled tenancy on the whole platform. See [[tenancy-and-rls]].
-- **Mobile can only authenticate an already-provisioned user.** Sign-up, invitation acceptance and
-  password reset are all structurally impossible here.
+- **Mobile can only authenticate an already-provisioned user.** Sign-up and invitation acceptance
+  are structurally impossible here; password reset lives on the web app (see
+  [[password-recovery]]) and its recovery link opens in a browser.
 - **Eleven defects were found in code that had never executed**, including a push registration that
   would have failed on every call.
 - **A queued attendance event belongs to the person who made it**, because `recorded_by` is stamped
@@ -40,7 +41,11 @@ something that could be worked around:
 2. **Invitation acceptance needs the service-role key**, which bypasses every policy and must never
    enter a bundle that ships to a phone. It also needs `hashInviteToken`, which uses `node:crypto`,
    which Metro cannot bundle. See [[invitations]].
-3. **There is no mailer**, so a password-reset link has nowhere to go.
+3. **A recovery link must land somewhere that can hold the resulting session and set the new
+   password** — which since 2026-08-05 is the web app's `/auth/confirm` + `/reset-password`
+   (see [[password-recovery]]), not a screen in this binary. Before that this wall read "there
+   is no mailer, so a password-reset link has nowhere to go"; the reset flow now uses
+   Supabase's built-in mailer, so the wall is the landing place, not the sending.
 
 So the sign-in screen has exactly two fields and no third affordance, and there is a `no-access`
 screen for the ordinary case of a real account with no membership yet. What replaces the missing

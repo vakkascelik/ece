@@ -108,7 +108,10 @@ function must<T>(
  * twelve hours ahead.
  */
 function nzDate(days = 0): string {
-  const at = new Date(Date.now() + days * 86_400_000);
+  return nzDateOf(new Date(Date.now() + days * 86_400_000));
+}
+
+function nzDateOf(at: Date): string {
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Pacific/Auckland',
     year: 'numeric',
@@ -117,6 +120,29 @@ function nzDate(days = 0): string {
   }).formatToParts(at);
   const get = (t: string) => parts.find((p) => p.type === t)!.value;
   return `${get('year')}-${get('month')}-${get('day')}`;
+}
+
+/**
+ * A timestamp `ms` in the past that is still **today** in Pacific/Auckland.
+ *
+ * The seeded sign-in used a bare `Date.now() - 3_600_000`. The roll is scoped to today
+ * in the centre's timezone, so between midnight and 1am NZ that hour-ago timestamp
+ * lands on *yesterday*: the row vanishes from the roll and `Here now — 2` becomes
+ * unsatisfiable. The suite therefore failed for one hour in every twenty-four, and
+ * passed the other twenty-three — which is worse than failing outright, because the
+ * obvious conclusion at 00:07 is that whatever you just changed broke attendance.
+ *
+ * Found on 2026-08-06 at 00:07 NZST. The product was correct throughout: a new day
+ * starts an empty roll. This is the same UTC-versus-Auckland trap as the date helper
+ * above, one layer up, in the fixture rather than the app.
+ */
+function recentlyToday(ms: number): string {
+  const now = Date.now();
+  const wanted = new Date(now - ms);
+  if (nzDateOf(wanted) === nzDateOf(new Date(now))) return wanted.toISOString();
+  // Inside the first `ms` of a New Zealand day. A minute ago is still today unless the
+  // clock is within a minute of midnight, and at that point the roll is genuinely empty.
+  return new Date(now - 60_000).toISOString();
 }
 
 export async function seedAuditTenant(): Promise<AuditTenant> {
@@ -349,7 +375,9 @@ export async function seedAuditTenant(): Promise<AuditTenant> {
 
   // Signed in an hour ago and still present, so the roll has a row and the ratio bar
   // has something to assess. One adult against one under-two is within ratio, which
-  // is the state a screenshot should show.
+  // is the state a screenshot should show. `recentlyToday` rather than a bare
+  // subtraction: the roll is scoped to today in Auckland, and an hour before 00:07 is
+  // yesterday.
   must(
     'attendance_events',
     await db
@@ -359,7 +387,7 @@ export async function seedAuditTenant(): Promise<AuditTenant> {
       .insert({
         child_id: childId,
         kind: 'in',
-        at: new Date(Date.now() - 3_600_000).toISOString(),
+        at: recentlyToday(3_600_000),
         recorded_by: ownerId,
         client_uuid: randomUUID(),
         note: null,
@@ -374,7 +402,9 @@ export async function seedAuditTenant(): Promise<AuditTenant> {
       .insert({
         centre_id: centreId,
         adults: 2,
-        at: new Date(Date.now() - 3_700_000).toISOString(),
+        // Same trap as the sign-in above: an adult count that lands on yesterday leaves
+        // the ratio in its "unknown — no adult count recorded" state, not "within ratio".
+        at: recentlyToday(3_700_000),
         recorded_by: ownerId,
         client_uuid: randomUUID(),
         note: 'Audit fixture.',
