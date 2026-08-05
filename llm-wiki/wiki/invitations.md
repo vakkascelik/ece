@@ -97,9 +97,20 @@ path for a manager's second site, for whom `recovery` is the correct artefact an
 
 It never sets or prints a password.
 
+The `listUsers` 500, run to ground on 2026-08-05: two `auth.users` rows inherited from the
+Zelva era carry NULL in token columns (`confirmation_token` and friends) that the current
+GoTrue scans into non-nullable strings, so any page containing either row fails with
+"Database error finding users" — which also broke the dashboard's user list. The repair is
+`coalesce` to `''`, the value new rows get. Worth remembering the shape: an admin API that
+500s on *some* pages is usually one poison row, findable by walking `per_page=1`.
+
+Since 2026-08-05 the script also takes `--role manager` (default remains `owner`). It stops
+at those two: educators and whānau are invited from the app by the centre's own staff, which
+keeps the decision and its audit trail inside the tenant instead of in a terminal.
+
 ## See Also
 
 - [[tenancy-and-rls]] — why `memberships` has no INSERT grant
 - [[conventions]]
 
-*Last updated: 2026-08-04*
+*Last updated: 2026-08-05*

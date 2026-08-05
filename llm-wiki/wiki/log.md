@@ -5,6 +5,16 @@ says so.*
 
 ---
 
+2026-08-05 — `onboard.ts` gained `--role manager` (default stays `owner`), stopping at those
+two roles: educators and whānau are invited from the app so the decision and its audit trail
+stay inside the tenant. Occasion: attaching the platform owner's personal account as manager
+at both Little Pearls centres. Also run to ground on [[invitations]]: the `listUsers` 500 that
+script's comments have carried since it was written is two Zelva-era `auth.users` rows with
+NULL where current GoTrue expects `''` — the repair (a `coalesce` update) and the account
+cleanup were handed to the owner to run in the dashboard, because the permission classifier
+here refuses ad-hoc writes against `auth.users`, which is the correct instinct even when
+inconvenient.
+
 2026-08-05 — The first Railway deploy failed, on this repo's own build command, and the wiki was
 carrying the wrong reason for that command in two places. `npm ci --include=dev && npm run build`
 hit `EBUSY … rmdir '/app/node_modules/.cache'`: Nixpacks runs its own `npm ci` in the install

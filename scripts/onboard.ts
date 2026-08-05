@@ -17,7 +17,12 @@
  *   npx tsx scripts/onboard.ts --name "Little Pearls Mt Albert" \
  *                              --slug little-pearls-mt-albert \
  *                              --owner manager@example.co.nz \
- *                              [--moe 12345] [--existing-centre <uuid>]
+ *                              [--moe 12345] [--existing-centre <uuid>] [--role manager]
+ *
+ * `--role` covers the other person this script legitimately attaches: a manager,
+ * which its own comments call the common case. It stops there — educators and
+ * whānau are invited from the app by the centre's own staff, which keeps the
+ * decision and its audit trail inside the tenant instead of in a terminal.
  */
 
 import { createClient } from '@supabase/supabase-js';
@@ -57,7 +62,11 @@ async function main() {
   const slug = typeof args.slug === 'string' ? args.slug.trim() : '';
   const moe = typeof args.moe === 'string' ? args.moe.trim() : null;
   const existing = typeof args['existing-centre'] === 'string' ? args['existing-centre'] : null;
+  const role = typeof args.role === 'string' ? args.role.trim() : 'owner';
 
+  if (role !== 'owner' && role !== 'manager') {
+    die(`--role must be owner or manager, not "${role}". Educators and whānau are invited from the app.`);
+  }
   if (!owner || !owner.includes('@')) die('--owner must be an email address.');
   if (!existing && (!name || !slug)) die('--name and --slug are required unless --existing-centre is given.');
   if (slug && !/^[a-z0-9-]+$/.test(slug)) {
@@ -141,11 +150,11 @@ async function main() {
   const { error: memberError } = await db
     .from('memberships')
     .upsert(
-      { centre_id: centreId, user_id: userId, role: 'owner', revoked_at: null },
+      { centre_id: centreId, user_id: userId, role, revoked_at: null },
       { onConflict: 'centre_id,user_id' },
     );
-  if (memberError) die(`Attaching the owner failed: ${memberError.message}`);
-  console.log(`  role        owner`);
+  if (memberError) die(`Attaching the ${role} failed: ${memberError.message}`);
+  console.log(`  role        ${role}`);
 
   console.log(
     actionLink
