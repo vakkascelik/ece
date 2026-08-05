@@ -85,6 +85,11 @@ LLM coding mistakes). They bias toward caution over speed; for trivial tasks, us
   PAT plus project ref. A PAT is account-wide: one was once handed over pointing at the wrong
   project entirely, and the migration failed only by luck. Inventory before anything destructive.
 - **The RLS suite is runnable from here** and is the fastest way to check a policy change.
+- **Update `llm-wiki/` before committing, never after.** Standing instruction from the owner, and
+  it is a gate in AGENTS.md §5 with a table of what to touch when. If the change contradicts a
+  page, correct that page first — a wiki that is wrong is worse than no wiki, and there is now a
+  precedent: `offline-outbox.md` spent a day telling readers that every check violation was a
+  permanent failure, which was the opposite of the fix that had just been made.
 - **Do not use the Agent tool** unless asked.
 
-*Last updated: 2026-08-04*
+*Last updated: 2026-08-05*

@@ -9,6 +9,8 @@ something broke.
 
 ## Key Points
 
+- **The wiki is updated before the commit**, and a page the change contradicts is corrected
+  first — a wiki that is wrong is worse than none, and that has already happened once.
 - **Every new table needs a policy *and* a grant**, and an assertion in the isolation suite in
   the same commit.
 - **Migrations are applied by `npm run migrate`**, which refuses to continue if a file changed
@@ -150,10 +152,33 @@ child's name on screen.
 Closing a panel on success belongs in a `useEffect`, not the render body: calling the parent's
 `setState` during render is a React error that only shows up in the console.
 
+### The wiki is updated before the commit, not after
+
+A standing instruction from the owner, recorded here because it is a convention and not a
+preference, and as a gate in `AGENTS.md` §5.
+
+The order matters for two reasons. The commit message and the wiki page are written from the same
+understanding, and that understanding is sharpest while the work is fresh — a page written three
+commits later records what somebody remembers rather than what they learned. And a wiki updated
+afterwards is the one that gets skipped precisely when the work was hard, which is when it was
+worth writing down.
+
+**If a change contradicts something a page already says, correct that page first.** A wiki that is
+wrong is worse than no wiki, because it is trusted. There is a precedent rather than a hypothetical:
+[[offline-outbox]] spent a day asserting that every check violation was a permanent failure, which
+was the exact opposite of the fix that had just been made — and that page is the one somebody would
+read before touching the offline path.
+
+The checklist is in `AGENTS.md`. The short version: the page for the area, `unverified-claims` if
+anything is now asserted without a source, `index` for a new page, `log` always, then
+`npm run check:docs`.
+
+The only exception is a commit that touches nothing but `llm-wiki/`.
+
 ## See Also
 
 - [[tenancy-and-rls]] — the policy half of the convention
 - [[unverified-claims]]
 - [[offline-outbox]]
 
-*Last updated: 2026-08-04*
+*Last updated: 2026-08-05*

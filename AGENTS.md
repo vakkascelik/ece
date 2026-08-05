@@ -97,11 +97,14 @@ claim about the law and belongs in a commit that records who read what.
 ## 5. Verification — a change is not done until these pass
 
 ```bash
-npm run typecheck        # four workspaces
+npm run typecheck        # four workspaces, plus the e2e project
 npm run lint
 npm test                 # unit tests
-npm run test:rls         # the one that matters — 119 assertions as at 2026-08-04
+npm run test:rls         # the one that matters — one centre reaching another
 npm run tokens:check     # generated CSS matches the shared tokens
+npm run check:docs       # every documentation link resolves
+npm run check:bundle     # performance budgets, in gzipped bytes
+npm run review:security  # checks against the live schema
 npm run build            # web
 ```
 
@@ -109,9 +112,37 @@ Touching mobile? Also `cd apps/mobile && npx expo export --platform android` —
 is not TypeScript's, and a package can typecheck and fail to bundle.
 
 Touching the offline path? Also `npm run drill:offline`.
+Touching a read that could return many rows? Also `npm run drill:rowcap`.
+Touching the schema? Also `npm run drill:restore`.
+Touching auth, roles or a route guard? Also `npm run test:e2e`.
+
+Deliberately not listing assertion counts here. A number in a checklist is a number that goes
+stale, and the counts live in the tools that print them.
 
 CI runs all of it. The RLS suite is a separate job, because a red cross there means something
 different from a failing unit test: it means one centre can reach another centre's children.
+
+### The last gate: the wiki, in the same commit
+
+**Update `llm-wiki/` before you commit, not after.** This is a step in the list above, not a
+tidy-up afterwards.
+
+| If the change… | Then |
+|---|---|
+| made a decision worth keeping, or rejected an approach | the relevant page, or a new one |
+| found a defect, especially one no check could have caught | the page for that area, with the mechanism |
+| **contradicts something a page already says** | correct that page **first** — a wiki that is wrong is worse than no wiki |
+| asserts anything nobody has verified | an entry in [unverified-claims](llm-wiki/wiki/unverified-claims.md) |
+| added a page | a line in [index.md](llm-wiki/wiki/index.md) |
+| any of the above | an entry in [log.md](llm-wiki/wiki/log.md), and `npm run check:docs` |
+
+Two reasons it goes before the commit rather than after. The commit message and the wiki page
+are written from the same understanding, and that understanding is at its sharpest while the
+work is fresh — a page written three commits later records what you remember, not what you
+learned. And a wiki updated afterwards is a wiki that gets skipped the one time the work was
+hard, which is the time it was worth writing down.
+
+The only exception is a commit that touches nothing but `llm-wiki/`.
 
 ## 6. What is built
 
@@ -137,7 +168,7 @@ remembered later.
   required, everything it creates is tagged `Demo-Seed`, and its emails use the `.invalid` TLD.
 - **Migrations are applied by `npm run migrate`**, never by hand. It refuses if a file changed
   after it was applied, and they must replay cleanly against a populated database.
-- **Update the wiki in the same commit** as a decision worth keeping, and append to
-  [llm-wiki/wiki/log.md](llm-wiki/wiki/log.md).
+- **Update the wiki before committing**, never after — it is the last gate in §5, with a table
+  of what to touch when.
 
-*Last updated: 2026-08-04*
+*Last updated: 2026-08-05*

@@ -215,4 +215,19 @@ asks for — deleting an `auth.users` row would **erase attribution in licensing
 `on delete set null`. That attribution is the evidence the compliance feature exists to produce, and
 an account-deletion feature built the obvious way would quietly destroy it.
 
+2026-08-05 — Recorded in [[conventions]] that **the wiki is updated before the commit, not after** —
+a standing instruction from the owner, promoted from a soft bullet in `AGENTS.md`'s standing
+constraints to a gate in its verification section, because as a bullet it was exactly what got
+skipped: four commits shipped and the wiki update was batched behind them.
+
+The clause that matters most is the one about contradictions: if a change contradicts something a
+page already says, **correct that page first**. A wiki that is wrong is worse than no wiki because
+it is trusted, and there is a precedent rather than a hypothetical — [[offline-outbox]] spent a day
+asserting that every check violation was a permanent failure, which was the exact opposite of the
+fix just made, on the page somebody would read before touching the offline path.
+
+Also removed the assertion count from `AGENTS.md`'s verification checklist. It said 119 and the
+suite is at 176; a number in a checklist is a number that goes stale, and the counts live in the
+tools that print them.
+
 *Log last updated: 2026-08-05*
