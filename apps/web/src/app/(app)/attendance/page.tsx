@@ -4,7 +4,9 @@ import {
   can,
   compareBySeverity,
   displayName,
+  formatAge,
   hasCriticalCondition,
+  initials,
   isUnderTwo,
   splitByAgeBand,
   todayInZone,
@@ -80,7 +82,12 @@ export default async function AttendancePage() {
             <p className="empty">Nobody signed in yet.</p>
           </div>
         ) : (
-          <Table rows={present} states={byChild} health={healthByChild} />
+          <Roll
+            rows={present}
+            states={byChild}
+            health={healthByChild}
+            timezone={ctx.centre.timezone}
+          />
         )}
       </section>
 
@@ -91,64 +98,68 @@ export default async function AttendancePage() {
             <p className="empty">Everyone enrolled is signed in.</p>
           </div>
         ) : (
-          <Table rows={away} states={byChild} health={healthByChild} />
+          <Roll
+            rows={away}
+            states={byChild}
+            health={healthByChild}
+            timezone={ctx.centre.timezone}
+          />
         )}
       </section>
     </>
   );
 }
 
-function Table({
+/**
+ * The roll as a list.
+ *
+ * Was a `<table>` with Name / Age / Since / Flags / Actions columns. The design pack
+ * folds age and flags into a line under the name, which leaves three columns of
+ * unrelated things — a layout, not tabular data. Restyling a table's rows as grids also
+ * costs the row semantics in some engines, so this is a list with an explicit grid.
+ */
+function Roll({
   rows,
   states,
   health,
+  timezone,
 }: {
   rows: Child[];
   states: Map<string, { kind: 'in' | 'out'; at: string; eventId: number }>;
   health: Map<string, HealthCondition[]>;
+  timezone: string;
 }) {
   return (
-    <div className="card">
-      <table>
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Age</th>
-            <th>Since</th>
-            <th>Flags</th>
-            <th style={{ width: '1%' }}>
-                <span className="visually-hidden">Actions</span>
-              </th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((child) => {
-            const state = states.get(child.id);
-            const conditions = health.get(child.id) ?? [];
-            const worst = [...conditions].sort(compareBySeverity)[0];
-            return (
-              <AttendanceRow
-                key={child.id}
-                childId={child.id}
-                name={displayName(child)}
-                underTwo={isUnderTwo(child.dateOfBirth)}
-                present={state?.kind === 'in'}
-                since={state?.at ?? null}
-                eventId={state?.eventId ?? null}
-                critical={
-                  hasCriticalCondition(conditions) && worst
-                    ? {
-                        label: worst.severity === 'anaphylaxis' ? 'Anaphylaxis' : 'Severe',
-                        name: worst.name,
-                        plan: worst.responsePlan,
-                      }
-                    : null
-                }
-              />
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
+    <ul className="roll">
+      {rows.map((child) => {
+        const state = states.get(child.id);
+        const conditions = health.get(child.id) ?? [];
+        const worst = [...conditions].sort(compareBySeverity)[0];
+        return (
+          <AttendanceRow
+            key={child.id}
+            childId={child.id}
+            name={displayName(child)}
+            monogram={initials(child)}
+            // Against the centre's today, not the server's — a Next server runs in UTC
+            // and would age every child in the country by a day for the NZ morning.
+            age={formatAge(child.dateOfBirth, todayInZone(timezone))}
+            underTwo={isUnderTwo(child.dateOfBirth, todayInZone(timezone))}
+            present={state?.kind === 'in'}
+            since={state?.at ?? null}
+            eventId={state?.eventId ?? null}
+            critical={
+              hasCriticalCondition(conditions) && worst
+                ? {
+                    label: worst.severity === 'anaphylaxis' ? 'Anaphylaxis' : 'Severe',
+                    name: worst.name,
+                    plan: worst.responsePlan,
+                  }
+                : null
+            }
+          />
+        );
+      })}
+    </ul>
   );
 }

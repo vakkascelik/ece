@@ -50,7 +50,10 @@ test('enrol a child, then sign them in and out', async ({ page }) => {
   await expect(notHere.getByText(new RegExp(surname))).toBeVisible();
 
   // --- sign in, measured ----------------------------------------------------
-  const row = notHere.getByRole('row', { name: new RegExp(surname) }).first();
+  // `listitem`, not `row`: the roll is a list of children with an action each, not
+  // tabular data — see the note on `Roll` in attendance/page.tsx. Still scoped to the
+  // named region and still located by the child, so this asserts the same thing.
+  const row = notHere.getByRole('listitem').filter({ hasText: surname }).first();
   const started = Date.now();
   await row.getByRole('button', { name: 'Sign in' }).click();
 
@@ -63,7 +66,7 @@ test('enrol a child, then sign them in and out', async ({ page }) => {
   await expect(page.getByRole('heading', { name: /Here now — 2/ })).toBeVisible();
 
   // --- sign out -------------------------------------------------------------
-  const presentRow = here.getByRole('row', { name: new RegExp(surname) }).first();
+  const presentRow = here.getByRole('listitem').filter({ hasText: surname }).first();
   const outAt = Date.now();
   await presentRow.getByRole('button', { name: 'Sign out' }).click();
   await expect(here.getByText(new RegExp(surname))).toHaveCount(0);

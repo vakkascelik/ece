@@ -13,6 +13,8 @@ import { correct, signIn, signOut, type Result } from './actions';
 export function AttendanceRow({
   childId,
   name,
+  monogram,
+  age,
   underTwo,
   present,
   since,
@@ -21,6 +23,8 @@ export function AttendanceRow({
 }: {
   childId: string;
   name: string;
+  monogram: string;
+  age: string;
   underTwo: boolean;
   present: boolean;
   since: string | null;
@@ -36,79 +40,104 @@ export function AttendanceRow({
     (outState && 'error' in outState ? outState.error : null);
 
   return (
-    <>
-      <tr>
-        <td>
-          <strong>{name}</strong>
-          {error && (
-            <div className="error" role="alert">
-              {error}
-            </div>
-          )}
-        </td>
-        <td>{underTwo ? <span className="flag flag-quiet">under 2</span> : '2+'}</td>
-        <td>
-          {present && since ? (
-            new Date(since).toLocaleTimeString('en-NZ', { hour: '2-digit', minute: '2-digit' })
-          ) : (
-            <span className="empty">&mdash;</span>
-          )}
-        </td>
-        <td>
-          {/*
-            No `title`. It was carrying the response plan, which is meaning available
-            only to a mouse — not to a keyboard, not to a touch screen, and not to a
-            screen reader in most engines. The design pack forbids it outright, and the
-            plan belongs on the child's record where it can be read under pressure.
-          */}
-          {critical ? (
-            <span className="flag flag-critical">
-              {'▲'} {critical.label}: {critical.name}
-            </span>
-          ) : null}
-        </td>
-        <td>
-          <span className="inline">
-            {present ? (
-              <form action={outAction}>
-                <input type="hidden" name="childId" value={childId} />
-                <button className="secondary small" type="submit" disabled={outPending}>
-                  {outPending ? '…' : 'Sign out'}
-                </button>
-              </form>
-            ) : (
-              <form action={inAction}>
-                <input type="hidden" name="childId" value={childId} />
-                <button className="small" type="submit" disabled={inPending}>
-                  {inPending ? '…' : 'Sign in'}
-                </button>
-              </form>
-            )}
-            {eventId !== null && (
-              <button
-                className="secondary small"
-                type="button"
-                onClick={() => setCorrecting((v) => !v)}
-              >
-                Fix time
-              </button>
-            )}
+    <li>
+      <div className="roll-row">
+        {/* aria-hidden: the name is right beside it in text, and "AN" read aloud as
+            letters is noise between the reader and the child's name. */}
+        <span className="roll-initials" aria-hidden="true">
+          {monogram}
+        </span>
+
+        <div className="roll-who">
+          <span className="roll-name">{name}</span>
+          <span className="roll-meta">
+            <span>{age}</span>
+            {underTwo && <span className="flag flag-quiet">under 2</span>}
+            {/*
+              No `title`. It was carrying the response plan, which is meaning available
+              only to a mouse — not to a keyboard, not to a touch screen, and not to a
+              screen reader in most engines. The design pack forbids it outright, and the
+              plan belongs on the child's record where it can be read under pressure.
+
+              role=note, per the pack's annotation: this is an aside about the child, and
+              it reads as words — "Allergy: peanuts" — never as a colour or a dot.
+            */}
+            {critical ? (
+              <span className="flag flag-critical" role="note">
+                {'▲'} {critical.label}: {critical.name}
+              </span>
+            ) : null}
           </span>
-        </td>
-      </tr>
+          {error && (
+            <span className="error" role="alert">
+              {error}
+            </span>
+          )}
+        </div>
+
+        <span className="roll-time">
+          {present && since
+            ? `In ${new Date(since).toLocaleTimeString('en-NZ', { hour: 'numeric', minute: '2-digit' })}`
+            : 'Not signed in'}
+        </span>
+
+        <span className="roll-action">
+          {present ? (
+            <form action={outAction}>
+              <input type="hidden" name="childId" value={childId} />
+              {/*
+                The child's name goes in the accessible name, so a screen reader user is
+                never asked to sign out an unnamed button — there are twenty of these on
+                the page and they are otherwise identical.
+                `aria-label` rather than a visually-hidden text node, which was the first
+                attempt: that put the child's name into the DOM twice per row, and the
+                second copy is indistinguishable from the first to anything matching on
+                text. It broke a test that expected one match, and it would equally have
+                broken a find-in-page. The visible label is a prefix of the accessible
+                one, which is what WCAG 2.5.3 asks for.
+              */}
+              <button
+                className="secondary"
+                type="submit"
+                disabled={outPending}
+                aria-label={`Sign out ${name}`}
+              >
+                {outPending ? '…' : 'Sign out'}
+              </button>
+            </form>
+          ) : (
+            <form action={inAction}>
+              <input type="hidden" name="childId" value={childId} />
+              <button type="submit" disabled={inPending} aria-label={`Sign in ${name}`}>
+                {inPending ? '…' : 'Sign in'}
+              </button>
+            </form>
+          )}
+          {eventId !== null && (
+            <button
+              className="secondary small"
+              type="button"
+              onClick={() => setCorrecting((v) => !v)}
+              aria-label={`Fix time for ${name}`}
+              aria-expanded={correcting}
+            >
+              Fix time
+            </button>
+          )}
+        </span>
+      </div>
+
       {correcting && eventId !== null && (
-        <tr>
-          <td colSpan={5}>
-            <CorrectionForm
-              childId={childId}
-              eventId={eventId}
-              kind={present ? 'in' : 'out'}
-              onDone={() => setCorrecting(false)}
-            />
-          </td>
-        </tr>
+        <div className="roll-correct">
+          <CorrectionForm
+            childId={childId}
+            eventId={eventId}
+            kind={present ? 'in' : 'out'}
+            onDone={() => setCorrecting(false)}
+          />
+        </div>
       )}
-    </>
+    </li>
   );
 }
 

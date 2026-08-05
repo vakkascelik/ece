@@ -5,6 +5,27 @@ says so.*
 
 ---
 
+2026-08-06 — RollRow. The roll stopped being a `<table>`: the pack folds age and flags into a
+line under the name, leaving name/time/action, and it calls these lists in its own screen
+description. The stronger reason is mechanical — a table whose rows are restyled as grids loses
+its row semantics in some engines, so keeping the table would have traded real semantics for a
+layout. Now a `<ul>` with a `44px 1fr auto auto` grid, an initials circle, 18/600 name, 13/muted
+meta line, and a 44px action; two columns below 767px. `initials()` added to `@ece/core` beside
+`displayName()` with a test, and deliberately not derived from it — `displayName()` returns
+"Ana (Anahera) Test", whose first two initials are "A" and "(". FlagChip moved to the pack's
+13/600 from 12/500.
+
+One finding worth keeping. The pack asks the roll action to name the child, because twenty
+identical "Sign in" buttons are useless to a screen reader. The first attempt used a
+`visually-hidden` span, which renders the right accessible name and puts the child's name in the
+DOM **twice per row**. A test caught it as a strict-mode violation, but the test is not the
+point: anything matching on text sees both copies, so find-in-page for a child would report
+twice as many hits as there are children. `aria-label` gives one text node and the same name,
+with the visible label as its prefix per WCAG 2.5.3. Also: `npm run lint` and `npm test`
+appeared to fail during this work and had not — the Bash tool's working directory had persisted
+from an earlier `cd packages/core`, so both ran inside that workspace. Worth knowing before
+diagnosing a phantom failure. Detail in [[design-system]].
+
 2026-08-06 — Second pass on the phone shell, because the first fix was not enough and the
 reasoning for it was wrong. Turning the rail into a full-width bar removed the horizontal
 problem and created a vertical one: **312px of an 852px screen, 37% navigation before any

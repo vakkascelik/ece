@@ -4,6 +4,7 @@ import {
   compareBySeverity,
   consentFor,
   displayName,
+  initials,
   formatAge,
   formatDays,
   isEnrolmentCurrent,
@@ -248,6 +249,30 @@ describe('enrolment', () => {
   it('formats days in weekday order regardless of input order', () => {
     expect(formatDays([3, 1, 5])).toBe('Mon, Wed, Fri');
     expect(formatDays([])).toBe('No days set');
+  });
+});
+
+describe('initials', () => {
+  it('uses the preferred name and the surname', () => {
+    expect(initials({ firstName: 'Anahera', lastName: 'Ngata', preferredName: 'Ana' })).toBe('AN');
+    expect(initials({ firstName: 'Tāne', lastName: 'Māhuta', preferredName: null })).toBe('TM');
+  });
+
+  // The bug this function exists to avoid: displayName() would give "A(" here.
+  it('never takes its letters from the bracketed display form', () => {
+    expect(initials({ firstName: 'Anahera', lastName: 'Ngata', preferredName: 'Ana' })).not.toContain(
+      '(',
+    );
+  });
+
+  it('returns one letter rather than padding a mononym', () => {
+    expect(initials({ firstName: 'Tāne', lastName: '', preferredName: null })).toBe('T');
+  });
+
+  it('does not split an astral character in half', () => {
+    // U+20000, a CJK extension B ideograph: two UTF-16 code units, one character.
+    const glyph = '\u{20000}';
+    expect(initials({ firstName: glyph, lastName: 'Ngata', preferredName: null })).toBe(`${glyph}N`);
   });
 });
 

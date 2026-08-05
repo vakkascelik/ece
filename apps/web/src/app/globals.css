@@ -94,7 +94,7 @@ a { color: var(--accent); }
  * has the spare height, and after the collapse was introduced that parent is this one
  * rather than `.side`.
  */
-.side-collapse { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.side-collapse { flex: 1; display: flex; flex-direction: column; min-height: 0; padding-top: 1.25rem; }
 
 /* Hidden above the breakpoint: there the rail has a column to itself. */
 .nav-toggle { display: none; }
@@ -292,6 +292,73 @@ button.danger { background: var(--surface); color: var(--danger); border-color: 
   font-size: var(--text-base);
 }
 
+/* --- RollRow (design handoff, screen 2) ----------------------------------- */
+
+/*
+ * A list, not a table, because the pack describes these as lists and because the row is
+ * no longer four columns of comparable data: age and room fold into a line under the
+ * name, leaving name / time / action. A `<table>` whose rows are restyled as grids also
+ * loses its row semantics in some engines, which is a bad trade for a layout.
+ *
+ * `position: relative` for the same reason `.card` has it — the action buttons carry a
+ * visually-hidden child name, and an absolutely positioned descendant with no positioned
+ * ancestor stretches the page.
+ */
+.roll {
+  list-style: none;
+  margin: 0 0 1.25rem;
+  padding: 0;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  position: relative;
+}
+.roll > li + li { border-top: 1px solid var(--line); }
+
+.roll-row {
+  display: grid;
+  grid-template-columns: var(--target-min) 1fr auto auto;
+  gap: 16px;
+  align-items: center;
+  padding: 14px 18px;
+}
+
+/* Initials rather than a photograph. A roll that shows children's faces is a roll that
+   cannot be screenshared, held up in a room, or left open on a wall-mounted tablet. */
+.roll-initials {
+  width: var(--target-min);
+  height: var(--target-min);
+  border-radius: var(--radius-pill);
+  background: var(--surface-sunken);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.roll-who { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.roll-name { font-size: var(--text-lg); font-weight: 600; }
+.roll-meta {
+  display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+  font-size: var(--text-sm); color: var(--muted);
+}
+.roll-time { font-size: var(--text-sm); color: var(--muted); white-space: nowrap; }
+.roll-action { display: flex; gap: 8px; align-items: center; }
+.roll-action button { height: var(--target-min); padding: 0 16px; border-radius: var(--radius-sm); font-size: var(--text-base); }
+.roll-correct { padding: 0 18px 14px; }
+
+/*
+ * On a phone the four columns become two, with the time and the action tucked under the
+ * name rather than squeezed beside it. The initials column keeps its own track so the
+ * rows still align down the list.
+ */
+@media (max-width: 767px) {
+  .roll-row { grid-template-columns: var(--target-min) 1fr; row-gap: 10px; }
+  .roll-time, .roll-action { grid-column: 2; }
+}
+
 /* --- Auth screens (design handoff, screen 1) ------------------------------ */
 
 /*
@@ -456,10 +523,12 @@ button.danger { background: var(--surface); color: var(--danger); border-color: 
  * information here is "this child could stop breathing". The symbol is text, not
  * an icon font, so it survives a copy-paste into an email and needs no asset.
  */
+/* The pack's FlagChip: 13/600, padding 3px 10px. Was 12px/500 — a size the pack does
+   not use for anything a person is meant to read at a glance. */
 .flag {
   display: inline-flex; align-items: center; gap: 0.3em;
-  font-size: 0.75rem; font-weight: 500; white-space: nowrap;
-  padding: 0.15rem 0.5rem; border-radius: 999px; border: 1px solid transparent;
+  font-size: var(--text-sm); font-weight: 600; white-space: nowrap;
+  padding: 3px 10px; border-radius: var(--radius-pill); border: 1px solid transparent;
 }
 .flag-critical { background: var(--breach-soft); color: var(--breach); border-color: var(--breach-border); }
 .flag-warn     { background: var(--warn-soft);   color: var(--warn);   border-color: var(--warn-border); }

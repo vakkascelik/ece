@@ -205,6 +205,50 @@ that the scroll-width checks alone were **not** enough — `/` never overflowed,
 gets the screen. A regression test that only measures overflow would have called this
 screen fine.
 
+### RollRow, and why the roll stopped being a table
+
+The roll was a `<table>` with Name / Age / Since / Flags / Actions columns. The pack folds
+age and the flag chips into a line beneath the name, which leaves name, time and action —
+a layout, not tabular data — and the pack calls these "lists" in its own screen
+description. Two reasons the conversion was the right call rather than a cosmetic one:
+
+- **A table whose rows are restyled as grids loses its row semantics in some engines.**
+  Changing `display` on table elements is a known way to drop the implicit ARIA roles, so
+  keeping the `<table>` and grid-styling the `<tr>` would have traded real semantics for
+  a layout.
+- There is no longer a column of comparable values under "Age" or "Flags" to line up.
+
+Now `<ul class="roll">` with a `44px 1fr auto auto` grid per row, a 44px initials circle
+on `surfaceSunken`, the name at 18/600, a 13/muted meta line carrying age and chips, the
+time, and a 44px action. Below 767px it collapses to two columns with the time and action
+tucked under the name.
+
+`initials()` went into `@ece/core` beside `displayName()`, with a test, because the mobile
+ChildCard and the child-detail header both need the same two letters. It deliberately does
+**not** derive them from `displayName()`: that returns "Ana (Anahera) Test", whose first
+two initials are "A" and "(", which is how a roll ends up with a bracket in a circle.
+
+The FlagChip also moved to the pack's spec — 13/600 with 3px 10px padding, from 12/500.
+12px is not a size this pack uses for anything a person is meant to read at a glance, and
+"Allergy: peanuts" is the definitive example of something they are.
+
+### An accessible name that broke a test, and would have broken find-in-page
+
+The pack's annotation asks the roll action to be labelled with the child — "Sign Aroha
+Ngata out" — because there are twenty otherwise identical buttons on the page. The first
+attempt put the name in a `visually-hidden` span inside the button. That renders the same
+accessible name, and it put the child's name into the DOM **twice per row**.
+
+It failed immediately: a test asserting the child appears in the "Not here" region hit a
+strict-mode violation on two matches. The lesson is not about the test. Anything matching
+on text sees both copies — a find-in-page for a child's name now reports twice as many
+hits as there are children, and on a roll of twenty that is not a cosmetic problem.
+
+`aria-label` instead: one text node, same accessible name, and the visible "Sign out" is a
+prefix of it, which is what WCAG 2.5.3 (Label in Name) asks for. Word order differs from
+the pack's "Sign Aroha Ngata out" — "Sign out Aroha Ngata" keeps a stable prefix, which
+both a human scanning and a role-based selector can rely on.
+
 ### Deviations so far
 
 | Screen | Deviation | Why |
@@ -215,15 +259,12 @@ screen fine.
 | 2/3 — Ratio track | Fill is occupancy toward the limit, with a caption that says so, not "% of the adults recorded" | The pack's caption does not describe its own bar; see above |
 | 2 — Ratio counts | Counts in ink, detail line in the state colour | As the board renders it; the README does not say which |
 | 2 — Main column | The pack's 28px/32px padding applied, but no `gap: 20px` on the column | Every page under `(app)` uses `.section` margins; adding a gap as well would double-space all of them. A separate pass, or not at all |
+| 2 — RollRow | No room name in the meta line ("3 yrs · Kōwhai room") | There is no rooms concept in the schema. Adding one is a feature, not a restyle |
+| 2 — RollRow | Action labelled "Sign out {name}", not "Sign {name} out" | A stable prefix that a human scanning and a role selector can both rely on; see above |
+| 2 — RollRow | An "under 2" chip in the meta line, which the pack's anatomy does not list | The age text implies it, but the under-2 band is the regulated divide and was already explicit here. Removing information from a compliance screen needs a better reason than tidiness |
+| — | The rail's phone behaviour (collapse behind `☰ Menu`) is not in the pack at all | The pack has no phone-width web surface. See the section above |
 
 ### Not yet applied
-
-**RollRow is not done** — the roll is still a `<table>` with the old row anatomy, not the
-pack's `44px 1fr auto auto` grid with an initials circle and chips under the name. It was
-deliberately left: the e2e suite selects roll rows and their buttons by ARIA role, the pack's
-row is a grid of divs, and swapping the semantics at the end of a long session is how a green
-suite turns red for a reason nobody can see. It is the obvious next step and it needs its own
-run of `test:e2e`.
 
 Screens 4, 5, 6 and 8–13 are **not** done:
 

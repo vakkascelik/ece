@@ -350,6 +350,27 @@ export function displayName(child: Pick<Child, 'firstName' | 'lastName' | 'prefe
   return `${preferred} (${child.firstName}) ${child.lastName}`.trim();
 }
 
+/**
+ * Two letters for the avatar circle on the roll and the child record.
+ *
+ * Built from the name parts, not from `displayName()` — that returns
+ * "Ana (Anahera) Test", whose first two initials are "A" and "(", which is how a
+ * roll ends up with a bracket in a circle.
+ *
+ * The preferred name wins, because the circle sits beside the name the child is
+ * actually called. Falls back to one letter rather than padding with a placeholder:
+ * a mononym is a real thing and "T?" is worse than "T".
+ */
+export function initials(child: Pick<Child, 'firstName' | 'lastName' | 'preferredName'>): string {
+  const first = (child.preferredName?.trim() || child.firstName).trim();
+  // `[...str]` not `charAt` — a name beginning with an astral character (an emoji is
+  // unlikely, but a rare CJK extension glyph is not) would otherwise be cut in half
+  // into an unpaired surrogate.
+  const a = [...first][0] ?? '';
+  const b = [...child.lastName.trim()][0] ?? '';
+  return `${a}${b}`.toUpperCase();
+}
+
 export const WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
 
 /** `[1,2,3]` → "Mon, Tue, Wed". */
