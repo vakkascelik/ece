@@ -160,3 +160,4 @@ export * from './funding';
 export * from './tokens';
 export * from './contrast';
 export { classifyWriteFailure, type WriteFailure } from './writeFailure';
+export { describeSignOut, type QueueSnapshot, type SignOutVerdict } from './signOut';

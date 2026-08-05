@@ -83,6 +83,31 @@ async function db(): Promise<SQLite.SQLiteDatabase> {
       dead_at     text
     );
   `);
+
+  /*
+   * `user_id`, added after the fact, and the reason is the sharpest thing about this file.
+   *
+   * `recordAttendance` stamps `recorded_by` from `auth.uid()` at **flush time**, not at enqueue
+   * time (`packages/api/src/attendance.ts:116`). On a shared staffroom tablet that means: if
+   * educator A queues three sign-ins with no signal and then B signs in, B's token flushes A's
+   * observations and they are recorded as **B's** — in a table with no UPDATE grant for anybody,
+   * so the misattribution is permanent.
+   *
+   * Worse, if B is not a member of A's centre, RLS refuses the write. Classified transient, the
+   * flush loop **breaks** — so every sign-in B makes for the rest of the day queues behind A's
+   * row and never sends, while the badge cheerfully reports a number nobody reads as broken.
+   *
+   * So a queued event belongs to the person who made it, and only their token may flush it. That
+   * turns an unanswerable policy question ("do we discard A's work when A signs out?") into a
+   * mechanism: nobody discards anything, and nobody inherits anything either.
+   *
+   * SQLite has no `add column if not exists`, hence the catalogue check.
+   */
+  const cols = await handle.getAllAsync<{ name: string }>('pragma table_info(outbox)');
+  if (!cols.some((c) => c.name === 'user_id')) {
+    await handle.execAsync('alter table outbox add column user_id text');
+  }
+
   return handle;
 }
 
@@ -96,21 +121,24 @@ async function db(): Promise<SQLite.SQLiteDatabase> {
 export async function enqueue(
   kind: OutboxKind,
   payload: AttendancePayload | AdultsPayload,
+  /** Who made this observation. Only their token may ever send it — see the note in `db()`. */
+  userId: string | null,
 ): Promise<string> {
   const clientUuid = randomUUID();
   const conn = await db();
   await conn.runAsync(
-    'insert into outbox (client_uuid, kind, payload, created_at) values (?, ?, ?, ?)',
+    'insert into outbox (client_uuid, kind, payload, created_at, user_id) values (?, ?, ?, ?, ?)',
     clientUuid,
     kind,
     JSON.stringify(payload),
     new Date().toISOString(),
+    userId,
   );
   return clientUuid;
 }
 
 /** Everything still waiting, oldest first. Dead entries included so they can be shown. */
-export async function pending(): Promise<OutboxEntry[]> {
+export async function pending(userId?: string | null): Promise<OutboxEntry[]> {
   const conn = await db();
   const rows = await conn.getAllAsync<{
     client_uuid: string;
@@ -120,7 +148,17 @@ export async function pending(): Promise<OutboxEntry[]> {
     attempts: number;
     last_error: string | null;
     dead_at: string | null;
-  }>('select * from outbox order by created_at');
+    /*
+     * Scoped to one person when a userId is given. `user_id is null` is included because rows
+     * enqueued before the column existed have no owner, and the alternative — stranding them
+     * forever — would lose attendance that is already recorded on the device.
+     */
+  }>(
+    userId === undefined
+      ? 'select * from outbox order by created_at'
+      : 'select * from outbox where user_id = ? or user_id is null order by created_at',
+    ...(userId === undefined ? [] : [userId]),
+  );
   return rows.map((r) => ({
     clientUuid: r.client_uuid,
     kind: r.kind as OutboxKind,
@@ -140,8 +178,10 @@ export async function pending(): Promise<OutboxEntry[]> {
  * as present on the strength of a write the server has refused would be worse than
  * showing them absent.
  */
-export async function pendingAttendance(): Promise<(AttendancePayload & { clientUuid: string })[]> {
-  const all = await pending();
+export async function pendingAttendance(
+  userId?: string | null,
+): Promise<(AttendancePayload & { clientUuid: string })[]> {
+  const all = await pending(userId);
   return all
     .filter((e) => e.kind === 'attendance' && !e.deadAt)
     .map((e) => ({ clientUuid: e.clientUuid, ...(JSON.parse(e.payload) as AttendancePayload) }));
@@ -167,11 +207,17 @@ export interface FlushReport {
  * Permanent failures do not stop the run — they are set aside and the queue keeps
  * draining behind them.
  */
-export async function flush(client: Db): Promise<FlushReport> {
+export async function flush(client: Db, userId?: string | null): Promise<FlushReport> {
   const conn = await db();
   const report: FlushReport = { sent: 0, duplicates: 0, deferred: 0, dead: 0 };
 
-  for (const entry of await pending()) {
+  /*
+   * Only this user's rows. `recordAttendance` stamps `recorded_by` from the flushing token, so
+   * sending somebody else's queued observation would file it under the wrong name permanently —
+   * and if this user is not a member of that centre, RLS refuses it and the loop `break`s,
+   * jamming every event behind it for the rest of the day.
+   */
+  for (const entry of await pending(userId)) {
     if (entry.deadAt) {
       report.dead += 1;
       continue;

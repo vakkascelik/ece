@@ -68,12 +68,30 @@ export async function registerForPush(db: Db): Promise<RegisterOutcome> {
 
     const { data: token } = await Notifications.getExpoPushTokenAsync({ projectId });
 
+    // The row belongs to a person, and the policy checks it. Without a session there is nothing to
+    // register against, and failing here is better than writing a row that RLS will refuse.
+    const { data: auth } = await db.auth.getUser();
+    if (!auth.user) return { ok: false, reason: 'failed', detail: 'no signed-in user' };
+
     // Upsert on the token, not on the user: a person has several devices, and re-registering the
     // same device must not create a second row that then receives duplicates.
     const { error } = await db
       .from('push_tokens')
       .upsert(
         {
+          /*
+           * `user_id` WAS MISSING, AND EVERY CALL WOULD HAVE FAILED.
+           *
+           * The column is `not null` with no default (`0017_notifications.sql:26`) and the row
+           * policy carries `with check (user_id = auth.uid())`. Without this line the insert is
+           * refused every single time — and nobody noticed, because this function has never
+           * executed on a device.
+           *
+           * It is fixed rather than deleted even though nothing calls it in this build. A latent
+           * bug in a dormant path is a bug that surfaces the day somebody enables it, by which
+           * time the reasoning is gone. See `unverified-claims.md` item 5.
+           */
+          user_id: auth.user.id,
           token,
           platform: Platform.OS,
           last_seen: new Date().toISOString(),
