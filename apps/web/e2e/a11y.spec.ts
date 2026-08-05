@@ -8,6 +8,56 @@ import { auditPage, tenant, visit } from './fixtures/audit';
  * an audit of an empty state is worthless.
  */
 
+/**
+ * The shell at phone width.
+ *
+ * This exists because the audit above runs at 1440x900 and nothing ever looked at a
+ * narrow viewport, so a real defect shipped: the 224px rail never collapsed — 57% of a
+ * 390px screen — and `/attendance` scrolled 327px sideways. A horizontal page scroll
+ * hides the right-hand column of every row at once, which on the roll is the column
+ * with the sign-in button in it.
+ *
+ * Asserting on `scrollWidth` rather than on a screenshot, because the failure is
+ * measurable and a pixel diff would need a baseline to argue with. 1px of tolerance:
+ * sub-pixel layout rounding is not a defect.
+ *
+ * Note what this does NOT claim — that the web app is designed for a phone. It is not;
+ * that is the Expo app's job. It claims only that it does not break on one.
+ */
+test.describe('the shell on a phone', () => {
+  test.use({ viewport: { width: 390, height: 780 } });
+
+  for (const route of ['/', '/attendance', '/children']) {
+    test(`${route} does not scroll sideways`, async ({ page }) => {
+      await visit(page, route);
+      const overflow = await page.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      );
+      expect(overflow, `${route} overflows horizontally by ${overflow}px at 390px`).toBeLessThanOrEqual(1);
+    });
+  }
+
+  /**
+   * The other half of the same defect, and the half a scroll-width check misses
+   * entirely: `/` never overflowed, it just had 166px of usable width because the rail
+   * took the other 224. So this asserts the content column actually gets the screen.
+   */
+  test('the rail becomes a bar and gives the content its width', async ({ page }) => {
+    await visit(page, '/attendance');
+
+    const box = await page.evaluate(() => {
+      const rail = document.querySelector('.side')!.getBoundingClientRect();
+      const main = document.querySelector('.main')!.getBoundingClientRect();
+      return { rail: Math.round(rail.width), main: Math.round(main.width), vw: window.innerWidth };
+    });
+
+    // Stacked, not beside: the rail spans the viewport rather than carving a column out
+    // of it. Both halves asserted, because either one alone has a passing degenerate case.
+    expect(box.rail, `rail is ${box.rail}px of a ${box.vw}px viewport`).toBeGreaterThan(box.vw * 0.9);
+    expect(box.main, `content column is only ${box.main}px wide`).toBeGreaterThan(box.vw * 0.9);
+  });
+});
+
 test.describe('staff screens', () => {
   test('overview', async ({ page }) => {
     await visit(page, '/');

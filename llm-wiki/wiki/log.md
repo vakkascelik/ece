@@ -5,6 +5,24 @@ says so.*
 
 ---
 
+2026-08-06 — The shell was broken on a phone and no check was looking. Reported from use: the
+224px rail never collapsed, taking **57% of a 390px screen** and leaving the ratio block — the
+one thing that must be glanceable — wrapping "0 kaiako · 0 tamariki" over four lines, with
+`/attendance` scrolling 327px sideways. Fixed with a 767px breakpoint that turns the rail into a
+bar; deliberately no hamburger, which would need state, a focus trap and an escape key to save
+vertical space on a surface that scrolls anyway.
+
+Two findings worth more than the fix. **An accessibility helper was causing a layout defect**:
+after the table was contained, 31px of page scroll remained, because `.visually-hidden` is
+absolutely positioned and with no positioned ancestor its containing block is the page — the
+off-screen "Actions" label in the roll's header sat at x=421 on a 390px viewport. Nobody looks
+for a layout bug inside a screen-reader affordance. And **the audit had a blind spot shaped like
+this bug**: the Playwright viewport is 1440×900 with a comment about auditing the app as an
+operator sees it, so nothing ever loaded a narrow one. Four assertions added and
+mutation-tested — and the scroll-width ones alone were not sufficient, since `/` never
+overflowed, it merely had 166px of usable width, so the rail width is asserted separately.
+Detail in [[design-system]].
+
 2026-08-06 — Screens 2 and 3 of the pack: the shell (1280px, 224px rail, sign-out pinned to
 the bottom) and the ratio block's three states, with the breach overflow segment and an
 `aria-hidden` track. The current nav item is styled off `aria-current="page"` rather than a

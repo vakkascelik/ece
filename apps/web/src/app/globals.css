@@ -82,7 +82,64 @@ a { color: var(--accent); }
 /* Pushes the sign-out block to the bottom of the rail whatever the nav length. */
 .side-foot { margin-top: auto; }
 
+/* The rail is a flex column, so a pill would otherwise stretch to its full width and
+   stop looking like a pill. */
+.side .pill { align-self: flex-start; }
+
 .main { flex: 1; padding: 28px 32px; min-width: 0; }
+
+/*
+ * Below tablet width the rail stops being a rail.
+ *
+ * This app is designed for a desk or a wall-mounted tablet — a phone is the Expo app's
+ * job — but "not the target surface" is not the same as "acceptable when broken". At
+ * 390px the 224px rail took **57% of the screen**, and the ratio block, the one thing on
+ * the page that has to be readable at a glance, wrapped "0 kaiako · 0 tamariki" over
+ * four lines. Measured, not guessed: `/attendance` also scrolled 327px sideways.
+ *
+ * So the rail becomes a bar across the top and the nav wraps horizontally. No hamburger:
+ * a disclosure widget hides eight destinations behind a tap and needs state, a focus
+ * trap and an escape key, all to save vertical space on a surface that scrolls anyway.
+ */
+@media (max-width: 767px) {
+  .shell { flex-direction: column; }
+  .side {
+    width: auto;
+    flex: none;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+    padding: 12px 16px;
+  }
+  .side nav { flex-direction: row; flex-wrap: wrap; gap: 4px; margin-bottom: 12px; }
+  /* Nothing to push to the bottom once the rail is a bar. */
+  .side-foot { margin-top: 0; display: flex; gap: 12px; align-items: center; }
+  .side-foot p { margin: 0; }
+  .side-foot form { flex: 0 1 12rem; }
+  .main { padding: 20px 16px; }
+  .auth { margin: 1.5rem auto; padding: 32px 24px; }
+}
+
+/*
+ * A table is the only thing in this app that can be wider than a phone. It scrolls
+ * inside its own card; the page body never scrolls sideways, because a horizontal page
+ * scroll hides the right-hand column of every row at once — on the roll that is the
+ * column with the sign-in button in it.
+ */
+.card:has(> table) { overflow-x: auto; }
+
+/*
+ * `position: relative` for a reason that took measuring to find.
+ *
+ * `.visually-hidden` is absolutely positioned. With no positioned ancestor its
+ * containing block is the page, so the off-screen "Actions" span in the roll's table
+ * header sat at x=421 on a 390px viewport and gave the whole document 31px of
+ * horizontal scroll — after the table itself had been contained. An accessibility
+ * helper was causing a layout defect, which is not where anybody looks.
+ *
+ * Making the card a containing block keeps such descendants inside the scroll container
+ * that already exists for them.
+ */
+.card { position: relative; }
 
 h1 { font-size: 1.5rem; font-weight: 600; margin: 0 0 0.25rem; }
 .sub { color: var(--muted); margin: 0 0 2rem; }
@@ -101,6 +158,9 @@ input, select {
 button {
   font: inherit; padding: 0.45rem 0.9rem; border-radius: 6px; border: 1px solid var(--accent);
   background: var(--accent); color: var(--ink-inverse); cursor: pointer;
+  /* "Sign in" was wrapping to "Sign / in" in the roll's narrow action column. A label
+     broken across two lines reads as two controls at a glance. */
+  white-space: nowrap;
 }
 button.secondary { background: var(--surface); color: var(--ink); border-color: var(--line); }
 button.danger { background: var(--surface); color: var(--danger); border-color: var(--line); }

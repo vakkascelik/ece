@@ -138,6 +138,48 @@ words.
 If the intended meaning was something else, the fix is one expression in
 `RatioBanner.tsx` — but it needs a sentence that is true of whatever it measures.
 
+### The shell was broken on a phone, and nothing was looking
+
+Reported from use, not found by a check: the rail never collapsed. Measured before fixing,
+at 390×780:
+
+| | Before | After |
+|---|---|---|
+| Rail width | 224px — **57% of the screen** | full width, a bar across the top |
+| Content column | 166px | 358px |
+| `/attendance` horizontal page scroll | **327px** | 0px |
+
+The visible consequence was worse than the numbers: the ratio block, the one thing on the
+page that has to be readable at a glance, wrapped "0 kaiako · 0 tamariki" over four lines.
+
+The web app is designed for a desk or a wall-mounted tablet — a phone is the Expo app's
+job — but "not the target surface" is not the same as "acceptable when broken", and a
+manager will open this on a phone. Below 767px the rail becomes a bar and the nav wraps.
+**No hamburger:** a disclosure widget hides eight destinations behind a tap and needs
+state, a focus trap and an escape key, all to save vertical space on a surface that
+scrolls anyway.
+
+Two findings from fixing it, both worth more than the fix:
+
+1. **An accessibility helper was causing the layout defect.** After the table itself was
+   contained in a scroll container, 31px of horizontal page scroll remained. The cause was
+   `.visually-hidden` — absolutely positioned, and with no positioned ancestor its
+   containing block is the *page*, so the off-screen "Actions" label in the roll's table
+   header sat at x=421 on a 390px viewport and stretched the document. `position: relative`
+   on `.card` fixes it. Nobody looks for a layout bug inside a screen-reader affordance,
+   which is exactly why it survived.
+2. **The audit had a blind spot shaped like this bug.** `playwright.config.ts` sets a
+   1440×900 viewport with a comment about auditing the app "as an operator sees it" — true,
+   and it meant no check ever loaded a narrow one. Four assertions now cover it.
+
+The new assertions were **mutation-tested**, because a passing first run means nothing:
+setting `.card` back to `position: static` fails `/attendance` alone, and disabling the
+breakpoint fails three, the rail check reporting "rail is 224px of a 390px viewport". Note
+that the scroll-width checks alone were **not** enough — `/` never overflowed, it just had
+166px of usable width — so there is a separate assertion that the content column actually
+gets the screen. A regression test that only measures overflow would have called this
+screen fine.
+
 ### Deviations so far
 
 | Screen | Deviation | Why |
