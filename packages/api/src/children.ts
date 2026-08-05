@@ -26,6 +26,7 @@ import type {
   HealthSeverity,
   MedicationAuthority,
 } from '@ece/core';
+import { fetchAll } from './paging';
 import type { Db } from './index';
 
 // ---------------------------------------------------------------------------
@@ -214,11 +215,28 @@ export async function listChildren(
   centreId: string,
   opts: { includeArchived?: boolean } = {},
 ): Promise<Child[]> {
-  let q = db.from('children').select(CHILD_COLUMNS).eq('centre_id', centreId);
-  if (!opts.includeArchived) q = q.is('archived_at', null);
-  const { data, error } = await q.order('last_name').order('first_name');
-  if (error) throw new Error(`listChildren: ${error.message}`);
-  return (data as ChildRow[]).map(toChild);
+  /*
+   * Paged, and this is the one that would have hurt most quietly.
+   *
+   * A licence caps the roll, so the *current* roll is dozens of rows and could never truncate.
+   * But `includeArchived: true` returns every child who has ever attended — and that is the
+   * option the funding page uses, to turn an id into a name for a child who has since left.
+   * Ten years of a two-site operator is well past a thousand.
+   *
+   * The failure would not have looked like a failure. The funding table renders "a former
+   * child" when a name is missing from its map, so a truncated read produces an export where
+   * some rows are anonymous — on the one document whose purpose is to be keyed into a Ministry
+   * system per child. Nothing errors, and the totals stay correct.
+   *
+   * `id` joins the ordering because two children share a surname often enough that paging on
+   * (last_name, first_name) alone could repeat one row and skip another.
+   */
+  const rows = await fetchAll<ChildRow>('listChildren', (from, to) => {
+    let q = db.from('children').select(CHILD_COLUMNS).eq('centre_id', centreId);
+    if (!opts.includeArchived) q = q.is('archived_at', null);
+    return q.order('last_name').order('first_name').order('id').range(from, to);
+  });
+  return rows.map(toChild);
 }
 
 /** One child, or null when the caller may not see them — which RLS makes indistinguishable from "does not exist", on purpose. */

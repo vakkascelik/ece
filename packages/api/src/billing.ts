@@ -21,6 +21,7 @@ import {
   type HoursEvent,
 } from '@ece/core';
 import type { Db } from './index';
+import { fetchAll } from './paging';
 
 // ---------------------------------------------------------------------------
 // Bookings
@@ -67,15 +68,22 @@ export async function listBookings(
   db: Db,
   input: { centreId: string; from: string; to: string },
 ): Promise<Booking[]> {
-  const { data, error } = await db
-    .from('bookings')
-    .select(BOOKING_COLUMNS)
-    .eq('centre_id', input.centreId)
-    .gte('on_date', input.from)
-    .lte('on_date', input.to)
-    .order('on_date');
-  if (error) throw new Error(`listBookings: ${error.message}`);
-  return (data as BookingRow[]).map(toBooking);
+  // Paged: a month of bookings for a centre licensed for 65 children is about 1,300 rows,
+  // and the cap is 1,000. `id` joins the ordering because two bookings share a date by
+  // definition — without it, paging over a non-unique order can repeat one row and skip
+  // another, which on an invoice means charging for a day twice and not at all for another.
+  const rows = await fetchAll<BookingRow>('listBookings', (from, to) =>
+    db
+      .from('bookings')
+      .select(BOOKING_COLUMNS)
+      .eq('centre_id', input.centreId)
+      .gte('on_date', input.from)
+      .lte('on_date', input.to)
+      .order('on_date')
+      .order('id')
+      .range(from, to),
+  );
+  return rows.map(toBooking);
 }
 
 /**
@@ -150,26 +158,43 @@ export interface InvoiceLine {
  * query.
  */
 export async function listInvoices(db: Db, centreId: string): Promise<Invoice[]> {
+  // Both paged. A centre with 65 families invoiced fortnightly passes 1,000 invoices inside
+  // a year, and the totals view has a row per invoice — so the two would truncate at
+  // different points and a family's invoice would render with a total of $0.00.
   const [invoices, totals] = await Promise.all([
-    db
-      .from('invoices')
-      .select('id, centre_id, guardian_id, reference, status, period_from, period_to, issued_at, due_on')
-      .eq('centre_id', centreId)
-      .order('created_at', { ascending: false }),
-    db.from('invoice_totals').select('invoice_id, total_cents').eq('centre_id', centreId),
+    fetchAll<{
+      id: string;
+      centre_id: string;
+      guardian_id: string;
+      reference: string;
+      status: InvoiceStatus;
+      period_from: string;
+      period_to: string;
+      issued_at: string | null;
+      due_on: string | null;
+    }>('listInvoices', (from, to) =>
+      db
+        .from('invoices')
+        .select('id, centre_id, guardian_id, reference, status, period_from, period_to, issued_at, due_on')
+        .eq('centre_id', centreId)
+        .order('created_at', { ascending: false })
+        .order('id')
+        .range(from, to),
+    ),
+    fetchAll<{ invoice_id: string; total_cents: number }>('listInvoices (totals)', (from, to) =>
+      db
+        .from('invoice_totals')
+        .select('invoice_id, total_cents')
+        .eq('centre_id', centreId)
+        .order('invoice_id')
+        .range(from, to),
+    ),
   ]);
-  if (invoices.error) throw new Error(`listInvoices: ${invoices.error.message}`);
-  if (totals.error) throw new Error(`listInvoices (totals): ${totals.error.message}`);
 
-  const totalOf = new Map(
-    (totals.data as { invoice_id: string; total_cents: number }[]).map((t) => [
-      t.invoice_id,
-      Number(t.total_cents),
-    ]),
-  );
+  const totalOf = new Map(totals.map((t) => [t.invoice_id, Number(t.total_cents)]));
 
   return (
-    data(invoices) as {
+    invoices as {
       id: string;
       centre_id: string;
       guardian_id: string;
@@ -194,17 +219,25 @@ export async function listInvoices(db: Db, centreId: string): Promise<Invoice[]>
   }));
 }
 
-/** Narrows away the error branch after it has been checked. */
-function data<T>(result: { data: T | null }): T {
-  return (result.data ?? []) as T;
-}
-
 export async function listInvoiceLines(db: Db, invoiceId: string): Promise<InvoiceLine[]> {
-  const { data: rows, error } = await db
-    .from('invoice_lines')
-    .select('id, invoice_id, child_id, description, quantity, unit_cents')
-    .eq('invoice_id', invoiceId);
-  if (error) throw new Error(`listInvoiceLines: ${error.message}`);
+  // One invoice's lines will not reach a thousand, and paging it costs nothing when it does
+  // not. Uniform treatment beats a judgement call per query that a later reader has to
+  // re-make with less context.
+  const rows = await fetchAll<{
+    id: string;
+    invoice_id: string;
+    child_id: string | null;
+    description: string;
+    quantity: number | string;
+    unit_cents: number;
+  }>('listInvoiceLines', (from, to) =>
+    db
+      .from('invoice_lines')
+      .select('id, invoice_id, child_id, description, quantity, unit_cents')
+      .eq('invoice_id', invoiceId)
+      .order('id')
+      .range(from, to),
+  );
   return (
     rows as {
       id: string;
@@ -232,17 +265,40 @@ export async function listInvoiceLines(db: Db, invoiceId: string): Promise<Invoi
  * deployment has issued — a small thing that is nonetheless none of their business.
  */
 export async function nextInvoiceReference(db: Db, centreId: string): Promise<string> {
-  const { data: rows, error } = await db
-    .from('invoices')
-    .select('reference')
-    .eq('centre_id', centreId)
-    .order('reference', { ascending: false })
-    .limit(1);
-  if (error) throw new Error(`nextInvoiceReference: ${error.message}`);
+  /*
+   * TWO BUGS THIS HAD, BOTH FOUND BY AUDIT RATHER THAN BY USE.
+   *
+   * 1. It took the highest reference by TEXT order, which matches numeric order only while
+   *    the zero-padding holds. `INV-0010` sorts above `INV-0009` because the pad makes them
+   *    the same length — but `INV-10000` sorts BELOW `INV-9999`, because '1' < '9'. At ten
+   *    thousand invoices the sequence would silently walk back into the 9,000s and every
+   *    insert after that would collide with a reference that already exists. A centre
+   *    invoicing 65 families fortnightly gets there in about six years.
+   *
+   * 2. It read one row and added one to it, so two managers creating an invoice in the same
+   *    second computed the same reference.
+   *
+   * The maximum is now computed numerically across every reference for the centre, which
+   * fixes (1) outright. (2) remains possible and is still caught by the unique index on
+   * `(centre_id, reference)`: the second insert is refused. A gapless race-free sequence
+   * needs a counter row and a transaction, which is more machinery than one centre issuing
+   * one invoice at a time justifies. What matters is that the failure mode is a refused
+   * insert and never a reused number — two different amounts sharing one reference in a
+   * family's records is the error that cannot be repaired afterwards.
+   */
+  const rows = await fetchAll<{ reference: string }>('nextInvoiceReference', (from, to) =>
+    db.from('invoices').select('reference').eq('centre_id', centreId).order('id').range(from, to),
+  );
 
-  const last = (rows as { reference: string }[])[0]?.reference ?? '';
-  const n = Number(last.replace(/\D/g, '')) || 0;
-  return `INV-${String(n + 1).padStart(4, '0')}`;
+  let highest = 0;
+  for (const { reference } of rows) {
+    // Digits only, so a hand-entered reference like `2026-03/A` contributes 202603 instead of
+    // throwing. Deliberately generous: this only has to stay ahead of what exists.
+    const n = Number(String(reference).replace(/\D/g, ''));
+    if (Number.isFinite(n) && n > highest) highest = n;
+  }
+
+  return `INV-${String(highest + 1).padStart(4, '0')}`;
 }
 
 export async function createInvoice(
@@ -389,6 +445,22 @@ export async function recordPayment(
  * calculation has to resolve corrections and refuse to guess at incomplete days — neither of which
  * survives being summed in SQL first.
  */
+/** Shapes read by `readFundingPeriod`. Named so the paged calls stay legible. */
+interface AttendanceRow {
+  id: number;
+  child_id: string;
+  kind: 'in' | 'out';
+  at: string;
+  corrects: number | null;
+}
+
+interface EnrolmentRow {
+  child_id: string;
+  twenty_hours_ece: boolean;
+  start_date: string;
+  end_date: string | null;
+}
+
 export async function readFundingPeriod(
   db: Db,
   input: {
@@ -400,33 +472,49 @@ export async function readFundingPeriod(
     toUtc: string;
   },
 ): Promise<FundingSummary> {
+  /*
+   * All three are paged, and the middle one is why `fetchAll` exists at all.
+   *
+   * PostgREST caps a select at 1000 rows and reports NO error. A centre licensed for 65
+   * children produces roughly 130 attendance events a day, so a month is about 2,600 — and
+   * the truncation was measured against the live database rather than reasoned about: 1,200
+   * events present, 1,000 returned, and this function then reported **72 hours instead of
+   * 100** and **invented two unresolved days**, because the cut landed mid-day and left
+   * sign-ins with no sign-out.
+   *
+   * Under-reporting the money and fabricating broken records at the same time, silently, in
+   * the one calculation whose whole design principle is that nothing is estimated.
+   */
   const [children, events, enrolments] = await Promise.all([
-    db.from('children').select('id').eq('centre_id', input.centreId),
-    db
-      .from('attendance_events')
-      .select('id, child_id, kind, at, corrects, children!inner(centre_id)')
-      .eq('children.centre_id', input.centreId)
-      .gte('at', input.fromUtc)
-      .lt('at', input.toUtc)
-      .order('at'),
-    db
-      .from('enrolments')
-      .select('child_id, twenty_hours_ece, start_date, end_date')
-      .eq('centre_id', input.centreId),
+    fetchAll<{ id: string }>('readFundingPeriod (children)', (from, to) =>
+      db.from('children').select('id').eq('centre_id', input.centreId).range(from, to),
+    ),
+    fetchAll<AttendanceRow>('readFundingPeriod (events)', (from, to) =>
+      db
+        .from('attendance_events')
+        .select('id, child_id, kind, at, corrects, children!inner(centre_id)')
+        .eq('children.centre_id', input.centreId)
+        .gte('at', input.fromUtc)
+        .lt('at', input.toUtc)
+        // Ordered by `at` AND `id`. Paging over a non-unique order is its own silent
+        // corruption: two events sharing a timestamp — a bulk import, a fast double-tap —
+        // may come back in either order, so one can appear on both pages and another on
+        // neither. `id` is unique and monotonic, which makes the ordering total.
+        .order('at')
+        .order('id')
+        .range(from, to),
+    ),
+    fetchAll<EnrolmentRow>('readFundingPeriod (enrolments)', (from, to) =>
+      db
+        .from('enrolments')
+        .select('child_id, twenty_hours_ece, start_date, end_date')
+        .eq('centre_id', input.centreId)
+        .range(from, to),
+    ),
   ]);
 
-  if (children.error) throw new Error(`readFundingPeriod (children): ${children.error.message}`);
-  if (events.error) throw new Error(`readFundingPeriod (events): ${events.error.message}`);
-  if (enrolments.error) throw new Error(`readFundingPeriod (enrolments): ${enrolments.error.message}`);
-
   const byChild = new Map<string, HoursEvent[]>();
-  for (const r of events.data as {
-    id: number;
-    child_id: string;
-    kind: 'in' | 'out';
-    at: string;
-    corrects: number | null;
-  }[]) {
+  for (const r of events) {
     const list = byChild.get(r.child_id);
     const e: HoursEvent = { id: r.id, kind: r.kind, at: r.at, corrects: r.corrects };
     if (list) list.push(e);
@@ -436,17 +524,12 @@ export async function readFundingPeriod(
   // The attestation in force during the period. A child whose enrolment changed mid-period is a case
   // this does not split — noted rather than guessed, because splitting it wrongly changes a claim.
   const attested = new Map<string, boolean>();
-  for (const r of enrolments.data as {
-    child_id: string;
-    twenty_hours_ece: boolean;
-    start_date: string;
-    end_date: string | null;
-  }[]) {
+  for (const r of enrolments) {
     const overlaps = r.start_date <= input.period.to && (r.end_date === null || r.end_date >= input.period.from);
     if (overlaps && r.twenty_hours_ece) attested.set(r.child_id, true);
   }
 
-  const results = (children.data as { id: string }[])
+  const results = children
     .map(({ id }) =>
       childFunding({
         childId: id,

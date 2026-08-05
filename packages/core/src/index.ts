@@ -159,3 +159,4 @@ export * from './funding';
 
 export * from './tokens';
 export * from './contrast';
+export { classifyWriteFailure, type WriteFailure } from './writeFailure';

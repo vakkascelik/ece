@@ -1,6 +1,7 @@
 import * as SQLite from 'expo-sqlite';
 import { randomUUID } from 'expo-crypto';
 import { recordAdultsPresent, recordAttendance, type AttendanceKind, type Db } from '@ece/api';
+import { classifyWriteFailure } from '@ece/core';
 
 /**
  * The offline outbox.
@@ -27,7 +28,7 @@ import { recordAdultsPresent, recordAttendance, type AttendanceKind, type Db } f
  * 2. **A permanently rejected write is not retried forever.** A queue that keeps
  *    re-sending something the server will always refuse is a stuck queue, and it
  *    blocks everything behind it. Postgres tells us which kind of failure it was;
- *    see `isPermanent`.
+ *    see `classifyWriteFailure`.
  *
  * 3. **Queued events count toward the ratio.** Not a UI nicety. If an offline
  *    sign-in is invisible to the ratio, an educator sees a lower child count than the
@@ -156,28 +157,6 @@ export interface FlushReport {
   dead: number;
 }
 
-/**
- * Postgres error codes that will never succeed on retry.
- *
- * The distinction is the difference between a queue that drains and a queue that
- * jams. A check violation — an event that has aged past the 14-day window while the
- * device was in a drawer — is permanent, and re-sending it every thirty seconds
- * forever accomplishes nothing except keeping newer events behind it.
- *
- * `23505` is deliberately absent: a unique violation on `client_uuid` means the event
- * is already there, which is success, and the API layer reports it as a duplicate
- * rather than an error.
- */
-function isPermanent(message: string): boolean {
-  return (
-    /\b23514\b/.test(message) || // check_violation — outside the allowed time window
-    /\b42501\b/.test(message) || // insufficient_privilege — no longer a member, or revoked
-    /\b23503\b/.test(message) || // foreign_key_violation — the child was archived or purged
-    /\b22P02\b/.test(message) || // invalid_text_representation — a malformed payload
-    /violates check constraint/i.test(message) ||
-    /permission denied/i.test(message)
-  );
-}
 
 /**
  * Try to send everything queued.
@@ -227,7 +206,9 @@ export async function flush(client: Db): Promise<FlushReport> {
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
 
-      if (isPermanent(message)) {
+      const verdict = classifyWriteFailure(message);
+
+      if (verdict === 'permanent') {
         await conn.runAsync(
           'update outbox set attempts = attempts + 1, last_error = ?, dead_at = ? where client_uuid = ?',
           message.slice(0, 500),
@@ -244,7 +225,15 @@ export async function flush(client: Db): Promise<FlushReport> {
         entry.clientUuid,
       );
       report.deferred += 1;
-      // No signal means no signal for the rest of the queue too.
+
+      if (verdict === 'retry-later') {
+        // Says nothing about the rest of the queue — it is this row's timestamp that is not
+        // valid yet, and it will be shortly. Skip it and keep draining, or one drifted clock
+        // holds back every sign-in made after it.
+        continue;
+      }
+
+      // Transient: no signal means no signal for the rest of the queue either.
       break;
     }
   }

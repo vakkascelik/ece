@@ -15,6 +15,7 @@
  */
 
 import { replayDay, type DayReplay, type StaffRecord, type StaffRecordKind } from '@ece/core';
+import { fetchAll } from './paging';
 import type { Db } from './index';
 
 // ---------------------------------------------------------------------------
@@ -68,11 +69,15 @@ export async function listStaffRecords(
   centreId: string,
   opts: { includeArchived?: boolean } = {},
 ): Promise<StaffRecord[]> {
-  let q = db.from('staff_records').select(STAFF_COLUMNS).eq('centre_id', centreId);
-  if (!opts.includeArchived) q = q.is('archived_at', null);
-  const { data, error } = await q.order('person_name').order('kind');
-  if (error) throw new Error(`listStaffRecords: ${error.message}`);
-  return (data as StaffRow[]).map(toStaffRecord);
+  // Paged: six record kinds per person, kept after they leave, so a centre with turnover
+  // passes a thousand rows in a few years. This list is what the expiry warnings are built
+  // from — a truncated read would silently stop warning about the records it dropped.
+  const rows = await fetchAll<StaffRow>('listStaffRecords', (from, to) => {
+    let q = db.from('staff_records').select(STAFF_COLUMNS).eq('centre_id', centreId);
+    if (!opts.includeArchived) q = q.is('archived_at', null);
+    return q.order('person_name').order('kind').order('id').range(from, to);
+  });
+  return rows.map(toStaffRecord);
 }
 
 export interface StaffRecordInput {
@@ -274,15 +279,33 @@ const EVIDENCE_COLUMNS =
   'id, centre_id, criterion_id, kind, title, detail, location, covers_from, covers_to, owner_name, added_at';
 
 export async function listEvidence(db: Db, centreId: string): Promise<Evidence[]> {
-  const { data, error } = await db
-    .from('evidence')
-    .select(EVIDENCE_COLUMNS)
-    .eq('centre_id', centreId)
-    .is('archived_at', null)
-    .order('added_at', { ascending: false });
-  if (error) throw new Error(`listEvidence: ${error.message}`);
+  // Paged: evidence accumulates for the life of the centre and is never deleted, only
+  // archived. Truncation here would quietly shrink the binder a reviewer is handed, which is
+  // the document this feature exists to produce.
+  const rows = await fetchAll<{
+    id: string;
+    centre_id: string;
+    criterion_id: string | null;
+    kind: EvidenceKind;
+    title: string;
+    detail: string | null;
+    location: string | null;
+    covers_from: string | null;
+    covers_to: string | null;
+    owner_name: string | null;
+    added_at: string;
+  }>('listEvidence', (from, to) =>
+    db
+      .from('evidence')
+      .select(EVIDENCE_COLUMNS)
+      .eq('centre_id', centreId)
+      .is('archived_at', null)
+      .order('added_at', { ascending: false })
+      .order('id')
+      .range(from, to),
+  );
   return (
-    data as {
+    rows as {
       id: string;
       centre_id: string;
       criterion_id: string | null;

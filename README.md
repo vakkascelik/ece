@@ -40,6 +40,7 @@ npm run build                  # web
 npm run onboard                # create a centre and its first owner
 npm run sweep:audit            # drop audit tenants a killed test run left behind
 npm run drill:restore          # extract every table, reload it, compare
+npm run drill:rowcap           # 1,200 events: prove the funding read is not truncated
 npm run deploy:auth            # point Supabase Auth at the deployed app
 ```
 
@@ -1246,6 +1247,37 @@ And `password_min_length` was **6**, already raised to **10**. The invitation fo
 refused anything shorter, so the product was promising a stronger minimum than the service
 enforced, and any route that set a password without going through that form was held to the
 weaker rule.
+
+## The 1000-row cliff
+
+PostgREST is configured with `max_rows: 1000`, so an **unbounded `select()` returns at most a
+thousand rows with `error` set to null.** Nothing in the response says anything was left behind.
+
+That was a live bug in the money path, measured rather than reasoned about. With 1,200 attendance
+events for one child, `readFundingPeriod` reported **72 hours instead of the true total** and
+**invented two unresolved days**, because the cut landed mid-day and left sign-ins with no
+sign-out. Under-reporting the claim and fabricating broken records at once — the exact inverse of
+the design principle that nothing is estimated.
+
+[`fetchAll`](packages/api/src/paging.ts) pages with `.range()` until a short page and **throws**
+at a ceiling rather than returning a partial result, because a partial answer is what caused the
+bug. A larger `.limit()` would only move the cliff somewhere nobody is watching. Every paged
+query also orders by `id` as a tiebreaker: paging over a non-unique order can return one row on
+both pages and another on neither.
+
+```bash
+npm run drill:rowcap     # 1,200 events, expects exactly 50.00 hours
+```
+
+The expected total is hand arithmetic in the script's comments (8 days × 75 sessions × 5
+minutes), not a snapshot, and it is mutation-tested — raising the page size above the server cap
+makes it report 41.66. Worth noting what that shows: with tidy day-bounded data, truncation
+produces **no warning at all**, just a plausible wrong number.
+
+[`bounded-queries.test.ts`](packages/api/src/__tests__/bounded-queries.test.ts) reads the source
+of every query in `packages/api` and requires each to be paged, provably small, or listed with
+the **structural** reason its row count cannot reach a thousand. "A licence caps the roll"
+qualifies; "it probably will not get that big" does not.
 
 ## Open questions
 

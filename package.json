@@ -34,7 +34,8 @@
     "drill:restore": "node --env-file-if-exists=.env.local --import tsx scripts/restore-drill.ts",
     "review:security": "node --env-file-if-exists=.env.local --import tsx scripts/security-review.ts",
     "sweep:audit": "node --env-file-if-exists=.env.local --import tsx scripts/sweep-audit-tenants.ts",
-    "deploy:auth": "node --env-file-if-exists=.env.local --import tsx scripts/deploy-auth-config.ts"
+    "deploy:auth": "node --env-file-if-exists=.env.local --import tsx scripts/deploy-auth-config.ts",
+    "drill:rowcap": "node --env-file-if-exists=.env.local --import tsx scripts/drill-rowcap.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",

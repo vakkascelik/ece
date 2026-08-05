@@ -11,6 +11,7 @@
  */
 
 import { MEDIA_BUCKET, type PostKind } from '@ece/core';
+import { fetchAll } from './paging';
 import type { Db } from './index';
 
 // ---------------------------------------------------------------------------
@@ -216,15 +217,21 @@ export async function listMediaForPosts(
   postIds: string[],
 ): Promise<Map<string, MediaItem[]>> {
   if (postIds.length === 0) return new Map();
-  const { data, error } = await db
-    .from('media')
-    .select(MEDIA_COLUMNS)
-    .in('post_id', postIds)
-    .order('created_at');
-  if (error) throw new Error(`listMediaForPosts: ${error.message}`);
+  // Paged: photographs are the fastest-growing table in the product. A page of twenty posts
+  // with a dozen photos each is 240 rows, so the cap is only a few screens away — and a
+  // truncated read means a whānau member's child is missing from a post they were in.
+  const rows = await fetchAll<MediaRow>('listMediaForPosts', (from, to) =>
+    db
+      .from('media')
+      .select(MEDIA_COLUMNS)
+      .in('post_id', postIds)
+      .order('created_at')
+      .order('id')
+      .range(from, to),
+  );
 
   const out = new Map<string, MediaItem[]>();
-  for (const row of data as MediaRow[]) {
+  for (const row of rows) {
     if (!row.post_id) continue;
     const item = toMedia(row);
     const list = out.get(row.post_id);
@@ -360,14 +367,26 @@ export interface Message {
 }
 
 export async function listThreads(db: Db, centreId: string): Promise<MessageThread[]> {
-  const { data, error } = await db
-    .from('message_threads')
-    .select('id, centre_id, child_id, subject, started_by, created_at, closed_at')
-    .eq('centre_id', centreId)
-    .order('created_at', { ascending: false });
-  if (error) throw new Error(`listThreads: ${error.message}`);
+  // Paged: a thread per child per topic, kept after the child leaves.
+  const rows = await fetchAll<{
+    id: string;
+    centre_id: string;
+    child_id: string | null;
+    subject: string;
+    started_by: string | null;
+    created_at: string;
+    closed_at: string | null;
+  }>('listThreads', (from, to) =>
+    db
+      .from('message_threads')
+      .select('id, centre_id, child_id, subject, started_by, created_at, closed_at')
+      .eq('centre_id', centreId)
+      .order('created_at', { ascending: false })
+      .order('id')
+      .range(from, to),
+  );
   return (
-    data as {
+    rows as {
       id: string;
       centre_id: string;
       child_id: string | null;
@@ -419,15 +438,26 @@ export async function startThread(
 }
 
 export async function listMessages(db: Db, threadId: string): Promise<Message[]> {
-  const { data, error } = await db
-    .from('messages')
-    .select('id, thread_id, author_id, body, at, read_at')
-    .eq('thread_id', threadId)
-    .order('at');
-  if (error) throw new Error(`listMessages: ${error.message}`);
-  return (
-    data as { id: number; thread_id: string; author_id: string | null; body: string; at: string; read_at: string | null }[]
-  ).map((r) => ({
+  // Paged: a thread about one child runs for as long as they attend, and messages are
+  // append-only so nothing ever leaves it. Truncating the oldest thousand would drop the
+  // start of a conversation, which is exactly the part somebody scrolls back to find.
+  const rows = await fetchAll<{
+    id: number;
+    thread_id: string;
+    author_id: string | null;
+    body: string;
+    at: string;
+    read_at: string | null;
+  }>('listMessages', (from, to) =>
+    db
+      .from('messages')
+      .select('id, thread_id, author_id, body, at, read_at')
+      .eq('thread_id', threadId)
+      .order('at')
+      .order('id')
+      .range(from, to),
+  );
+  return rows.map((r) => ({
     id: r.id,
     threadId: r.thread_id,
     authorId: r.author_id,

@@ -447,6 +447,49 @@ on the internet that password reaches a login page. The data is fabricated so th
 bounded, but reseeding or purging is one command and leaving a known password on a public login
 page is not a state to be in.
 
+### A logic audit before deploying (`pending`)
+
+Four findings. The first was in the money path and had no error attached to it.
+
+**The funding export was reading the first thousand attendance events.** PostgREST is configured
+with `max_rows: 1000` and returns a truncated result with `error` set to null. Measured rather
+than reasoned about: 1,200 events for one child produced a report of 72 hours instead of the true
+total, and two fabricated unresolved days, because the cut landed mid-day and left sign-ins with
+no sign-out. Under-reporting the claim and inventing broken records simultaneously — the exact
+inverse of the rule that nothing is estimated. Fixed with a pager that throws rather than
+returning a partial result, since a partial answer is what caused it.
+
+The first verification of that fix reported 84 hours where I expected 100, and the honest answer
+was that **my probe was the wrong instrument** — its ten-minute cadence ran through midnight, so
+`pairDay` was correctly reporting orphan sign-outs at every date boundary. Rebuilt as a drill
+whose expected total is hand arithmetic (8 days × 75 sessions × 5 minutes = 50.00 hours), which
+now passes exactly and fails at 41.66 when mutated. The lesson is that an improvement is not a
+fix, and 72 → 84 was tempting to accept.
+
+**`listChildren` would have produced an anonymous funding export.** The current roll is capped by
+a licence, but `includeArchived` returns every child who ever attended — and that is the option
+the funding page uses to turn an id into a name. A truncated read renders "a former child"
+instead, on the one document whose purpose is to be keyed into a Ministry system per child. No
+error, correct totals.
+
+**The outbox buried sign-ins over a clock.** Every check violation was classified permanent,
+including `attendance_not_future`, which fires when a device's clock is more than two hours ahead.
+A drifted tablet would have its sign-ins marked dead on the first attempt — child off the roll,
+ratio wrong all day, day missing from the funding record. It is self-healing, because real time
+advances; but it also must not stop the flush, or one such event blocks every later sign-in behind
+it. Three outcomes now, and the judgement moved to `@ece/core` where it can be tested without a
+device — the most consequential logic in the offline path, and the only part of it that is
+testable at all in this repo.
+
+**`nextInvoiceReference` had a six-year fuse.** It took the highest reference by text order, which
+matches numeric order only while the padding holds: `INV-10000` sorts below `INV-9999`. At ten
+thousand invoices the sequence walks backwards and every insert collides.
+
+The guard against the whole class took three attempts, and the middle failure is the instructive
+one: a fixed line lookahead bled into the next function, so the unbounded query was declared
+bounded by the following function's `.single()` and the suite passed with the bug still there —
+the same shape of silent wrongness the guard exists to catch, inside the guard.
+
 ### Where the day ended
 
 
