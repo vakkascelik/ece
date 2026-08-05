@@ -5,6 +5,20 @@ says so.*
 
 ---
 
+2026-08-06 — Second pass on the phone shell, because the first fix was not enough and the
+reasoning for it was wrong. Turning the rail into a full-width bar removed the horizontal
+problem and created a vertical one: **312px of an 852px screen, 37% navigation before any
+content**. Reported from a real phone against production, which was already serving the fix.
+The "no hamburger" argument was wrong on two of three claims — a focus trap and an Escape
+handler belong to a modal, and an inline expander needs neither. Collapsed behind one 44px
+`☰ Menu` control below 768px: **312px → 72px, 37% → 8%**.
+
+The lesson is about the assertions, not the CSS. Both existing phone assertions passed
+throughout the second defect: **a rail that spans the viewport and does not overflow can still
+be useless.** A third now checks the thing that actually matters — content starts within 160px,
+and opening the menu reveals the links, so a collapse cannot degrade into a way of hiding the
+navigation. Mutation-tested. Detail in [[design-system]].
+
 2026-08-06 — The shell was broken on a phone and no check was looking. Reported from use: the
 224px rail never collapsed, taking **57% of a 390px screen** and leaving the ratio block — the
 one thing that must be glanceable — wrapping "0 kaiako · 0 tamariki" over four lines, with

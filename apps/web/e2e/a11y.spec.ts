@@ -38,6 +38,39 @@ test.describe('the shell on a phone', () => {
   }
 
   /**
+   * The navigation must not eat the first screenful.
+   *
+   * The first attempt at the fix above turned the rail into a full-width bar, which
+   * removed the horizontal problem and created a vertical one: 312px of an 852px
+   * viewport, so 37% of the screen was navigation before any content. Both of the
+   * assertions in this describe passed throughout — a rail that spans the viewport and
+   * does not overflow can still be useless. Hence this one, which is the criterion that
+   * actually matters to somebody holding the phone.
+   *
+   * 160px is about two rows of chrome. Generous, and still less than a fifth of the
+   * screen.
+   */
+  test('navigation does not eat the first screenful', async ({ page }) => {
+    await visit(page, '/');
+    const m = await page.evaluate(() => ({
+      chrome: Math.round(document.querySelector('.side')!.getBoundingClientRect().height),
+      contentTop: Math.round(document.querySelector('.main')!.getBoundingClientRect().top),
+      vh: window.innerHeight,
+    }));
+    expect(
+      m.contentTop,
+      `content starts ${m.contentTop}px down a ${m.vh}px screen (${Math.round(
+        (m.contentTop / m.vh) * 100,
+      )}% is navigation)`,
+    ).toBeLessThanOrEqual(160);
+
+    // And opening the menu must actually reveal the links, or the collapse is just a
+    // way of hiding the navigation.
+    await page.getByRole('button', { name: /Menu/ }).click();
+    await expect(page.getByRole('link', { name: 'Attendance' })).toBeVisible();
+  });
+
+  /**
    * The other half of the same defect, and the half a scroll-width check misses
    * entirely: `/` never overflowed, it just had 166px of usable width because the rail
    * took the other 224. So this asserts the content column actually gets the screen.

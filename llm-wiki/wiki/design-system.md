@@ -148,6 +148,7 @@ at 390×780:
 | Rail width | 224px — **57% of the screen** | full width, a bar across the top |
 | Content column | 166px | 358px |
 | `/attendance` horizontal page scroll | **327px** | 0px |
+| Navigation chrome (after the *second* fix) | 312px — **37% of the screen** | 72px — 8% |
 
 The visible consequence was worse than the numbers: the ratio block, the one thing on the
 page that has to be readable at a glance, wrapped "0 kaiako · 0 tamariki" over four lines.
@@ -159,7 +160,31 @@ manager will open this on a phone. Below 767px the rail becomes a bar and the na
 state, a focus trap and an escape key, all to save vertical space on a surface that
 scrolls anyway.
 
-Two findings from fixing it, both worth more than the fix:
+**The first fix was not enough, and the reasoning above was wrong.** Turning the rail into
+a full-width bar removed the horizontal problem and created a vertical one: measured at
+393×852, the bar was 312px, so **37% of the screen was navigation before any content
+began**. Reported again from a real phone against production, which was serving the fix.
+
+The "no hamburger" argument was wrong on two of its three claims. A focus trap and an
+Escape handler belong to a **modal**; an inline expander needs neither — focus moves
+through it in DOM order. And the vertical space was not a rounding error worth trading
+away: on a phone, 37% is the whole first screenful. The nav is now collapsed behind one
+44px `☰ Menu` control below 768px, with the identity line and the button on one row:
+**312px → 72px, 37% → 8%**.
+
+The toggle is hidden by CSS above the breakpoint rather than removed from the tree, so the
+links exist at every viewport — which is also what keeps the role-based navigation
+assertions in the e2e suite meaningful. `aria-expanded` and `aria-controls` on the button;
+`☰` is paired with the word "Menu", because no control in this product is a bare symbol.
+
+Both of the earlier assertions passed throughout that second defect. **A rail that spans
+the viewport and does not overflow can still be useless**, so there is now a third
+assertion on the criterion that actually matters to somebody holding the phone: content
+must start within 160px, and opening the menu must reveal the links — otherwise a collapse
+is just a way of hiding the navigation. Mutation-tested: leaving the menu expanded fails
+with "content starts 253px down a 780px screen (32% is navigation)".
+
+Two findings from the first fix, both worth more than that fix:
 
 1. **An accessibility helper was causing the layout defect.** After the table itself was
    contained in a scroll container, 31px of horizontal page scroll remained. The cause was

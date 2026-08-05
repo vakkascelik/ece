@@ -4,6 +4,7 @@ import { can } from '@ece/core';
 import { requireCtx } from '@/lib/auth';
 import { signOut } from '../login/actions';
 import { NavLink } from './NavLink';
+import { SideRail } from './SideRail';
 
 /**
  * The signed-in shell. Every page under (app) is authenticated and scoped to one
@@ -23,13 +24,17 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       <a className="skip" href="#main">
         Skip to content
       </a>
-      <aside className="side">
-        <h2>Centre</h2>
-        <div style={{ marginBottom: '0.35rem' }}>
-          <strong>{ctx.centre.name}</strong>
-        </div>
-        <div className="pill" style={{ marginBottom: '1.25rem', display: 'inline-block' }}>{ctx.role}</div>
-
+      <SideRail
+        head={
+          <>
+            {/* Hidden by CSS on a phone: the centre's name does not need a label
+                telling the reader it is a centre. */}
+            <h2>Centre</h2>
+            <strong>{ctx.centre.name}</strong>
+            <span className="pill">{ctx.role}</span>
+          </>
+        }
+      >
         <nav>
           <NavLink href="/">Overview</NavLink>
           {/*
@@ -61,7 +66,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
             <button className="secondary auth-secondary" type="submit">Sign out</button>
           </form>
         </div>
-      </aside>
+      </SideRail>
 
       <main className="main" id="main">
         {children}
