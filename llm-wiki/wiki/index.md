@@ -33,10 +33,13 @@ and [`../schema.md`](../schema.md) for the page template.
 - [[funding-and-billing]] — attendance into money: why a broken record is excluded rather than
   estimated, why bookings and attendance are separate, and what this product cannot submit
 
-## Offline
+## Offline and mobile
 
-- [[offline-outbox]] — a SQLite queue instead of a sync engine, and the merge rule where both
-  obvious shortcuts are wrong
+- [[offline-outbox]] — a SQLite queue instead of a sync engine, the merge rule where both
+  obvious shortcuts are wrong, and why a queued event belongs to the person who made it
+- [[mobile-app]] — the app that for five phases rendered "Not signed in." and offered nothing:
+  what can and cannot be built with only the anon key, and eleven defects in code that had
+  never executed
 
 ## Privacy
 
@@ -54,6 +57,16 @@ and [`../schema.md`](../schema.md) for the page template.
 - [[security-review]] — sixteen checks written as SQL against the live schema, the four
   findings they turned up, and the four false positives the review made about itself
 
+## Reading data
+
+- [[reading-every-row]] — PostgREST truncates at a thousand rows and reports no error, which
+  under-reported a funding claim by 28% and invented broken days that were not broken
+
+## Running it
+
+- [[deployment]] — one Railway service for every centre, why that is forced rather than chosen,
+  and a security header that made the whole product read-only
+
 ## Conventions
 
 - [[conventions]] — migrations, timezones, PostgREST traps, testing, tokens, and the versions
@@ -65,7 +78,8 @@ and [`../schema.md`](../schema.md) for the page template.
 
 - `salix/llm-wiki/wiki/possible-projects/ece-early-learning-app.md` — the product plan and
   market research this project came from. Status there is still "RESEARCHED — NOT APPROVED",
-  which is now out of date: Phases 0–3 are built. Its Stage 0 (ten conversations, zero code)
-  was never run — recorded in [[unverified-claims]].
+  which is now out of date: **all seven phases are built**, the first tenant exists, and the web
+  app is ready to deploy. Its Stage 0 (ten conversations, zero code) was never run — recorded in
+  [[unverified-claims]], and still the weakest evidence under any pricing decision.
 
-*Index last updated: 2026-08-04*
+*Index last updated: 2026-08-05*

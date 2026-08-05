@@ -38,6 +38,11 @@ Nothing here is a bug. They are known gaps with known closures.
   runbook. The substance of both is sound; the citations have not been read.
 - **No screen reader has ever been used on this product.** axe passes on every page, which
   is a floor and not a pass.
+- **The mobile app has never run on a device.** Not the airplane-mode drill, not the sign-out
+  refusal, not the chunked session storage. Two bugs in that path were already found by reading it.
+- **Three store-submission blockers are not code**: the ratio flag puts a disclaimer on the hero
+  screenshot, Apple wants a Support URL that does not exist, and a personal Play account needs
+  twelve testers for fourteen days.
 - **No adversarial security testing of any kind.** Sixteen automated checks pass; nobody has
   attacked it. Auth rate limits and session policy are unread Supabase defaults, and the
   service-role key has never been rotated.
@@ -239,6 +244,38 @@ the OneDrive one was caught by running `pwd`. None was caught by review.
 **To close it:** nothing to build. The lesson is that a claim about what the product enforces
 belongs next to a test that fails when it stops being true — which is now the case for the
 first two, and is why `review:security` and `test:rls` both assert them.
+
+### 15. The mobile app has never run on a device
+
+| | |
+|---|---|
+| **What exists** | A sign-in screen, role-aware navigation, the roll, the whānau surface, and an outbox whose two most consequential decisions are pure functions in `@ece/core` with tests |
+| **What has never happened** | Any of it, on a phone or a tablet. No EAS build has ever been produced |
+| **Specifically unverified** | The airplane-mode drill (three sign-ins offline, reconnect, exactly three events, no duplicates after a forced double flush); the sign-out refusal; whether the Supabase session is even large enough to take the chunked SecureStore path — if it never chunks, that code has never run either; `AppState` behaviour on `inactive → active` after the app switcher; keyboard behaviour on the sign-in form; and cold-start-to-roll-visible, which is a claim about a number nobody has measured |
+| **Why it matters** | The offline outbox is the app's whole reason to exist, and `expo-sqlite` cannot execute in this repo's test runner. Two bugs were already found in that code path by reading it — a clock-drift misclassification and a cross-user attribution — which is a fair indication of what an unexercised path holds |
+| **To close it** | `eas build --profile development`, a device, and the drill. Expect it to find something |
+
+### 16. Store submission has three blockers that are not code
+
+| | |
+|---|---|
+| **1. The hero screenshot disclaims the product** | `RATIO_TABLES_VERIFIED` is `false`, so any roll screenshot with children present carries "these ratio figures have not been checked against the regulations yet" — next to listing copy promising the app warns you before you pass the limit. Reading Schedule 2 is therefore a **submission prerequisite**, not a backlog item. Flipping the flag to clear the notice is the one thing that must not happen; see item 1 |
+| **2. Apple requires a Support URL** | Nothing in this repo mentions one. It is a fourth hosted page alongside the privacy statement and the deletion-request route, and it is also where "there is no public sign-up, ask your centre" gets said to a reviewer |
+| **3. A personal Play account cannot publish quickly** | An account created after November 2023 must run a closed test with 12 testers for 14 continuous days before production. If the account is personal, "a public listing now" has a two-week floor regardless of what the code does. Verify at the console — the rule has moved before |
+| **Also** | Zero image files exist in the repo, `expo-splash-screen` is not a dependency, `eas.json` declares update channels while `expo-updates` is not installed, and `seed-demo` seeds no attendance so the demo roll is empty — a reviewer signing in would see what looks like a broken app |
+| **To close it** | Read Schedule 2; host four pages; decide the account type knowingly; generate the assets; extend the demo seed to produce a deliberate at-limit ratio |
+
+### 17. Deleting an account would erase attribution in licensing evidence
+
+Not a claim that is wrong — a consequence nobody had noticed, found while designing the account
+deletion Apple asks for.
+
+| | |
+|---|---|
+| **The mechanism** | `audit_events.actor_id`, `attendance_events.recorded_by` and `staff_records.sighted_by` are all `on delete set null` against `auth.users` |
+| **So** | Deleting a person's account anonymises every action they ever took: who signed a child in, who sighted a police vetting, who changed a health record. Silently, and in tables with no UPDATE grant, so it cannot be repaired |
+| **Why it matters** | That attribution *is* the licensing evidence this product exists to produce. An account deletion feature built the obvious way would quietly destroy it |
+| **To close it** | A tombstone table holding the person's display name — not their email — outside the FK, so attribution survives a deletion. Plus a guard refusing to close the account of the only remaining owner of a centre, because creating a membership needs the service role and a self-service feature would otherwise brick a tenant |
 
 ## See Also
 

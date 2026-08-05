@@ -158,4 +158,61 @@ teardown runs on a failing test but not on a dying process, and because it looke
 had documented and this code had ignored. It now deletes by known ids and sweeps stale tenants before
 its own work, so a killed run heals on the next one.
 
+2026-08-05 — Added [[reading-every-row]]. PostgREST is configured with `max_rows: 1000` and returns a
+truncated result with `error` set to null, which was under-reporting a funding claim by 28% **and**
+fabricating unresolved days that were not broken — wrong in both directions at once, in the
+calculation whose entire principle is that nothing is estimated. Measured against the live database
+rather than reasoned about. The page keeps three things: that a bigger limit moves the cliff rather
+than removing it; that paging over a non-unique order is its own silent corruption, so every paged
+query gained `id` as a tiebreaker; and that the guard test lied twice before it was honest — most
+instructively when a fixed line lookahead bled into the next function and declared the unbounded
+query bounded, which is the same shape of silent wrongness the guard exists to catch, inside the
+guard.
+
+2026-08-05 — Recorded in [[reading-every-row]] that the first row-cap probe was a **bad instrument**.
+Its ten-minute cadence ran through midnight, so `pairDay` correctly reported orphan sign-outs at
+every date boundary; the fix improved the number from 72 to 84 against an expected 100, and 84 was
+tempting to accept. The expectation was wrong, not the fix. Rebuilt with hand arithmetic in the
+script's comments so the expected total is checkable without running anything.
+
+2026-08-05 — **Corrected [[offline-outbox]], which was wrong in writing.** It listed two failure
+verdicts and put every check violation under `permanent`. `attendance_not_future` is a check violation
+that fires when a device clock runs more than two hours fast — and it is self-healing, because real
+time advances. Classified permanent, a drifted tablet would have its sign-ins marked dead on the first
+attempt: child off the roll, ratio wrong all day, day missing from the funding record, over a clock.
+There are three verdicts now, and the two clock constraints look almost identical and behave in
+opposite directions, which is how one rule came to swallow both.
+
+2026-08-05 — Recorded in [[offline-outbox]] the finding that decided the whole shared-tablet story and
+was missed until a design review: `recordAttendance` stamps `recorded_by` at **flush time**. So
+leaving one educator's queued sign-ins for the next person's token files their observations under the
+wrong name, permanently, in a table with no UPDATE grant — and if that person is not a member of the
+centre, RLS refuses it, the flush loop breaks, and every later sign-in jams behind it for the rest of
+the day. The queue now carries a `user_id`. Also corrected `clearAll()`'s docstring, which claims
+sign-out is its caller: it is not, and the first sign-out implementation followed it and would have
+destroyed attendance records.
+
+2026-08-05 — Added [[mobile-app]]. For five phases the app rendered the words "Not signed in." and
+offered nothing — no email field, no password field, no `signInWithPassword` anywhere in the
+workspace. It typechecked, linted, bundled through Metro in CI, and had components with careful
+accessibility labels, and none of those checks can tell you the product has no front door. The page
+records the three independent walls that make sign-up, invitation acceptance and password reset
+structurally impossible on mobile, so nobody tries to move them there.
+
+2026-08-05 — Added [[deployment]], written because two questions were asked that nothing in the repo
+answered: whether the deployment is per-customer (it cannot be — you cannot publish one App Store
+binary per childcare centre, and once that is true for mobile, a different web model means two
+tenancy models), and what putting the container on the internet costs (a service-role key that
+bypasses every policy, because the invitation flow calls the GoTrue admin API and no Postgres
+function can substitute). Also kept as a worked example: `Referrer-Policy: no-referrer` was correct
+reasoning about child UUIDs in a `Referer` header, and it made **every write in the product fail**
+while every page rendered perfectly, with typecheck, lint and build all clean.
+
+2026-08-05 — Recorded in [[unverified-claims]] as items 15–17: the mobile app has never run on a
+device, three store blockers are not code, and — found while designing the account deletion Apple
+asks for — deleting an `auth.users` row would **erase attribution in licensing evidence**, because
+`audit_events.actor_id`, `attendance_events.recorded_by` and `staff_records.sighted_by` are all
+`on delete set null`. That attribution is the evidence the compliance feature exists to produce, and
+an account-deletion feature built the obvious way would quietly destroy it.
+
 *Log last updated: 2026-08-05*
