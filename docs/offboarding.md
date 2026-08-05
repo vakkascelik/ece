@@ -23,7 +23,7 @@ An *insert* failure, while deleting. The mechanism:
    transaction aborts.
 
 Five phases had shipped with no way to remove a customer. Nothing in the type system, the
-policies, or the 164-assertion RLS suite could have surfaced it, because none of them
+policies, or the RLS isolation suite could have surfaced it, because none of them
 tries to delete a tenant. **The Phase 6 end-to-end fixture found it by needing to clean up
 after itself.**
 

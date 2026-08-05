@@ -257,7 +257,7 @@ tenant on the way out, and the drop failed with an *insert* error while deleting
 from `centres` to `children` fires the audit trigger, which inserts a row referencing the
 centre that has just been removed, so the foreign key rejects it and the transaction aborts.
 Not an owner, not the service role, not by hand in the SQL editor. Five phases had shipped
-with no way to offboard a customer, and neither the type system nor the 164-assertion RLS
+with no way to offboard a customer, and neither the type system nor the RLS isolation
 suite could have surfaced it, because none of them tries. `0020` drops the foreign key — a
 correction, not a workaround: `audit_events` is an append-only ledger and a ledger has to
 outlive its subject. It was a genuine standoff, too, because nobody may delete an audit row,
@@ -495,7 +495,7 @@ the same shape of silent wrongness the guard exists to catch, inside the guard.
 
 
 
-176/176 RLS assertions, 156 unit tests, 44/44 end-to-end checks across four roles, 16/16
+176/176 RLS assertions, 185 unit tests, 44/44 end-to-end checks across four roles, 16/16
 security checks against the live schema, a 4/4 mutation-tested restore drill over 34 tables,
 23 migrations, lint, tokens, doc links and performance budgets clean, both apps building.
 Seven things now need a person rather than more code: **set the GitHub secrets so CI can actually

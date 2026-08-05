@@ -95,7 +95,7 @@ intending to — and two of them failed the first time.
 centre could not be deleted, by anybody, ever.** Deleting a centre cascades to children, whose audit
 trigger inserts a row referencing the centre that has just been removed, so the foreign key rejects
 it and the transaction aborts. Five phases had shipped with no way to offboard a customer, and neither
-the type system nor the 164-assertion RLS suite could have surfaced it, because none of them tries.
+the type system nor the RLS isolation suite could have surfaced it, because none of them tries.
 Migration 0020 drops the foreign key — a correction rather than a workaround, because `audit_events`
 is a ledger and **a ledger has to outlive its subject**.
 

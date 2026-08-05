@@ -58,7 +58,7 @@ comparing something with itself and nobody would have known.
   that means downloading one of their dumps, restoring it with `pg_restore` into a second
   database, and comparing — a morning's work, and not something CI can do. **It has never
   been done.**
-- **Not `auth.users`.** 27 accounts as at the last run. A restore that brings back
+- **Not `auth.users`.** 8 accounts as at the last run (it read 27 before a sweep removed 56 leaked test accounts). A restore that brings back
   children and not the accounts permitted to read them is a restore into a locked
   building. Supabase's own backup covers `auth`; this drill does not, and the two facts
   should not be conflated.

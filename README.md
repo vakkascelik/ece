@@ -388,9 +388,13 @@ The `public` schema was dropped and rebuilt from these migrations.
 
 Two things to know about that:
 
-- **A pre-wipe backup exists** at `.backups/zelva-pre-wipe-2026-08-04.json` — 34
-  tables, 6,184 rows, mostly curated reference data. It is gitignored and must
-  stay that way: it contains user emails and forum posts, i.e. personal data.
+- **A pre-wipe backup existed** at `.backups/zelva-pre-wipe-2026-08-04.json` — 34
+  tables, 6,184 rows, six user accounts and their forum posts. **Deleted 2026-08-05.**
+  It was gitignored, so it never reached git, and it never left local disk either:
+  an earlier version of this note claimed it sat in a OneDrive folder and had
+  therefore been copied to Microsoft, which was wrong — this repository is at
+  `C:\dev\ece`. `.gitignore` still covers `.backups/` so the next one is also
+  kept out of git.
 - **`auth.users` was not touched**, and still holds six accounts from that
   project. They were left deliberately: deleting an account is the most
   destructive operation available here, the backup captured ids and emails but
@@ -932,7 +936,7 @@ just been removed — so the foreign key rejects it and the transaction aborts. 
 owner, not by the service role, not by hand in the SQL editor.
 
 Five phases had shipped with no way to offboard a customer. Nothing in the type system, the
-policies or the 164-assertion RLS suite could have surfaced it, because none of them tries to
+policies or the RLS isolation suite could have surfaced it, because none of them tries to
 delete a tenant.
 
 `0020_offboarding.sql` drops the foreign key, and that is a correction rather than a
@@ -949,7 +953,7 @@ used by tired people at 5pm is a support incident with a countdown on it.
 ### The accessibility audit runs on loaded screens, not empty ones
 
 ```bash
-npm run test:e2e     # builds, then 30 checks across 19 screens
+npm run test:e2e     # builds, then 44 checks: 19 screens, four roles, the journey
 ```
 
 19 screens, two roles, a production build, in a real browser — including the new-child form

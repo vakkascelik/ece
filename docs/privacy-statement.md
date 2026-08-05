@@ -108,7 +108,7 @@ Separation is enforced by the database, not by the application. Every table carr
 row-level security, and there are two boundaries:
 
 1. **Between centres.** A person at one centre cannot read another centre's records,
-   even where the same person works at both. 164 automated assertions test this on every
+   even where the same person works at both. 176 automated assertions test this on every
    change, including that a *write* across the boundary is refused, not just a read.
 2. **Between families inside one centre.** A parent sees their own children and nobody
    else's. This is keyed on the guardianship record, so it survives a role change.

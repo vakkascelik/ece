@@ -93,7 +93,7 @@ An *insert* failure, while deleting:
 
 **No centre could be deleted by anybody** — not an owner, not the service role, not by hand
 in the SQL editor. Five phases had shipped with no way to offboard a customer, and nothing
-in the type system, the policies or the 164-assertion RLS suite could have surfaced it,
+in the type system, the policies or the RLS isolation suite could have surfaced it,
 because none of them tries.
 
 The fix is to drop the foreign key, and it is a correction rather than a workaround.
