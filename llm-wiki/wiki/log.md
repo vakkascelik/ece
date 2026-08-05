@@ -5,6 +5,23 @@ says so.*
 
 ---
 
+2026-08-05 — The first Railway deploy failed, on this repo's own build command, and the wiki was
+carrying the wrong reason for that command in two places. `npm ci --include=dev && npm run build`
+hit `EBUSY … rmdir '/app/node_modules/.cache'`: Nixpacks runs its own `npm ci` in the install
+phase, so ours was a second install deleting `node_modules` out from under the builder. The
+justifying claim — that Nixpacks sets `NODE_ENV=production` and would prune the `typescript` and
+`@types` packages `next build` needs — was wrong twice: the builder's plain `npm ci` installed 898
+of the lockfile's 903 packages, and those three packages are not dev-only in this lockfile anyway.
+[[deployment]] corrected in both places (the claim also sat under "checked rather than assumed" —
+it had been checked against npm's documentation instead of against the platform; the two claims on
+that list verified by running something were right, the one verified by reading was wrong). Two
+further findings from the same build log added to [[deployment]]: Nixpacks bakes every Railway
+variable into the image as `ARG`/`ENV`, so the service-role key is in the image layers and image
+access is key access; and the service runs in Southeast Asia, which `docs/privacy-statement.md` now
+states instead of leaving as an open question. `buildCommand` is now just `npm run build`; if a
+future builder ever does prune dev dependencies, the fix is `NPM_CONFIG_INCLUDE=dev`, not a second
+install.
+
 2026-08-04 — Wiki initialised, following the pattern in `salix/llm-wiki`. Eight pages written
 from the four sessions that built Phases 0–3, rather than from a fresh read of the source:
 [[tenancy-and-rls]], [[attendance-and-ratios]], [[offline-outbox]],

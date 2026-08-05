@@ -109,15 +109,66 @@ silent:
 Railway reads `railway.json` and will use:
 
 ```
-build   npm ci --include=dev && npm run build
+build   npm run build
 start   npm run start -w @ece/web
 health  /api/health
 ```
 
-`--include=dev` is not redundant — see the note in `railway.json`. Nixpacks sets
-`NODE_ENV=production`, under which npm omits devDependencies, and this build needs
-`typescript`, `@types/react` and `@types/node`. The failure without it reads as a TypeScript
-error in the application, which sends you looking in the wrong place.
+Nixpacks runs its own `npm ci` before the build command — do not add a second one; the first
+deploy did, and it is why that deploy failed (next section).
+
+### What the first deploy taught us
+
+**The first build failed, on the build command in this repo.** It was
+`npm ci --include=dev && npm run build`, justified in a comment claiming Nixpacks sets
+`NODE_ENV=production` and would otherwise omit the `typescript` and `@types` packages that
+`next build` needs.
+
+Both halves were wrong. Nixpacks runs **its own** install phase — plain `npm ci` — and the build
+log shows it adding **898 packages against 903 in the lockfile**, so dev dependencies were already
+installed. And `typescript`, `@types/react` and `@types/node` are not dev-only in this lockfile;
+they are reachable through non-dev edges, so `--omit=dev` would not have dropped them either.
+
+What the redundant second install did was fail. `npm ci` deletes `node_modules` before
+reinstalling, and it hit a directory the builder was still holding:
+
+```
+npm error code EBUSY
+npm error EBUSY: resource busy or locked, rmdir '/app/node_modules/.cache'
+```
+
+Belt-and-braces against a failure mode that did not exist, causing one that did. The build command
+is now just `npm run build`. If a future builder ever does prune dev dependencies, the fix is the
+Railway variable `NPM_CONFIG_INCLUDE=dev` — not a second install.
+
+### The service-role key is baked into the image, not just the environment
+
+The build log carries a Docker linter warning worth reading rather than dismissing:
+
+```
+SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data
+  (ARG "SUPABASE_SERVICE_ROLE_KEY")
+```
+
+Nixpacks passes **every** Railway variable into the image as `ARG` and `ENV`, so the service-role
+key is in the image's layer metadata — not only in the running container's environment. Anyone who
+can pull or inspect the image can read it, and `docker history` is enough.
+
+There is no per-variable build/runtime split in Railway to avoid this, and the key genuinely is
+needed at runtime, so it cannot simply be moved. What it changes is the threat model: **image
+access is key access**, which widens the blast radius already described below from "people with
+Railway project access" to "anything that can reach the image". Rotate on any suspicion, and treat
+a leaked build artefact as a leaked database.
+
+### Region: this service runs in Southeast Asia
+
+The dashboard reports Southeast Asia, and that is a fact the privacy statement has been carrying an
+open question about — it currently says to confirm the region before a centre adopts it, because a
+New Zealand centre should know whether its children's records are in Sydney, Singapore or Oregon.
+
+Two regions matter and they are not the same: **Supabase** holds the data at rest, and **Railway**
+processes it in transit. Both belong on the hosted privacy page, named, before a centre is asked to
+adopt anything.
 
 `.nvmrc` pins Node 24.
 

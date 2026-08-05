@@ -16,11 +16,25 @@
     "builder": "NIXPACKS",
 
     "//": [
-      "`--include=dev` is not redundant. Nixpacks sets NODE_ENV=production, and under that",
-      "npm omits devDependencies — which here means typescript, @types/react and",
-      "@types/node. `next build` needs all three, and the failure reads as a TypeScript",
-      "error in the app rather than as a missing dependency, so it sends you looking in the",
-      "wrong place.",
+      "JUST `npm run build`. An earlier version was `npm ci --include=dev && npm run build`,",
+      "which FAILED THE FIRST DEPLOY, and the reasoning behind it was wrong twice over.",
+      "",
+      "The claim was that Nixpacks sets NODE_ENV=production, so npm would omit",
+      "devDependencies and `next build` would fail on a missing typescript. Neither half held.",
+      "Nixpacks runs its own install phase — plain `npm ci` — and the build log shows it adding",
+      "898 packages against 903 in the lockfile, so dev dependencies were already there. And",
+      "typescript, @types/react and @types/node are not dev-only in this lockfile anyway; they",
+      "are reachable through non-dev edges, so `--omit=dev` would not have dropped them.",
+      "",
+      "What the redundant command actually did was fail. `npm ci` deletes node_modules before",
+      "reinstalling, and the second run hit a directory the builder was still holding:",
+      "",
+      "  npm error code EBUSY",
+      "  npm error EBUSY: resource busy or locked, rmdir '/app/node_modules/.cache'",
+      "",
+      "Belt-and-braces against a failure mode that did not exist, which caused one that did.",
+      "If a future builder ever does prune dev dependencies, the fix is the Railway variable",
+      "NPM_CONFIG_INCLUDE=dev — not a second install.",
       "",
       "`npm run build` at the root builds core, then api, then web, in that order: the two",
       "packages ship TypeScript source and are transpiled by Next, so their `build` scripts",
@@ -30,7 +44,7 @@
       "inlines them into the client bundle. A deploy that has them only as runtime",
       "variables produces a browser bundle pointing at `undefined`."
     ],
-    "buildCommand": "npm ci --include=dev && npm run build"
+    "buildCommand": "npm run build"
   },
 
   "deploy": {

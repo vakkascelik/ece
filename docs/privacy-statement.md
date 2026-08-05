@@ -91,10 +91,19 @@ information about any child.
 
 ## Where it is held
 
-In a Postgres database and file storage operated by Supabase. **Confirm the region
-before a centre adopts this template** — a New Zealand centre should know whether its
-children's records are in Sydney, Singapore or Oregon, and the answer belongs in this
+In a Postgres database and file storage operated by **Supabase**. The web application
+that reads it runs on **Railway, in Southeast Asia** — confirmed from the deployment
+rather than assumed.
+
+**The Supabase region still has to be filled in before a centre adopts this template.**
+Two regions matter and they are not the same: Supabase holds the records at rest,
+Railway processes them in transit. A New Zealand centre should know whether its
+children's records sit in Sydney, Singapore or Oregon, and the answer belongs in this
 document rather than in a support email.
+
+Neither region is in New Zealand. The Privacy Act permits offshore storage — IPP 12
+requires comparable safeguards, not domestic hosting — but a centre should be told
+plainly rather than left to discover it.
 
 Error reports go to Sentry when something breaks. Those reports are scrubbed before they
 leave: email addresses, phone numbers, dates of birth and any database value quoted
@@ -148,6 +157,6 @@ what happened. The steps, and the timeframes, are in
 
 ---
 
-*Template last updated 2026-08-04. A centre adopting it should date its own version and
+*Template last updated 2026-08-05. A centre adopting it should date its own version and
 review it whenever what the software collects changes — the tables above are generated
 from the schema by hand and will drift if nobody looks.*

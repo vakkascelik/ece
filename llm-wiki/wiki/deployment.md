@@ -22,6 +22,9 @@ to put this container on the internet (a key that bypasses every policy).
   is the entire database.
 - **Migrations are not part of the deploy**, deliberately. Migrate first, then deploy.
 - **A security header made the whole product read-only** — and typecheck, lint and build were clean.
+- **The first build failed on a flag defending against a failure that could not happen**, and the
+  comment justifying it was wrong in both halves.
+- **Every Railway variable is baked into the image** as `ARG`/`ENV`, so image access is key access.
 - `site_url` pointed at `localhost:3000`, and every invitation link lands on `site_url`.
 
 ## Details
@@ -80,6 +83,36 @@ sentence implies.
 Nothing else in the deploy holds a secret. There is no service-role key in any client bundle, and
 [[security-review]] checks that on every run.
 
+### The first build failed on a precaution against a failure that did not exist
+
+The build command was `npm ci --include=dev && npm run build`, and the comment justifying it said
+Nixpacks sets `NODE_ENV=production` so npm would omit the `typescript` and `@types` packages that
+`next build` needs.
+
+Neither half was true. Nixpacks runs its own install phase — plain `npm ci` — and the log shows it
+adding 898 packages against 903 in the lockfile, so dev dependencies were already there. And those
+packages are not dev-only in this lockfile; they are reachable through non-dev edges, so an
+`--omit=dev` would not have dropped them.
+
+The redundant install is what broke it. `npm ci` deletes `node_modules` first, and the second run hit
+a directory the builder still held: `EBUSY: resource busy or locked, rmdir '/app/node_modules/.cache'`.
+
+Kept on this page because the shape recurs: a guard written from reasoning about a platform, rather
+than from watching the platform, that costs a real failure to protect against an imagined one. The
+same instinct produced the `Referrer-Policy` header below, and in both cases one run of the real
+thing would have settled it.
+
+### The service-role key is in the image layers, not only the environment
+
+Nixpacks passes every Railway variable into the image as `ARG` and `ENV`, and the build log says so
+in as many words — a `SecretsUsedInArgOrEnv` warning naming `SUPABASE_SERVICE_ROLE_KEY`.
+
+So the key sits in the image's layer metadata, readable by anything that can pull or inspect the
+image. Railway offers no per-variable build/runtime split to avoid it and the key is genuinely needed
+at runtime, so it cannot be moved out. What it changes is the threat model: the blast radius above is
+not "people with Railway project access" but **anything that can reach the image**, and a leaked build
+artefact is a leaked database.
+
 ### Migrations are not in the deploy
 
 A build that migrated would run on every redeploy, in parallel across replicas, with no way to stop
@@ -89,16 +122,21 @@ half way. So the schema and the code can disagree, and the rule is **migrate fir
 This is stated first in the runbook because getting it wrong is the most likely way to break a deploy
 that was working.
 
-### Three things checked rather than assumed, and two needed no change
+### Three things checked rather than assumed — and the third was checked wrong
 
 - **`dotenv-cli` exits 0 on a missing file**, so `dotenv -e ../../.env.local` in the web scripts is
   harmless on a host that has no such file. The obvious "fix" — rewriting the scripts — would have
   been churn for nothing.
 - **`next start` reads `PORT`** through commander's `.env('PORT')` and binds `0.0.0.0` by default.
   Tested with `PORT=3999`; it served on 3999.
-- **`npm ci` under `NODE_ENV=production` omits devDependencies**, which here means `typescript` and
-  the `@types` packages `next build` needs. This one bites, hence `--include=dev`. The failure reads
-  as a TypeScript error in the application, which sends you looking in the wrong place.
+- **`npm ci` under `NODE_ENV=production` omits devDependencies** — true of npm in general, and
+  irrelevant here, which is the distinction that was missed. This page asserted it as a reason for
+  `--include=dev`; the first build then failed *on that flag*. See above. The claim was checked
+  against npm's documented behaviour rather than against Nixpacks, which runs its own install phase
+  and did not prune anything.
+
+The first two were checked by running something. The third was checked by reading. Only the third
+was wrong, and that is not a coincidence.
 
 ### The health check is about configuration, not liveness
 
