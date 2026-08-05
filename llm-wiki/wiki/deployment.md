@@ -51,6 +51,22 @@ once rather than one — which is what the 176-assertion RLS suite is the compen
 and one deploy is a single point of failure for every centre at 7.30am, made worse by there being no
 staging environment.
 
+### Railway offers two services, and one of them must be deleted
+
+Workspace detection finds `@ece/web` and `@ece/mobile` and offers a service for each, because
+`apps/mobile/package.json` has a `start` script — and that script is `expo start`, a development
+bundler rather than a server.
+
+The mobile service must be deleted. A container running it costs money, serves nothing reachable,
+and fails the health check forever. It is worth writing down because it does not *look* like a
+mistake in the dashboard: the service has a name, a green badge, and sits beside the real one.
+
+The same detection sets the service's root directory to `apps/web`, which has to be changed to the
+repository root — and this failure is the silent one. `railway.json` lives only at the root, so from
+`apps/web` Railway never sees it, ignores the build command, the start command and the health check
+path, and guesses instead. The result is a deploy that looks configured and is not. Separately,
+`npm ci` needs the workspace root to link `@ece/core` and `@ece/api` at all.
+
 ### The deploy's real cost: a bypass-everything key in a container
 
 `SUPABASE_SERVICE_ROLE_KEY` has to be a Railway variable. The invitation flow calls the GoTrue admin

@@ -82,9 +82,29 @@ likely way to break a working deploy:
 
 New project → Deploy from GitHub repo → `vakkascelik/ece`.
 
-**Root directory: the repository root**, not `apps/web`. The build needs the workspace root
-for `npm ci` to link `@ece/core` and `@ece/api`; pointing it at `apps/web` produces a
-"cannot find module '@ece/core'" that looks like a code fault.
+### Railway will offer you two services. Delete one.
+
+Workspace detection finds `@ece/web` **and `@ece/mobile`** and offers a service for each, because
+`apps/mobile/package.json` has a `start` script. That script is `expo start` — a development
+bundler, not a server.
+
+**Delete the `@ece/mobile` service.** A container running `expo start` costs money, serves nothing
+a user can reach, and fails the health check forever. The mobile app ships through EAS to the
+stores and talks to Supabase directly; Railway is not in its path at any point.
+
+It will happen again if the project is recreated, and it does not look like a mistake in the
+dashboard — the service has a name, a green badge, and sits beside the real one.
+
+### Root directory: the repository root
+
+**Not `apps/web`**, even though the service is named `@ece/web`. Two reasons, and the first is
+silent:
+
+- `railway.json` lives at the repository root and **nowhere else**. With the root directory set to
+  `apps/web`, Railway never sees it, ignores the build command, the start command and the health
+  check path, and guesses instead — a deploy that looks configured and is not.
+- The build needs the workspace root for `npm ci` to link `@ece/core` and `@ece/api`. Pointing it
+  at `apps/web` produces a "cannot find module '@ece/core'" that reads like a code fault.
 
 Railway reads `railway.json` and will use:
 

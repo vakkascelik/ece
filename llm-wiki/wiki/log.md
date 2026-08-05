@@ -230,4 +230,16 @@ Also removed the assertion count from `AGENTS.md`'s verification checklist. It s
 suite is at 176; a number in a checklist is a number that goes stale, and the counts live in the
 tools that print them.
 
+2026-08-05 — Recorded in [[deployment]] that Railway's workspace detection offers **two** services,
+`@ece/web` and `@ece/mobile`, because `apps/mobile/package.json` has a `start` script — which is
+`expo start`, a development bundler rather than a server. The mobile service must be deleted: a
+container running it costs money, serves nothing reachable, and fails the health check forever. Worth
+writing down because it does not look like a mistake in the dashboard — it has a name, a green badge,
+and sits beside the real one.
+
+The same detection sets the root directory to `apps/web`, and that failure is the silent one.
+`railway.json` lives only at the repository root, so from `apps/web` Railway never sees it and
+guesses the build command, the start command and the health check path — a deploy that looks
+configured and is not.
+
 *Log last updated: 2026-08-05*
