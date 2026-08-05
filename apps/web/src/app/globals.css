@@ -292,6 +292,54 @@ button.danger { background: var(--surface); color: var(--danger); border-color: 
   font-size: var(--text-base);
 }
 
+/* --- Child record (design handoff, screen 6) ------------------------------ */
+
+/* 760px. A record read under pressure should not be a line of text a metre wide. */
+.record { max-width: 760px; }
+
+.record-head { display: flex; gap: 16px; align-items: center; margin-bottom: var(--space-5); }
+.record-initials {
+  width: 56px;
+  height: 56px;
+  flex: 0 0 56px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-sunken);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--muted);
+}
+.record-who { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.record-who h1 { font-size: var(--text-2xl); font-weight: 600; margin: 0; line-height: 1.2; }
+.record-meta { font-size: var(--text-sm); color: var(--muted); margin: 0; }
+/* Pushed to the far end of the header row, per the board. */
+.record-status { margin-left: auto; flex: 0 0 auto; }
+
+/*
+ * HealthCard: a tinted block with a glyph, a 15/600 line naming the thing, and a 13px
+ * line saying what to do about it. The glyph is aria-hidden — the words carry it, which
+ * is the whole point of the pack's rule against colour-only and dot-only states.
+ */
+.healthcard {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+}
+.healthcard + .healthcard { margin-top: 8px; }
+.healthcard-critical { background: var(--breach-soft); color: var(--breach); }
+.healthcard-warn { background: var(--warn-soft); color: var(--warn); }
+.healthcard-title { font-size: var(--text-base); font-weight: 600; }
+.healthcard-detail { font-size: var(--text-sm); line-height: 1.6; }
+
+@media (max-width: 767px) {
+  .record-head { flex-wrap: wrap; }
+  .record-status { margin-left: 0; }
+}
+
 /* --- RollRow (design handoff, screen 2) ----------------------------------- */
 
 /*

@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import {
   getChild,
+  listAttendanceToday,
   listConsentHistory,
   listConsents,
   listCustodyArrangements,
@@ -16,6 +17,7 @@ import {
   displayName,
   formatAge,
   hasCriticalCondition,
+  initials,
   isUnderTwo,
   missingConsents,
   todayInZone,
@@ -57,15 +59,22 @@ export default async function ChildPage({ params }: { params: Promise<{ id: stri
   const canManage = can(ctx.role, 'manageChildren');
   const canViewCustody = can(ctx.role, 'viewCustody');
 
-  const [conditions, medications, whanau, enrolments, consents, history, custody] = await Promise.all([
-    listHealthConditions(db, id),
-    listMedications(db, id),
-    listGuardiansOfChild(db, id),
-    listEnrolments(db, id),
-    listConsents(db, id),
-    listConsentHistory(db, id),
-    canViewCustody ? listCustodyArrangements(db, id) : Promise.resolve([]),
-  ]);
+  const [conditions, medications, whanau, enrolments, consents, history, custody, attendance] =
+    await Promise.all([
+      listHealthConditions(db, id),
+      listMedications(db, id),
+      listGuardiansOfChild(db, id),
+      listEnrolments(db, id),
+      listConsents(db, id),
+      listConsentHistory(db, id),
+      canViewCustody ? listCustodyArrangements(db, id) : Promise.resolve([]),
+      // For the header's "signed in" chip. Derived from the events like everywhere else —
+      // there is no stored "present" flag to read, deliberately.
+      listAttendanceToday(db, ctx.centre.id),
+    ]);
+
+  const state = attendance.find((s) => s.childId === id);
+  const signedInAt = state?.kind === 'in' ? state.at : null;
 
   const sorted = [...conditions].sort(compareBySeverity);
   const critical = hasCriticalCondition(conditions);
@@ -77,48 +86,78 @@ export default async function ChildPage({ params }: { params: Promise<{ id: stri
   // failing on submit.
   const ownGuardianId = whanau.find((g) => g.guardian.userId === ctx.userId)?.guardian.id ?? null;
 
+  const enrolledOn = enrolments.length > 0 ? enrolments[0].startDate : null;
+
   return (
-    <>
-      <div className="section-head">
-        <div>
+    <div className="record">
+      <p style={{ fontSize: 'var(--text-sm)', margin: '0 0 12px' }}>
+        <Link href="/children">Back</Link>
+      </p>
+
+      <div className="record-head">
+        {/* aria-hidden: the name is the next thing in the reading order. */}
+        <span className="record-initials" aria-hidden="true">
+          {initials(child)}
+        </span>
+        <div className="record-who">
           <h1>{displayName(child)}</h1>
-          <p className="sub" style={{ marginBottom: '1rem' }}>
-            {formatAge(child.dateOfBirth)} · born {child.dateOfBirth}
+          <p className="record-meta">
+            {formatAge(child.dateOfBirth, today)} · born {child.dateOfBirth}
+            {enrolledOn && ` · enrolled ${enrolledOn}`}
             {child.archivedAt ? ' · left the centre' : ''}
           </p>
         </div>
-        <Link href="/children">Back</Link>
+
+        {/*
+          Whether this child is in the building, on the record itself. The board puts it
+          here and it is the right call: the question "is this child here" arrives at the
+          same moment as "what is this child allergic to", and the answer was previously
+          only on /attendance.
+        */}
+        <span className={`flag ${signedInAt ? 'flag-ok' : 'flag-quiet'} record-status`}>
+          {signedInAt
+            ? `✓ Signed in ${new Date(signedInAt).toLocaleTimeString('en-NZ', {
+                hour: 'numeric',
+                minute: '2-digit',
+              })}`
+            : '◇ Not signed in today'}
+        </span>
       </div>
 
-      {/* Above everything, because it is the reason to look at this page in a hurry. */}
-      {critical && (
-        <div className="card" style={{ borderColor: 'var(--breach-border)', background: 'var(--breach-soft)' }}>
-          {sorted
-            .filter((c) => c.severity === 'anaphylaxis' || c.severity === 'severe')
-            .map((c) => (
-              <div key={c.id} style={{ marginBottom: '0.35rem' }}>
-                <span className="flag flag-critical">
-                  ▲ {c.severity === 'anaphylaxis' ? 'Anaphylaxis' : 'Severe'}
-                </span>{' '}
-                <strong>{c.name}</strong>
-                {c.responsePlan && <> — {c.responsePlan}</>}
-              </div>
-            ))}
-        </div>
-      )}
-
       <div className="inline" style={{ marginBottom: '1.5rem' }}>
-        {isUnderTwo(child.dateOfBirth) && <span className="flag flag-quiet">under 2</span>}
+        {isUnderTwo(child.dateOfBirth, today) && <span className="flag flag-quiet">under 2</span>}
         {gaps.length > 0 && ctx.role !== 'parent' && (
           <span className="flag flag-warn">◌ {gaps.length} consent unanswered</span>
         )}
         {enrolments.length === 0 && <span className="flag flag-warn">◌ No enrolment on file</span>}
       </div>
 
-      <div className="section">
-        <h2>Details</h2>
-        <DetailsForm child={child} readOnly={!canManage} />
-      </div>
+      {/*
+        HEALTH IS FIRST, AND THAT IS THE POINT OF THIS SCREEN.
+        The design pack puts it above the identity metadata "because it is the only block
+        read under time pressure". Everything else here — names, dates, NSN — is read by
+        somebody sitting down. This block is read by somebody holding a child who has
+        eaten something. So the order is Health, Consent, Whānau, Enrolment, Custody, and
+        the editable identity form goes last.
+      */}
+      {critical && (
+        <div className="section">
+          <h2>Read this first</h2>
+          {sorted
+            .filter((c) => c.severity === 'anaphylaxis' || c.severity === 'severe')
+            .map((c) => (
+              <div key={c.id} className="healthcard healthcard-critical">
+                <span aria-hidden="true">▲</span>
+                <div>
+                  <div className="healthcard-title">
+                    {c.severity === 'anaphylaxis' ? 'Anaphylaxis' : 'Severe'}: {c.name}
+                  </div>
+                  {c.responsePlan && <div className="healthcard-detail">{c.responsePlan}</div>}
+                </div>
+              </div>
+            ))}
+        </div>
+      )}
 
       <div className="section">
         <h2>Health</h2>
@@ -129,6 +168,20 @@ export default async function ChildPage({ params }: { params: Promise<{ id: stri
           guardians={whanau.map((g) => ({ id: g.guardian.id, name: g.guardian.fullName }))}
           canEdit={can(ctx.role, 'recordHealth')}
           today={today}
+        />
+      </div>
+
+      {/* Consent second, per the pack — it gates whether a photo may exist at all. */}
+      <div className="section">
+        <h2>Consent</h2>
+        <ConsentPanel
+          childId={child.id}
+          consents={consents}
+          history={history}
+          guardians={whanau.map((g) => ({ id: g.guardian.id, name: g.guardian.fullName }))}
+          canRecord={can(ctx.role, 'recordConsent')}
+          isParent={ctx.role === 'parent'}
+          ownGuardianId={ownGuardianId}
         />
       </div>
 
@@ -147,19 +200,6 @@ export default async function ChildPage({ params }: { params: Promise<{ id: stri
         />
       </div>
 
-      <div className="section">
-        <h2>Consent</h2>
-        <ConsentPanel
-          childId={child.id}
-          consents={consents}
-          history={history}
-          guardians={whanau.map((g) => ({ id: g.guardian.id, name: g.guardian.fullName }))}
-          canRecord={can(ctx.role, 'recordConsent')}
-          isParent={ctx.role === 'parent'}
-          ownGuardianId={ownGuardianId}
-        />
-      </div>
-
       {/*
         Custody is owner/manager only. Not rendered at all for anyone else — an
         empty "Custody" heading tells an educator that a court order exists, which
@@ -172,12 +212,22 @@ export default async function ChildPage({ params }: { params: Promise<{ id: stri
         </div>
       )}
 
+      {/*
+        Identity metadata last. It is the block a manager edits sitting down, and the pack
+        is explicit that it belongs below health — the header above already carries the
+        name, age and enrolment date that anybody reading in a hurry needs.
+      */}
+      <div className="section">
+        <h2>Details</h2>
+        <DetailsForm child={child} readOnly={!canManage} />
+      </div>
+
       {canManage && !child.archivedAt && (
         <div className="section">
           <h2>Leaving</h2>
           <ArchivePanel childId={child.id} name={child.preferredName || child.firstName} />
         </div>
       )}
-    </>
+    </div>
   );
 }

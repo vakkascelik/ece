@@ -112,6 +112,35 @@ test.describe('staff screens', () => {
     await auditPage(page, `/children/[id]`);
   });
 
+  /**
+   * A tripwire on the reading order, not a style check.
+   *
+   * The design pack puts health above the identity metadata "because it is the only
+   * block read under time pressure" — names and dates are read by somebody sitting
+   * down; an allergy is read by somebody holding a child who has eaten something. That
+   * ordering is a safety decision and it is invisible to every other check in this
+   * repo: the page renders, axe passes and the tests are green with the sections in any
+   * order at all. So it is asserted, the same way the unverified-ratio caveat is.
+   */
+  test('the child record leads with health, not with identity metadata', async ({ page }) => {
+    const t = tenant();
+    await visit(page, `/children/${t.childId}`);
+
+    const order = (await page.getByRole('heading', { level: 2 }).allTextContents()).map((h) =>
+      h.trim(),
+    );
+    const at = (name: string) => order.indexOf(name);
+
+    expect(at('Health'), `no Health section — headings were: ${order.join(', ')}`).toBeGreaterThanOrEqual(0);
+    expect(
+      at('Details'),
+      `identity metadata is above health. Order: ${order.join(' → ')}`,
+    ).toBeGreaterThan(at('Health'));
+    // Consent gates whether a photo may exist, so it sits above the family/enrolment
+    // blocks too.
+    expect(at('Consent'), `Order: ${order.join(' → ')}`).toBeLessThan(at('Enrolment'));
+  });
+
   test('new child form', async ({ page }) => {
     await visit(page, '/children/new');
     await auditPage(page, '/children/new');

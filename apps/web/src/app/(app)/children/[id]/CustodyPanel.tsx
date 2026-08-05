@@ -34,7 +34,26 @@ export function CustodyPanel({
       </p>
 
       {arrangements.length === 0 ? (
-        <p className="empty">Nothing recorded.</p>
+        /*
+          The pack's wording, on sunken. "No court order recorded" rather than "Nothing
+          recorded": on this one panel the absence is the fact somebody came to check, and
+          a vague empty state leaves them unsure whether they looked in the right place.
+        */
+        <p
+          style={{
+            background: 'var(--surface-sunken)',
+            borderRadius: 'var(--radius-sm)',
+            padding: '12px 14px',
+            margin: 0,
+            fontSize: 'var(--text-base)',
+            lineHeight: 1.6,
+          }}
+        >
+          No court order recorded.{' '}
+          <span style={{ color: 'var(--muted)', fontSize: 'var(--text-sm)' }}>
+            Visible to kaiako and managers only.
+          </span>
+        </p>
       ) : (
         <div className="stack">
           {arrangements.map((a) => (

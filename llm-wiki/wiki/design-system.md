@@ -249,6 +249,43 @@ prefix of it, which is what WCAG 2.5.3 (Label in Name) asks for. Word order diff
 the pack's "Sign Aroha Ngata out" — "Sign out Aroha Ngata" keeps a stable prefix, which
 both a human scanning and a role-based selector can rely on.
 
+### Screen 6 — the child record, and why the order is the feature
+
+The pack's instruction for this screen is not a style: *"Section order in the DOM is Health
+→ Consents → Guardians / Enrolment → Custody. Health is above identity metadata because it
+is the only block read under time pressure."* The record was previously Details → Health →
+Whānau → Enrolment → Consent, which puts a form for editing a child's legal name above the
+sentence saying what to do when they stop breathing.
+
+It now reads: header → **Read this first** (the breach-tinted HealthCard, when there is an
+anaphylaxis or severe condition) → Health → Consent → Whānau → Enrolment → Custody →
+Details → Leaving. Consent sits above the family and enrolment blocks because it gates
+whether a photo may exist at all — see [[consent-gated-media]].
+
+**That ordering is now a tripwire in the e2e suite**, for the same reason the
+unverified-ratio caveat is. It is invisible to every other check in this repo: the page
+renders, axe passes and every test stays green with the sections in any order at all.
+Mutation-tested — putting Details back on top fails with the whole order printed, which is
+the message a future reader needs rather than "expected 7 to be greater than 2".
+
+The header is the pack's: a 56px initials circle, the name at 28/600, a 13/muted line of
+age · born · enrolled, and a right-aligned status chip. The chip is new information on this
+screen and the pack is right to put it there — "is this child here" arrives at the same
+moment as "what is this child allergic to", and the answer previously existed only on
+`/attendance`.
+
+That chip needed `listAttendanceToday()` on a page a **parent** loads, and `@ece/api`
+contains no tenant filtering by design, so this was checked rather than assumed: the RLS
+suite already asserts *"and cannot read another family's attendance either"*, so the
+`attendance_events` policy keys on guardianship and not merely on `centre_id`. Had it
+keyed on the centre, this one-line addition would have been the exact defect [[tenancy-and-rls]]
+warns about.
+
+The custody empty state takes the pack's wording — "No court order recorded." with
+"Visible to kaiako and managers only." — on sunken. On this one panel the absence is the
+fact somebody came to check, and a generic "Nothing recorded." leaves them unsure whether
+they looked in the right place.
+
 ### Deviations so far
 
 | Screen | Deviation | Why |
@@ -263,18 +300,19 @@ both a human scanning and a role-based selector can rely on.
 | 2 — RollRow | Action labelled "Sign out {name}", not "Sign {name} out" | A stable prefix that a human scanning and a role selector can both rely on; see above |
 | 2 — RollRow | An "under 2" chip in the meta line, which the pack's anatomy does not list | The age text implies it, but the under-2 band is the regulated divide and was already explicit here. Removing information from a compliance screen needs a better reason than tidiness |
 | — | The rail's phone behaviour (collapse behind `☰ Menu`) is not in the pack at all | The pack has no phone-width web surface. See the section above |
+| 6 — Child record | Sections remain separate cards, not one 760px card containing all of them | The column is constrained to 760px, but merging seven panels into a single card is a rewrite of every panel, and the section eyebrows are what carry the structure |
+| 6 — Health | The editable conditions table is unchanged; only the critical block is a HealthCard | Converting the table means reworking its add / resolve / medication forms. The block read under pressure is the one that mattered first |
+| 6 — Header | No room name in the meta line | No rooms concept in the schema, as on the roll |
 
 ### Not yet applied
 
-Screens 4, 5, 6 and 8–13 are **not** done:
+Screens 4, 5 and 8–13 are **not** done:
 
 - **4 (offline roll) and 5 (sign-out refusal) are not purely visual.** The offline outbox is a
   mobile capability; the web app has no local queue, so these two screens need the queue on web
   before they can be built at all. The pack shows them because the web app also runs on a
   wall-mounted tablet. The sign-out refusal logic already exists in `@ece/core` — see
   `signOut.test.ts` — so it is the web queue that is missing, not the decision.
-- **6 (child detail)** is a reordering job as much as a styling one: the pack puts Health
-  **above** identity metadata, because it is the only block read under time pressure.
 - **8–13 are the mobile surface**, which shares tokens and vocabulary with web and deliberately
   shares no components. See [[mobile-app]].
 
@@ -287,4 +325,4 @@ Nothing on this page should be read as claiming the product now looks like the b
 - [[unverified-claims]] — the unchecked product name
 - [[mobile-app]] — why the mobile screens are a separate surface sharing only tokens
 
-*Last updated: 2026-08-06 (screens 1, 2, 3 and the no-access half of 7)*
+*Last updated: 2026-08-06 (screens 1, 2, 3, 6 and the no-access half of 7)*

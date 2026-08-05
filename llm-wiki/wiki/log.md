@@ -5,6 +5,23 @@ says so.*
 
 ---
 
+2026-08-06 — Screen 6, the child record, where the pack's instruction is a safety decision
+rather than a style: health above identity metadata, "because it is the only block read under
+time pressure". The record had been Details → Health → Whānau → Enrolment → Consent, which puts
+a form for editing a child's legal name above the sentence saying what to do when they stop
+breathing. Now header → Read this first → Health → Consent → Whānau → Enrolment → Custody →
+Details → Leaving, with the pack's 56px initials header and a right-aligned "signed in" chip.
+
+**The order is now a tripwire in the e2e suite**, because it is invisible to every other check
+here — the page renders, axe passes, and every test stays green with the sections in any order
+at all. Mutation-tested: putting Details back on top fails with the whole heading order printed.
+
+The status chip needed `listAttendanceToday()` on a page a **parent** loads, and `@ece/api` has
+no tenant filtering by design. Checked instead of assumed: the RLS suite already asserts "and
+cannot read another family's attendance either", so the policy keys on guardianship, not merely
+`centre_id`. Had it keyed on the centre, that one-line addition would have been exactly the
+defect [[tenancy-and-rls]] warns about. Detail in [[design-system]].
+
 2026-08-06 — RollRow. The roll stopped being a `<table>`: the pack folds age and flags into a
 line under the name, leaving name/time/action, and it calls these lists in its own screen
 description. The stronger reason is mechanical — a table whose rows are restyled as grids loses
