@@ -49,9 +49,15 @@ something that could be worked around:
 
 So the sign-in screen has exactly two fields and no third affordance, and there is a `no-access`
 screen for the ordinary case of a real account with no membership yet. What replaces the missing
-buttons is one honest sentence: access comes from a centre invitation, which arrives by email and
-opens in a browser. A dead end with a reason is a person emailing their manager; a dead end without
-one is a support call.
+buttons is one honest sentence: access comes from a centre invitation, and since 2026-08-06 that
+sentence also names where a forgotten password gets replaced — "the invitation, and setting a new
+password if you have forgotten yours, both open in a browser". A dead end with a reason is a
+person emailing their manager; a dead end without one is a support call.
+
+The pack's own footnote for this screen ends "and no password reset — ask your centre to send a
+new invitation", which is not repeated: a re-invitation cannot set a password for an address that
+already has an account, so that sentence would send somebody down a path that does not work. Same
+deviation as the web login screen — see [[design-system]] and [[password-recovery]].
 
 **One error string for every sign-in failure** — `'Those details are not right.'` — carried over from
 the web app with its reasoning intact: distinguishing an unknown address from a wrong password turns

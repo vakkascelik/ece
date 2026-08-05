@@ -24,9 +24,11 @@ import { useSession } from '../state/SessionProvider';
  * acceptance needs the service-role key and `node:crypto` — neither of which can exist in this
  * bundle — so it happens in a browser and cannot be moved here.
  *
- * No "forgot password": there is no mailer configured on the project, so the link would go
- * nowhere. A dead button is worse than no button, and worse still on the screen somebody has
- * already failed to get past.
+ * No "forgot password" **button**, but the thing itself now exists — on the web app, at
+ * /forgot-password. Until 2026-08-05 this comment said the link "would go nowhere" because no
+ * mailer was configured; that is no longer true. What has not changed is that the recovery link
+ * establishes a session in a browser and sets a password there, so a button here would be a
+ * button that leaves the app. The footnote says where to go instead.
  *
  * What replaces both is one honest sentence about where access comes from. A dead end with no
  * explanation is a support call; a dead end with a reason is a person emailing their manager.
@@ -73,8 +75,10 @@ export function SignInScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView contentContainerStyle={[theme.content, styles.centre]} keyboardShouldPersistTaps="handled">
-        <Text style={theme.h1}>Sign in</Text>
-        <Text style={[theme.muted, styles.sub]}>ECE</Text>
+        {/* 36/600 — the pack's mobile display size, against 28 on web. This is read at
+            arm's length and it is the first thing on the screen. */}
+        <Text style={styles.nauMai}>Nau mai</Text>
+        <Text style={[styles.sub]}>Sign in to your centre.</Text>
 
         <View style={styles.field}>
           <Text style={styles.label} nativeID="email-label">
@@ -120,11 +124,16 @@ export function SignInScreen() {
         </View>
 
         {error && (
-          // `alert` so it is announced when it appears — a sighted user sees the red text, and
+          // A tinted block, not red text on the page background. The pack asks for it and the
+          // reason is the room: this is read standing up, often in poor light, and a colour
+          // change on a thin glyph of text is the first thing to disappear. The block also
+          // holds a 17/500 line rather than the 15 used elsewhere.
+          //
+          // `alert` so it is announced when it appears — a sighted user sees the block, and
           // without this a screen reader user taps a button and is told nothing.
-          <Text style={[theme.error, styles.error]} accessibilityRole="alert">
-            {error}
-          </Text>
+          <View style={styles.errorBlock} accessibilityRole="alert">
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
         )}
 
         <Pressable
@@ -142,9 +151,15 @@ export function SignInScreen() {
           )}
         </Pressable>
 
-        <Text style={[theme.muted, styles.help]}>
-          Access comes from your centre. If you have not been invited yet, ask your manager — the
-          invitation arrives by email and opens in a browser.
+        {/*
+          The pack's footnote ends "and no password reset — ask your centre to send a new
+          invitation". Reset exists now, and a re-invitation still cannot recover a password for
+          an address that already has an account, so repeating that sentence would send somebody
+          down a path that does not work. Same deviation as the web login screen.
+        */}
+        <Text style={styles.help}>
+          Your centre invites you; there is no sign-up here. The invitation, and setting a new
+          password if you have forgotten yours, both open in a browser.
         </Text>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -153,7 +168,14 @@ export function SignInScreen() {
 
 const styles = StyleSheet.create({
   centre: { flexGrow: 1, justifyContent: 'center' },
-  sub: { marginBottom: space['6'] },
+  nauMai: {
+    fontSize: font.size['3xl'],
+    fontWeight: font.weight.semibold,
+    color: color.ink,
+    marginBottom: space['1'],
+  },
+  // 17, not the 15 `theme.muted` uses. Mobile body is 17 throughout the pack.
+  sub: { fontSize: font.size.mobileBase, color: color.inkMuted, marginBottom: space['6'] },
   field: { marginBottom: space['4'] },
   label: { fontSize: font.size.sm, color: color.inkMuted, marginBottom: space['1'] },
   input: {
@@ -167,7 +189,18 @@ const styles = StyleSheet.create({
     color: color.ink,
     backgroundColor: color.surface,
   },
-  error: { marginBottom: space['3'] },
+  errorBlock: {
+    backgroundColor: color.breachSoft,
+    borderRadius: radius.md,
+    paddingVertical: space['3'],
+    paddingHorizontal: space['4'],
+    marginBottom: space['3'],
+  },
+  errorText: {
+    fontSize: font.size.mobileBase,
+    fontWeight: font.weight.medium,
+    color: color.breach,
+  },
   button: {
     minHeight: target.primary,
     borderRadius: radius.md,
@@ -178,5 +211,5 @@ const styles = StyleSheet.create({
   },
   buttonOff: { opacity: 0.5 },
   buttonText: { color: color.inkInverse, fontSize: font.size.mobileBase, fontWeight: '600' },
-  help: { marginTop: space['6'], fontSize: font.size.sm },
+  help: { marginTop: space['6'], fontSize: font.size.base, color: color.inkMuted, lineHeight: 22 },
 });

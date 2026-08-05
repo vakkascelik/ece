@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { FlatList, RefreshControl, Text, View } from 'react-native';
 import { POST_KIND_LABELS } from '@ece/core';
 import { space, theme } from '../theme';
+import { EmptyState } from '../components/EmptyState';
 import { PostCard } from '../components/PostCard';
 import { useFeed } from '../data/useFeed';
 import { useSession } from '../state/SessionProvider';
@@ -52,11 +53,17 @@ export function PanuiScreen() {
         </View>
       }
       ListEmptyComponent={
-        <Text style={theme.muted}>
-          {isParent
-            ? 'Nothing from the kaiako yet.'
-            : 'Nothing published yet. Posts are written on the web app.'}
-        </Text>
+        // No action, per the pack: there is nothing a parent can do to make kaiako post,
+        // and a button here would imply otherwise. Staff get the one fact they can act on
+        // — posts are written on the web app — for the same reason.
+        <EmptyState
+          title="Nothing posted yet"
+          body={
+            isParent
+              ? 'Kaiako share moments from the day here.'
+              : 'Kaiako share moments from the day here. Posts are written on the web app.'
+          }
+        />
       }
       renderItem={({ item }) => (
         <View style={{ marginBottom: space['4'] }}>

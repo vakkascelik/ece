@@ -5,6 +5,7 @@ import { listChildren, listConsentsByChild, listHealthByChild } from '@ece/api';
 import { displayName, missingConsents, type Child, type ConsentState, type HealthCondition } from '@ece/core';
 import { space, theme } from '../theme';
 import { ChildCard } from '../components/ChildCard';
+import { EmptyState } from '../components/EmptyState';
 import { useSession } from '../state/SessionProvider';
 import { supabase } from '../lib/supabase';
 
@@ -73,10 +74,23 @@ export function TamarikiScreen() {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
       ListHeaderComponent={error ? <Text style={theme.error}>{error}</Text> : null}
       ListEmptyComponent={
-        <Text style={theme.muted}>
-          No tamariki are linked to you yet. The centre links a child to a parent when they enrol —
-          ask them if this looks wrong.
-        </Text>
+        // The pack's copy. "Your centre links your child to your account" says whose job it
+        // is, which the previous wording buried behind "ask them if this looks wrong" —
+        // a sentence that invites somebody to worry before telling them the process is
+        // normal. The action goes to Messages because that is the only thing they can
+        // actually do about it from a phone.
+        <EmptyState
+          title="No tamariki linked yet"
+          body="Your centre links your child to your account."
+          action={{
+            label: 'Message the centre',
+            // 'Messages' is a sibling *tab*, not a route in this stack. React Navigation
+            // bubbles an unmatched navigate up to the parent navigator, which is where it
+            // resolves. Like everything else in this app, unverified on a device — see
+            // unverified-claims item 15.
+            onPress: () => navigation.navigate('Messages', {}),
+          }}
+        />
       }
       renderItem={({ item }) => {
         const theirConsents = consents.get(item.id) ?? [];

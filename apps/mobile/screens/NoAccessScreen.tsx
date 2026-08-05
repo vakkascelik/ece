@@ -1,5 +1,6 @@
 import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 import { color, font, radius, space, target, theme } from '../theme';
+import { EmptyState } from '../components/EmptyState';
 import { useSession } from '../state/SessionProvider';
 
 /**
@@ -17,15 +18,22 @@ import { useSession } from '../state/SessionProvider';
  * their manager should be having with them.
  */
 export function NoAccessScreen() {
-  const { signOut } = useSession();
+  const { signOut, retry } = useSession();
 
   return (
     <ScrollView contentContainerStyle={[theme.content, styles.centre]}>
-      <Text style={theme.h1}>No centre yet</Text>
-      <Text style={[theme.body, styles.para]}>
-        Your account is set up, but you have not been added to a centre. An owner or manager needs
-        to invite you.
-      </Text>
+      {/*
+        The pack's copy, and "Nau mai" is doing work here: this is the screen somebody
+        reaches when everything went right and one other person has not finished their part.
+        "Check again" calls `retry()` rather than doing nothing, because the thing that
+        changes the answer happens on a different device and there is no push for it.
+      */}
+      <EmptyState
+        title="Nau mai. No centre yet."
+        body="Your invitation is still to be accepted by your centre."
+        action={{ label: 'Check again', onPress: () => void retry(), tone: 'secondary' }}
+      />
+
       <Text style={[theme.muted, styles.para]}>
         If you were using this app before, your access may have been changed. Your manager will
         know.

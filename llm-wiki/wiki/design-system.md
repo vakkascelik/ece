@@ -286,6 +286,41 @@ The custody empty state takes the pack's wording — "No court order recorded." 
 fact somebody came to check, and a generic "Nothing recorded." leaves them unsure whether
 they looked in the right place.
 
+### Screens 8 and 12 — the mobile surface starts
+
+Mobile was already closer to the pack than web had been, because the token file it reads is
+the pack's: 56px fields, a 64px primary, `radius.md` on controls, and one error string were
+all in place. Three things were not.
+
+**Screen 8, sign-in.** "Nau mai" at 36/600 — the pack's mobile display size, against 28 on
+web — over "Sign in to your centre." at 17. The heading was "Sign in" at 28 and the subtitle
+was the word "ECE", which is a product name where the pack asks for an instruction.
+
+The failure state was red text on the page background and is now a 10-radius `breachSoft`
+block with a 17/500 line. The reason is the room rather than the mockup: this is read
+standing up, often in poor light, and a colour change on a thin glyph of text is the first
+thing to disappear. It keeps `accessibilityRole="alert"`.
+
+**Screen 12, empty states.** All three were a single line of muted 15px text, which reads as
+a fault rather than as "nothing has happened yet". They now use one shared `EmptyState` —
+18/600 line of state, one warm sentence at 17/muted, and **at most one action**, which is
+the pack's rule and worth keeping: an empty screen with three buttons asks somebody who has
+just arrived to make a decision they have no basis for.
+
+- No tamariki linked → "Your centre links your child to your account." + "Message the
+  centre". The old copy buried whose job it was behind "ask them if this looks wrong", which
+  invites a parent to worry before telling them the process is normal.
+- Nothing posted → no action at all, deliberately. Nothing a parent can do makes kaiako
+  post, and a button would imply otherwise.
+- No centre yet → "Nau mai. No centre yet." + "Check again", wired to the provider's
+  `retry()`. The thing that changes the answer happens on somebody else's device and there
+  is no push for it, so a real refresh is the difference between a waiting room and a dead
+  end.
+
+`EmptyState` is shared rather than inlined three times because these are the screens a
+parent meets on their first day and on a quiet Tuesday, and they should read as the same
+product.
+
 ### Deviations so far
 
 | Screen | Deviation | Why |
@@ -303,18 +338,25 @@ they looked in the right place.
 | 6 — Child record | Sections remain separate cards, not one 760px card containing all of them | The column is constrained to 760px, but merging seven panels into a single card is a rewrite of every panel, and the section eyebrows are what carry the structure |
 | 6 — Health | The editable conditions table is unchanged; only the critical block is a HealthCard | Converting the table means reworking its add / resolve / medication forms. The block read under pressure is the one that mattered first |
 | 6 — Header | No room name in the meta line | No rooms concept in the schema, as on the roll |
+| 8 — Sign-in | Footnote does not say "no password reset"; it points at the browser | Reset exists, and re-invitation cannot recover a password. Same call as web |
+| 12 — Empty states | The "Message the centre" action relies on React Navigation bubbling an unmatched route to the parent tab navigator | `useNavigation` is hand-typed here with only `navigate`. Documented behaviour, but **unverified on a device** like everything else in this app |
 
 ### Not yet applied
 
-Screens 4, 5 and 8–13 are **not** done:
+Screens 4, 5, 9, 10, 11 and 13 are **not** done:
 
 - **4 (offline roll) and 5 (sign-out refusal) are not purely visual.** The offline outbox is a
   mobile capability; the web app has no local queue, so these two screens need the queue on web
   before they can be built at all. The pack shows them because the web app also runs on a
   wall-mounted tablet. The sign-out refusal logic already exists in `@ece/core` — see
   `signOut.test.ts` — so it is the web queue that is missing, not the decision.
-- **8–13 are the mobile surface**, which shares tokens and vocabulary with web and deliberately
-  shares no components. See [[mobile-app]].
+- **9, 10 and 11** are the mobile screens that carry real anatomy: the staff roll's RatioCard,
+  OfflineStrip and 88×56 ChildCard actions; the whānau child detail with its 56×32 consent
+  switches and its **absent** custody heading; and the pānui feed where a withdrawn photo
+  consent must render nothing at all. Screen 13, the three-metre tablet proof, is a web
+  concern.
+The mobile surface shares tokens and vocabulary with web and deliberately shares no
+components. See [[mobile-app]].
 
 Nothing on this page should be read as claiming the product now looks like the board.
 
@@ -325,4 +367,4 @@ Nothing on this page should be read as claiming the product now looks like the b
 - [[unverified-claims]] — the unchecked product name
 - [[mobile-app]] — why the mobile screens are a separate surface sharing only tokens
 
-*Last updated: 2026-08-06 (screens 1, 2, 3, 6 and the no-access half of 7)*
+*Last updated: 2026-08-06 (screens 1, 2, 3, 6, 7's no-access half, 8 and 12)*

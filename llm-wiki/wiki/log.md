@@ -5,6 +5,25 @@ says so.*
 
 ---
 
+2026-08-06 — The mobile surface starts: screens 8 (sign-in) and 12 (empty states). Mobile was
+already closer to the pack than web had been, because the token file it reads *is* the pack —
+56px fields, a 64px primary and one error string were in place. Three things were not. "Nau mai"
+at 36/600 over "Sign in to your centre." replaced "Sign in" over the word "ECE", which is a
+product name where the pack asks for an instruction. The failure state moved from red text on the
+page background into a 10-radius `breachSoft` block at 17/500 — the reason is the room, not the
+mockup: read standing up in poor light, a colour change on a thin glyph is the first thing to go.
+
+All three empty states were one line of muted 15px text, which reads as a fault rather than as
+"nothing has happened yet". One shared `EmptyState` now carries the pack's shape, including its
+rule of **at most one action** — an empty screen with three buttons asks somebody who has just
+arrived to make a decision they have no basis for. "Nothing posted yet" therefore has no action at
+all: nothing a parent does makes kaiako post. "No centre yet" gained a real "Check again" wired to
+the provider's `retry()`, because the thing that changes the answer happens on somebody else's
+device and there is no push for it. [[mobile-app]] corrected where it described the old sign-in
+copy. Metro bundled clean; still nothing has run on a device ([[unverified-claims]] item 15), and
+the "Message the centre" action leans on React Navigation bubbling an unmatched route to the
+parent tab navigator, which is documented but unverified here.
+
 2026-08-06 — Screen 6, the child record, where the pack's instruction is a safety decision
 rather than a style: health above identity metadata, "because it is the only block read under
 time pressure". The record had been Details → Health → Whānau → Enrolment → Consent, which puts
