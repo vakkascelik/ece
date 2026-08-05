@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { can } from '@ece/core';
 import { requireCtx } from '@/lib/auth';
 import { signOut } from '../login/actions';
+import { NavLink } from './NavLink';
 
 /**
  * The signed-in shell. Every page under (app) is authenticated and scoped to one
@@ -30,33 +31,36 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
         <div className="pill" style={{ marginBottom: '1.25rem', display: 'inline-block' }}>{ctx.role}</div>
 
         <nav>
-          <Link href="/">Overview</Link>
+          <NavLink href="/">Overview</NavLink>
           {/*
             Shown to parents too, where it lists their own child and nothing else —
             the policy on `children` keys on guardianship, so the same link is a
             roll for staff and a single record for a parent.
           */}
-          <Link href="/children">{ctx.role === 'parent' ? 'Your tamariki' : 'Children'}</Link>
-          <Link href="/posts">{ctx.role === 'parent' ? 'Pānui' : 'Posts'}</Link>
-          <Link href="/messages">Messages</Link>
-          {can(ctx.role, 'recordDailyPractice') && <Link href="/attendance">Attendance</Link>}
-          {can(ctx.role, 'manageMembers') && <Link href="/members">People</Link>}
-          {can(ctx.role, 'manageCentre') && <Link href="/compliance">Compliance</Link>}
-          {can(ctx.role, 'manageCentre') && <Link href="/funding">Funding</Link>}
-          {can(ctx.role, 'manageCentre') && <Link href="/settings">Settings</Link>}
+          <NavLink href="/children">{ctx.role === 'parent' ? 'Your tamariki' : 'Children'}</NavLink>
+          <NavLink href="/posts">{ctx.role === 'parent' ? 'Pānui' : 'Posts'}</NavLink>
+          <NavLink href="/messages">Messages</NavLink>
+          {can(ctx.role, 'recordDailyPractice') && <NavLink href="/attendance">Attendance</NavLink>}
+          {can(ctx.role, 'manageMembers') && <NavLink href="/members">People</NavLink>}
+          {can(ctx.role, 'manageCentre') && <NavLink href="/compliance">Compliance</NavLink>}
+          {can(ctx.role, 'manageCentre') && <NavLink href="/funding">Funding</NavLink>}
+          {can(ctx.role, 'manageCentre') && <NavLink href="/settings">Settings</NavLink>}
           {/* Everyone: this is the user's own account, not the centre's. */}
-          <Link href="/account">Account</Link>
+          <NavLink href="/account">Account</NavLink>
         </nav>
 
-        {ctx.centres.length > 1 && (
-          <p style={{ fontSize: '0.8125rem', marginBottom: '1rem' }}>
-            <Link href="/select-centre">Switch centre</Link>
-          </p>
-        )}
+        {/* Pinned to the bottom of the rail — see `.side-foot` in globals.css. */}
+        <div className="side-foot">
+          {ctx.centres.length > 1 && (
+            <p style={{ fontSize: 'var(--text-sm)', marginBottom: '0.75rem' }}>
+              <Link href="/select-centre">Switch centre</Link>
+            </p>
+          )}
 
-        <form action={signOut}>
-          <button className="secondary" type="submit" style={{ width: '100%' }}>Sign out</button>
-        </form>
+          <form action={signOut}>
+            <button className="secondary auth-secondary" type="submit">Sign out</button>
+          </form>
+        </div>
       </aside>
 
       <main className="main" id="main">

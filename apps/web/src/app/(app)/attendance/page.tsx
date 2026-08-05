@@ -50,10 +50,10 @@ export default async function AttendancePage() {
 
   return (
     <>
-      <div className="section-head">
+      <div className="page-head" style={{ marginBottom: '1.25rem' }}>
         <div>
           <h1>Attendance</h1>
-          <p className="sub" style={{ marginBottom: '1rem' }}>
+          <p className="sub" style={{ margin: 0, fontSize: 'var(--text-sm)' }}>
             {ctx.centre.name} · {today}
           </p>
         </div>

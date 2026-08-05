@@ -55,8 +55,14 @@ export function AttendanceRow({
           )}
         </td>
         <td>
+          {/*
+            No `title`. It was carrying the response plan, which is meaning available
+            only to a mouse — not to a keyboard, not to a touch screen, and not to a
+            screen reader in most engines. The design pack forbids it outright, and the
+            plan belongs on the child's record where it can be read under pressure.
+          */}
           {critical ? (
-            <span className="flag flag-critical" title={critical.plan ?? undefined}>
+            <span className="flag flag-critical">
               {'▲'} {critical.label}: {critical.name}
             </span>
           ) : null}

@@ -94,6 +94,50 @@ plain reload would be served from the router cache showing the same emptiness.
 The two password screens were brought onto the same panel even though the handoff has no such
 screens, so they read as part of the product rather than as a bolt-on.
 
+### Screens 2 and 3 — the shell, and the ratio block's three states
+
+The shell is now the pack's: 1280px overall, a 224px rail on card with a hairline down
+its right edge, nav items at 15px / 9px 10px / radius 6, and the sign-out control
+**pinned to the bottom** rather than sitting under the navigation — it is the one
+control on that rail that must never be hit while aiming for something else.
+
+The current nav item is styled off `aria-current="page"` rather than a class. That is
+worth stating as a rule: when the attribute a screen reader reads is also the selector
+the stylesheet uses, the two cannot drift apart, and "looks current but isn't announced
+as current" stops being a possible state. It cost one small client component
+(`NavLink`), because the shell is a server component and has no pathname.
+
+The ratio block is the pack's anatomy — white pill on the tint, counts at 22/600 in
+**ink** rather than the state colour (the numbers are facts, the tint is the verdict), a
+15/500 detail line, a 14px track, and a 13px consequence sentence. Breach adds the
+detached 56px overflow segment at 45% opacity, so "over" reads as overflow rather than
+as a bar that merely stopped growing. The track is `aria-hidden`, per the pack, because
+the sentence beneath it carries the same information in words.
+
+**One `title` attribute was removed** from the roll's allergy chip, where it had been
+carrying the response plan. The pack forbids `title` for meaning and is right to: it is
+available to a mouse and to nothing else — not a keyboard, not a touch screen, not most
+screen readers. The plan lives on the child's record, which is where it is read.
+
+### The ratio track: a caption that did not describe its own bar
+
+The pack's sample block shows an 88% fill under the sentence *"88% of the adults
+recorded today"*, for a room with 4 kaiako where 4 are required. That is 100% of the
+adults, so the sentence cannot be describing the bar above it, and no reading of the
+sample numbers produces 88% from an adult count.
+
+Reproducing it verbatim was refused. This is a compliance product, and a caption that
+misdescribes the bar it sits under is the exact failure mode [[unverified-claims]]
+exists to prevent — a manager who reads a percentage as "how staffed am I" when it means
+something else stops counting. The track is instead **occupancy toward the limit**: the
+roll as a fraction of the most tamariki these adults can cover if the next arrivals are
+aged 2 and over, which is derivable from `headroomTwoAndOver` and is what the pack's own
+"Headroom for 2 more tamariki aged 2+" sentence is about. The caption says that in
+words.
+
+If the intended meaning was something else, the fix is one expression in
+`RatioBanner.tsx` — but it needs a sentence that is true of whatever it measures.
+
 ### Deviations so far
 
 | Screen | Deviation | Why |
@@ -101,15 +145,32 @@ screens, so they read as part of the product rather than as a bolt-on.
 | 1 — Login | Footnote reworded; a link to `/forgot-password` added | The handoff's stated recovery path cannot work; see above |
 | 1 — Login | Footnote set at 15px per the README, not the 13px in the HTML board | README is declared authoritative, HTML corroborative. Flagged because the two disagree |
 | 7 — No-access | "Sign out" kept alongside "Check again" | Already there, and a person on the wrong account otherwise has no way off this screen |
+| 2/3 — Ratio track | Fill is occupancy toward the limit, with a caption that says so, not "% of the adults recorded" | The pack's caption does not describe its own bar; see above |
+| 2 — Ratio counts | Counts in ink, detail line in the state colour | As the board renders it; the README does not say which |
+| 2 — Main column | The pack's 28px/32px padding applied, but no `gap: 20px` on the column | Every page under `(app)` uses `.section` margins; adding a gap as well would double-space all of them. A separate pass, or not at all |
 
 ### Not yet applied
 
-Screens 2–6 (roll, ratio states, offline roll, sign-out refusal, child detail) and 8–13 (all
-mobile, plus the three-metre tablet proof) are **not** done. The RatioBlock, RollRow, FlagChip,
-SyncChip and RefusalDialog inventories exist in the handoff and only partly in the repo — there
-is no sign-out refusal dialog on web at all, though the core logic for it is in
-`packages/core/src/__tests__/signOut.test.ts`. Nothing in this page should be read as claiming
-the product now looks like the board.
+**RollRow is not done** — the roll is still a `<table>` with the old row anatomy, not the
+pack's `44px 1fr auto auto` grid with an initials circle and chips under the name. It was
+deliberately left: the e2e suite selects roll rows and their buttons by ARIA role, the pack's
+row is a grid of divs, and swapping the semantics at the end of a long session is how a green
+suite turns red for a reason nobody can see. It is the obvious next step and it needs its own
+run of `test:e2e`.
+
+Screens 4, 5, 6 and 8–13 are **not** done:
+
+- **4 (offline roll) and 5 (sign-out refusal) are not purely visual.** The offline outbox is a
+  mobile capability; the web app has no local queue, so these two screens need the queue on web
+  before they can be built at all. The pack shows them because the web app also runs on a
+  wall-mounted tablet. The sign-out refusal logic already exists in `@ece/core` — see
+  `signOut.test.ts` — so it is the web queue that is missing, not the decision.
+- **6 (child detail)** is a reordering job as much as a styling one: the pack puts Health
+  **above** identity metadata, because it is the only block read under time pressure.
+- **8–13 are the mobile surface**, which shares tokens and vocabulary with web and deliberately
+  shares no components. See [[mobile-app]].
+
+Nothing on this page should be read as claiming the product now looks like the board.
 
 ## See Also
 
@@ -118,4 +179,4 @@ the product now looks like the board.
 - [[unverified-claims]] — the unchecked product name
 - [[mobile-app]] — why the mobile screens are a separate surface sharing only tokens
 
-*Last updated: 2026-08-06*
+*Last updated: 2026-08-06 (screens 1, 2, 3 and the no-access half of 7)*

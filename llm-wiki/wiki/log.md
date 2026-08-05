@@ -5,6 +5,23 @@ says so.*
 
 ---
 
+2026-08-06 — Screens 2 and 3 of the pack: the shell (1280px, 224px rail, sign-out pinned to
+the bottom) and the ratio block's three states, with the breach overflow segment and an
+`aria-hidden` track. The current nav item is styled off `aria-current="page"` rather than a
+class, which is a rule worth keeping — when the attribute a screen reader reads is also the
+stylesheet's selector, "looks current but is not announced as current" stops being a possible
+state. Removed a `title` attribute from the roll's allergy chip that was carrying the response
+plan: meaning available to a mouse and to nothing else.
+
+Refused the pack's ratio caption. It shows an 88% fill under "88% of the adults recorded today"
+for a room with 4 kaiako where 4 are required — 100% of the adults, so the sentence cannot
+describe its own bar. In a compliance product a caption that misdescribes its bar is the failure
+mode [[unverified-claims]] exists to prevent, so the track is occupancy toward the limit and the
+caption says so. RollRow deliberately left undone rather than rushed: the e2e suite selects roll
+rows by ARIA role and the pack's row is a grid of divs. Screens 4 and 5 turn out not to be
+visual work at all — the web app has no offline queue, so the offline roll and the sign-out
+refusal need that capability first. All in [[design-system]].
+
 2026-08-06 — Started applying the `design_handoff_ece_platform/` pack. New page
 [[design-system]]. The tokens already agreed with the handoff on every colour, size, radius,
 target and the motion curve — the pack and the repo describe the same system — so the work is

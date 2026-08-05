@@ -34,22 +34,55 @@ body {
 
 a { color: var(--accent); }
 
-.shell { display: flex; min-height: 100vh; }
+/*
+ * The shell, to the design pack's screen 2: 1280px overall, a 224px sidebar on card
+ * with a hairline down its right edge, and the sign-out control pinned to the bottom
+ * rather than sitting under the navigation. Pinned because it is the one control on
+ * this rail that must never be hit while aiming for something else.
+ */
+.shell { display: flex; min-height: 100vh; max-width: 1280px; margin: 0 auto; }
 
 .side {
-  width: 15rem;
-  flex: 0 0 15rem;
+  width: 14rem;
+  flex: 0 0 14rem;
   border-right: 1px solid var(--line);
   background: var(--panel);
-  padding: 1.25rem 1rem;
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
 }
 
-.side h2 { font-size: 0.8125rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin: 0 0 0.5rem; }
-.side nav { display: flex; flex-direction: column; gap: 0.125rem; margin-bottom: 1.5rem; }
-.side nav a { padding: 0.4rem 0.6rem; border-radius: 6px; text-decoration: none; color: var(--ink); }
+.side h2 {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  font-weight: 600;
+  margin: 0 0 0.5rem;
+}
+.side nav { display: flex; flex-direction: column; gap: 2px; margin-bottom: 1.5rem; }
+.side nav a {
+  padding: 9px 10px;
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  color: var(--ink);
+  font-size: var(--text-base);
+}
 .side nav a:hover { background: var(--surface-sunken); }
+/*
+ * The current page, carried by aria-current rather than a class — so the styling and
+ * the thing a screen reader announces cannot drift apart. Weight and colour together,
+ * never colour alone.
+ */
+.side nav a[aria-current='page'] {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+/* Pushes the sign-out block to the bottom of the rail whatever the nav length. */
+.side-foot { margin-top: auto; }
 
-.main { flex: 1; padding: 2rem 2.5rem; max-width: 60rem; }
+.main { flex: 1; padding: 28px 32px; min-width: 0; }
 
 h1 { font-size: 1.5rem; font-weight: 600; margin: 0 0 0.25rem; }
 .sub { color: var(--muted); margin: 0 0 2rem; }
@@ -76,6 +109,93 @@ button.danger { background: var(--surface); color: var(--danger); border-color: 
 .pill { font-size: 0.75rem; padding: 0.1rem 0.5rem; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); }
 .error { color: var(--danger); }
 .center { max-width: 24rem; margin: 6rem auto; padding: 0 1.5rem; }
+
+/* --- The ratio block (design handoff, screens 2 and 3) -------------------- */
+
+/*
+ * A persistent region, never a toast: toasts expire and a breach does not. The tint
+ * changes with the state, and so do the pill's glyph and words — the colour is the
+ * second signal, never the only one (WCAG 1.4.1).
+ */
+.ratio {
+  border: 1px solid;
+  border-radius: var(--radius-md);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 1.25rem;
+}
+.ratio-ok { background: var(--ok-soft); border-color: var(--ok-border); color: var(--ok); }
+.ratio-limit { background: var(--warn-soft); border-color: var(--warn-border); color: var(--warn); }
+.ratio-breach { background: var(--breach-soft); border-color: var(--breach-border); color: var(--breach); }
+
+.ratio-head { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+
+/* White, so it lifts off whichever tint it is sitting on. */
+.ratio-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface);
+  color: inherit;
+  font-size: var(--text-base);
+  font-weight: 600;
+  padding: 7px 14px;
+  border-radius: var(--radius-pill);
+  white-space: nowrap;
+}
+
+/* The numbers in ink, not the state colour: they are facts, the tint is the verdict. */
+.ratio-counts { font-size: var(--text-xl); font-weight: 600; color: var(--ink); }
+.ratio-detail { font-size: var(--text-base); font-weight: 500; color: inherit; }
+
+.ratio-track {
+  height: 14px;
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  overflow: hidden;
+  display: flex;
+}
+.ratio-fill { height: 100%; border-radius: var(--radius-pill); background: currentColor; }
+/*
+ * Breach only: a detached segment past a full track, so "over" is visible as overflow
+ * and not merely as a bar that has stopped growing.
+ */
+.ratio-over {
+  height: 14px;
+  width: 56px;
+  border-radius: var(--radius-pill);
+  background: currentColor;
+  opacity: 0.45;
+  flex: 0 0 56px;
+}
+.ratio-overflow-wrap { display: flex; gap: 6px; align-items: center; }
+.ratio-overflow-wrap .ratio-track { flex: 1; }
+
+.ratio-note { font-size: var(--text-sm); color: inherit; margin: 0; }
+
+/* --- Roll lists (design handoff, screen 2) -------------------------------- */
+
+/* 12/600 uppercase with wide tracking, over the list rather than inside it. */
+.eyebrow {
+  font-size: var(--text-xs);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 600;
+  margin: 0 0 8px;
+}
+
+/* Header actions: 44px outline secondary, 44px green primary. */
+.page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.page-actions { display: flex; gap: 8px; }
+.page-actions button, .page-actions .btn {
+  height: var(--target-min);
+  padding: 0 16px;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-base);
+}
 
 /* --- Auth screens (design handoff, screen 1) ------------------------------ */
 
@@ -253,9 +373,10 @@ button.danger { background: var(--surface); color: var(--danger); border-color: 
 
 /* Sections within a record. */
 .section { margin-bottom: 1.75rem; }
+/* The pack's section eyebrow: 12/600, uppercase, .12em tracking, muted. Was 13/.04em. */
 .section > h2 {
-  font-size: 0.8125rem; text-transform: uppercase; letter-spacing: 0.04em;
-  color: var(--muted); margin: 0 0 0.6rem; font-weight: 600;
+  font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.12em;
+  color: var(--muted); margin: 0 0 8px; font-weight: 600;
 }
 .section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
 
