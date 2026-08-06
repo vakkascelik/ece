@@ -23,7 +23,14 @@ import type { RatioAssessment } from '@ece/core';
  * cover if the next arrivals are aged 2 and over. The caption says exactly that.
  * Recorded in llm-wiki/wiki/design-system.md.
  */
-export function RatioBanner({ ratio }: { ratio: RatioAssessment }) {
+export function RatioBanner({
+  ratio,
+  wall = false,
+}: {
+  ratio: RatioAssessment;
+  /** Screen 13: the same block, sized to be read from three metres. */
+  wall?: boolean;
+}) {
   const state =
     ratio.status === 'breach' ? 'breach' : ratio.status === 'at-limit' ? 'limit' : 'ok';
 
@@ -43,7 +50,7 @@ export function RatioBanner({ ratio }: { ratio: RatioAssessment }) {
       : Math.min(100, Math.round((ratio.present / capacity) * 100));
 
   return (
-    <div className={`ratio ratio-${state}`}>
+    <div className={wall ? `ratio ratio-${state} ratio-wall` : `ratio ratio-${state}`}>
       {/*
         role=status, not role=alert. This is present on every render, so an assertive
         region would re-announce on each navigation; polite means a screen reader picks

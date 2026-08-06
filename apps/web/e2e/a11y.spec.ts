@@ -141,6 +141,37 @@ test.describe('staff screens', () => {
     expect(at('Consent'), `Order: ${order.join(' → ')}`).toBeLessThan(at('Enrolment'));
   });
 
+  /**
+   * The wall display's sizes are a calculation, so they get an assertion.
+   *
+   * The pack sizes this panel so its status line subtends the same angle at 3m as 15px body
+   * text does at 40cm — 3 ÷ 0.4 = 7.5, and 15 × 7.5 ≈ 112px. The counts land at 88px. Nothing
+   * else in this repo would notice if a refactor collapsed them back to 22px: the page would
+   * render, axe would pass, and the panel would silently stop being readable from the door,
+   * which is the entire point of it.
+   *
+   * The unverified-ratio caveat is asserted at size for the same reason. A compliance
+   * disclaimer that shrinks while the number it qualifies grows is a disclaimer nobody reads.
+   */
+  test('the wall display is actually legible from three metres', async ({ page }) => {
+    await visit(page, '/attendance?wall=1');
+
+    const px = (selector: string) =>
+      page.locator(selector).first().evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
+
+    expect(await px('.ratio-wall .ratio-counts'), 'counts should be ~88px').toBeGreaterThanOrEqual(80);
+    expect(await px('.ratio-wall .ratio-pill'), 'status pill should be ~44px').toBeGreaterThanOrEqual(40);
+    expect(await px('.ratio-wall .ratio-detail'), 'detail line should be ~44px').toBeGreaterThanOrEqual(40);
+
+    // The caveat is on screen and scaled, not shrunk into the corner.
+    const caveat = page.getByText(/have not been checked against the regulations/i).first();
+    await expect(caveat).toBeVisible();
+    expect(await px('.ratio-wall .flag'), 'the unverified caveat should scale too').toBeGreaterThanOrEqual(20);
+
+    // The roll is deliberately absent — see the comment in attendance/page.tsx.
+    await expect(page.getByRole('region', { name: /Here now/ })).toHaveCount(0);
+  });
+
   test('new child form', async ({ page }) => {
     await visit(page, '/children/new');
     await auditPage(page, '/children/new');

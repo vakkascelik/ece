@@ -270,6 +270,53 @@ button.danger { background: var(--surface); color: var(--danger); border-color: 
 
 .ratio-note { font-size: var(--text-sm); color: inherit; margin: 0; }
 
+/* --- Wall display (design handoff, screen 13) ----------------------------- */
+
+/*
+ * The ratio, readable from three metres, on a tablet mounted by the door.
+ *
+ * THE SIZES ARE A CALCULATION, NOT A TASTE
+ *
+ * The pack sizes this so the status line subtends the same angle at 3m as 15px body text
+ * does at 40cm. 3 ÷ 0.4 = 7.5, and 15 × 7.5 ≈ 112px of cap height on a 10.5in panel — which
+ * is where the pack's 88px counts and 44px pill and detail come from. They are not "big";
+ * they are the sizes at which somebody walking past reads this without stopping.
+ *
+ * The ink bezel is deliberate too: a wall-mounted tablet shows a rectangle of light in a
+ * room, and a dark frame stops the panel bleeding into the wall.
+ *
+ * What is NOT reproduced: the pack's two 112px "Sign a child in" / "Sign a child out"
+ * buttons. Those imply a child-picker flow that does not exist — a generic "sign a child in"
+ * has to ask *which* child, and inventing that interaction is a feature, not a restyle.
+ * The roll's own per-child buttons remain the way attendance is recorded.
+ */
+.wall-frame {
+  background: var(--ink);
+  border-radius: 24px;
+  padding: 18px;
+  margin-bottom: 1.25rem;
+}
+
+.ratio-wall { border-radius: 18px; padding: 32px 36px; gap: 20px; margin: 0; }
+.ratio-wall .ratio-pill { font-size: 44px; padding: 14px 32px; gap: 16px; }
+.ratio-wall .ratio-counts { font-size: 88px; line-height: 1; }
+.ratio-wall .ratio-detail { font-size: 44px; }
+.ratio-wall .ratio-track, .ratio-wall .ratio-over { height: 32px; }
+.ratio-wall .ratio-over { width: 96px; flex: 0 0 96px; }
+.ratio-wall .ratio-note { font-size: 24px; }
+/* The unverified-ratio caveat scales too. A compliance disclaimer that shrinks while the
+   number it qualifies grows is a disclaimer nobody reads — which is the whole failure mode
+   `RATIO_TABLES_VERIFIED` exists to prevent. */
+.ratio-wall .flag { font-size: 24px; padding: 8px 16px; }
+
+@media (max-width: 767px) {
+  /* A phone is not a wall. Fall back to the ordinary block rather than rendering 88px
+     numerals in a 358px column. */
+  .ratio-wall .ratio-counts { font-size: var(--text-xl); }
+  .ratio-wall .ratio-pill, .ratio-wall .ratio-detail { font-size: var(--text-base); }
+  .ratio-wall { padding: 18px 20px; }
+}
+
 /* --- Roll lists (design handoff, screen 2) -------------------------------- */
 
 /* 12/600 uppercase with wide tracking, over the list rather than inside it. */
@@ -291,6 +338,18 @@ button.danger { background: var(--surface); color: var(--danger); border-color: 
   border-radius: var(--radius-sm);
   font-size: var(--text-base);
 }
+/* A link that looks like the outline secondary beside it. `<a>` rather than a button because
+   it navigates — a button that navigates loses middle-click, open-in-new-tab and the status
+   bar preview, all for visual consistency that a class already gives. */
+.page-actions .btn {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  text-decoration: none;
+}
+.page-actions .btn:hover { background: var(--surface-sunken); }
 
 /* --- Child record (design handoff, screen 6) ------------------------------ */
 

@@ -5,6 +5,31 @@ says so.*
 
 ---
 
+2026-08-06 — Screen 13, the wall display, at `/attendance?wall=1` — a query parameter rather
+than a route, since it is the same screen at a different reading distance. The sizes are
+arithmetic and worth recording because they look arbitrary: the pack sizes the status line to
+subtend the same angle at 3m as 15px does at 40cm, so 3 ÷ 0.4 = 7.5 and 15 × 7.5 ≈ 112px of cap
+height, which is where 88px counts and a 44px pill come from. The panel is the ratio and nothing
+else — at three metres a list of twenty names is unreadable anyway.
+
+Two decisions worth keeping. **The unverified-ratio caveat scales with the numbers** (24px, not
+13px): a compliance disclaimer that shrinks while the figure it qualifies grows is one nobody
+reads, which is exactly what `RATIO_TABLES_VERIFIED` exists to prevent, and leaving it at 13px
+would have looked finished. And the pack's two 112px "Sign a child in / out" buttons are **not**
+reproduced — a generic "sign a child in" must ask *which* child, and inventing that picker is a
+feature. Asserted in e2e and mutation-tested: shrinking the counts to 22px fails with "counts
+should be ~88px", and nothing else in the repo would have noticed, because the page renders and
+axe passes while the panel silently stops being readable from the door.
+
+That completes the design pack except screens 4 and 5, which are **not** design work: the web app
+has no local write queue, so a roll with queued sign-ins and a sign-out refusal listing unsent
+records describe states that cannot occur. Building their appearance would be a lie on the
+funding-critical path. [[design-system]] now carries the scope — `buildRoll`,
+`classifyWriteFailure`, the `client_uuid` idempotency contract and the refusal logic all exist and
+are tested; what is missing is browser storage, a flush on reconnect, and the roll as a client
+component holding optimistic state. AGENTS §5 gates that behind `drill:offline`, and the failure
+mode is a sign-in that looks recorded and never lands, invisible until a funding return is short.
+
 2026-08-06 — Screens 10 and 11, the whānau surface, and **a correction to my own change made
 within the hour.** Screen 10 gained the header it never had (56px initials, name 28/600, a green
 "Signed in at 8:12 am today" block) and the pack's two eyebrows, which are better than the bare

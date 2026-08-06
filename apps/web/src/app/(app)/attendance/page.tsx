@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { listAttendanceToday, listChildren, listHealthByChild, readAdultsPresent } from '@ece/api';
 import {
   assessRatio,
@@ -31,8 +32,15 @@ import { RatioBanner } from './RatioBanner';
  * actually signs children in; this is for the person who needs the whole picture and
  * has a keyboard.
  */
-export default async function AttendancePage() {
+export default async function AttendancePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ wall?: string }>;
+}) {
   const ctx = await requireCapability('recordDailyPractice');
+  // Screen 13. A query parameter rather than a route, because this is the same screen at a
+  // different reading distance and the pack's route list is complete without a `/wall`.
+  const wall = (await searchParams).wall === '1';
   const db = await serverDb();
   const today = todayInZone(ctx.centre.timezone);
 
@@ -50,6 +58,25 @@ export default async function AttendancePage() {
   const { underTwo, twoAndOver } = splitByAgeBand(present, ctx.centre.timezone);
   const ratio = assessRatio({ underTwo, twoAndOver, adultsPresent });
 
+  /*
+    The wall display is the ratio and nothing else. Not a stripped-down roll: at three metres
+    a list of twenty names is unreadable anyway, and the question a wall panel answers as
+    somebody walks past the door is "are we within ratio", which is one sentence and two
+    numbers. Signing children in stays on the handheld roll below, where a name can be read.
+  */
+  if (wall) {
+    return (
+      <>
+        <div className="wall-frame">
+          <RatioBanner ratio={ratio} wall />
+        </div>
+        <p style={{ fontSize: 'var(--text-sm)' }}>
+          {ctx.centre.name} · {today} · <Link href="/attendance">Leave wall display</Link>
+        </p>
+      </>
+    );
+  }
+
   return (
     <>
       <div className="page-head" style={{ marginBottom: '1.25rem' }}>
@@ -58,6 +85,11 @@ export default async function AttendancePage() {
           <p className="sub" style={{ margin: 0, fontSize: 'var(--text-sm)' }}>
             {ctx.centre.name} · {today}
           </p>
+        </div>
+        <div className="page-actions">
+          <Link className="btn secondary" href="/attendance?wall=1">
+            Wall display
+          </Link>
         </div>
       </div>
 

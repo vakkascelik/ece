@@ -421,6 +421,68 @@ The general point: **the pack asks for a rendering rule where this schema makes 
 absent.** That is strictly stronger, and it is the shape to prefer — a privacy rule enforced by
 a policy cannot be forgotten by a component.
 
+### Screen 13 — the wall display, where the sizes are arithmetic
+
+`/attendance?wall=1`. A query parameter rather than a route, because this is the same screen
+at a different reading distance and the pack's route list is complete without a `/wall`.
+
+The sizes are a calculation and it is worth writing down, because they look arbitrary and are
+not. The pack sizes the panel so its status line subtends the same angle at 3m as 15px body
+text does at 40cm: 3 ÷ 0.4 = 7.5, and 15 × 7.5 ≈ 112px of cap height on a 10.5in panel. That
+is where 88px counts, a 44px pill and a 44px detail line come from. They are not "big"; they
+are the sizes at which somebody walking past the door reads this without stopping. On an ink
+bezel, because a wall-mounted tablet is a rectangle of light in a room and a dark frame stops
+it bleeding into the wall.
+
+**The wall display is the ratio and nothing else.** Not a stripped-down roll: at three metres
+a list of twenty names is unreadable anyway, and the question a panel by the door answers is
+"are we within ratio", which is one sentence and two numbers.
+
+**The unverified-ratio caveat scales with the numbers** (24px, not 13px). A compliance
+disclaimer that shrinks while the figure it qualifies grows is a disclaimer nobody reads,
+which is precisely the failure `RATIO_TABLES_VERIFIED` exists to prevent. It would have been
+easy to leave it at 13px and call the screen done.
+
+Asserted in the e2e suite and mutation-tested: shrinking the counts to 22px fails with "counts
+should be ~88px". Nothing else in the repo would have noticed — the page renders, axe passes,
+and the panel silently stops being readable from the door, which is the entire point of it.
+
+**Not reproduced:** the pack's two 112px "Sign a child in" / "Sign a child out" buttons. A
+generic "sign a child in" has to ask *which* child, and inventing that picker is a feature
+rather than a restyle. The roll's per-child buttons remain how attendance is recorded.
+
+### Screens 4 and 5 are not design work, and this is the scope
+
+Both are blocked on the same missing capability, and it is worth being precise rather than
+leaving "needs the offline queue" as a shrug.
+
+The web app has **no local write queue**. Every attendance write is a server action against
+Postgres; with no connection the tap fails and nothing is recorded. Screen 4 (a roll with
+three queued sign-ins and a `SyncChip` per row) and screen 5 (a sign-out refusal listing the
+unsent records) both describe states that cannot occur. Building the *appearance* of them
+would be a lie on the funding-critical path.
+
+What already exists, which makes this smaller than it sounds:
+
+- `buildRoll()` in `@ece/core` merges server state with queued events — platform-free and
+  tested. The mobile roll is built on it.
+- `classifyWriteFailure()` decides retry-versus-dead-letter from the Postgres error, so a
+  permanently refused write does not block the queue behind it.
+- `client_uuid` idempotency: generated once at enqueue, never per attempt. `23505` on that
+  column means the retry already landed, and is deliberately treated as success.
+- The sign-out refusal *logic* is in `@ece/core` with tests (`signOut.test.ts`).
+
+What does not exist and has to be written: a browser storage layer (the mobile one is
+`expo-sqlite`), a flush loop keyed on reconnect, and the roll as a client component holding
+optimistic state — which changes how attendance is written on the web, not merely how it
+looks.
+
+**Why it is not in this commit.** AGENTS §5 gates the offline path behind `npm run
+drill:offline`, and the failure mode of getting it wrong is a sign-in that appears recorded
+and never lands — invisible until a funding return is short. That is a piece of work with its
+own drill and its own commit, not the tail end of a design sweep. The design pack is otherwise
+complete.
+
 ### Deviations so far
 
 | Screen | Deviation | Why |
@@ -446,17 +508,8 @@ a policy cannot be forgotten by a component.
 
 ### Not yet applied
 
-Screens 4, 5 and 13 are **not** done:
-
-- **4 (offline roll) and 5 (sign-out refusal) are not purely visual.** The offline outbox is a
-  mobile capability; the web app has no local queue, so these two screens need the queue on web
-  before they can be built at all. The pack shows them because the web app also runs on a
-  wall-mounted tablet. The sign-out refusal logic already exists in `@ece/core` — see
-  `signOut.test.ts` — so it is the web queue that is missing, not the decision.
-- **13**, the three-metre tablet proof, is a web concern and needs the ratio block sized so
-  its status line subtends the same angle at 3m as 15px body text does at 40cm.
-The mobile surface shares tokens and vocabulary with web and deliberately shares no
-components. See [[mobile-app]].
+Screens 4 and 5 remain, and they are **not** design work — see the section above. Every
+other screen in the pack is applied: 1, 2, 3, 6, 7's no-access half, 8, 9, 10, 11, 12 and 13.
 
 Nothing on this page should be read as claiming the product now looks like the board.
 
@@ -467,4 +520,4 @@ Nothing on this page should be read as claiming the product now looks like the b
 - [[unverified-claims]] — the unchecked product name
 - [[mobile-app]] — why the mobile screens are a separate surface sharing only tokens
 
-*Last updated: 2026-08-06 (screens 1, 2, 3, 6, 7's no-access half, 8, 9, 10, 11 and 12)*
+*Last updated: 2026-08-06 (every screen except 4 and 5, which need a web write queue)*
