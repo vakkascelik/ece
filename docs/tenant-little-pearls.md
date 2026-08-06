@@ -13,6 +13,7 @@ the correct state until the insurance gate is closed.
 | **MoE service number** | `46365` | `47407` |
 | **Timezone** | Pacific/Auckland | Pacific/Auckland |
 | **Owner** | vakkas@pif.org.nz | vakkas@pif.org.nz |
+| **Manager** | Taner Basar, taner@littlepearls.org.nz — *invited 2026-08-06, not yet accepted* | same |
 | Children, guardians, enrolments, health records | 0 | 0 |
 
 The owner is **the platform operator, not the centre**. That is a deliberate starting point:
@@ -117,4 +118,32 @@ prefix convention alone is a convention; the assertion is the rule.
 
 ---
 
-*Last updated 2026-08-05. Nobody at the centre has used the product. No child record exists.*
+## The manager's invitation, 2026-08-06
+
+Taner Basar (taner@littlepearls.org.nz) was invited as **manager at both centres** on 2026-08-06,
+at the owner's request. Two invitations, because a membership is per-centre; each is single-use and
+expires 2026-08-13.
+
+Issued through `createInvitation` with the app's own token helpers — **not** `npm run onboard`.
+That script prints an `action_link` from `admin.generateLink`, whose tokens arrive in the URL
+fragment, and nothing in the web app reads a fragment, so it cannot establish a session. See
+[[invitations]]. The `/invite/<token>` flow is the one the end-to-end suite covers.
+
+Two things this does not change:
+
+- **No child record still means no child record.** The insurance gate below is untouched. A manager
+  signing in to look around is the point; entering a real child's allergies is not, and both
+  centres still hold nothing but a name, a service number and a timezone.
+- **He will see an empty product**, which is correct. If he only runs one site, revoke the other
+  membership from People once he has accepted — one click, and the audit trail keeps the record of
+  who invited whom.
+
+A note found while doing it: the UI's "they are already at this centre" guard could not be
+reproduced in a script, because `listMembers` reads the `centre_members` view and **service_role
+has no grant on it** — "permission denied for view centre_members". service_role bypasses RLS but
+not grants, which is AGENTS rule 2 working as designed.
+
+---
+
+*Last updated 2026-08-06. Nobody at the centre has used the product yet; the manager has been
+invited and has not accepted. No child record exists.*

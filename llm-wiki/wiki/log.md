@@ -5,6 +5,19 @@ says so.*
 
 ---
 
+2026-08-06 — The centre's manager was invited: Taner Basar, taner@littlepearls.org.nz, **manager at
+both centres**, at the owner's request. Two invitations because a membership is per-centre. Issued
+with `createInvitation` and the app's own token helpers rather than `npm run onboard`, whose printed
+link cannot establish a session — the fragment defect recorded in [[invitations]] is still unfixed,
+and this is the first time it actually mattered rather than being a note. Recorded in
+`docs/tenant-little-pearls.md`, along with the fact that the insurance gate is untouched: a manager
+looking around an empty product is the point, entering a real child's allergies is not.
+
+Found while doing it, and worth knowing before anybody writes another admin script: **service_role
+cannot read the `centre_members` view** — "permission denied for view centre_members". It bypasses
+RLS but not grants, so the UI's "already a member" guard could not be reproduced server-side. AGENTS
+rule 2 working exactly as written.
+
 2026-08-06 — Little Pearls' public website, rebuilt from scratch as `apps/site` — a third app in
 this monorepo, deployed as its own Railway service. New page [[public-website]]. The rebuild was
 forced rather than chosen: their site is Adobe Muse 2017 output, every file stamped
