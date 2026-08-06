@@ -1,27 +1,9 @@
-/**
- * Is this the real site, or a preview?
- *
- * WHY `SITE_CANONICAL_HOST` IS THE SIGNAL
- *
- * Rather than a second variable nobody would remember to set. That variable already means "this
- * service answers on the real domain" — the middleware uses it to redirect everything else there —
- * so it is exactly the fact that decides whether a crawler should be indexing this.
- *
- * WHAT IT PREVENTS
- *
- * The website is being shown to the centre's manager on `little-pearls-production.up.railway.app`
- * before it replaces littlepearls.org.nz. With `robots: allow /` and a sitemap, a crawler can find
- * that preview and index it — so the search results for a real childcare centre would contain two
- * of its websites, one of them on a hostname nobody chose, competing with the live one. Undoing
- * that afterwards is slower than preventing it.
- *
- * So: no canonical host set means preview, which means `noindex, nofollow` and a `robots.txt` that
- * disallows everything. Going live is then one variable, and indexing follows the same switch that
- * turns on the canonical redirect.
+/*
+ * There was an `isPreview()` here, keyed on `SITE_CANONICAL_HOST` being unset, used to decide
+ * whether crawlers should index the site. It is gone: indexing depends on the host actually being
+ * served, not on an environment variable that means something else, and `X-Robots-Tag` in
+ * middleware decides it per request. See the note there.
  */
-export function isPreview(): boolean {
-  return !process.env.SITE_CANONICAL_HOST;
-}
 
 /**
  * The origin for absolute URLs — Open Graph, `robots.txt`, the sitemap.

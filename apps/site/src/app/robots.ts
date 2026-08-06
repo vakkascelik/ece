@@ -1,20 +1,18 @@
 import type { MetadataRoute } from 'next';
-import { isPreview, siteOrigin } from '@/lib/site';
+import { siteOrigin } from '@/lib/site';
 
 /**
  * Their current site has no robots.txt at all — a 404. This is not a big win on its own, but the
  * sitemap reference is: theirs lists five `http://` URLs with a 2018 `lastmod` and a `changefreq`
  * of "weekly", which is a promise the site has not kept for eight years.
  *
- * **While this is a preview it disallows everything.** See `lib/site.ts` — a preview on a
- * railway.app hostname that gets indexed puts a second website for a real childcare centre into
- * search results, competing with their live one.
+ * This allows crawling unconditionally, and that is deliberate. Keeping the **preview** out of
+ * search results is done in middleware with `X-Robots-Tag` on any `*.up.railway.app` host, because
+ * that is a per-request fact rather than a build-time one. Two mechanisms for one rule is how they
+ * come to disagree — the first version gated this file on an environment variable and was wrong the
+ * moment that variable's meaning changed.
  */
 export default function robots(): MetadataRoute.Robots {
-  if (isPreview()) {
-    return { rules: [{ userAgent: '*', disallow: '/' }] };
-  }
-
   return {
     rules: [{ userAgent: '*', allow: '/' }],
     sitemap: `${siteOrigin()}/sitemap.xml`,

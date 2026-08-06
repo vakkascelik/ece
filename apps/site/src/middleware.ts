@@ -93,9 +93,24 @@ export function middleware(request: NextRequest) {
     (forwardedHost !== canonical || proto === 'http')
   ) {
     const target = new URL(request.nextUrl.pathname + request.nextUrl.search, `https://${canonical}`);
-    // 308, not 301: a 301 is permitted to rewrite a POST to a GET, which would silently drop a
-    // form submission.
-    return NextResponse.redirect(target, 308);
+    /*
+     * 307, not 308 — and this is the third lesson from this redirect.
+     *
+     * Both preserve the request method, which is why neither is 301: a 301 is permitted to rewrite
+     * a POST to a GET and would silently drop a form submission. The difference is caching. **308
+     * is permanent, and browsers cache it hard** — often for the life of the profile. So when this
+     * redirect was pointing the preview URL at the old website, fixing the code was not enough:
+     * every browser that had already followed it kept redirecting, with no request reaching the
+     * server at all, and the symptom was "the fix did nothing".
+     *
+     * A misconfigured permanent redirect is therefore not just wrong, it is *sticky* — the one
+     * failure mode you cannot fix by deploying. 307 costs a little ranking consolidation, which is
+     * worth nothing on a site that is not live yet, and buys the ability to be wrong recoverably.
+     *
+     * Once the real domain is serving and verified, promoting this to 308 is a one-line change and
+     * a deliberate one.
+     */
+    return NextResponse.redirect(target, 307);
   }
 
   // On the request, so Next can read the nonce and stamp its own inline scripts with it.
@@ -105,6 +120,29 @@ export function middleware(request: NextRequest) {
   const response = NextResponse.next({ request });
   response.headers.set('Content-Security-Policy', csp);
   for (const [name, value] of STATIC_SECURITY_HEADERS) response.headers.set(name, value);
+
+  /*
+   * Nothing served on a railway.app hostname may be indexed.
+   *
+   * WHY THIS IS A HEADER AND NOT A METADATA FLAG
+   *
+   * The first version keyed `noindex` on `SITE_CANONICAL_HOST` being unset, which was wrong twice
+   * over. It made an environment variable — one that has nothing to do with indexing — the switch
+   * for it, and it stopped working the moment that variable became safe to set early: the preview
+   * then advertised itself as indexable while being reachable only at a railway.app URL.
+   *
+   * `X-Robots-Tag` is decided per request, from the host actually being served, which is the fact
+   * that matters. It also keeps every page statically generated — reading headers inside
+   * `generateMetadata` would make all ten routes dynamic to emit one meta tag.
+   *
+   * What it prevents is specific: this site is being shown to the centre's manager while
+   * littlepearls.org.nz is still live. A crawler finding the preview would put two websites for one
+   * childcare centre into search results, one of them on a hostname nobody chose.
+   */
+  if (isPlatformHost) {
+    response.headers.set('X-Robots-Tag', 'noindex, nofollow');
+  }
+
   return response;
 }
 

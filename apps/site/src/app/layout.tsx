@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 import { CENTRES, CENTRE_FACTS } from '@/lib/centres';
-import { appUrl, isPreview, siteOrigin } from '@/lib/site';
+import { appUrl, siteOrigin } from '@/lib/site';
 import { NavLink } from './NavLink';
 import './globals.css';
 
@@ -37,11 +37,10 @@ const DESCRIPTION =
 export const metadata: Metadata = {
   metadataBase: new URL(siteOrigin()),
   /*
-    While this is a preview on a railway.app hostname, tell crawlers not to index it. Two of these
-    for a real childcare centre in search results — one on a domain nobody chose — is a mess that
-    takes longer to undo than to prevent. Flips with SITE_CANONICAL_HOST; see lib/site.ts.
+    No `robots` field. Keeping the preview out of search results is a per-request decision about the
+    host being served, so it is an `X-Robots-Tag` header in middleware. A build-time flag here could
+    only guess, and did — see the note in middleware.ts.
   */
-  robots: isPreview() ? { index: false, follow: false } : undefined,
   title: {
     default: 'Little Pearls Educare Centre — early learning in Mt Albert and Mt Roskill',
     template: '%s | Little Pearls Educare Centre',
