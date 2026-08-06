@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "incremental": true,
+    "plugins": [{ "name": "next" }],
+    "paths": {
+      "@/*": ["./src/*"],
+      "@ece/core": ["../../packages/core/src/index.ts"]
+    }
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "// note": [
+    "No @ece/api path. This app never talks to Supabase — the public site has no database",
+    "access at all, by design, because review:security asserts that `anon` reaches no table",
+    "and the service-role key stays in apps/web. If that ever changes, it changes here first",
+    "and the reason gets written down."
+  ],
+  "exclude": ["node_modules"]
+}

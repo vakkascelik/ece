@@ -1,0 +1,237 @@
+/*
+ * Every colour, size and radius comes from packages/core/src/tokens.ts via a generated file.
+ * `npm run tokens` writes it; `npm run tokens:check` fails in CI if it drifts.
+ *
+ * The colours here are Little Pearls' own, read out of their existing site's CSS. The rule that
+ * shapes this whole stylesheet: **their light palette cannot carry text.** White on their teal is
+ * 2.41:1 and white on their coral is 2.88:1, both measured, both well under the 4.5:1 WCAG 2.2 AA
+ * asks of body text. So teal, coral, aqua and pink are backgrounds with dark text on them, and
+ * anything that needs white text — or needs to *be* coloured text — uses `--teal-ink` or
+ * `--coral-ink`, their own hues walked down to the threshold.
+ */
+@import './tokens.css';
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--surface);
+  color: var(--ink);
+  /*
+   * The system stack, which is also what their current site uses (Verdana/Arial). Not nostalgia:
+   * a webfont means a third-party request on a page read by parents, and the CSP forbids it for
+   * the same reason the app's does. The system stack also renders immediately, with no layout
+   * shift and no invisible-text flash.
+   */
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  font-size: var(--text-base);
+  line-height: 1.6;
+}
+
+/* --- Type -------------------------------------------------------------------- */
+
+h1,
+h2,
+h3 {
+  color: #1b1a18;
+  line-height: 1.25;
+  margin: 0 0 var(--space-3);
+}
+h1 { font-size: var(--text-3xl); font-weight: 600; }
+h2 { font-size: var(--text-xl); font-weight: 600; margin-top: var(--space-6); }
+h3 { font-size: var(--text-lg); font-weight: 600; margin-top: var(--space-5); }
+
+p { margin: 0 0 var(--space-4); max-width: 68ch; }
+
+a { color: var(--teal-ink); }
+a:hover { color: var(--coral-ink); }
+
+/*
+ * Focus visibility (WCAG 2.4.7). Their current site has none that I could find, and a keyboard
+ * user on a form collecting their child's details needs to know where they are.
+ */
+:focus-visible {
+  outline: 2px solid #1b1a18;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Off-screen until focused, so a keyboard user is not walked through the whole nav on every page. */
+.skip {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+}
+.skip:focus {
+  left: var(--space-2);
+  top: var(--space-2);
+  z-index: 20;
+  background: var(--surface);
+  border: 1px solid #1b1a18;
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  text-decoration: none;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* --- Shell ------------------------------------------------------------------- */
+
+.wrap {
+  width: 100%;
+  max-width: 68rem;
+  margin: 0 auto;
+  padding: 0 var(--space-4);
+}
+
+/* Teal as a background with dark text on it — 8.72:1, measured. */
+.masthead {
+  background: var(--teal);
+  border-bottom: 1px solid var(--teal-ink);
+}
+.masthead-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  padding: var(--space-3) 0;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  text-decoration: none;
+  color: #1b1a18;
+}
+.brand-name { font-size: var(--text-lg); font-weight: 600; line-height: 1.2; }
+.brand-tag { font-size: var(--text-sm); font-style: italic; }
+
+.nav {
+  display: flex;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+  align-items: center;
+}
+.nav a {
+  color: #1b1a18;
+  text-decoration: none;
+  font-size: var(--text-base);
+  /* 44px min, so a link is a comfortable target on a phone rather than a line of text. */
+  min-height: var(--target-min);
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-sm);
+}
+.nav a:hover { background: var(--aqua-pale); }
+/* Current page carried by aria-current, so what a screen reader announces and what the eye sees
+   cannot drift apart. Weight as well as colour, never colour alone. */
+.nav a[aria-current='page'] { background: var(--surface); font-weight: 600; }
+
+/*
+ * One readable column, centred.
+ *
+ * The first version let `.wrap` run to 68rem in the main area while paragraphs capped themselves
+ * at 68ch. The measure was right and the page looked broken: text ending two-thirds of the way
+ * across a desktop window reads as a layout that failed rather than a column that was chosen. So
+ * the column itself is the narrower thing, and it is centred — which is what makes the whitespace
+ * look deliberate. The masthead and footer keep the full width, because a navigation bar and a set
+ * of addresses are not prose.
+ */
+.main { padding: var(--space-6) 0 var(--space-8); }
+.main .wrap { max-width: 52rem; }
+
+.foot {
+  background: var(--aqua-pale);
+  border-top: 1px solid var(--aqua);
+  padding: var(--space-6) 0;
+  font-size: var(--text-base);
+}
+.foot-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: var(--space-5);
+}
+.foot h2 { font-size: var(--text-base); margin: 0 0 var(--space-2); }
+.foot p { margin: 0 0 var(--space-1); }
+
+/* --- Blocks ------------------------------------------------------------------ */
+
+.lede { font-size: var(--text-lg); max-width: 60ch; }
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--aqua);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  gap: var(--space-4);
+}
+
+/* Coral as a background with dark text — 7.30:1, measured. Used once per page at most. */
+.callout {
+  background: var(--coral);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  color: #1b1a18;
+}
+.callout a { color: #1b1a18; font-weight: 600; }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--teal-ink);
+  background: var(--teal-ink);
+  color: var(--surface);
+  font-size: var(--text-base);
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+.btn:hover { background: #3f6363; color: var(--surface); }
+.btn-quiet {
+  background: var(--surface);
+  color: var(--teal-ink);
+}
+.btn-quiet:hover { background: var(--aqua-pale); color: var(--teal-ink); }
+
+/*
+ * A gap the centre has to fill, marked on the page rather than filled with a plausible guess.
+ * Visible on purpose: an invented fee is a fee a family gets billed, and a placeholder that only
+ * exists in a tracking file is a placeholder that ships.
+ */
+.gap {
+  border-left: 3px solid var(--coral-ink);
+  background: var(--aqua-pale);
+  padding: var(--space-3) var(--space-4);
+  margin: 0 0 var(--space-4);
+  font-size: var(--text-base);
+}
+.gap strong { color: var(--coral-ink); }
+
+dl.facts { margin: 0; }
+dl.facts dt { font-weight: 600; margin-top: var(--space-3); }
+dl.facts dd { margin: 0; }

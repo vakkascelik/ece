@@ -4,7 +4,10 @@
  * Written by `npm run tokens` from packages/core/src/tokens.ts, which is also
  * what the mobile theme reads. Edit the tokens, not this.
  *
- * Colour here is the platform palette (packages/core/src/tokens.ts → color).
+ * Colour here is Little Pearls' own palette (tokens.ts → brandLittlePearls).
+ * Their light palette is BACKGROUND ONLY — white text on any of it fails WCAG AA, which
+ * is measured in tokens.ts and asserted in its tests. `--teal-ink` and `--coral-ink` are
+ * their own hues darkened to the threshold, for white text or for text itself.
  *
  * `npm run tokens:check` fails if this is out of date, so a colour changed in one
  * place cannot silently disagree with the other.
@@ -12,28 +15,16 @@
 
 :root {
   /* Colour */
-  --bg: #faf9f7;
+  --teal: #83afaf;
+  --teal-mid: #99c9cc;
+  --aqua: #c1ebef;
+  --aqua-pale: #edf8fa;
+  --coral: #ff6565;
+  --pink: #ff9399;
+  --teal-ink: #416d6d;
+  --coral-ink: #c12727;
+  --ink: #595959;
   --surface: #ffffff;
-  --surface-sunken: #f2f1ee;
-  --line: #e3e1dd;
-  --ink: #1b1a18;
-  --ink-muted: #605d58;
-  --ink-inverse: #ffffff;
-  --accent: #2f6f4f;
-  --accent-hover: #25583f;
-  --accent-soft: #e8f1ec;
-  --ok: #2f6f4f;
-  --ok-soft: #e8f1ec;
-  --warn: #8a5a00;
-  --warn-soft: #fdf3e0;
-  --breach: #a3341c;
-  --breach-soft: #fbeae5;
-  --ok-border: #cfe2d7;
-  --warn-border: #ecd9ae;
-  --breach-border: #eccabe;
-  --pending: #2f5d8a;
-  --pending-soft: #e9f0f7;
-  --pending-border: #d3e0ed;
 
   /* Spacing */
   --space-0: 0px;
@@ -81,12 +72,17 @@
 
 /*
  * Measured contrast, recomputed at generation time:
- *   body text            16.53:1  passes AA (needs 4.5:1)
- *   muted text           6.23:1  passes AA (needs 4.5:1)
- *   muted on card        6.55:1  passes AA (needs 4.5:1)
- *   primary button       5.99:1  passes AA (needs 4.5:1)
- *   ratio ok             5.20:1  passes AA (needs 4.5:1)
- *   ratio warning        5.38:1  passes AA (needs 4.5:1)
- *   ratio breach         5.87:1  passes AA (needs 4.5:1)
- *   pending sync         5.98:1  passes AA (needs 4.5:1)
+ *   body on white        7.00:1  passes AA (needs 4.5:1)
+ *   body on pale aqua    6.47:1  passes AA (needs 4.5:1)
+ *   body on aqua         5.47:1  passes AA (needs 4.5:1)
+ *   dark text on teal    7.22:1  passes AA (needs 4.5:1)
+ *   dark text on coral   6.05:1  passes AA (needs 4.5:1)
+ *   white on teal ink    5.78:1  passes AA (needs 4.5:1)
+ *   white on coral ink   5.85:1  passes AA (needs 4.5:1)
+ *   teal ink on white    5.78:1  passes AA (needs 4.5:1)
+ *   teal ink on pale aqua 5.34:1  passes AA (needs 4.5:1)
+ *   teal ink on aqua     4.51:1  passes AA (needs 4.5:1)
+ *   coral ink on white   5.85:1  passes AA (needs 4.5:1)
+ *   coral ink on pale aqua 5.41:1  passes AA (needs 4.5:1)
+ *   coral ink on aqua    4.57:1  passes AA (needs 4.5:1)
  */

@@ -69,6 +69,12 @@ and [`../schema.md`](../schema.md) for the page template.
 - [[deployment]] — one Railway service for every centre, why that is forced rather than chosen,
   and a security header that made the whole product read-only
 
+## Public website
+
+- [[public-website]] — Little Pearls' own site rebuilt as a third app: why not routes in the
+  platform, why not a sibling repo, the brand palette that cannot carry text, and the four monorepo
+  files that would have skipped a new app silently
+
 ## Design
 
 - [[design-system]] — applying the Doorway handoff: the four token values that diverged, the

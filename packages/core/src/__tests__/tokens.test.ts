@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { contrastRatio } from '../contrast';
-import { color, CONTRAST_PAIRS, target } from '../tokens';
+import {
+  brandLittlePearls,
+  color,
+  CONTRAST_PAIRS,
+  LITTLE_PEARLS_CONTRAST_PAIRS,
+  target,
+} from '../tokens';
 
 /**
  * The accessibility claims in tokens.ts, enforced.
@@ -15,6 +21,36 @@ describe('colour contrast', () => {
       expect(ratio, `got ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(pair.min);
     });
   }
+});
+
+/**
+ * Little Pearls' brand, asserted in both directions.
+ *
+ * The interesting half is the second test. Their whole palette is pale, and the instinct with a
+ * pale brand is to put white text on it anyway — so the numbers that say you cannot are written
+ * down as a test rather than as a comment somebody will overrule.
+ */
+describe('Little Pearls brand', () => {
+  for (const pair of LITTLE_PEARLS_CONTRAST_PAIRS) {
+    it(`${pair.label}: ${pair.fg} on ${pair.bg} meets ${pair.min}:1`, () => {
+      const ratio = contrastRatio(pair.fg, pair.bg);
+      expect(ratio, `got ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(pair.min);
+    });
+  }
+
+  it('cannot carry white text on the light palette, which is why the Ink variants exist', () => {
+    for (const bg of [
+      brandLittlePearls.teal,
+      brandLittlePearls.tealMid,
+      brandLittlePearls.coral,
+      brandLittlePearls.pink,
+    ]) {
+      expect(
+        contrastRatio('#ffffff', bg),
+        `white on ${bg} — if this ever passes, the palette changed and the Ink variants should be revisited`,
+      ).toBeLessThan(4.5);
+    }
+  });
 });
 
 describe('touch targets', () => {

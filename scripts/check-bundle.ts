@@ -27,8 +27,23 @@ import { gzipSync } from 'node:zlib';
 import { readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
-const WEB = 'apps/web';
-const NEXT = join(WEB, '.next');
+/**
+ * The apps with budgets, and their own numbers.
+ *
+ * This script measured exactly one hardcoded path until `apps/site` existed. Two checks in the
+ * AGENTS §5 list were reporting clean about a bundle they had never looked at, which is the same
+ * failure mode as the token generator writing one file: a gate that passes without covering the
+ * thing you added.
+ *
+ * The public site has *tighter* budgets than the app, deliberately. It is read by parents on
+ * phones on mobile data, it has one client component in it, and if its first-load JS ever
+ * approaches the app's then something has been imported that a marketing page does not need.
+ */
+interface App {
+  name: string;
+  dir: string;
+  budgets: Array<{ key: string; gzipKb: number; because: string }>;
+}
 
 /**
  * The budgets.
@@ -38,7 +53,7 @@ const NEXT = join(WEB, '.next');
  * matters more than the number: a budget nobody can justify gets raised the first time
  * it is inconvenient.
  */
-const BUDGETS: Array<{ key: string; gzipKb: number; because: string }> = [
+const WEB_BUDGETS: Array<{ key: string; gzipKb: number; because: string }> = [
   {
     key: 'first-load-js',
     gzipKb: 106,
@@ -71,6 +86,42 @@ const BUDGETS: Array<{ key: string; gzipKb: number; because: string }> = [
   },
 ];
 
+/**
+ * The public website's budgets, measured when it was built and set just above.
+ *
+ * Its middleware is much smaller than the app's because it does no session refresh — no Supabase
+ * client, no `auth.getUser()` on every request. That difference is the reason the site is a
+ * separate app, so it is worth a budget that would notice if it eroded.
+ */
+const SITE_BUDGETS: Array<{ key: string; gzipKb: number; because: string }> = [
+  {
+    key: 'first-load-js',
+    gzipKb: 106,
+    because:
+      'Almost all of this is React 19 and the App Router runtime, the same as the app. The site ' +
+      'itself ships one client component (NavLink, for aria-current). If this number moves, ' +
+      'something was imported into a marketing page that a marketing page does not need.',
+  },
+  {
+    key: 'first-load-css',
+    gzipKb: 4,
+    because: 'One stylesheet plus generated brand tokens. Triple it and a framework arrived.',
+  },
+  {
+    key: 'middleware',
+    gzipKb: 40,
+    because:
+      'Headers and a canonical-host redirect, and nothing else — no Supabase client and no ' +
+      'session refresh, which is most of why the app pays 89kB here. A large jump means this ' +
+      'app grew a dependency it was created to avoid.',
+  },
+];
+
+const APPS: App[] = [
+  { name: 'apps/web', dir: 'apps/web', budgets: WEB_BUDGETS },
+  { name: 'apps/site', dir: 'apps/site', budgets: SITE_BUDGETS },
+];
+
 function gzipKb(path: string): number {
   return gzipSync(readFileSync(path)).byteLength / 1024;
 }
@@ -86,7 +137,8 @@ interface Measurement {
   detail: string;
 }
 
-function measure(): Measurement[] {
+function measure(app: App): Measurement[] {
+  const NEXT = join(app.dir, '.next');
   const appManifest = JSON.parse(
     readFileSync(join(NEXT, 'app-build-manifest.json'), 'utf8'),
   ) as { pages: Record<string, string[]> };
@@ -134,25 +186,27 @@ function measure(): Measurement[] {
 }
 
 function main() {
-  const measurements = measure();
   let failed = false;
 
-  console.log('');
-  console.log('  budget          gzip      raw   limit   ');
-  console.log('  ─────────────────────────────────────────');
+  for (const app of APPS) {
+    console.log('');
+    console.log(`  ${app.name}`);
+    console.log('  budget          gzip      raw   limit   ');
+    console.log('  ─────────────────────────────────────────');
 
-  for (const m of measurements) {
-    const budget = BUDGETS.find((b) => b.key === m.key)!;
-    const over = m.gzipKb > budget.gzipKb;
-    if (over) failed = true;
-    console.log(
-      `  ${m.key.padEnd(15)} ${m.gzipKb.toFixed(1).padStart(5)}kB ${m.rawKb
-        .toFixed(0)
-        .padStart(6)}kB ${String(budget.gzipKb).padStart(4)}kB  ${over ? 'OVER' : 'ok'}   ${m.detail}`,
-    );
-    if (over) {
-      console.log(`\n    ${m.key} is over budget by ${(m.gzipKb - budget.gzipKb).toFixed(1)}kB.`);
-      console.log(`    Why the budget exists: ${budget.because}\n`);
+    for (const m of measure(app)) {
+      const budget = app.budgets.find((b) => b.key === m.key)!;
+      const over = m.gzipKb > budget.gzipKb;
+      if (over) failed = true;
+      console.log(
+        `  ${m.key.padEnd(15)} ${m.gzipKb.toFixed(1).padStart(5)}kB ${m.rawKb
+          .toFixed(0)
+          .padStart(6)}kB ${String(budget.gzipKb).padStart(4)}kB  ${over ? 'OVER' : 'ok'}   ${m.detail}`,
+      );
+      if (over) {
+        console.log(`\n    ${m.key} is over budget by ${(m.gzipKb - budget.gzipKb).toFixed(1)}kB.`);
+        console.log(`    Why the budget exists: ${budget.because}\n`);
+      }
     }
   }
 

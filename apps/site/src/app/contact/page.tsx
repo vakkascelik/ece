@@ -1,0 +1,82 @@
+import type { Metadata } from 'next';
+import Link from 'next/link';
+import { CENTRES, CENTRE_FACTS } from '@/lib/centres';
+
+export const metadata: Metadata = {
+  title: 'Contact us',
+  description:
+    'Phone, email and addresses for Little Pearls Educare Centre in Ōwairaka / Mt Albert and ' +
+    'Puketāpapa / Mt Roskill, Auckland.',
+};
+
+/**
+ * Contact.
+ *
+ * Their version has both centres' details and a row of social icons. The details are carried over;
+ * the social links are **not**, yet — their Twitter link predates X, their Facebook link is plain
+ * HTTP, and neither those accounts nor the Flickr and Instagram ones could be confirmed as active
+ * during research. A footer of dead links is worse than no footer, so they return once somebody
+ * has opened each one. Recorded in CONTENT-GAPS.md.
+ *
+ * Their page also states hours nowhere — hours appear once, on the homepage. They are here too,
+ * because "what time do you open" is why people open a contact page.
+ */
+export default function ContactPage() {
+  return (
+    <>
+      <h1>Contact us</h1>
+      <p className="lede">
+        If you have any questions, please send us an email or give us a call. We are open{' '}
+        {CENTRE_FACTS.hours.toLowerCase()}.
+      </p>
+
+      <div className="grid">
+        {CENTRES.map((centre) => {
+          const mapQuery = encodeURIComponent(
+            `${centre.street}, ${centre.suburb} ${centre.postcode}`,
+          );
+          return (
+            <div className="card" key={centre.path}>
+              <h2 style={{ marginTop: 0 }}>{centre.name}</h2>
+              <dl className="facts">
+                <dt>Phone</dt>
+                <dd>
+                  <a href={`tel:${centre.phoneHref}`}>{centre.phone}</a>
+                </dd>
+                <dt>Email</dt>
+                <dd>
+                  <a href={`mailto:${centre.email}`}>{centre.email}</a>
+                </dd>
+                <dt>Address</dt>
+                <dd>
+                  {centre.street}
+                  <br />
+                  {centre.suburb} {centre.postcode}
+                </dd>
+              </dl>
+              <p>
+                <a href={`https://www.google.com/maps/search/?api=1&query=${mapQuery}`}>
+                  Open in maps
+                </a>
+              </p>
+            </div>
+          );
+        })}
+      </div>
+
+      <h2>Working with us</h2>
+      <p>
+        For a place, see <Link href="/enrolment">enrolment</Link>. To join the team, email{' '}
+        <a href={`mailto:${CENTRE_FACTS.careersEmail}`}>{CENTRE_FACTS.careersEmail}</a>.
+      </p>
+
+      <h2>Families and kaiako</h2>
+      <p>
+        <a href={process.env.SITE_APP_URL ?? 'https://ece-production-fc07.up.railway.app/login'}>
+          Sign in to the centre app
+        </a>
+        . Access comes from the centre inviting you — there is no sign-up.
+      </p>
+    </>
+  );
+}

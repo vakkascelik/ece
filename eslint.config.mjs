@@ -50,7 +50,10 @@ export default tseslint.config(
   },
 
   {
-    files: ['apps/web/**/*.{ts,tsx}', 'apps/mobile/**/*.{ts,tsx}'],
+    // Every app with React in it. `apps/site` was added here in the same commit that created it —
+    // a new app that misses this glob gets no hooks linting at all, and the omission is invisible
+    // because `npm run lint` still reports clean.
+    files: ['apps/web/**/*.{ts,tsx}', 'apps/mobile/**/*.{ts,tsx}', 'apps/site/**/*.{ts,tsx}'],
     plugins: { 'react-hooks': reactHooks },
     rules: {
       // This one earns its place: a stale closure in a hook is invisible to tsc and

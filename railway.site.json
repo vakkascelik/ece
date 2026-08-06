@@ -1,0 +1,68 @@
+{
+  "$schema": "https://railway.com/railway.schema.json",
+
+  "//": [
+    "Railway deployment for the PUBLIC WEBSITE (apps/site), Little Pearls' own littlepearls.org.nz.",
+    "",
+    "A SECOND FILE, AND WHY THAT IS NOT OPTIONAL",
+    "",
+    "railway.json is a single-service manifest with `startCommand: npm run start -w @ece/web`.",
+    "A second Railway service that reads it would boot the PLATFORM, health-check it happily on",
+    "/api/health, and serve the app that holds children's records on the marketing domain. That",
+    "failure is silent — a green deploy pointing at the wrong application.",
+    "",
+    "So the second service must be configured with this file as its config path (Settings ->",
+    "Config-as-code -> railway.site.json), and its root directory must stay the REPO ROOT.",
+    "docs/deploy-railway.md already records the root-directory version of this trap: Railway's",
+    "workspace detection offers a service per workspace with root dir apps/<x>, and a config file",
+    "at the repo root is then silently ignored.",
+    "",
+    "WHY A SEPARATE SERVICE RATHER THAN ONE CONTAINER SERVING BOTH",
+    "",
+    "One Next process cannot serve two apps, but the real reason is the boundary. This container",
+    "holds NO service-role key and no Supabase credential of any kind — apps/site has no",
+    "@supabase/* dependency at all. Nixpacks bakes every Railway variable into the image as",
+    "ARG/ENV, so image access is variable access; keeping the public-facing, unauthenticated",
+    "surface in an image with no database credentials in it is the whole point.",
+    "",
+    "ON NAMING: docs/deploy-railway.md says not to name a service or a custom domain after the",
+    "first customer, because the platform is pooled-tenant and one customer's name on it would be",
+    "wrong the moment a second signs up. That rule does not apply here and its inverse does —",
+    "this service IS Little Pearls' website, single-tenant by decision, on their own domain."
+  ],
+
+  "build": {
+    "builder": "NIXPACKS",
+
+    "//": [
+      "The same root `npm run build` as the platform service, which now builds core, api, web and",
+      "site. Both services therefore build all four workspaces and each starts one of them. That",
+      "is wasteful — the site service builds the platform it will never run — and it is the honest",
+      "trade for a single build command that cannot drift from CI's. If build minutes ever matter,",
+      "the fix is a per-service build command, not a second build script that CI does not run."
+    ],
+    "buildCommand": "npm run build"
+  },
+
+  "deploy": {
+    "//": [
+      "The workspace flag matters: `npm run start` at the root has no start script, and",
+      "`cd apps/site && npm start` loses npm's workspace symlink for @ece/core."
+    ],
+    "startCommand": "npm run start -w @ece/site",
+
+    "//healthcheck": [
+      "apps/site/src/app/api/health/route.ts. It deliberately returns 200 even when the optional",
+      "SITE_* variables are unset, naming them in the body — every one of them fails soft, and",
+      "refusing traffic over a canonical-URL setting would take a working website offline to",
+      "complain about a redirect."
+    ],
+    "healthcheckPath": "/api/health",
+    "healthcheckTimeout": 100,
+
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 3,
+
+    "numReplicas": 1
+  }
+}

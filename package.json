@@ -13,7 +13,7 @@
   "scripts": {
     "dev:web": "npm run dev -w @ece/web",
     "dev:mobile": "npm run start -w @ece/mobile",
-    "build": "npm run build -w @ece/core && npm run build -w @ece/api && npm run build -w @ece/web",
+    "build": "npm run build -w @ece/core && npm run build -w @ece/api && npm run build -w @ece/web && npm run build -w @ece/site",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "eslint .",
     "test": "npm run test --workspaces --if-present",

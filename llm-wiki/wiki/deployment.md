@@ -48,6 +48,21 @@ the `ece_centre` cookie as a preference that is re-checked and discarded if no m
 second one would sign in at a URL bearing another centre's name, and by then it is a URL people have
 bookmarked and invitation links point at.
 
+**That rule applies to the platform service, and its inverse applies to the other one.** Since
+2026-08-06 this repo deploys **two** Railway services: the pooled-tenant app (`apps/web`, from
+`railway.json`) and Little Pearls' own public website (`apps/site`, from `railway.site.json`). The
+website is single-tenant by decision — it *is* that centre's site, on their own domain — so it must
+carry their name. Two things follow, and both are traps:
+
+- **A second service that reads `railway.json` boots the platform**, health-checks it successfully
+  on `/api/health`, and serves the app holding children's records on the marketing domain. A green
+  deploy pointing at the wrong application. The site service must be configured with
+  `railway.site.json` as its config path, and — as below — its root directory must stay the repo
+  root or the file is ignored anyway.
+- **The claim "nothing about a centre is in the build" is now narrower than it was.** It remains true
+  of `apps/web`, which is what it was written about. `apps/site` contains a centre's name, addresses
+  and phone numbers as source, because a marketing site is exactly that. See [[public-website]].
+
 **The trade, stated plainly.** Pooled tenancy buys one deployment, one database, one migration, and a
 mobile app that can exist at all. It costs two real things: a policy mistake exposes every centre at
 once rather than one — which is what the 176-assertion RLS suite is the compensating control for —

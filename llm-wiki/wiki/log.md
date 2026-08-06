@@ -5,6 +5,42 @@ says so.*
 
 ---
 
+2026-08-06 — Little Pearls' public website, rebuilt from scratch as `apps/site` — a third app in
+this monorepo, deployed as its own Railway service. New page [[public-website]]. The rebuild was
+forced rather than chosen: their site is Adobe Muse 2017 output, every file stamped
+`Last-Modified: 3 July 2018`, and Adobe ended Muse support in 2020, so nobody could edit it in the
+tool that made it. It also had no `viewport` meta and no media query anywhere, answered on four
+hosts, and its "Enrolment & Fees" page contained no fee.
+
+Two findings worth more than the pages. **Their entire brand palette fails WCAG AA with white
+text** — white on their teal is 2.41:1, on their coral 2.88:1 — so the light palette is background
+only, with darkened variants of their own hues for anything that must carry text. And **the first
+attempt at those variants was wrong in a way that looked verified**: derived and asserted against
+white, where they passed at 4.65:1, then axe found failures on all ten routes because the footer and
+callouts sit on pale aqua, where the same colours measure 4.29:1. A pair checked against one
+background is not a checked colour. Re-derived against the darkest surface they touch and now
+asserted against all three, plus a test asserting that white on the light palette *still* fails, so
+lightening the brand breaks the test that says the variants are needed.
+
+Four monorepo files would have skipped a new app **silently**: the root `build` chain, the
+react-hooks eslint glob, `tokens-css.ts` (one hardcoded output, `--check` comparing one file) and
+`check-bundle.ts` (`const WEB = 'apps/web'`). `typecheck`, `lint` and `test` pick a workspace up for
+free; those four report success while covering nothing. Both are now parameterised, and the measured
+result validates the separate-app decision: the site's middleware is 31.5kB gzip against the app's
+89.5kB, because it does no session refresh.
+
+The enquiry form and platform news were **not** built, and the reasons are recorded rather than
+deferred vaguely. Every policy here is `TO public`, so it is evaluated for `anon`, and the predicates
+call `caller_has_role` whose EXECUTE `0022` revoked from PUBLIC — an anonymous insert fails from
+*inside* the policy with a 42501 that reads like a missing grant. `review:security` check 8 fails the
+build at high on any anon table grant. Nobody has DELETE on `waitlist`, including `service_role`, so
+an anonymously-writable queue is a permanent spam store. And their form collects a child's name and
+exact date of birth, which `docs/tenant-little-pearls.md` forbids until insurance is in place — the
+centre does not need a child's legal name to phone a guardian back. News was rejected on
+[[consent-gated-media]]'s own reasoning: withdrawal works because there is "no cache to invalidate",
+and static HTML is that cache. [[deployment]] corrected — its naming rule now cuts both ways, and
+"nothing about a centre is in the build" is true of the platform and false of the site.
+
 2026-08-06 — Screens 4 and 5, which needed the thing that was missing: **the web app now has an
 outbox.** For five phases "the offline path" meant mobile, and `attendance/actions.ts` justified
 having no queue with "no offline gap to preserve, unlike on a tablet" — but the web app *is* what

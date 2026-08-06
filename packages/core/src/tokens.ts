@@ -85,6 +85,112 @@ export const color = {
   pendingBorder: '#d3e0ed',
 } as const;
 
+/**
+ * Little Pearls Educare Centre's own brand, for the public website in `apps/site`.
+ *
+ * WHY THIS IS A SEPARATE EXPORT AND NOT A CHANGE TO `color`
+ *
+ * `color` above is the *platform's* design system — the thing the mobile theme reads and the
+ * thing the design pack specifies. This is one tenant's public identity. They are different
+ * systems that happen to live in one file so that neither is duplicated in a stylesheet, which
+ * is the failure this package exists to prevent.
+ *
+ * WHERE THE VALUES CAME FROM
+ *
+ * Read out of their existing site's CSS (Adobe Muse output, untouched since 2018), not invented.
+ * Their teal was authored three times as `#83AFAF`, `#83ADAF` and `#83AEAF`; that is
+ * inconsistent authoring rather than three colours, so it is one value here.
+ *
+ * THE PART THAT MATTERS: NONE OF THEIR COLOURS CAN CARRY TEXT
+ *
+ * Measured with `contrastRatio`, against the 4.5:1 that WCAG 2.2 AA asks of body text:
+ *
+ *     white on teal      2.41:1   FAILS
+ *     white on coral     2.88:1   FAILS
+ *     white on pink      2.12:1   FAILS
+ *     white on tealMid   1.81:1   FAILS
+ *     teal text on white 2.41:1   FAILS
+ *     coral text on white 2.88:1  FAILS
+ *
+ * So the light palette is **background only**, where dark text sits on it comfortably (grey body
+ * on `aquaPale` is 6.47:1, black on `teal` is 8.72:1). Anything that needs white text, or needs
+ * to *be* text, uses the `Ink` variants below — their own hues walked down until white passes at
+ * 4.65:1. Derived from their colours, not replacements for them: the originals still carry the
+ * brand on every surface where they are not being asked to do a job they cannot do.
+ */
+export const brandLittlePearls = {
+  /** Background only. Dark text on these passes; white text does not. */
+  teal: '#83afaf',
+  tealMid: '#99c9cc',
+  aqua: '#c1ebef',
+  aquaPale: '#edf8fa',
+  coral: '#ff6565',
+  pink: '#ff9399',
+
+  /**
+   * Their hues darkened for white text on them, or for use as text themselves.
+   *
+   * CORRECTED IMMEDIATELY AFTER FIRST USE — worth keeping, because the mistake is the kind that
+   * looks verified.
+   *
+   * These were first derived as `#507c7c` and `#d53b3b`, walked down until they passed 4.5:1
+   * **against white**, and asserted against white in the tests below. Both passed at 4.65:1.
+   * Then axe found contrast failures on every page: the footer, the callouts and the gap blocks
+   * sit on `aquaPale`, which is *darker* than white, and on it the same colours measure
+   * **4.29:1**.
+   *
+   * So a pair asserted against one background says nothing about the others. These are now
+   * derived against the darkest surface they are used on — `aqua` at #c1ebef — and asserted
+   * against all three, which is what makes them safe to use anywhere:
+   *
+   *     on #ffffff  teal 5.78   coral 5.85
+   *     on #edf8fa  teal 5.34   coral 5.41
+   *     on #c1ebef  teal 4.51   coral 4.57
+   */
+  tealInk: '#416d6d',
+  coralInk: '#c12727',
+
+  /** Body copy. 7.00:1 on white, 6.47:1 on aquaPale. */
+  ink: '#595959',
+  surface: '#ffffff',
+} as const;
+
+/**
+ * Asserted in `__tests__/tokens.test.ts`, separately from the platform's pairs.
+ *
+ * Both directions are checked deliberately: that the `Ink` variants work, *and* that the light
+ * originals still work with dark text on them — because the temptation with a pale brand is to
+ * put white on it anyway.
+ */
+export const LITTLE_PEARLS_CONTRAST_PAIRS: readonly {
+  fg: string;
+  bg: string;
+  min: number;
+  label: string;
+}[] = [
+  { fg: brandLittlePearls.ink, bg: brandLittlePearls.surface, min: 4.5, label: 'body on white' },
+  { fg: brandLittlePearls.ink, bg: brandLittlePearls.aquaPale, min: 4.5, label: 'body on pale aqua' },
+  { fg: brandLittlePearls.ink, bg: brandLittlePearls.aqua, min: 4.5, label: 'body on aqua' },
+  { fg: '#1b1a18', bg: brandLittlePearls.teal, min: 4.5, label: 'dark text on teal' },
+  { fg: '#1b1a18', bg: brandLittlePearls.coral, min: 4.5, label: 'dark text on coral' },
+  { fg: brandLittlePearls.surface, bg: brandLittlePearls.tealInk, min: 4.5, label: 'white on teal ink' },
+  { fg: brandLittlePearls.surface, bg: brandLittlePearls.coralInk, min: 4.5, label: 'white on coral ink' },
+
+  /*
+   * The Ink variants against **every** surface they are used on, not just white.
+   *
+   * This is the assertion that was missing when they were first added, and axe found what it
+   * missed: 4.29:1 in the footer, which is `aquaPale`. A pair checked against one background is
+   * not a checked colour — it is a checked colour on one background.
+   */
+  { fg: brandLittlePearls.tealInk, bg: brandLittlePearls.surface, min: 4.5, label: 'teal ink on white' },
+  { fg: brandLittlePearls.tealInk, bg: brandLittlePearls.aquaPale, min: 4.5, label: 'teal ink on pale aqua' },
+  { fg: brandLittlePearls.tealInk, bg: brandLittlePearls.aqua, min: 4.5, label: 'teal ink on aqua' },
+  { fg: brandLittlePearls.coralInk, bg: brandLittlePearls.surface, min: 4.5, label: 'coral ink on white' },
+  { fg: brandLittlePearls.coralInk, bg: brandLittlePearls.aquaPale, min: 4.5, label: 'coral ink on pale aqua' },
+  { fg: brandLittlePearls.coralInk, bg: brandLittlePearls.aqua, min: 4.5, label: 'coral ink on aqua' },
+];
+
 export const space = {
   '0': 0,
   '1': 4,
