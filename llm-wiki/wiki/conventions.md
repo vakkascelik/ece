@@ -119,7 +119,7 @@ wrong while somebody is debugging something else. `recentlyToday()` in
 |---|---|
 | `npm run typecheck` | four workspaces |
 | `npm run lint` | flat ESLint config at the root; `next lint` is deprecated and prompts interactively with no config, which in CI hangs |
-| `npm test` | unit tests in `@ece/core` and `@ece/web` |
+| `npm test` | unit tests in `@ece/core`, `@ece/api` and `@ece/web`. **Not `apps/mobile`** — it has no `test` script, so `--if-present` skips it silently and the command still looks complete. See [[unverified-claims]] item 20 |
 | `npm run test:rls` | **the one that matters** — 119 assertions as at 2026-08-04 |
 | `npm run tokens:check` | generated CSS matches the shared tokens |
 | `npm run drill:offline` | the outbox contract against the real database |

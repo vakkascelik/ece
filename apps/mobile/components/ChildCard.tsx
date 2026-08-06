@@ -1,9 +1,11 @@
+import type { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import {
   compareBySeverity,
   displayName,
   formatAge,
   formatDays,
+  initials,
   isUnderTwo,
   missingConsents,
   type Child,
@@ -11,7 +13,7 @@ import {
   type Enrolment,
   type HealthCondition,
 } from '@ece/core';
-import { color, font, space, theme } from '../theme';
+import { color, font, radius, space, theme } from '../theme';
 import { Flag } from './Flag';
 
 /**
@@ -36,6 +38,7 @@ export function ChildCard({
   present = false,
   since = null,
   pending = false,
+  action,
 }: {
   child: Child;
   conditions: HealthCondition[];
@@ -44,6 +47,15 @@ export function ChildCard({
   showConsentGaps: boolean;
   present?: boolean;
   since?: string | null;
+  /**
+   * The row's control, rendered inside the header row beside the name.
+   *
+   * A slot rather than a `onSignIn` prop, because the whānau screens use this same card
+   * with no action at all and a parent must never be handed a sign-in button — the
+   * capability check would refuse the write, but a button that fails is worse than no
+   * button.
+   */
+  action?: ReactNode;
   /**
    * The event behind this state is still in the outbox.
    *
@@ -61,19 +73,37 @@ export function ChildCard({
 
   return (
     <View style={[theme.card, critical.length > 0 && styles.criticalCard]}>
-      <Text style={styles.name}>{displayName(child)}</Text>
+      {/*
+        The pack's row: 48px initials, the name and its chips, then the action. The action
+        used to sit in a separate block *below* the card, which cost a whole row of vertical
+        space per child and put the button nearer the next child's name than to its own.
+      */}
+      <View style={styles.head}>
+        {/* Initials, not a photograph. A roll showing children's faces cannot be held up in
+            a room or left open on a bench, which is exactly how this screen is used. */}
+        <View style={styles.avatar}>
+          <Text style={styles.avatarText} accessibilityElementsHidden>
+            {initials(child)}
+          </Text>
+        </View>
 
-      <View style={[theme.row, { marginTop: space['1'] }]}>
-        <Text style={theme.muted}>{formatAge(child.dateOfBirth)}</Text>
-        {isUnderTwo(child.dateOfBirth) && <Flag tone="quiet">under 2</Flag>}
-        {present ? (
-          <Flag tone="ok">
-            {since
-              ? `In since ${new Date(since).toLocaleTimeString('en-NZ', { hour: '2-digit', minute: '2-digit' })}`
-              : 'Here'}
-          </Flag>
-        ) : null}
-        {pending && <Flag tone="quiet">not sent yet</Flag>}
+        <View style={styles.headWho}>
+          <Text style={styles.name}>{displayName(child)}</Text>
+          <View style={[theme.row, { marginTop: space['1'] }]}>
+            <Text style={theme.muted}>{formatAge(child.dateOfBirth)}</Text>
+            {isUnderTwo(child.dateOfBirth) && <Flag tone="quiet">under 2</Flag>}
+            {present ? (
+              <Flag tone="ok">
+                {since
+                  ? `In ${new Date(since).toLocaleTimeString('en-NZ', { hour: 'numeric', minute: '2-digit' })}`
+                  : 'Here'}
+              </Flag>
+            ) : null}
+            {pending && <Flag tone="quiet">waiting to send</Flag>}
+          </View>
+        </View>
+
+        {action}
       </View>
 
       {critical.length > 0 && (
@@ -120,7 +150,19 @@ export function ChildCard({
 
 const styles = StyleSheet.create({
   criticalCard: { borderColor: color.breachBorder },
-  name: { fontSize: font.size.lg, fontWeight: font.weight.semibold, color: color.ink },
+  head: { flexDirection: 'row', alignItems: 'center', gap: space['3'] },
+  headWho: { flex: 1, minWidth: 0 },
+  avatar: {
+    width: 48,
+    height: 48,
+    borderRadius: radius.pill,
+    backgroundColor: color.surfaceSunken,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: { fontSize: font.size.mobileBase, fontWeight: font.weight.semibold, color: color.inkMuted },
+  // 17/600, the pack's ChildCard name size. Was 18, which is the web roll's.
+  name: { fontSize: font.size.mobileBase, fontWeight: font.weight.semibold, color: color.ink },
   criticalBlock: {
     marginTop: space['3'],
     backgroundColor: color.breachSoft,

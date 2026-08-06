@@ -5,6 +5,28 @@ says so.*
 
 ---
 
+2026-08-06 — Screen 9, the mobile staff roll. Two of the three changes are about the room rather
+than the mockup. **The action moved inside the card**: it had been a block below each card, which
+cost a row of vertical space per child and put each button nearer the *next* child's name than to
+its own — on a roll of twenty tapped in a hurry at 8am that is a mis-tap waiting to happen, and a
+mis-tap here writes an attendance time that decides funded hours. **Connectivity left the ratio
+block**, where "offline" and "3 to send" were chips making two unrelated conditions look like one;
+`OfflineStrip` is now its own element in pending-blue, and what stays in the ratio block is the
+sentence tying them together — "Includes 3 not yet sent to the office", because an educator
+reading "within ratio" must know whether that count includes children signed in with no signal.
+
+**One pack target refused**: it specifies 88×56 for roll row actions and this keeps 64px. The
+pack's own rule reserves 64 for primaries, and sign-in *is* this app's primary action — shrinking
+the most-tapped control to match a mockup is a regression dressed as fidelity. No opacity pulse on
+the strip either: a pulse says "attend to me now", which contradicts the reason the strip is blue.
+
+Found on the way, and worth knowing: **the mobile workspace has no test runner.** `npm test`
+covers core, api and web only, and nothing in the checklist says otherwise, so the strip's wording
+— the line an educator reads to decide whether to trust the ratio — cannot be unit-tested. Left
+unexported rather than exported with a comment pretending a test exists. Also two RN traps that
+`typecheck` caught only because it was run: `accessibilityRole="status"` is a **web** ARIA value
+that does not exist in React Native, and `accessibilityElementsHidden` is invalid on `Text`.
+
 2026-08-06 — The mobile surface starts: screens 8 (sign-in) and 12 (empty states). Mobile was
 already closer to the pack than web had been, because the token file it reads *is* the pack —
 56px fields, a 64px primary and one error string were in place. Three things were not. "Nau mai"

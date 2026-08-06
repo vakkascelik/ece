@@ -38,6 +38,8 @@ Nothing here is a bug. They are known gaps with known closures.
   runbook. The substance of both is sound; the citations have not been read.
 - **No screen reader has ever been used on this product.** axe passes on every page, which
   is a floor and not a pass.
+- **The mobile workspace has no unit tests and no runner**, so `npm test` reports three green
+  workspaces while covering none of the app that runs in the room. Item 20.
 - **The mobile app has never run on a device.** Not the airplane-mode drill, not the sign-out
   refusal, not the chunked session storage. Two bugs in that path were already found by reading it.
 - **Three store-submission blockers are not code**: the ratio flag puts a disclaimer on the hero
@@ -304,6 +306,25 @@ why it is worth recording before a screen, a store listing or a manifest starts 
 | **The claim** | "Doorway" is available to use as a product name in New Zealand |
 | **What is actually verified** | Nothing. The handoff states the check has not been done |
 | **To close it** | IPONZ trade mark search in the relevant classes, a companies-register check, and the domain. Before any store submission or marketing asset, not after |
+
+### 20. The mobile workspace has no unit tests, and the checklist does not say so
+
+Found while building the roll's offline strip on 2026-08-06. `npm test` runs
+`--workspaces --if-present`, and `apps/mobile` has no `test` script — so the entire mobile
+surface has **zero unit tests**, while the command reports three green workspaces and looks
+complete.
+
+That is not the same as untested: `typecheck` covers it, Metro bundles it in CI, and the
+outbox contract it depends on is tested in `@ece/core`. But every string, every derived
+label and every branch of a component in that app is unasserted, and the offline strip's
+wording is a good example of something that matters — an educator reads that line to decide
+whether to trust the ratio above it.
+
+| | |
+|---|---|
+| **The claim** | "189 unit tests pass" implies the product is covered |
+| **What is actually true** | Those tests cover `@ece/core`, `@ece/api` and `@ece/web`. Mobile has none, and no runner to add them to |
+| **To close it** | Add vitest to `apps/mobile` with the same config shape the other workspaces use, and start with the pure functions — the strip's sentence, the roll's ordering, the ratio labels. Component rendering needs `@testing-library/react-native`, which is a bigger decision |
 
 ## See Also
 

@@ -1,7 +1,9 @@
 import { useCallback, useState } from 'react';
 import { FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
-import { space, theme } from '../theme';
+import { color, font, space, theme } from '../theme';
 import { ChildCard } from '../components/ChildCard';
+import { EmptyState } from '../components/EmptyState';
+import { OfflineStrip } from '../components/OfflineStrip';
 import { RatioBar } from '../components/RatioBar';
 import { SignInButton } from '../components/SignInButton';
 import { useRoll } from '../data/useRoll';
@@ -74,15 +76,24 @@ export function RollScreen() {
       refreshControl={<RefreshControl refreshing={refreshing || loading} onRefresh={() => void onRefresh()} />}
       ListHeaderComponent={
         <View>
-          <Text style={theme.h1}>{centre?.name ?? 'Roll'}</Text>
+          {/* "Roll" is the screen; the centre is the context under it. The centre's name was
+              the h1, which reads as a page about the centre rather than about the room. */}
+          <Text style={theme.h1}>Roll</Text>
+          {centre && <Text style={styles.where}>{centre.name}</Text>}
+
           {/* First thing on the screen, always. Not a report somebody goes and finds. */}
-          <RatioBar ratio={roll.ratio} pendingCount={roll.pendingCount} online={online} />
+          <RatioBar ratio={roll.ratio} pendingCount={roll.pendingCount} />
+
+          {/* Above the list, never over it — a strip that floats covers a child, and the one
+              it covers is the one nobody signs in. */}
+          <OfflineStrip online={online} pendingCount={roll.pendingCount} />
         </View>
       }
       ListEmptyComponent={
-        <Text style={theme.muted}>
-          No children enrolled here yet. A manager adds them on the web app.
-        </Text>
+        <EmptyState
+          title="Nobody is enrolled yet"
+          body="A manager enrols tamariki on the web app, and the roll starts here tomorrow morning."
+        />
       }
       renderItem={({ item }) => (
         <View style={styles.row}>
@@ -98,11 +109,13 @@ export function RollScreen() {
             present={item.present}
             since={item.since}
             pending={item.pending}
-          />
-          <SignInButton
-            present={item.present}
-            childName={item.child.preferredName || item.child.firstName}
-            onPress={() => void toggle(item.child.id, item.present)}
+            action={
+              <SignInButton
+                present={item.present}
+                childName={item.child.preferredName || item.child.firstName}
+                onPress={() => void toggle(item.child.id, item.present)}
+              />
+            }
           />
         </View>
       )}
@@ -111,5 +124,6 @@ export function RollScreen() {
 }
 
 const styles = StyleSheet.create({
-  row: { marginBottom: space['4'] },
+  row: { marginBottom: space['3'] },
+  where: { fontSize: font.size.sm, color: color.inkMuted, marginBottom: space['3'] },
 });

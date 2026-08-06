@@ -321,6 +321,56 @@ just arrived to make a decision they have no basis for.
 parent meets on their first day and on a quiet Tuesday, and they should read as the same
 product.
 
+### Screen 9 — the staff roll, and one target the pack gets wrong
+
+The roll's three pieces now match the pack's anatomy, and two of the changes are about the
+room rather than the mockup.
+
+**The action moved inside the card.** It had been a separate block *below* each card, which
+cost a row of vertical space per child and — worse — put each button nearer the *next*
+child's name than to its own. On a roll of twenty, tapped in a hurry at 8am, that is a
+mis-tap waiting to happen, and a mis-tap here writes an attendance time that decides funded
+hours. The card is now the pack's row: 48px initials, name at 17/600, chip row, action.
+
+**Connectivity left the ratio block.** "Offline" and "3 to send" were chips inside it, which
+made two unrelated conditions look like one. `OfflineStrip` is now its own element above the
+list, in pending-blue — never amber, because a queued write in a concrete-walled centre is
+normal and amber here trains educators to ignore amber. What stays in the ratio block is the
+one sentence tying them together: *"Includes 3 not yet sent to the office."* An educator
+reading "within ratio" has to know whether that count includes the children they signed in
+with no signal. It does.
+
+The RatioCard picked up the pack's 28/600 counts, 17/500 detail, 16px radius and 12px track,
+with the track hidden from the accessibility tree because the lines above it say the same
+thing in words.
+
+**Where the pack is not followed: the 88×56 roll action.** The pack specifies 88×56 for
+mobile roll row actions, and this app keeps 64px height. The pack's own principle is the
+reason — "mobile targets are 56px, primaries 64px… measured against one-handed use while
+carrying a child". Sign-in *is* this app's primary action; it is the reason the app is
+opened. Treating it as a secondary control and shrinking it by 8px to match a mockup is a
+usability regression dressed as fidelity. Width stays at 120 rather than 88 for the same
+reason.
+
+**No pulse on the strip.** The pack gives the *web* tablet strip a 2s opacity pulse,
+disabled under reduced motion. Not reproduced: the same pack argues a queued write is an
+ordinary state, and a pulsing element is how a screen says "attend to me now". Animating it
+would contradict the reason it is blue, and it would need an `AccessibilityInfo`
+reduced-motion listener to be honest about vestibular disorders — for a decoration nobody
+asked for.
+
+**A gap found on the way, worth recording:** the mobile workspace has **no test runner**.
+The strip's wording is the thing an educator reads to decide whether to trust the ratio, and
+it cannot be unit-tested here. `npm test` covers `@ece/core`, `@ece/api` and `@ece/web`
+only, and nothing in the checklist says otherwise, so this is easy to miss. The function is
+deliberately left unexported rather than exported with a comment implying a test exists.
+
+Two React Native traps, both caught by `typecheck` only because it was run:
+`accessibilityRole="status"` is a **web** ARIA value and does not exist in RN (the roles list
+has `summary`, which is what RatioBar already used), and `accessibilityElementsHidden` is not
+valid on `Text`. A glyph is kept out of the accessible name with `accessibilityLabel`
+instead.
+
 ### Deviations so far
 
 | Screen | Deviation | Why |
@@ -339,22 +389,25 @@ product.
 | 6 — Health | The editable conditions table is unchanged; only the critical block is a HealthCard | Converting the table means reworking its add / resolve / medication forms. The block read under pressure is the one that mattered first |
 | 6 — Header | No room name in the meta line | No rooms concept in the schema, as on the roll |
 | 8 — Sign-in | Footnote does not say "no password reset"; it points at the browser | Reset exists, and re-invitation cannot recover a password. Same call as web |
+| 9 — Roll action | 64px tall and 120px wide, not the pack's 88×56 | Sign-in is this app's primary action. The pack's own rule reserves 64 for primaries; shrinking the most-tapped control to match a mockup is a regression dressed as fidelity |
+| 9 — OfflineStrip | No 2s opacity pulse | The pack specifies it for the *web* tablet strip. A pulse contradicts the reason the strip is blue, and would need a reduced-motion listener for a decoration |
+| 9 — Roll header | Centre name where the pack has a room name | No rooms concept in the schema |
 | 12 — Empty states | The "Message the centre" action relies on React Navigation bubbling an unmatched route to the parent tab navigator | `useNavigation` is hand-typed here with only `navigate`. Documented behaviour, but **unverified on a device** like everything else in this app |
 
 ### Not yet applied
 
-Screens 4, 5, 9, 10, 11 and 13 are **not** done:
+Screens 4, 5, 10, 11 and 13 are **not** done:
 
 - **4 (offline roll) and 5 (sign-out refusal) are not purely visual.** The offline outbox is a
   mobile capability; the web app has no local queue, so these two screens need the queue on web
   before they can be built at all. The pack shows them because the web app also runs on a
   wall-mounted tablet. The sign-out refusal logic already exists in `@ece/core` — see
   `signOut.test.ts` — so it is the web queue that is missing, not the decision.
-- **9, 10 and 11** are the mobile screens that carry real anatomy: the staff roll's RatioCard,
-  OfflineStrip and 88×56 ChildCard actions; the whānau child detail with its 56×32 consent
-  switches and its **absent** custody heading; and the pānui feed where a withdrawn photo
-  consent must render nothing at all. Screen 13, the three-metre tablet proof, is a web
-  concern.
+- **10 and 11** are the remaining mobile anatomy: the whānau child detail with its 56×32
+  consent switches and its **absent** custody heading, and the pānui feed where a withdrawn
+  photo consent must render nothing at all — no placeholder, no notice, nothing announced.
+- **13**, the three-metre tablet proof, is a web concern and needs the ratio block sized so
+  its status line subtends the same angle at 3m as 15px body text does at 40cm.
 The mobile surface shares tokens and vocabulary with web and deliberately shares no
 components. See [[mobile-app]].
 
@@ -367,4 +420,4 @@ Nothing on this page should be read as claiming the product now looks like the b
 - [[unverified-claims]] — the unchecked product name
 - [[mobile-app]] — why the mobile screens are a separate surface sharing only tokens
 
-*Last updated: 2026-08-06 (screens 1, 2, 3, 6, 7's no-access half, 8 and 12)*
+*Last updated: 2026-08-06 (screens 1, 2, 3, 6, 7's no-access half, 8, 9 and 12)*
