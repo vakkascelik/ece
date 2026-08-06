@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { CENTRES, CENTRE_FACTS } from '@/lib/centres';
+import { appUrl } from '@/lib/site';
 
 export const metadata: Metadata = {
   title: 'Enrolment and fees',
@@ -93,7 +94,7 @@ export default function EnrolmentPage() {
       <div className="callout">
         <p style={{ margin: 0 }}>
           Already with us? Families and kaiako can{' '}
-          <a href={process.env.SITE_APP_URL ?? 'https://ece-production-fc07.up.railway.app/login'}>
+          <a href={appUrl()}>
             sign in to the centre app
           </a>
           . Access comes from the centre inviting you — there is no sign-up.

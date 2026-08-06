@@ -1,5 +1,6 @@
 import type { MetadataRoute } from 'next';
 import { CENTRES } from '@/lib/centres';
+import { siteOrigin } from '@/lib/site';
 
 /**
  * Generated from the routes rather than hand-written.
@@ -13,7 +14,7 @@ import { CENTRES } from '@/lib/centres';
  * because the content lives in TSX rather than a CMS. Omitting the field is honest.
  */
 export default function sitemap(): MetadataRoute.Sitemap {
-  const origin = process.env.SITE_ORIGIN ?? 'https://www.littlepearls.org.nz';
+  const origin = siteOrigin();
 
   const paths = [
     '/',

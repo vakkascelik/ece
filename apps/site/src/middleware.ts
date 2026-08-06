@@ -68,7 +68,30 @@ export function middleware(request: NextRequest) {
   const proto = request.headers.get('x-forwarded-proto');
   const isHealthCheck = request.nextUrl.pathname === '/api/health';
 
-  if (canonical && forwardedHost && !isHealthCheck && (forwardedHost !== canonical || proto === 'http')) {
+  /*
+   * The platform's own hostname is never redirected.
+   *
+   * SECOND TIME THIS REDIRECT CAUSED A PROBLEM, so the shape changed rather than the docs. With
+   * the canonical host set before the real domain pointed here, visiting
+   * `little-pearls-production.up.railway.app` 308'd to `www.littlepearls.org.nz` — which still
+   * serves the **old site this one replaces**. So the new website redirected to the old website,
+   * and the only way out was to remember to unset a variable.
+   *
+   * A `*.up.railway.app` host is this service's own inspection URL. Bouncing it somewhere else is
+   * never what anybody wanted: before go-live the target may not resolve, and after go-live the
+   * canonical `<link>` tag already tells crawlers which URL is the real one. So the variable now
+   * does only the job it is good at — choosing between www and apex, and forcing https — and the
+   * preview URL keeps working whether it is set or not.
+   */
+  const isPlatformHost = forwardedHost?.endsWith('.up.railway.app') ?? false;
+
+  if (
+    canonical &&
+    forwardedHost &&
+    !isHealthCheck &&
+    !isPlatformHost &&
+    (forwardedHost !== canonical || proto === 'http')
+  ) {
     const target = new URL(request.nextUrl.pathname + request.nextUrl.search, `https://${canonical}`);
     // 308, not 301: a 301 is permitted to rewrite a POST to a GET, which would silently drop a
     // form submission.

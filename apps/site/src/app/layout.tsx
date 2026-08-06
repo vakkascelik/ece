@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 import { CENTRES, CENTRE_FACTS } from '@/lib/centres';
+import { appUrl, isPreview, siteOrigin } from '@/lib/site';
 import { NavLink } from './NavLink';
 import './globals.css';
 
@@ -34,7 +35,13 @@ const DESCRIPTION =
  * domain and the real one, and a wrong absolute URL in an OG tag is worse than none.
  */
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.SITE_ORIGIN ?? 'https://www.littlepearls.org.nz'),
+  metadataBase: new URL(siteOrigin()),
+  /*
+    While this is a preview on a railway.app hostname, tell crawlers not to index it. Two of these
+    for a real childcare centre in search results — one on a domain nobody chose — is a mess that
+    takes longer to undo than to prevent. Flips with SITE_CANONICAL_HOST; see lib/site.ts.
+  */
+  robots: isPreview() ? { index: false, follow: false } : undefined,
   title: {
     default: 'Little Pearls Educare Centre — early learning in Mt Albert and Mt Roskill',
     template: '%s | Little Pearls Educare Centre',
@@ -125,7 +132,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                   somebody, which the app says on arrival.
                 */}
                 <p>
-                  <a href={process.env.SITE_APP_URL ?? 'https://ece-production-fc07.up.railway.app/login'}>
+                  <a href={appUrl()}>
                     Sign in to the centre app
                   </a>
                 </p>

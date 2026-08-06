@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { CENTRES, CENTRE_FACTS } from '@/lib/centres';
+import { appUrl } from '@/lib/site';
 
 export const metadata: Metadata = {
   title: 'Contact us',
@@ -72,7 +73,7 @@ export default function ContactPage() {
 
       <h2>Families and kaiako</h2>
       <p>
-        <a href={process.env.SITE_APP_URL ?? 'https://ece-production-fc07.up.railway.app/login'}>
+        <a href={appUrl()}>
           Sign in to the centre app
         </a>
         . Access comes from the centre inviting you — there is no sign-up.

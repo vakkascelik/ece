@@ -334,7 +334,7 @@ Service → Settings → **Config-as-code** → `railway.site.json`.
 
 | Variable | Needed | Why |
 |---|---|---|
-| `SITE_CANONICAL_HOST` | **leave unset at first** | `www.littlepearls.org.nz` — but only once that domain resolves to this service. See the warning below |
+| `SITE_CANONICAL_HOST` | optional | `www.littlepearls.org.nz`. Chooses between www and apex and forces https **on the real domain only** — the `*.up.railway.app` hostname is never redirected, so it is safe to set before the domain is attached |
 | `SITE_ORIGIN` | recommended | `https://www.littlepearls.org.nz`. Absolute URLs in Open Graph, `robots.txt` and the sitemap |
 | `SITE_APP_URL` | optional | Where "Sign in to the centre app" points. Defaults to the platform's Railway hostname |
 
@@ -353,25 +353,36 @@ All three variables **fail soft**, so `/api/health` returns 200 with `usingDefau
 that are unset. Refusing traffic over a canonical-URL setting would take a working website offline
 to complain about a redirect.
 
-> ### Do not set `SITE_CANONICAL_HOST` before the domain points here
+> ### `SITE_CANONICAL_HOST` caused two failures before it was made safe
 >
-> **This failed the first deploy of this service**, and the failure was mine — an earlier version of
-> this page recommended setting it straight away.
+> Both were mine, including an earlier version of this page that told you to set it immediately.
 >
-> The middleware 308s any request whose host is not the canonical one. Set to
-> `www.littlepearls.org.nz` before that domain is attached, it redirects **the working Railway URL**
-> to a hostname that does not resolve, so the site is unreachable in a browser — and it redirected
-> the health check too, which is what actually broke the deploy: eight probes failed with "service
-> unavailable" and the replica never became healthy, while the container itself had logged
-> `Ready in 359ms` and was serving fine on port 8080.
+> **First it failed the deploy.** The middleware 308'd any request whose host was not the canonical
+> one, and Railway's health check hits the container on its internal address — so every probe got a
+> 308 instead of a 200. Eight attempts failed with "service unavailable" and the replica never
+> became healthy, while the container itself had logged `Ready in 359ms` and was serving on port
+> 8080. A working app rejected by its own redirect.
 >
-> `/api/health` is now exempt from the redirect, so a health check always answers locally. But the
-> browser-facing half is a sequencing rule, not a code fix:
+> **Then it redirected the preview to the site it replaces.** With the value set before the domain
+> pointed here, opening `little-pearls-production.up.railway.app` 308'd to
+> `www.littlepearls.org.nz` — the old Adobe Muse site. The new website redirected to the old one,
+> and the only escape was remembering to unset a variable.
 >
-> 1. Deploy with `SITE_CANONICAL_HOST` **unset**. The service is reachable at its
->    `*.up.railway.app` hostname.
-> 2. Attach the custom domain and wait for Railway to report the DNS as resolving.
-> 3. *Then* set `SITE_CANONICAL_HOST`, and confirm the Railway hostname 308s to the real one.
+> Two exemptions now, so neither can happen again: **`/api/health` is never redirected**, and
+> **`*.up.railway.app` is never redirected**. That hostname is the service's own inspection URL;
+> before go-live its target may not resolve, and after go-live the canonical `<link>` tag already
+> tells crawlers which URL is real. The variable now does only what it is good at — www versus
+> apex, and forcing https on the real domain.
+>
+> Verified with the variable set, against every host that matters:
+>
+> ```
+> railway URL   /            200          not redirected
+> health check  /api/health  200
+> apex domain   /            308 -> https://www.littlepearls.org.nz/
+> canonical     /            200
+> canonical     / over http  308 -> https://www.littlepearls.org.nz/
+> ```
 >
 > Worth knowing if you ever try to be cleverer about this: requiring `x-forwarded-host` to be
 > present does **not** distinguish an internal request from a public one, because Next populates
