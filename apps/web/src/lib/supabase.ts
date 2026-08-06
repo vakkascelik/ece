@@ -1,4 +1,4 @@
-import { createBrowserClient, createServerClient } from '@supabase/ssr';
+import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { createServiceClient, type Db } from '@ece/api';
 
@@ -7,7 +7,8 @@ import { createServiceClient, type Db } from '@ece/api';
  *
  * Three of them, and the distinction is the tenant boundary:
  *
- *   browser / server — anon key, carry the user's JWT, RLS applies. Safe.
+ *   browser / server — anon key, carry the user's JWT, RLS applies. Safe. The browser one
+ *                      lives in `supabaseBrowser.ts`; see the note below.
  *   service          — bypasses RLS entirely. Can read every centre at once.
  *
  * The service client exists for onboarding a tenant and for scheduled work.
@@ -25,10 +26,14 @@ function required(name: string): string {
 const URL_ = () => required('NEXT_PUBLIC_SUPABASE_URL');
 const ANON = () => required('NEXT_PUBLIC_SUPABASE_ANON_KEY');
 
-/** Client components. */
-export function browserDb() {
-  return createBrowserClient(URL_(), ANON());
-}
+/*
+ * The browser client used to live here and has moved to `supabaseBrowser.ts`.
+ *
+ * It had to: this module imports `next/headers` for the server client, a module is bundled as a
+ * whole, and so any client component importing `browserDb` from here failed the build with
+ * "You're importing a component that needs next/headers". Which is very likely why it sat here
+ * exported and called from nowhere until the outbox needed it.
+ */
 
 /**
  * Server components, route handlers and server actions.

@@ -1,14 +1,20 @@
 'use client';
 
 import { useActionState, useEffect, useState } from 'react';
-import { correct, signIn, signOut, type Result } from './actions';
+import { correct, type Result } from './actions';
 
 /**
  * One child, with the one action that makes sense for their current state.
  *
- * Deliberately not a toggle. "Sign in" and "Sign out" are separate labelled buttons,
- * because a mis-tap on a toggle silently records the opposite of what happened and
- * attendance times decide funded hours.
+ * Deliberately not a toggle. "Sign in" and "Sign out" are separate labelled buttons, because a
+ * mis-tap on a toggle silently records the opposite of what happened and attendance times
+ * decide funded hours.
+ *
+ * No pending spinner and no disabled state while it saves. The write goes to a local queue and
+ * returns in the same tick, so there is nothing to wait for — a spinner here would be theatre,
+ * and a disabled button would make a working app feel broken on a bad connection. The SyncChip
+ * carries the "not sent yet" information instead. Same reasoning as the mobile SignInButton,
+ * which got there first.
  */
 export function AttendanceRow({
   childId,
@@ -18,8 +24,10 @@ export function AttendanceRow({
   underTwo,
   present,
   since,
+  unsent,
   eventId,
   critical,
+  onToggle,
 }: {
   childId: string;
   name: string;
@@ -28,22 +36,26 @@ export function AttendanceRow({
   underTwo: boolean;
   present: boolean;
   since: string | null;
+  /** This child's current state is still sitting in the outbox. */
+  unsent: boolean;
+  /**
+   * The server event behind this state, when there is one.
+   *
+   * Null while the state is still queued — there is nothing on the server to correct yet, so
+   * the correction control is not offered. Sending it first is the fix, and the strip above
+   * the list is where that happens.
+   */
   eventId: number | null;
-  critical: { label: string; name: string; plan: string | null } | null;
+  critical: { label: string; name: string } | null;
+  onToggle: () => void;
 }) {
-  const [inState, inAction, inPending] = useActionState<Result | null, FormData>(signIn, null);
-  const [outState, outAction, outPending] = useActionState<Result | null, FormData>(signOut, null);
   const [correcting, setCorrecting] = useState(false);
-
-  const error =
-    (inState && 'error' in inState ? inState.error : null) ??
-    (outState && 'error' in outState ? outState.error : null);
 
   return (
     <li>
       <div className="roll-row">
-        {/* aria-hidden: the name is right beside it in text, and "AN" read aloud as
-            letters is noise between the reader and the child's name. */}
+        {/* aria-hidden: the name is right beside it in text, and "AN" read aloud as letters is
+            noise between the reader and the child's name. */}
         <span className="roll-initials" aria-hidden="true">
           {monogram}
         </span>
@@ -54,25 +66,29 @@ export function AttendanceRow({
             <span>{age}</span>
             {underTwo && <span className="flag flag-quiet">under 2</span>}
             {/*
-              No `title`. It was carrying the response plan, which is meaning available
-              only to a mouse — not to a keyboard, not to a touch screen, and not to a
-              screen reader in most engines. The design pack forbids it outright, and the
-              plan belongs on the child's record where it can be read under pressure.
+              No `title`. It was carrying the response plan, which is meaning available only to
+              a mouse — not to a keyboard, not to a touch screen, and not to a screen reader in
+              most engines. The plan belongs on the child's record where it can be read under
+              pressure.
 
-              role=note, per the pack's annotation: this is an aside about the child, and
-              it reads as words — "Allergy: peanuts" — never as a colour or a dot.
+              role=note, per the pack: an aside about the child, read as words.
             */}
-            {critical ? (
+            {critical && (
               <span className="flag flag-critical" role="note">
                 {'▲'} {critical.label}: {critical.name}
               </span>
-            ) : null}
+            )}
+            {/*
+              The SyncChip. A real text node, not a dot and not a greyed row — "Waiting to
+              send" is what it means, and the pack is explicit that when it lands the chip is
+              *removed* rather than greyed out. A greyed chip is a state somebody has to learn.
+            */}
+            {unsent && (
+              <span className="flag flag-pending">
+                {'↻'} Waiting to send
+              </span>
+            )}
           </span>
-          {error && (
-            <span className="error" role="alert">
-              {error}
-            </span>
-          )}
         </div>
 
         <span className="roll-time">
@@ -82,38 +98,18 @@ export function AttendanceRow({
         </span>
 
         <span className="roll-action">
-          {present ? (
-            <form action={outAction}>
-              <input type="hidden" name="childId" value={childId} />
-              {/*
-                The child's name goes in the accessible name, so a screen reader user is
-                never asked to sign out an unnamed button — there are twenty of these on
-                the page and they are otherwise identical.
-                `aria-label` rather than a visually-hidden text node, which was the first
-                attempt: that put the child's name into the DOM twice per row, and the
-                second copy is indistinguishable from the first to anything matching on
-                text. It broke a test that expected one match, and it would equally have
-                broken a find-in-page. The visible label is a prefix of the accessible
-                one, which is what WCAG 2.5.3 asks for.
-              */}
-              <button
-                className="secondary"
-                type="submit"
-                disabled={outPending}
-                aria-label={`Sign out ${name}`}
-              >
-                {outPending ? '…' : 'Sign out'}
-              </button>
-            </form>
-          ) : (
-            <form action={inAction}>
-              <input type="hidden" name="childId" value={childId} />
-              <button type="submit" disabled={inPending} aria-label={`Sign in ${name}`}>
-                {inPending ? '…' : 'Sign in'}
-              </button>
-            </form>
-          )}
-          {eventId !== null && (
+          <button
+            className={present ? 'secondary' : undefined}
+            type="button"
+            onClick={onToggle}
+            // The child's name is in the accessible name: there are twenty otherwise identical
+            // buttons on this page. `aria-label` rather than a visually-hidden span, which put
+            // the name in the DOM twice per row and broke anything matching on text.
+            aria-label={present ? `Sign out ${name}` : `Sign in ${name}`}
+          >
+            {present ? 'Sign out' : 'Sign in'}
+          </button>
+          {eventId !== null && !unsent && (
             <button
               className="secondary small"
               type="button"
@@ -141,6 +137,14 @@ export function AttendanceRow({
   );
 }
 
+/**
+ * Fixing a time that was recorded wrongly.
+ *
+ * Still a server action, unlike the sign-in beside it. A correction is made at a desk by
+ * somebody who has noticed a mistake — it is not the thing being tapped forty times in a
+ * foyer with no signal — and it carries a mandatory reason, so there is nothing to gain from
+ * queueing it and a whole class of "which correction won" questions to lose.
+ */
 function CorrectionForm({
   childId,
   eventId,
@@ -191,7 +195,7 @@ function CorrectionForm({
           {error}
         </p>
       )}
-      <p className="sub" style={{ margin: '0.5rem 0 0', fontSize: '0.8125rem' }}>
+      <p className="sub" style={{ margin: '0.5rem 0 0', fontSize: 'var(--text-sm)' }}>
         This adds a correcting entry. The original stays on the record, because after an
         incident the question is what was recorded at the time.
       </p>

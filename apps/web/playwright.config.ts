@@ -73,7 +73,7 @@ export default defineConfig({
     {
       name: 'owner',
       dependencies: ['seed'],
-      testMatch: /(a11y|journey|roles)\.spec\.ts/,
+      testMatch: /(a11y|journey|roles|offline)\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], storageState: OWNER_STATE },
     },
     {

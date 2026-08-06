@@ -15,6 +15,7 @@ import {
   REQUIRED_CONSENTS,
   formatAge,
   initials,
+  todayInZone,
   type Child,
   type ConsentKind,
   type ConsentState,
@@ -132,7 +133,15 @@ export function ChildScreen() {
                 muted age line under whatever the navigator put in the title bar. */}
             <Text style={styles.headName}>{child.preferredName || child.firstName}</Text>
             <Text style={styles.headMeta}>
-              {formatAge(child.dateOfBirth, centre?.timezone)}
+              {/*
+                `todayInZone(...)`, not the timezone itself. This line read
+                `formatAge(child.dateOfBirth, centre?.timezone)` until 2026-08-06, and
+                `formatAge`'s second argument is a **date**: passing 'Pacific/Auckland' throws
+                `Not an ISO date`. Once a centre was chosen — which is always — opening this
+                screen crashed. Nobody had noticed because nothing in this app has ever run on
+                a device; see unverified-claims item 15.
+              */}
+              {formatAge(child.dateOfBirth, todayInZone(centre?.timezone))}
               {child.iwi ? ` · ${child.iwi}` : ''}
             </Text>
           </View>

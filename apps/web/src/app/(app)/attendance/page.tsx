@@ -1,24 +1,11 @@
 import Link from 'next/link';
 import { listAttendanceToday, listChildren, listHealthByChild, readAdultsPresent } from '@ece/api';
-import {
-  assessRatio,
-  can,
-  compareBySeverity,
-  displayName,
-  formatAge,
-  hasCriticalCondition,
-  initials,
-  isUnderTwo,
-  splitByAgeBand,
-  todayInZone,
-  type Child,
-  type HealthCondition,
-} from '@ece/core';
+import { assessRatio, can, splitByAgeBand, todayInZone } from '@ece/core';
 import { requireCapability } from '@/lib/auth';
 import { serverDb } from '@/lib/supabase';
 import { AdultCount } from './AdultCount';
-import { AttendanceRow } from './AttendanceRow';
 import { RatioBanner } from './RatioBanner';
+import { RollClient } from './RollClient';
 
 /**
  * The room, right now.
@@ -51,11 +38,17 @@ export default async function AttendancePage({
     listHealthByChild(db, ctx.centre.id),
   ]);
 
-  const byChild = new Map(states.map((s) => [s.childId, s]));
-  const present = children.filter((c) => byChild.get(c.id)?.kind === 'in');
-  const away = children.filter((c) => byChild.get(c.id)?.kind !== 'in');
-
-  const { underTwo, twoAndOver } = splitByAgeBand(present, ctx.centre.timezone);
+  /*
+    The wall display's ratio is computed here, on the server, and the roll's is computed in the
+    client from the same server state plus the browser's queue. Two derivations of one number
+    would normally be a smell; the wall panel has no queue to merge and no interactivity, and
+    giving it a client component purely to reach the same answer would ship JavaScript to a
+    screen bolted to a wall.
+  */
+  const serverPresent = children.filter(
+    (c) => states.find((s) => s.childId === c.id)?.kind === 'in',
+  );
+  const { underTwo, twoAndOver } = splitByAgeBand(serverPresent, ctx.centre.timezone);
   const ratio = assessRatio({ underTwo, twoAndOver, adultsPresent });
 
   /*
@@ -93,8 +86,10 @@ export default async function AttendancePage({
         </div>
       </div>
 
-      {/* First thing on the page, always. Not a report somebody goes and finds. */}
-      <RatioBanner ratio={ratio} />
+      {/*
+        Adults first, then the roll. The ratio itself is rendered inside RollClient, because a
+        queued sign-in has to count toward it and the server cannot see the browser's queue.
+      */}
 
       {/*
         <section> with a name rather than <div>, so a screen reader user can jump
@@ -107,91 +102,18 @@ export default async function AttendancePage({
         <AdultCount current={adultsPresent} canEdit={can(ctx.role, 'recordDailyPractice')} />
       </section>
 
-      <section className="section" aria-labelledby="here-heading">
-        <h2 id="here-heading">Here now — {present.length}</h2>
-        {present.length === 0 ? (
-          <div className="card">
-            <p className="empty">Nobody signed in yet.</p>
-          </div>
-        ) : (
-          <Roll
-            rows={present}
-            states={byChild}
-            health={healthByChild}
-            timezone={ctx.centre.timezone}
-          />
-        )}
-      </section>
-
-      <section className="section" aria-labelledby="away-heading">
-        <h2 id="away-heading">Not here — {away.length}</h2>
-        {away.length === 0 ? (
-          <div className="card">
-            <p className="empty">Everyone enrolled is signed in.</p>
-          </div>
-        ) : (
-          <Roll
-            rows={away}
-            states={byChild}
-            health={healthByChild}
-            timezone={ctx.centre.timezone}
-          />
-        )}
-      </section>
+      {/*
+        The ratio and both roll sections live in RollClient. `serverStates` and the health map
+        are handed over as plain data — a Map cannot cross the boundary, so health arrives as
+        pairs — and the client merges the browser's outbox into them.
+      */}
+      <RollClient
+        childList={children}
+        serverStates={states}
+        healthPairs={[...healthByChild.entries()]}
+        adultsPresent={adultsPresent}
+        timeZone={ctx.centre.timezone}
+      />
     </>
-  );
-}
-
-/**
- * The roll as a list.
- *
- * Was a `<table>` with Name / Age / Since / Flags / Actions columns. The design pack
- * folds age and flags into a line under the name, which leaves three columns of
- * unrelated things — a layout, not tabular data. Restyling a table's rows as grids also
- * costs the row semantics in some engines, so this is a list with an explicit grid.
- */
-function Roll({
-  rows,
-  states,
-  health,
-  timezone,
-}: {
-  rows: Child[];
-  states: Map<string, { kind: 'in' | 'out'; at: string; eventId: number }>;
-  health: Map<string, HealthCondition[]>;
-  timezone: string;
-}) {
-  return (
-    <ul className="roll">
-      {rows.map((child) => {
-        const state = states.get(child.id);
-        const conditions = health.get(child.id) ?? [];
-        const worst = [...conditions].sort(compareBySeverity)[0];
-        return (
-          <AttendanceRow
-            key={child.id}
-            childId={child.id}
-            name={displayName(child)}
-            monogram={initials(child)}
-            // Against the centre's today, not the server's — a Next server runs in UTC
-            // and would age every child in the country by a day for the NZ morning.
-            age={formatAge(child.dateOfBirth, todayInZone(timezone))}
-            underTwo={isUnderTwo(child.dateOfBirth, todayInZone(timezone))}
-            present={state?.kind === 'in'}
-            since={state?.at ?? null}
-            eventId={state?.eventId ?? null}
-            critical={
-              hasCriticalCondition(conditions) && worst
-                ? {
-                    label: worst.severity === 'anaphylaxis' ? 'Anaphylaxis' : 'Severe',
-                    name: worst.name,
-                    plan: worst.responsePlan,
-                  }
-                : null
-            }
-          />
-        );
-      })}
-    </ul>
   );
 }

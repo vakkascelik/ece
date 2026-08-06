@@ -1,24 +1,28 @@
 'use server';
 
 /**
- * Attendance writes from the web.
+ * Attendance corrections and the adult count, from the web.
  *
- * The `clientUuid` is generated here rather than in the browser, and that is a real
- * difference from the mobile app. A server action arrives once — the browser is not
- * queuing it through an outbox — so the key exists only to satisfy the same
- * idempotency contract the table enforces for everybody. On mobile the key must be
- * generated before the first attempt and reused across retries, which is why the
- * outbox owns it there.
+ * CORRECTION, 2026-08-06. This file used to hold the sign-in and sign-out actions, and this
+ * comment used to explain that the browser "is not queuing it through an outbox" and had "no
+ * offline gap to preserve, unlike on a tablet". Both halves were wrong about the product: the
+ * web app is what runs on the tablet bolted to the wall by the door, and it lost every sign-in
+ * made while the wifi was down.
+ *
+ * Sign-in and sign-out now go through `lib/outbox.ts`, which owns the `clientUuid` for the same
+ * reason the mobile outbox does — it is generated once at enqueue and reused across retries,
+ * which is what makes a retry a no-op instead of a second sign-in.
+ *
+ * What stays here is what is genuinely a desk action. A **correction** is made by somebody who
+ * has noticed a mistake and must give a reason; queueing it would buy nothing and cost a class
+ * of "which correction won" questions. The **adult count** is one number for the whole centre
+ * rather than a per-child event, so a stale queued copy would fight the server's rather than
+ * merge with it. Both are online-only on purpose.
  */
 
 import { randomUUID } from 'node:crypto';
 import { revalidatePath } from 'next/cache';
-import {
-  correctAttendance,
-  listAttendanceForChild,
-  recordAdultsPresent,
-  recordAttendance,
-} from '@ece/api';
+import { correctAttendance, listAttendanceForChild, recordAdultsPresent } from '@ece/api';
 import { requireCapability } from '@/lib/auth';
 import { actionError } from '@/lib/actionError';
 import { serverDb } from '@/lib/supabase';
@@ -26,37 +30,6 @@ import { serverDb } from '@/lib/supabase';
 export type Result = { error: string } | { ok: true };
 
 const str = (f: FormData, k: string): string => (f.get(k) ?? '').toString().trim();
-
-export async function signIn(_prev: unknown, form: FormData): Promise<Result> {
-  return record(form, 'in');
-}
-
-export async function signOut(_prev: unknown, form: FormData): Promise<Result> {
-  return record(form, 'out');
-}
-
-async function record(form: FormData, kind: 'in' | 'out'): Promise<Result> {
-  await requireCapability('recordDailyPractice');
-  const db = await serverDb();
-  const childId = str(form, 'childId');
-  if (!childId) return { error: 'Missing child.' };
-
-  try {
-    await recordAttendance(db, {
-      childId,
-      kind,
-      // Now, from the server. A web sign-in happens while somebody is looking at the
-      // screen — there is no offline gap to preserve, unlike on a tablet.
-      at: new Date().toISOString(),
-      clientUuid: randomUUID(),
-    });
-  } catch (e) {
-    return actionError(e, `attendance.${kind}`);
-  }
-
-  revalidatePath('/attendance');
-  return { ok: true };
-}
 
 /**
  * Fix a time that was recorded wrongly.

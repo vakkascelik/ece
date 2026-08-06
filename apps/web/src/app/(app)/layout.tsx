@@ -5,6 +5,7 @@ import { requireCtx } from '@/lib/auth';
 import { signOut } from '../login/actions';
 import { NavLink } from './NavLink';
 import { SideRail } from './SideRail';
+import { SignOutControl } from './SignOutControl';
 
 /**
  * The signed-in shell. Every page under (app) is authenticated and scoped to one
@@ -62,9 +63,13 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
             </p>
           )}
 
-          <form action={signOut}>
-            <button className="secondary auth-secondary" type="submit">Sign out</button>
-          </form>
+          {/*
+            Not a plain form any more. Sign-out clears the browser outbox, so it can destroy
+            the only record that a child is in the building — the control has to ask first when
+            there is unsent work. The server action is passed down and called only once the
+            queue allows it. See SignOutControl.
+          */}
+          <SignOutControl signOut={signOut} />
         </div>
       </SideRail>
 

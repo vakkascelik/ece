@@ -489,7 +489,55 @@ and the panel silently stops being readable from the door, which is the entire p
 generic "sign a child in" has to ask *which* child, and inventing that picker is a feature
 rather than a restyle. The roll's per-child buttons remain how attendance is recorded.
 
-### Screens 4 and 5 are not design work, and this is the scope
+### Screens 4 and 5 — built 2026-08-06, and what they cost
+
+Both are done. The queue they describe now exists on the web: see [[offline-outbox]] for the
+contract and the one place the web is genuinely weaker than mobile (it cannot re-render while
+offline, because it is server-rendered with no service worker — the queue survives, the page
+does not).
+
+Screen 4 is the roll with queued work: a pending-blue strip naming the count, and a `SyncChip`
+per affected row reading "Waiting to send" — a real text node, and **removed** when it lands
+rather than greyed, because a greyed chip is a state somebody has to learn. Screen 5 is the
+refusal: a modal listing the unsent records, "Try sending now" at 48px against "Stay signed in"
+at 44px, focus starting on the primary, Escape resolving to staying, and **no "sign out
+anyway"** — which the pack lists among the decisions not to soften and is right to.
+
+The verdict is not reimplemented per surface: `describeSignOut` in `@ece/core` decides, and its
+wording — a refusal about children in a building — is shared with mobile.
+
+**The roll moved to the client, and not for interactivity.** It had that already. It moved
+because a queued sign-in has to count toward the ratio, and a server component cannot see a
+queue in the browser: an offline sign-in would have shown a child present while the ratio
+counted the room one short. `buildRoll` does the merge with the rule that matters — for each
+child, whichever event is latest *by its own timestamp*, server or queued. Not "queued wins",
+which would show a child present all evening after a working tablet signed them out.
+
+Three things fell out of building it, each worth more than the screens:
+
+- **A crash on the whānau child screen, pre-existing.** `formatAge(dob, on)` takes a **date** as
+  its second argument; `splitByAgeBand(children, tz)` takes a **timezone**. Both are optional
+  strings. `apps/mobile/screens/ChildScreen.tsx` passed `centre?.timezone` to `formatAge`, which
+  throws `Not an ISO date: Pacific/Auckland` — so opening that screen crashed for anybody who
+  had chosen a centre, which is everybody. Nothing caught it because nothing in that app has
+  ever run on a device ([[unverified-claims]] item 15). I wrote the same bug into the new roll
+  and only found it by probing the helper rather than trusting the call.
+- **`browserDb()` was unusable, not merely unused.** It sat in `lib/supabase.ts`, which imports
+  `next/headers`, and a module is bundled whole — so any client component importing it failed
+  the build with "You're importing a component that needs next/headers". That is almost
+  certainly why it had never been called. It now lives in `lib/supabaseBrowser.ts`. Worth
+  keeping in mind: *unused export* and *unusable export* look identical in a grep.
+- **A test that signs out poisons every test after it.** Completing a sign-out revokes the
+  refresh token server-side, so doing it with the shared `OWNER_STATE` invalidated that fixture
+  and surfaced three tests later as "owner → / expected /, landed /login". A test that signs
+  somebody out has to own its session.
+
+Both new e2e specs were mutation-tested: hiding the queue from `buildRoll` fails the ratio
+assertion, and disabling the refusal fails the dialog assertion. Two earlier mutation attempts
+were rejected by lint before they could run, which is its own small lesson — a mutation has to
+compile to prove anything, and `grep -c Compiled` is not a build check. Exit codes are.
+
+### What the scope looked like before it was built
 
 Both are blocked on the same missing capability, and it is worth being precise rather than
 leaving "needs the offline queue" as a shrug.
@@ -515,11 +563,13 @@ What does not exist and has to be written: a browser storage layer (the mobile o
 optimistic state — which changes how attendance is written on the web, not merely how it
 looks.
 
-**Why it is not in this commit.** AGENTS §5 gates the offline path behind `npm run
-drill:offline`, and the failure mode of getting it wrong is a sign-in that appears recorded
-and never lands — invisible until a funding return is short. That is a piece of work with its
-own drill and its own commit, not the tail end of a design sweep. The design pack is otherwise
-complete.
+**On the drill.** AGENTS §5 gates the offline path behind `npm run drill:offline`, and it was
+**not run** for this change: it requires `ECE_DRILL_PASSWORD`, the demo centre owner's password,
+which is not available here. What did run: nine new unit tests on the queue's own rules, two new
+browser specs with the network actually cut, both mutation-tested, plus the full suite at 54/54.
+The gap is specifically that the contract has not been re-exercised against live Postgres from
+this side — the same `recordAttendance` and `classifyWriteFailure` the drill covers are the ones
+the web queue calls, but "the same function" is an argument, not a run.
 
 ### Deviations so far
 
@@ -546,8 +596,8 @@ complete.
 
 ### Not yet applied
 
-Screens 4 and 5 remain, and they are **not** design work — see the section above. Every
-other screen in the pack is applied: 1, 2, 3, 6, 7's no-access half, 8, 9, 10, 11, 12 and 13.
+**Every screen in the pack is applied**: 1, 2, 3, 4, 5, 6, 7's no-access half, 8, 9, 10, 11, 12
+and 13.
 
 Nothing on this page should be read as claiming the product now looks like the board.
 
@@ -558,4 +608,4 @@ Nothing on this page should be read as claiming the product now looks like the b
 - [[unverified-claims]] — the unchecked product name
 - [[mobile-app]] — why the mobile screens are a separate surface sharing only tokens
 
-*Last updated: 2026-08-06 (every screen except 4 and 5, which need a web write queue)*
+*Last updated: 2026-08-06 (all thirteen screens)*

@@ -335,6 +335,78 @@ button.danger { background: var(--surface); color: var(--danger); border-color: 
 
 .ratio-note { font-size: var(--text-sm); color: inherit; margin: 0; }
 
+/* --- Offline strip and SyncChip (design handoff, screens 4 and 5) --------- */
+
+/*
+ * Pending-blue, never amber. A queued write in a concrete-walled centre is normal, and amber
+ * here would train educators to ignore amber — the next amber thing they ignore is a ratio
+ * breach. Above the list and never over it: a strip that floats covers a child, and the one it
+ * covers is the one nobody signs in.
+ */
+.offline-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: var(--pending-soft);
+  border: 1px solid var(--pending-border);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  margin-bottom: 1.25rem;
+}
+.offline-strip-text { margin: 0; color: var(--pending); font-size: var(--text-base); font-weight: 500; }
+.offline-retry { height: var(--target-min); padding: 0 14px; border-radius: var(--radius-sm); }
+
+/* The SyncChip. Removed when it lands, never greyed — a greyed chip is a state to learn. */
+.flag-pending { background: var(--pending-soft); color: var(--pending); border-color: var(--pending-border); }
+
+/* --- The refusal dialog (design handoff, screen 5) ------------------------ */
+
+.dialog-scrim { position: fixed; inset: 0; z-index: 40; background: rgba(27, 26, 24, 0.45); }
+
+/*
+ * 16-radius, 24 padding, and the pack's single shadow — the one place in the product a shadow
+ * is used at all.
+ */
+.dialog {
+  position: fixed;
+  z-index: 41;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(30rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  box-shadow: 0 1px 2px rgba(27, 26, 24, 0.06);
+}
+.dialog h2 { font-size: var(--text-xl); font-weight: 600; margin: 0; }
+.dialog p { margin: 0; }
+.dialog .flag { align-self: flex-start; }
+
+/* The itemised list on sunken, so the count above it is backed by specifics. */
+.dialog-list {
+  margin: 0;
+  padding: 12px 14px 12px 28px;
+  background: var(--surface-sunken);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-base);
+}
+.dialog-list li { margin-bottom: 4px; }
+.dialog-list li:last-child { margin-bottom: 0; }
+
+.dialog-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+/* 48px primary, 44px secondary — the pack's pairing for a decision that matters. */
+.dialog-actions button { height: 48px; padding: 0 18px; border-radius: var(--radius-sm); font-size: var(--text-base); font-weight: 600; }
+.dialog-actions button.secondary { height: var(--target-min); font-weight: 500; }
+
 /* --- Wall display (design handoff, screen 13) ----------------------------- */
 
 /*

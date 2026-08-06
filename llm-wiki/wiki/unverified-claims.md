@@ -40,6 +40,8 @@ Nothing here is a bug. They are known gaps with known closures.
   is a floor and not a pass.
 - **The mobile workspace has no unit tests and no runner**, so `npm test` reports three green
   workspaces while covering none of the app that runs in the room. Item 20.
+- **The web outbox has not been through `drill:offline`** — the check AGENTS names for that
+  path. Item 21, with what did run in its place.
 - **The mobile app has never run on a device.** Not the airplane-mode drill, not the sign-out
   refusal, not the chunked session storage. Two bugs in that path were already found by reading it.
 - **Three store-submission blockers are not code**: the ratio flag puts a disclaimer on the hero
@@ -325,6 +327,23 @@ whether to trust the ratio above it.
 | **The claim** | "189 unit tests pass" implies the product is covered |
 | **What is actually true** | Those tests cover `@ece/core`, `@ece/api` and `@ece/web`. Mobile has none, and no runner to add them to |
 | **To close it** | Add vitest to `apps/mobile` with the same config shape the other workspaces use, and start with the pure functions — the strip's sentence, the roll's ordering, the ratio labels. Component rendering needs `@testing-library/react-native`, which is a bigger decision |
+
+### 21. The web outbox has not been through `drill:offline`
+
+Added 2026-08-06 with the web offline path. `npm run drill:offline` is the check AGENTS §5
+names for this area, and it did not run: it needs `ECE_DRILL_PASSWORD`, the demo centre owner's
+password, which was not available in the session that built the feature.
+
+| | |
+|---|---|
+| **What did run** | Nine unit tests on the queue's rules (key fixed at enqueue, duplicate treated as landed, permanent refusal dead-lettered, dead never retried, only-dead discarded, corrupt store survived); two browser specs with the network actually cut, both mutation-tested; the full suite at 54/54 |
+| **What has not** | The contract exercised against live Postgres *from the web side*. The web queue calls the same `recordAttendance` and `classifyWriteFailure` the drill covers, and "the same function" is an argument rather than a run |
+| **To close it** | `ECE_ALLOW_DEMO_SEED=yes ECE_DRILL_PASSWORD=… npm run drill:offline`. Worth extending the drill to flush through the web outbox module rather than its own simulated queue, so the two cannot drift |
+
+Related and separate: **work made offline on the web survives only while the tab stays open.**
+The queue is in `localStorage` and persists, but the app is server-rendered with no service
+worker, so a reload with no connection gives the browser's error page. Mobile is a binary and
+does survive a restart. See [[offline-outbox]].
 
 ## See Also
 

@@ -32,6 +32,58 @@ connectivity library, because the flush attempt *is* the connectivity check.
 - A flush **stops at the first transient failure** rather than grinding through the queue
   offline.
 
+## The web has an outbox too, since 2026-08-06
+
+For five phases "the offline path" meant the mobile app, and `attendance/actions.ts` justified
+having no queue on the web with a comment saying there was "no offline gap to preserve, unlike
+on a tablet". **The web app is what runs on the tablet.** It is the build bolted to the wall by
+the door, and until this change a sign-in made while the wifi was down simply failed: the tap
+errored, the child was on nobody's roll, and the ratio counted the room one person short —
+wrong in the dangerous direction.
+
+`apps/web/src/lib/outbox.ts` now mirrors the mobile contract with different storage. What is
+shared is what matters:
+
+| | Mobile | Web |
+|---|---|---|
+| Storage | `expo-sqlite` | `localStorage` |
+| Key fixed at enqueue | yes | yes |
+| Dead-lettering | `classifyWriteFailure` | same function |
+| Ratio counts queued events | `buildRoll` | same function |
+| Survives an app restart | **yes** | **no — see below** |
+
+`localStorage` rather than IndexedDB because the queue holds attendance events at roughly 150
+bytes each: IndexedDB buys asynchrony and a schema for a payload that fits in a fraction of a
+percent of the 5MB budget. Being synchronous is a feature here — the row shows its chip in the
+same tick as the tap.
+
+### The one place the web is genuinely weaker, and it is not the queue
+
+**The web app cannot re-render while offline.** It is server-rendered with no service worker,
+so a reload with the network down gives the browser's own error page. Found while writing the
+e2e: `page.reload()` failed with `ERR_INTERNET_DISCONNECTED`, which is exactly what a wall
+tablet would show after a power cut.
+
+The queue survives — it is in `localStorage` and the test asserts it directly rather than
+through a reload. What does not survive is the *page*. So the honest statement of the web
+offline story is: **work made offline is safe as long as the tab stays open.** Mobile is a
+binary and does survive a restart. Closing that gap means a service worker, which is a
+different piece of work and is not pretended to exist.
+
+### One write path, not two
+
+Every tap enqueues locally and then tries to flush. There is no separate online branch, and
+that is deliberate: a fallback path only exercised when the wifi drops is a path nobody has
+ever seen work. The cost is that sign-in no longer goes through a server action, so
+`router.refresh()` pulls the server's view back down once the queue drains — and the old
+`signIn`/`signOut` server actions were removed rather than left as a second way in.
+
+Corrections and the adult count **stay** server actions. A correction is made at a desk by
+somebody who has noticed a mistake and must give a reason; queueing it would buy nothing and
+cost a class of "which correction won" questions. The adult count is one number for the whole
+centre rather than a per-child event, so a queued copy would fight the server's rather than
+merge with it.
+
 ## Details
 
 ### Rejected: PowerSync, ElectricSQL, WatermelonDB

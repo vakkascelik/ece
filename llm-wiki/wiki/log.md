@@ -5,6 +5,41 @@ says so.*
 
 ---
 
+2026-08-06 — Screens 4 and 5, which needed the thing that was missing: **the web app now has an
+outbox.** For five phases "the offline path" meant mobile, and `attendance/actions.ts` justified
+having no queue with "no offline gap to preserve, unlike on a tablet" — but the web app *is* what
+runs on the tablet by the door, and a sign-in made with the wifi down simply failed. The tap
+errored, the child was on nobody's roll, and the ratio counted the room one short.
+`apps/web/src/lib/outbox.ts` mirrors the mobile contract on localStorage; details and the
+mobile/web comparison in [[offline-outbox]].
+
+The roll moved to the client, and not for interactivity — it had that. It moved because a queued
+sign-in has to count toward the ratio and a server component cannot see a browser queue. One write
+path, not two: every tap enqueues then flushes, because a fallback branch only exercised when the
+wifi drops is a branch nobody has seen work. The old `signIn`/`signOut` server actions were removed
+rather than left as a second way in; corrections and the adult count stay server actions, for
+reasons recorded in both files.
+
+Three findings, each worth more than the screens. **A pre-existing crash on the whānau child
+screen**: `formatAge(dob, on)` takes a date and `splitByAgeBand(children, tz)` takes a timezone,
+both optional strings, and `ChildScreen` passed the timezone to `formatAge` — which throws `Not an
+ISO date: Pacific/Auckland`. Opening that screen crashed for anybody who had chosen a centre, which
+is everybody; nothing caught it because nothing in that app has run on a device. I wrote the same
+bug into the new roll and found it only by probing the helper instead of trusting the call.
+**`browserDb()` was unusable, not unused** — it lived beside `next/headers`, so any client import
+failed the build, which is almost certainly why it had never been called in months; moved to
+`lib/supabaseBrowser.ts`. And **a test that signs out poisons every test after it**, because
+sign-out revokes the refresh token server-side and the shared `OWNER_STATE` fixture went with it —
+it surfaced three tests later as "owner → / landed /login".
+
+Both new browser specs were mutation-tested. Two earlier mutation attempts never ran because lint
+rejected them first: a mutation has to compile to prove anything, and `grep -c Compiled` is not a
+build check — exit codes are. `drill:offline` was **not** run: it needs `ECE_DRILL_PASSWORD`, which
+was not available. Recorded as [[unverified-claims]] item 21 rather than glossed, along with the
+honest limit of the web offline story — work survives while the tab stays open, but the app is
+server-rendered with no service worker, so a reload with no connection shows the browser's error
+page.
+
 2026-08-06 — The phone menu became a slide-in drawer, on request: the owner pointed at their own
 charity admin console, where the menu overlays a dimmed page with a header and an ✕. **My earlier
 reasoning was wrong on the part that mattered.** I twice argued against a drawer on the grounds
