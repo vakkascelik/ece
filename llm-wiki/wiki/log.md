@@ -5,6 +5,73 @@ says so.*
 
 ---
 
+2026-08-06 — **Career applications are handled in the product**, and with them the first public
+write path this schema has ever had. New page [[recruitment]]; migration `0024_recruitment.sql`.
+
+The recruitment part is ordinary. The part that needed care is that until now the honest one-line
+summary of `anon` was "reaches nothing at all", and a careers form needs an unauthenticated stranger
+to create a row. Two designs were rejected before the built one. An **insert policy for `anon`** does
+not work at all: every policy here is `TO public`, so it is evaluated for `anon`, and the predicates
+call `caller_has_role` whose EXECUTE 0022 revoked from PUBLIC — the insert fails from *inside* the
+policy with a 42501 that reads like a missing grant. An **HTTP endpoint on `apps/web` behind a shared
+secret** was rejected on blast radius: it puts an unauthenticated endpoint on the container holding
+children's records, holding the service-role key, which bypasses RLS on every table. What shipped is
+one `security definer` function granted to `anon`, so the capability conferred by holding the anon key
+is exactly "insert one application row, learn nothing". AGENTS rule 1 kept where it belongs.
+
+Four properties are asserted rather than described. It **returns void**. It takes a **slug, never a
+centre id** — a client-supplied uuid on an unauthenticated form that bypasses RLS is an invitation to
+write into another tenant. A **repeat submission while an application is open is a quiet no-op**, not
+an error, because "you have already applied" answers *has this address applied here* for anybody who
+asks — the same oracle password recovery exists to avoid — and it is scoped to open statuses so
+somebody declined last year can still apply, which is asserted because a unique index was the obvious
+implementation and would have been wrong. And the **flood guard is in SQL**, because an in-process
+limiter survives neither a restart nor a second instance. Twenty-two new assertions in
+`rls_isolation.sql`, 192 total; the educator exclusion was mutation-tested by widening the policy and
+confirming the suite failed on the right line.
+
+**A check whose explanation had quietly stopped applying.** `review:security` reports anon-executable
+definer functions and explained itself with "each returns nothing without a JWT, so this is defence in
+depth rather than a hole". That was true of all seventeen and is **false** of the eighteenth, which is
+designed to work without one. Leaving it would have been worse than no check — a reader would be told
+the one genuinely public function returns nothing. It now has an allowlist with reasons, plus a second
+finding for a *stale* allowlist entry, because a list that protects nothing is how it stops being a
+decision. Both branches mutation-tested.
+
+**DELETE is granted here and is not granted on `waitlist`**, which is the mirror of that decision
+rather than an inconsistency. No service has a reason to hold the employment history of somebody it
+did not employ. The claim that rests on it — "we removed your application" — is only true because
+0021 stores changed column *names* and no payload, so both halves are asserted: that the deletion is
+recorded, and that no audit row for it holds the applicant's name or email. Still not an erasure
+right; the Act gives none, as this wiki already records. It is the retention principle.
+
+Two defects that only a real database shows. **PostgREST turns an array insert into one multi-row
+INSERT over the union of the keys present**, so a key missing from one object becomes an explicit NULL
+instead of falling back to the column default — the e2e fixture omitted `status` on one of two rows
+and got a not-null violation that reads like a schema defect. And **a concatenated select list
+silently breaks row typing**: `supabase-js` parses the string at the type level, `'a' + 'b'` is plain
+`string`, and the call comes back as `GenericStringError[]` with an error that names nothing relevant.
+
+What is **not** built, recorded rather than implied: **no CV attachment** — it holds an address, an
+employment history and referees who agreed to nothing, so it needs a bucket, storage policies for an
+anonymous uploader, and a retention rule the centre has not given yet; CVs keep going to the mailbox
+and `source` distinguishes those. **No vacancy list. No notification** when an application arrives.
+Nothing belonging to a safety check is collected — no date of birth, no address, no criminal-record
+question — because answering that into a public form is a disclosure made before anybody decided to
+read the application. And `holds_practising_certificate` is nullable three-state and labelled on
+screen as the applicant's claim, not as evidence.
+
+Corrections made in the same commit rather than left: [[public-website]] said the site "has no
+Supabase dependency at all… enforced by absence" and `docs/deploy-railway.md` said the service "has no
+database access" — both now false, both corrected, and the surviving property stated precisely (the
+**browser** still reaches nothing, verified by grepping `.next/static/` for the key and for any
+Supabase string and finding neither). `decided_by`/`decided_at` were renamed to `status_changed_*`
+before anything read them, by dropping and re-applying 0024 after confirming the table was empty —
+moving something to "reviewing" is not a decision, and a column needing a comment to explain it does
+not mean what it says is the smell itself. Definer count 17 → 18 in the README and
+[[security-review]]. `drill:restore` **was** re-run, because a migration pulls it: 35 tables, 2864
+rows, 4/4, every table identical after the round trip.
+
 2026-08-06 — The centre's manager was invited: Taner Basar, taner@littlepearls.org.nz, **manager at
 both centres**, at the owner's request. Two invitations because a membership is per-centre. Issued
 with `createInvitation` and the app's own token helpers rather than `npm run onboard`, whose printed

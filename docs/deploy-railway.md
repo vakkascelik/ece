@@ -337,6 +337,25 @@ Service → Settings → **Config-as-code** → `railway.site.json`.
 | `SITE_CANONICAL_HOST` | optional | `www.littlepearls.org.nz`. Chooses between www and apex and forces https **on the real domain only** — the `*.up.railway.app` hostname is never redirected, so it is safe to set before the domain is attached |
 | `SITE_ORIGIN` | recommended | `https://www.littlepearls.org.nz`. Absolute URLs in Open Graph, `robots.txt` and the sitemap |
 | `SITE_APP_URL` | optional | Where "Sign in to the centre app" points. Defaults to the platform's Railway hostname |
+| `SUPABASE_URL` | **required for the careers form** | The same project URL the platform uses |
+| `SUPABASE_ANON_KEY` | **required for the careers form** | The **anon** key, never the service-role key |
+
+> ### Why those two are unprefixed, and what they can do
+>
+> **Not `NEXT_PUBLIC_`.** That prefix tells Next to inline the value into client JavaScript, and an
+> inlined anon key means the browser can talk to Supabase — at which point this app's
+> `connect-src 'self'` no longer describes it and any future page could quietly grow a browser
+> query. Unprefixed makes that impossible rather than discouraged: `process.env.SUPABASE_ANON_KEY`
+> is `undefined` in a browser.
+>
+> **The anon key, and never the service-role key.** Holding the anon key lets this container do
+> exactly one thing: call `submit_job_application`, which returns void. `anon` has no table grant
+> anywhere in `public` and `review:security` fails the build at high severity if that changes. The
+> service-role key bypasses RLS on every table and must never be set on this service.
+>
+> **If they are missing the form fails loudly**, with the careers mailbox offered to the applicant.
+> That is deliberate: the state it replaces is their Adobe Muse mailer, which accepted applications
+> and silently discarded them.
 
 **No Supabase variables. No service-role key. No anon key.** `apps/site` has no `@supabase/*`
 dependency and no `@ece/api` path in its tsconfig, so there is nothing for a credential to be used
@@ -412,10 +431,15 @@ existed to fix, and it is the one thing a desktop browser will not show you.
 
 ### What this service does not do
 
-It has no database access, so it publishes no fees, no capacity, no roll and no news — see
+It publishes no fees, no capacity, no roll and no news — see
 [`apps/site/CONTENT-GAPS.md`](../apps/site/CONTENT-GAPS.md) for what is still to come from the
 centre, and [public-website](../llm-wiki/wiki/public-website.md) for why the enquiry form and
 platform news were deliberately not built.
+
+**Corrected 2026-08-06:** this used to say the service has *no database access at all*. Since the
+careers form it has exactly one path — the site's **server** calls one `security definer` function
+with the anon key. The browser still reaches nothing but the site itself, which is the property the
+original sentence was really about. See [recruitment](../llm-wiki/wiki/recruitment.md).
 
 ## Rolling back
 

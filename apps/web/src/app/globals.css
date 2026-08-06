@@ -794,7 +794,9 @@ button.danger { background: var(--surface); color: var(--danger); border-color: 
 .facts dd { margin: 0; }
 
 .empty { color: var(--muted); font-style: italic; margin: 0; }
-.stack { display: flex; flex-direction: column; gap: 0.75rem; }
+/* Carries the list reset because Applications uses it on a <ul> of cards, and a marker beside a
+   card is a bullet floating in the gutter. Inert on the <div> usages, which have neither. */
+.stack { display: flex; flex-direction: column; gap: 0.75rem; list-style: none; padding: 0; margin: 0; }
 .inline { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
 
 /* Text inputs default to a max-width suited to a name; these need the room. */

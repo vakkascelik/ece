@@ -74,6 +74,10 @@ and [`../schema.md`](../schema.md) for the page template.
 - [[public-website]] — Little Pearls' own site rebuilt as a third app: why not routes in the
   platform, why not a sibling repo, the brand palette that cannot carry text, and the four monorepo
   files that would have skipped a new app silently
+- [[recruitment]] — job applications from the public careers page: the **only** write an
+  unauthenticated caller may perform in this schema, the two designs rejected before it, why a
+  duplicate submission is a quiet no-op rather than an error, and why DELETE is granted here and not
+  on `waitlist`
 
 ## Design
 

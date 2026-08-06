@@ -48,6 +48,11 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           <NavLink href="/messages">Messages</NavLink>
           {can(ctx.role, 'recordDailyPractice') && <NavLink href="/attendance">Attendance</NavLink>}
           {can(ctx.role, 'manageMembers') && <NavLink href="/members">People</NavLink>}
+          {/* Next to People because both are about who works here — but a separate capability, for
+              the reason recorded on `manageRecruitment` in @ece/core. */}
+          {can(ctx.role, 'manageRecruitment') && (
+            <NavLink href="/applications">Applications</NavLink>
+          )}
           {can(ctx.role, 'manageCentre') && <NavLink href="/compliance">Compliance</NavLink>}
           {can(ctx.role, 'manageCentre') && <NavLink href="/funding">Funding</NavLink>}
           {can(ctx.role, 'manageCentre') && <NavLink href="/settings">Settings</NavLink>}

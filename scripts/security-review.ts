@@ -285,15 +285,70 @@ async function main() {
   const anonExecutable = definerGrants.filter(
     (d) => String(d.acl).includes('anon=') || String(d.acl) === 'default (public execute)',
   );
+
+  /**
+   * Functions that are reachable by `anon` on purpose.
+   *
+   * This allowlist exists because the finding above used to explain itself with "each returns
+   * nothing without a JWT, so this is defence in depth rather than a hole". That sentence was
+   * true of every definer function in the schema until 0024, and it is **false** of
+   * `submit_job_application`, which is designed to work without a JWT — it is the careers form
+   * on the public website.
+   *
+   * Leaving the old wording would have been worse than having no check: a reader would have
+   * been told the one genuinely public function returns nothing, which is the opposite of true.
+   * Naming it here keeps the message honest AND keeps the check useful, because a *new*
+   * accidental grant still surfaces instead of hiding behind an already-noisy finding.
+   *
+   * Adding a name to this list is a security decision. What it costs is stated in
+   * `supabase/migrations/0024_recruitment.sql`: the total capability conferred by holding the
+   * anon key becomes exactly what these functions do.
+   */
+  const INTENTIONALLY_ANON = new Map([
+    [
+      'submit_job_application',
+      'the public careers form — returns void, resolves the centre from a slug, rate-limited in SQL (0024)',
+    ],
+  ]);
+
+  const unexpectedlyAnon = anonExecutable.filter((d) => !INTENTIONALLY_ANON.has(String(d.name)));
+  const deliberate = anonExecutable.filter((d) => INTENTIONALLY_ANON.has(String(d.name)));
+
   add({
-    severity: anonExecutable.length === 0 ? 'ok' : 'low',
-    check: 'definer functions are not exposed to `anon` beyond what is needed',
+    severity: unexpectedlyAnon.length === 0 ? 'ok' : 'low',
+    check: 'no definer function is reachable by `anon` except the ones meant to be',
     detail:
-      anonExecutable.length === 0
-        ? 'none carry an explicit anon grant or a default public ACL'
-        : `reachable by anon or public: ${anonExecutable.map((d) => d.name).join(', ')} — ` +
-          'each returns nothing without a JWT, so this is defence in depth rather than a hole',
+      unexpectedlyAnon.length > 0
+        ? `NOT ON THE ALLOWLIST: ${unexpectedlyAnon.map((d) => d.name).join(', ')} — ` +
+          'each returns nothing without a JWT, so this is defence in depth rather than a hole, ' +
+          'but nothing has recorded why it is reachable'
+        : deliberate.length === 0
+          ? 'none carry an explicit anon grant or a default public ACL'
+          : `deliberate and recorded: ${deliberate
+              .map((d) => `${d.name} (${INTENTIONALLY_ANON.get(String(d.name))})`)
+              .join('; ')}`,
   });
+
+  /*
+   * The other half of the allowlist: a name on it that no longer exists.
+   *
+   * A stale entry is how an allowlist stops being a decision and becomes a comment. If
+   * `submit_job_application` is renamed or its grant revoked, this says so rather than letting
+   * the list quietly protect nothing.
+   */
+  const staleAllowlist = [...INTENTIONALLY_ANON.keys()].filter(
+    (name) => !anonExecutable.some((d) => String(d.name) === name),
+  );
+  if (staleAllowlist.length > 0) {
+    add({
+      severity: 'low',
+      check: 'the anon-definer allowlist has no stale entries',
+      detail:
+        `allowlisted but not actually reachable by anon: ${staleAllowlist.join(', ')} — ` +
+        'either the grant was revoked (in which case whatever called it is broken) or the ' +
+        'function was renamed and the list was not updated',
+    });
+  }
 
   // -------------------------------------------------------------------------
   // 5. Permissive SELECT policies that widen a narrower one

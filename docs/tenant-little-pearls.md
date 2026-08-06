@@ -118,6 +118,32 @@ prefix convention alone is a convention; the assertion is the rule.
 
 ---
 
+## The careers form is live, 2026-08-06
+
+The public site's careers page now writes into this tenant. It is the **first and only** path by
+which somebody who is not a member of this centre can create a row here, and it is worth being clear
+about what that does and does not mean for the gate below.
+
+**It does not touch the insurance gate.** A job applicant is an adult writing about themselves.
+There is no child, no date of birth, no guardianship question, and nothing a family has to have
+consented to. Both centres still hold no child record.
+
+**Only Taner and the owner can see an application** — not educators. Applications arrive at whichever
+centre the applicant chose, or at both if they chose "either", and appear under **Applications** in
+the app. Nothing emails anybody when one arrives; the screen is how you find out.
+
+**CVs still come to `career@littlepearls.org.nz`.** The form cannot take an attachment yet, and the
+reason is retention: nobody has said how long the centre wants to keep an unsuccessful applicant's
+CV, and that answer is what the storage work needs. The form tells applicants to email it, and staff
+can log an emailed application by hand — the record notes which arrived how.
+
+Two things to tell the manager before he uses it: an application can be **deleted outright** and
+genuinely is (the audit log records that it happened and keeps no copy of the row), and the
+"practising certificate" line is **what the applicant said**, shown on screen as exactly that. The
+certificate still has to be sighted and filed under Compliance before anybody starts.
+
+See [[recruitment]] for the design and what was rejected.
+
 ## The manager's invitation, 2026-08-06
 
 Taner Basar (taner@littlepearls.org.nz) was invited as **manager at both centres** on 2026-08-06,

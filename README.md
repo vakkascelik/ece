@@ -289,6 +289,7 @@ somebody posts a notice to the wrong centre.
 /funding          RS7 preparation figures — preparation only, never a submission
 /compliance/binder  one dated document for a reviewer
 /members          roster, invitations
+/applications     applications for employment — owner and manager only
 /invite/[token]   accepting an invitation — outside (app), no membership yet
 /settings         centre name and Ministry service number
 ```
@@ -1014,7 +1015,7 @@ network is involved and cannot be measured without a device build.
 ### The restore drill, and why the mutation test is the point
 
 ```bash
-npm run drill:restore     # 34 tables, 485 rows, 4/4
+npm run drill:restore     # 35 tables, 2864 rows, 4/4
 ```
 
 Enumerates every table **from the catalogue**, so a table added by a future migration is
@@ -1115,10 +1116,12 @@ than not running it. Severity is now a function of reachability.
 ### What was already clean
 
 No service-role key or `service_role` string in any client bundle or the mobile workspace.
-No `dangerouslySetInnerHTML`, no `eval`. All 17 `SECURITY DEFINER` functions pin
+No `dangerouslySetInnerHTML`, no `eval`. All 18 `SECURITY DEFINER` functions pin
 `search_path` — one unpinned function would be the entire tenant boundary, since every
 predicate here is a definer function. `auth.users` granted to nobody. One storage bucket,
-private. `anon` has no table grant at all. All four views run as the invoker.
+private. `anon` has no table grant at all — and since 0024 it holds EXECUTE on exactly one function,
+`submit_job_application`, which is the public careers form and is covered by an allowlist in
+the review so a second one cannot appear quietly. All four views run as the invoker.
 
 ### Every route, every role
 

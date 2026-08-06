@@ -167,14 +167,18 @@ policy text alone.
   workspace. If a key is ever compromised it came from a developer machine or CI, not from
   a phone — which narrows an investigation considerably.
 - No `dangerouslySetInnerHTML`, no `eval`, no `new Function` anywhere.
-- All 17 `SECURITY DEFINER` functions pin `search_path`. One unpinned function would be the
+- All 18 `SECURITY DEFINER` functions pin `search_path`. One unpinned function would be the
   whole tenant boundary, since every predicate in this schema is a definer function.
 - `auth.users` is granted to nobody. Supabase's own hint for the broken-view symptom in
   Phase 0 was to grant it, and following that advice would have published every email
   address in the project.
 - One storage bucket, private. A photo is reachable only through a signed URL, which is what
   makes withdrawing consent effective rather than cosmetic.
-- `anon` has **no table grant at all** in `public`.
+- `anon` has **no table grant at all** in `public`. It does, since 0024, hold EXECUTE on one
+  function: `submit_job_application`, the public careers form. That is the whole of the
+  unauthenticated write surface, and the check that reports anon-executable definer functions
+  now carries an allowlist naming it — because its old explanation, "each returns nothing
+  without a JWT", is false of a function designed to work without one. See [[recruitment]].
 - All four views run as the invoker.
 
 ### Not covered, and not to be assumed from a green run

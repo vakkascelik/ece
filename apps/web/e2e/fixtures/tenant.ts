@@ -529,6 +529,54 @@ export async function seedAuditTenant(): Promise<AuditTenant> {
       .select('id'),
   );
 
+  /*
+   * One application per side of the split, so the Applications screen has something to audit.
+   *
+   * An empty screen passes axe trivially, and every accessible-name defect this suite has found
+   * lived on a *row* — a select and two buttons repeated per person, none of them saying whose row
+   * they were in. One open and one closed also renders both headings and both lists.
+   *
+   * `source: 'email'` rather than 'website': these are seeded directly, and claiming they came
+   * through the public form would make the screen show something that did not happen.
+   */
+  must(
+    'job_applications',
+    await db
+      .from('job_applications')
+      .insert([
+        {
+          centre_id: centreId,
+          applicant_name: `Āwhina Audit-${tag}`,
+          email: `audit.applicant.${tag}@ece.invalid`,
+          position_sought: 'Qualified kaiako',
+          holds_practising_certificate: true,
+          message: 'Seeded by the audit fixture.',
+          source: 'email',
+          /*
+           * `status` is spelled out even though the column defaults to 'new'.
+           *
+           * PostgREST turns an array insert into ONE multi-row INSERT over the union of the keys
+           * present, and a key missing from one object becomes an explicit NULL rather than falling
+           * back to the column default. So omitting it here — while the second row sets it —
+           * produced `null value in column "status" violates not-null constraint`, which reads like
+           * a schema defect and is a client behaviour. Found by running the suite, not by reading it.
+           */
+          status: 'new',
+        },
+        {
+          centre_id: centreId,
+          applicant_name: `Closed Applicant-${tag}`,
+          email: `audit.applicant.closed.${tag}@ece.invalid`,
+          status: 'declined',
+          status_note: 'Seeded as closed so both lists render.',
+          status_changed_by: ownerId,
+          status_changed_at: new Date().toISOString(),
+          source: 'email',
+        },
+      ])
+      .select('id'),
+  );
+
   return {
     tag,
     ownerEmail,

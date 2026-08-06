@@ -1,11 +1,12 @@
 import type { Metadata } from 'next';
 import { CENTRE_FACTS } from '@/lib/centres';
+import { ApplicationForm } from './ApplicationForm';
 
 export const metadata: Metadata = {
   title: 'Careers',
   description:
-    'Work at Little Pearls Educare Centre in Mt Albert or Mt Roskill. Send your CV to ' +
-    'career@littlepearls.org.nz.',
+    'Work at Little Pearls Educare Centre in Mt Albert or Mt Roskill. Apply online, or send ' +
+    'your CV to career@littlepearls.org.nz.',
 };
 
 /**
@@ -19,6 +20,12 @@ export const metadata: Metadata = {
  *
  * No named staff and no photographs, because their site publishes none and naming a person needs
  * that person's agreement.
+ *
+ * WHAT CHANGED HERE: the page used to say "email us your CV" and nothing else, which meant every
+ * application lived in a shared mailbox — no record of who was replied to, and nothing to answer
+ * with if somebody asks why they never heard back. The form now creates a record in the centre's
+ * own system. The CV still goes by email, because there is no attachment path yet and saying so
+ * is better than a form that looks complete and loses half the application.
  */
 export default function CareersPage() {
   return (
@@ -29,13 +36,6 @@ export default function CareersPage() {
         are always glad to hear from registered and experienced early childhood teachers.
       </p>
 
-      <h2>Send us your CV</h2>
-      <p>
-        Email <a href={`mailto:${CENTRE_FACTS.careersEmail}`}>{CENTRE_FACTS.careersEmail}</a> and we
-        will be in touch. Tell us which centre interests you — Ōwairaka / Mt Albert or Puketāpapa /
-        Mt Roskill — and what you are looking for.
-      </p>
-
       <h2>What we care about</h2>
       <p>
         Respect is the basis of our approach: treating even the youngest infant as a unique human
@@ -44,9 +44,19 @@ export default function CareersPage() {
       </p>
 
       <div className="gap">
-        <strong>Current vacancies are not listed here yet.</strong> Email us and we will tell you
-        what is open at each centre.
+        <strong>Current vacancies are not listed here yet.</strong> Send an application anyway — we
+        will tell you what is open at each centre.
       </div>
+
+      <h2>Apply</h2>
+      <p>
+        Only the centre’s manager and owner can see what you send, and you can ask us to delete it
+        at any time. Please also email your CV to{' '}
+        <a href={`mailto:${CENTRE_FACTS.careersEmail}`}>{CENTRE_FACTS.careersEmail}</a> — this form
+        cannot take attachments yet.
+      </p>
+
+      <ApplicationForm />
     </>
   );
 }

@@ -71,6 +71,14 @@ const MATRIX: Array<{ path: string; guard: string; allowed: Record<Role, boolean
     allowed: { owner: true, manager: true, educator: false, parent: false },
   },
   {
+    // An application holds a stranger's details AND the hiring process, so an educator is shut out
+    // even though they are a member of the centre. Asserted in `rls_isolation.sql` at the database
+    // too — this covers the redirect, which RLS cannot.
+    path: '/applications',
+    guard: 'manageRecruitment',
+    allowed: { owner: true, manager: true, educator: false, parent: false },
+  },
+  {
     path: '/compliance',
     guard: 'manageCentre',
     allowed: { owner: true, manager: true, educator: false, parent: false },

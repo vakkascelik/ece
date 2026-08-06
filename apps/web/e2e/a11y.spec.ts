@@ -259,6 +259,24 @@ test.describe('staff screens', () => {
     await auditPage(page, '/members');
   });
 
+  /*
+   * Applications, with both lists rendered and the delete armed.
+   *
+   * The armed state is audited rather than only the resting one, because it is the state that
+   * exists for a second and does the dangerous thing — and it is a button whose accessible name
+   * changes under the user. A resting-state-only audit would never see it.
+   */
+  test('applications — an open and a closed one, and the armed delete', async ({ page }) => {
+    await visit(page, '/applications');
+    await expect(page.getByText(/Āwhina Audit/)).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Closed \(/ })).toBeVisible();
+    await auditPage(page, '/applications');
+
+    await page.getByRole('button', { name: /^Delete the application from Āwhina/ }).click();
+    await expect(page.getByRole('button', { name: /^Confirm: permanently delete/ })).toBeVisible();
+    await auditPage(page, '/applications (delete armed)');
+  });
+
   test('compliance — all three expiry states rendered', async ({ page }) => {
     await visit(page, '/compliance');
     await expect(page.getByText(/Expired/).first()).toBeVisible();

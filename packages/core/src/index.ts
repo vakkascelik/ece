@@ -71,6 +71,17 @@ export const CAPABILITIES = {
   viewCustody: ['owner', 'manager'],
   /** Record a consent decision. A parent may record their own; staff transcribe forms. */
   recordConsent: ['owner', 'manager', 'educator', 'parent'],
+  /**
+   * Read and act on applications for employment.
+   *
+   * The same two roles as `manageMembers`, and a separate capability rather than a reuse of it,
+   * because they are not the same question — one is "who has access to this centre", the other is
+   * "who applied for a job here". An educator is excluded deliberately: an application holds a
+   * stranger's personal details *and* the hiring process, and in a team of fifteen some of the
+   * applicants are people the team knows. Enforced in Postgres by `job_applications_all`; this
+   * only decides whether the nav link is drawn.
+   */
+  manageRecruitment: ['owner', 'manager'],
 } as const satisfies Record<string, readonly MemberRole[]>;
 
 export type Capability = keyof typeof CAPABILITIES;
@@ -147,6 +158,10 @@ export * from './notifications';
 // Attendance to hours to funded hours. Nothing here estimates — see the files.
 export * from './hours';
 export * from './funding';
+
+// Applications for employment. The one vocabulary shared with the public website, which
+// depends on this package and on nothing else in the monorepo.
+export * from './recruitment';
 
 // ---------------------------------------------------------------------------
 // Design tokens

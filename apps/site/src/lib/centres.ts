@@ -70,6 +70,18 @@ export function centreByPath(path: string): Centre | undefined {
 }
 
 /**
+ * The value the careers form's "either centre" option submits.
+ *
+ * Deliberately not a `platformSlug`, and deliberately not in `careers/actions.ts` — a `'use server'`
+ * file may only export async functions, so a constant there fails the build. It lives with the
+ * centres because that is what it is: the third option in a list of two.
+ *
+ * It cannot reach the database. The action maps a choice to slugs from `CENTRES`, and
+ * `submit_job_application` resolves the slug itself and refuses one it does not recognise.
+ */
+export const EITHER_CENTRE = 'either';
+
+/**
  * Shared facts that are true of both centres.
  *
  * `hours` is the one to be careful with: their site says 7.30am–6.00pm, and a third-party

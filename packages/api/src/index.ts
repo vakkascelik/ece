@@ -164,3 +164,4 @@ export * from './attendance';
 export * from './compliance';
 export * from './engagement';
 export * from './billing';
+export * from './recruitment';

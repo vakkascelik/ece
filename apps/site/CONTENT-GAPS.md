@@ -113,6 +113,32 @@ be enquiries nobody ever received.
 
 **To close it:** ask the centre when they last received an enquiry through the website.
 
+### 12. The careers form cannot take a CV
+
+Added 2026-08-06 with the form itself, so it is a known gap rather than a discovery.
+
+The form collects contact details, the role wanted, an earliest start date, a self-declared
+practising certificate and a free-text message. It does **not** accept an attachment, so the page
+asks applicants to email their CV to `career@littlepearls.org.nz` as well — which means one
+application arrives in two places and staff reconcile them by hand.
+
+The reason is not effort. A CV holds an address, an employment history and referees' names and phone
+numbers, and those referees agreed to nothing. Storing one needs a private bucket, storage policies
+that admit an unauthenticated uploader, a retention rule and a line in the privacy statement. The
+schema records the shortfall rather than hiding it: `job_applications.source` distinguishes an
+application that came through the website from one staff typed in off an email.
+
+**To close it:** decide how long the centre wants to keep an unsuccessful applicant's CV. That
+answer is the retention rule, and the rest follows from it.
+
+### 13. There is no vacancy list
+
+The page says "current vacancies are not listed here yet" and invites an application anyway, which
+is what their old page did in different words. Nothing in the platform models a vacancy.
+
+**To close it:** ask the centre whether they want to advertise specific roles, or would rather keep
+receiving open applications. If it is the former, that is a table this schema does not have.
+
 ## Resolved by rebuilding
 
 - **No `<meta name="viewport">` and no responsive layout.** Fixed: the site is fluid and asserted
@@ -125,6 +151,9 @@ be enquiries nobody ever received.
   heading elements throughout, and no decorative image carries meaning.
 - **Philosophy only as a PDF.** Now a page, with macrons restored and its typos fixed.
 - **"Our Centres" described rooms, not centres.** Split into `/centres/*` and `/rooms`.
+- **Careers was a mailto link, so every application lived in a shared mailbox** with no record of
+  who had been replied to. Now a form that creates a record the centre's manager can act on. The CV
+  still arrives by email — gap 12.
 
 *Last updated 2026-08-06. Nothing on the site is unsourced; everything above is a question for the
 centre.*

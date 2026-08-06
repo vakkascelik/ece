@@ -2096,6 +2096,265 @@ select pg_temp.expect(
 );
 
 -- ---------------------------------------------------------------------------
+-- 0024: job applications, and the only write an unauthenticated caller may perform
+--
+-- This is the first public write path in the schema, so it gets the most assertions of
+-- anything here. Before 0024 the honest one-line summary of `anon` was "reaches nothing at
+-- all", and that sentence is now false — which means the exact shape of what it CAN do has
+-- to be pinned, or the next person reads the old summary and believes it.
+--
+-- The positive cases are asserted alongside the negative ones on purpose. A policy that
+-- returns nothing to anybody satisfies every "cannot read" assertion perfectly, and the first
+-- run of this suite proved that failure mode in the least ambiguous way available.
+-- ---------------------------------------------------------------------------
+
+set local role postgres;
+
+insert into public.job_applications (id, centre_id, applicant_name, email, position_sought, source)
+values ('c0ffee00-0000-4000-8000-000000000001', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        'Applicant At A', 'applicant-a@rlstest.invalid', 'Qualified kaiako', 'email');
+
+-- An application at B too, so "Alice sees one row" is a real filter rather than a count of
+-- everything that happens to exist.
+insert into public.job_applications (centre_id, applicant_name, email, source)
+values ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'Applicant At B', 'applicant-b@rlstest.invalid', 'email');
+
+set local role authenticated;
+
+-- The owner of A sees A's application and only A's.
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.job_applications) = 1
+  and (select applicant_name from public.job_applications) = 'Applicant At A',
+  'an owner reads their own centre''s applications, and only those'
+);
+
+-- The tenant boundary, in the direction that matters: another centre's owner.
+set local request.jwt.claims = '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.job_applications
+    where id = 'c0ffee00-0000-4000-8000-000000000001') = 0,
+  'the owner of another centre cannot read this centre''s applications'
+);
+
+-- An educator is excluded, and not because of the tenant boundary — they are a member of A.
+-- An application names a stranger AND records who was declined, which may be a colleague's
+-- replacement. That is not a staffroom document.
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.job_applications) = 0,
+  'an educator at the same centre CANNOT read applications'
+);
+
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.job_applications) = 0,
+  'and a parent cannot either'
+);
+
+-- Reading is not the only thing to close off. An educator who could file an application could
+-- put a name and a phone number into a table they cannot read back.
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+do $$
+declare code text := 'none (the insert SUCCEEDED)';
+begin
+  begin
+    insert into public.job_applications (centre_id, applicant_name, email)
+    values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Educator Filed This', 'x@rlstest.invalid');
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '42501', 'an educator CANNOT file an application, got ' || code);
+end $$;
+
+-- Cross-tenant write, which the read assertion above does not cover: an UPDATE that matches no
+-- visible row reports success and changes nothing, so this checks the row instead of the verb.
+set local request.jwt.claims = '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}';
+update public.job_applications set status = 'declined'
+ where id = 'c0ffee00-0000-4000-8000-000000000001';
+
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+select pg_temp.expect(
+  (select status from public.job_applications
+    where id = 'c0ffee00-0000-4000-8000-000000000001') = 'new',
+  'another centre''s owner cannot decline this centre''s applicant'
+);
+
+-- And the owner can, which is the positive half.
+update public.job_applications
+   set status = 'interview',
+       status_changed_by = '11111111-1111-4111-8111-111111111111',
+       status_changed_at = now()
+ where id = 'c0ffee00-0000-4000-8000-000000000001';
+
+select pg_temp.expect(
+  (select status from public.job_applications
+    where id = 'c0ffee00-0000-4000-8000-000000000001') = 'interview',
+  'the owner can move an application to interview'
+);
+
+-- Half a status change is refused. A row saying somebody was declined with no record of who
+-- decided is unreadable a year later, which is when it gets asked about.
+do $$
+declare code text := 'none (the update SUCCEEDED)';
+begin
+  begin
+    update public.job_applications set status_changed_at = now(), status_changed_by = null
+     where id = 'c0ffee00-0000-4000-8000-000000000001';
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '23514', 'a status change without a person is refused, got ' || code);
+end $$;
+
+/*
+ * DELETE is granted here and is not granted on `waitlist`. The difference is deliberate: a
+ * service has no reason to keep the employment history of somebody it did not employ.
+ *
+ * The claim that rests on this is "we removed your application", and that claim is only true
+ * if the audit log kept no copy — so both halves are asserted.
+ */
+delete from public.job_applications where id = 'c0ffee00-0000-4000-8000-000000000001';
+select pg_temp.expect(
+  (select count(*) from public.job_applications
+    where id = 'c0ffee00-0000-4000-8000-000000000001') = 0,
+  'an owner can delete an application, unlike a waitlist entry'
+);
+
+set local role postgres;
+select pg_temp.expect(
+  exists (
+    select 1 from public.audit_events
+     where entity = 'job_applications'
+       and entity_id = 'c0ffee00-0000-4000-8000-000000000001'
+       and action = 'delete'
+  )
+  and not exists (
+    select 1 from public.audit_events
+     where entity = 'job_applications'
+       and entity_id = 'c0ffee00-0000-4000-8000-000000000001'
+       and (detail ? 'email' or detail ? 'applicant_name')
+  ),
+  'the audit log records the deletion and keeps no copy of the applicant'
+);
+
+-- ---------------------------------------------------------------------------
+-- The public path, as `anon` holding nothing but the anon key
+-- ---------------------------------------------------------------------------
+
+set local role anon;
+set local request.jwt.claims = '{"role":"anon"}';
+
+-- Unchanged and load-bearing: there is still no table grant. This is refused before RLS is
+-- ever consulted, which is the order AGENTS rule 2 is about.
+do $$
+declare code text := 'none (the select SUCCEEDED)';
+begin
+  begin
+    perform count(*) from public.job_applications;
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '42501',
+    'anon still has no grant on job_applications, got ' || code);
+end $$;
+
+-- The one thing it may do.
+select public.submit_job_application(
+  'rls-test-a', '  Anon Applicant  ', '  ANON@rlstest.invalid  ',
+  '021 555 0001', 'Reliever', false, '2026-10-01', 'Sent from the public website.'
+);
+
+set local role postgres;
+select pg_temp.expect(
+  (select count(*) from public.job_applications
+    where centre_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+      and lower(email) = 'anon@rlstest.invalid') = 1
+  -- Trimmed, and stamped as coming from the website rather than typed in by staff.
+  and (select applicant_name from public.job_applications
+        where lower(email) = 'anon@rlstest.invalid') = 'Anon Applicant'
+  and (select source from public.job_applications
+        where lower(email) = 'anon@rlstest.invalid') = 'website',
+  'anon can file an application, trimmed and marked as coming from the website'
+);
+
+-- A forged centre. The caller sends a slug and never an id, so the worst a hand-made call
+-- achieves is the wrong one of this centre's own sites — and an unknown slug achieves nothing.
+set local role anon;
+set local request.jwt.claims = '{"role":"anon"}';
+do $$
+declare code text := 'none (it SUCCEEDED)';
+begin
+  begin
+    perform public.submit_job_application('not-a-centre', 'Forger', 'forge@rlstest.invalid');
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = 'P0001', 'an unknown centre slug is refused, got ' || code);
+end $$;
+
+/*
+ * Repeat submission while an application is open: one row, and no error.
+ *
+ * The quiet return is the security property, not a convenience. Raising "you have already
+ * applied" would answer the question "has this address applied to this centre" for anybody who
+ * asked — the same oracle the password recovery flow exists to avoid. Asserted on the row
+ * count AND on the absence of an error, because either one alone passes for the wrong reason.
+ */
+select public.submit_job_application('rls-test-a', 'Anon Applicant', 'anon@rlstest.invalid');
+
+set local role postgres;
+select pg_temp.expect(
+  (select count(*) from public.job_applications
+    where lower(email) = 'anon@rlstest.invalid') = 1,
+  'a repeat submission while the application is open creates no second row and raises nothing'
+);
+
+-- ...and once it is closed, the same person may apply again. Somebody declined last year is
+-- entitled to a second try, which is why the duplicate check is scoped to open statuses rather
+-- than being a unique index.
+update public.job_applications set status = 'declined',
+       status_changed_by = '11111111-1111-4111-8111-111111111111', status_changed_at = now()
+ where lower(email) = 'anon@rlstest.invalid';
+
+set local role anon;
+set local request.jwt.claims = '{"role":"anon"}';
+select public.submit_job_application('rls-test-a', 'Anon Applicant', 'anon@rlstest.invalid');
+
+set local role postgres;
+select pg_temp.expect(
+  (select count(*) from public.job_applications
+    where lower(email) = 'anon@rlstest.invalid') = 2,
+  'somebody previously declined can apply again'
+);
+
+/*
+ * The flood guard, which is in the database rather than in the website process.
+ *
+ * An in-process limiter does not survive a restart and does not see a second instance, and
+ * this function is reachable by anybody holding the anon key — which is public by design. Ten
+ * a minute at one small centre is automation, not a busy afternoon.
+ *
+ * Distinct addresses on purpose: the duplicate check would otherwise absorb them and this
+ * would pass while measuring nothing.
+ */
+set local role anon;
+set local request.jwt.claims = '{"role":"anon"}';
+do $$
+declare
+  i    int;
+  code text := 'none (the 11th SUCCEEDED)';
+begin
+  for i in 1..20 loop
+    begin
+      perform public.submit_job_application(
+        'rls-test-a', 'Flood ' || i, 'flood-' || i || '@rlstest.invalid');
+    exception when others then
+      code := sqlstate;
+      exit;
+    end;
+  end loop;
+  perform pg_temp.expect(code = 'P0001',
+    'the flood guard stops a script before it fills the table, got ' || code);
+end $$;
+
+-- ---------------------------------------------------------------------------
 -- Audit coverage, as a rule rather than as twelve separate assertions.
 --
 -- This is the assertion that would have caught the original gap. Any future table that

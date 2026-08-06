@@ -31,8 +31,16 @@ Three defects made it urgent rather than cosmetic, all measured rather than asse
 - **It is in this monorepo, not a sibling repo**, so `packages/core` tokens cannot drift. The
   original instruction was a folder next to `ece`; the trade-off was put to the owner and the
   monorepo won.
-- **It has no Supabase dependency at all.** Not in `package.json`, and no `@ece/api` path in its
-  tsconfig. That is enforced by absence rather than by policy.
+- **CORRECTED 2026-08-06.** This used to read "it has no Supabase dependency at all — not in
+  `package.json`, and no `@ece/api` path in its tsconfig, enforced by absence rather than by
+  policy." The careers form changed that, and the tsconfig note said at the time that if it ever
+  changed it would be justified there first, which is where the reasoning now sits. What survives is
+  the part that mattered: the **browser** still reaches nothing but the site itself. The anon key is
+  read from an unprefixed env var so Next cannot inline it into client JS — verified by grepping
+  `.next/static/` for it and for any Supabase string and finding none — so `connect-src 'self'`
+  stays literally true. The tsconfig path is to one module, `@ece/api/recruitment`, whose only
+  imports are types, so the public container cannot even construct a service-role client. See
+  [[recruitment]].
 - **Every fact on the site traces to their own site or their philosophy PDF.** Everything else is in
   `apps/site/CONTENT-GAPS.md` and, where a parent would look for it, marked on the page itself.
 - **All ten routes pass axe (WCAG 2.2 AA) at 390px and 1440px with zero violations and zero
@@ -139,7 +147,7 @@ Three findings stopped a direct port:
    applies to any future anonymous path, not just this one.
 2. **`review:security` check 8 asserts that `anon` has no table grants** at `high` severity, and the
    script exits non-zero on high. Verified in the schema: `anon` holds `usage on schema public` and
-   not one table grant across twenty-three migrations.
+   not one table grant across twenty-four migrations.
 3. **Nobody has DELETE on `waitlist`, including `service_role`.** An anonymously-writable table
    whose rows cannot be removed through any credential the product holds is a permanent spam store,
    in a queue whose *order* is meaningful.
@@ -172,6 +180,22 @@ in this schema to put one.
 
 If news is wanted, it belongs in `apps/site/content/` as markdown: reviewable in a diff,
 un-publishable with a commit, and carrying no child, no media row and no signed URL.
+
+### The recommendation above was taken up — for careers, not for enquiries
+
+The paragraph on the enquiry form ends with a prescription: a public write should "reach the database
+through a `security definer` function granted to `anon` rather than a table grant, so check 8 stays
+green *and* stays true". `0024_recruitment.sql` is that design, built for job applications. It works,
+and the parts that were guesses are now measured — see [[recruitment]] for the flood guard, the
+quiet-duplicate rule and the two designs that were rejected.
+
+**The enquiry form is still not built, and none of the three findings above have gone away.** A job
+application is a very different object from a childcare enquiry: an applicant is an adult writing
+about themselves, so there is no child, no date of birth, no guardianship question and no insurance
+gate. `waitlist.child_name` is still `NOT NULL`, nobody still has DELETE on `waitlist`, and
+`docs/tenant-little-pearls.md` still forbids putting an identifiable under-five in this database. The
+recommendation there stands as written: a separate `public.enquiries` table with the guardian's
+details and a coarse age band, which staff promote to `waitlist` by hand.
 
 ## See Also
 

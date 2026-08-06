@@ -235,3 +235,91 @@ a:hover { color: var(--coral-ink); }
 dl.facts { margin: 0; }
 dl.facts dt { font-weight: 600; margin-top: var(--space-3); }
 dl.facts dd { margin: 0; }
+
+/* --- The careers form -------------------------------------------------------- */
+
+/*
+ * The first form on this site. Their current one is Adobe Muse output posting to a dead PHP
+ * mailer, with no labels — the field names are background images.
+ *
+ * Borders are `--teal-ink` rather than a pale brand colour. WCAG 1.4.11 asks 3:1 for the visual
+ * boundary of a control, and on an input the boundary is the only thing showing where to type —
+ * unlike the platform's state chips, where the border was allowed to fall short because the text
+ * inside carries the meaning. `teal ink on white` is already asserted at 4.5:1 in
+ * LITTLE_PEARLS_CONTRAST_PAIRS, so this clears it with room and needs no new pair.
+ */
+.form { max-width: 34rem; }
+
+.field { margin: 0 0 var(--space-4); }
+
+.field > label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: var(--space-1);
+}
+
+/* Never `placeholder` instead of a label: a placeholder disappears as soon as you type, so the
+   question is gone exactly when you are answering it. */
+.field input,
+.field select,
+.field textarea {
+  display: block;
+  width: 100%;
+  min-height: var(--target-comfortable);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--teal-ink);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+}
+
+.field textarea { min-height: 8rem; resize: vertical; }
+
+.hint {
+  display: block;
+  font-size: var(--text-sm);
+  margin-top: var(--space-1);
+  max-width: 60ch;
+}
+
+/* A fieldset for the three-state question, because a group of radios needs a group label and a
+   <label> cannot label a group. */
+.field-group {
+  border: 1px solid var(--aqua);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3);
+  margin: 0 0 var(--space-4);
+}
+.field-group legend { font-weight: 600; padding: 0 var(--space-2); }
+
+.choices { display: flex; flex-wrap: wrap; gap: var(--space-4); }
+.choice { display: flex; align-items: center; gap: var(--space-2); font-weight: 400; }
+/* Not stretched to 100% like the text inputs, and big enough to hit on a phone. */
+.choice input { width: 24px; height: 24px; min-height: 0; margin: 0; }
+
+/*
+ * The honeypot. `display: none` and not `.visually-hidden`, and the reason is not layout.
+ *
+ * A visually-hidden field is still in the accessibility tree, so a screen reader would read it
+ * out and somebody using one might fill it in — and this form treats a filled trap as spam and
+ * silently discards the application. A honeypot that punishes blind applicants is worse than no
+ * honeypot. `aria-hidden` and `tabIndex=-1` keep it out of the tree and out of tab order; this
+ * keeps it off the screen. It is a cheap filter, not the defence: the limit on volume is the
+ * flood guard inside `submit_job_application`.
+ */
+.trap { display: none; }
+
+/*
+ * The result, and it is `role="status"` in the markup so it is announced without stealing focus.
+ * Colour is not the only signal — the wording says what happened, because 1.4.1 forbids relying
+ * on colour and because a green box with no sentence tells somebody nothing.
+ */
+.form-result {
+  border-left: 3px solid var(--teal-ink);
+  background: var(--aqua-pale);
+  padding: var(--space-3) var(--space-4);
+  margin: 0 0 var(--space-4);
+}
+.form-result[data-ok='false'] { border-left-color: var(--coral-ink); }
+.form-result p { margin: 0; }

@@ -72,6 +72,38 @@ gives a right of access to information about oneself, and building a system wher
 educator cannot see their own police vetting result would be building a system that
 denies it.
 
+### About somebody applying for a job
+
+Added 2026-08-06, when the careers page on the public website stopped being a mailto link.
+
+Name and email, and optionally a phone number, the sort of role wanted, an earliest start date,
+whether the applicant says they hold a current New Zealand practising certificate, and whatever they
+choose to write about themselves.
+
+Four things about this collection are deliberate and worth stating plainly, because it is the only
+place in this product where **somebody who is not a member of the centre can write to the database**:
+
+- **The certificate question is the applicant's own statement and is not treated as evidence.** The
+  screen says so where it is displayed. Evidence is a sighted document in the staff records, and a
+  practising certificate is checked before anybody starts, not from a web form.
+- **Nothing is asked that belongs to a safety check.** No date of birth, no address, no
+  criminal-record question. A safety check is required before a children's worker starts; answering
+  any of it into an unauthenticated public form would be a disclosure made before anybody had even
+  decided to read the application.
+- **CVs are not stored by the software.** They still go to the careers mailbox, so the centre holds
+  them the way it always has. A CV carries an address, an employment history and referees' names and
+  phone numbers — third parties who agreed to nothing — and storing it needs a retention rule and a
+  deletion path that do not exist yet.
+- **Only the centre's owner and manager can see an application.** Not educators, even at the same
+  centre. Enforced by Postgres, and asserted by the isolation suite rather than claimed here.
+
+**Deletion, unusually, is available.** The centre can destroy an application outright, and the audit
+log records that a deletion happened while keeping no copy of the row — which is asserted in the test
+suite, so "we removed your application" is a checkable statement rather than a reassuring one. This
+is not a change to the position below: the Act still gives no general right to erasure. It is the
+centre choosing not to keep the employment history of somebody it did not employ, which is the
+retention principle rather than an erasure right.
+
 ### Technical
 
 An email address and password for anybody with a login. A device token for anybody who

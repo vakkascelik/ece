@@ -16,15 +16,27 @@
     "plugins": [{ "name": "next" }],
     "paths": {
       "@/*": ["./src/*"],
-      "@ece/core": ["../../packages/core/src/index.ts"]
+      "@ece/core": ["../../packages/core/src/index.ts"],
+      "@ece/api/recruitment": ["../../packages/api/src/recruitment.ts"]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
   "// note": [
-    "No @ece/api path. This app never talks to Supabase — the public site has no database",
-    "access at all, by design, because review:security asserts that `anon` reaches no table",
-    "and the service-role key stays in apps/web. If that ever changes, it changes here first",
-    "and the reason gets written down."
+    "THIS CHANGED, and the previous note said it would have to be justified here when it did.",
+    "It used to read: no @ece/api path, this app never talks to Supabase, the public site has",
+    "no database access at all. That was true until the careers form, which has to create a",
+    "row somewhere. What is still true is the part that mattered: the service-role key stays",
+    "in apps/web and never comes here, and `anon` still has no table grant, which",
+    "review:security asserts at high severity.",
+    "",
+    "The path is deliberately to ONE MODULE and not to @ece/api's index. recruitment.ts has no",
+    "runtime imports — both of its imports are types, which erase — so this brings in the one",
+    "function the site needs and not createServiceClient, which the public container has no",
+    "business being able to construct.",
+    "",
+    "The browser still reaches nothing: the anon key is read from an unprefixed env var, so",
+    "Next cannot inline it into client JS, and the CSP's `connect-src 'self'` stays literally",
+    "true. Only the site's server talks to Postgres, and only through one definer function."
   ],
   "exclude": ["node_modules"]
 }

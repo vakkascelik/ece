@@ -36,7 +36,9 @@ covered without anyone remembering), extracts every row as JSON to a file on dis
 it back, reloads it into `restore_drill.*` tables built with `like … including all`, and
 compares row counts and a content fingerprint per table.
 
-As at 2026-08-04: **34 tables, 485 rows, 4/4 checks, every table identical.**
+As at 2026-08-06, re-run after `0024_recruitment.sql` added a table: **35 tables, 2864 rows,
+4/4 checks, every table identical.** (The previous run, 2026-08-04, was 34 tables and 485 rows —
+the row count grew with end-to-end runs and demo data, not with the new table.)
 
 ### It has been mutation-tested, which matters more than it passing
 

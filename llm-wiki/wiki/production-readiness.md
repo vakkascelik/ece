@@ -143,7 +143,8 @@ Worth recording because both would have produced a false green:
 `npm run drill:restore` enumerates every table **from the catalogue** — so a table added by
 a future migration is covered without anyone remembering — extracts every row as JSON to a
 file, sends it back, reloads it into a shadow schema built with `like … including all`, and
-compares row counts and a content fingerprint per table. 34 tables, 485 rows, 4/4.
+compares row counts and a content fingerprint per table. 35 tables, 2864 rows, 4/4 as at
+2026-08-06.
 
 Reloading uses `jsonb_populate_recordset`, handing Postgres its own JSON back. The
 alternative — per-type SQL literals for timestamptz, text[], jsonb, seven enums and a
