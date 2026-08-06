@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { Photo } from '../../Photo';
+import { PHOTOS } from '@/lib/photos';
 import { CENTRE_FACTS, centreByPath } from '@/lib/centres';
 
 /**
@@ -22,9 +24,13 @@ import { CENTRE_FACTS, centreByPath } from '@/lib/centres';
  *
  * WHAT IS NOT HERE, AND WHY
  *
- * No licensed capacity, no Ministry service number, no ERO summary, no photographs, no named
- * staff. Every one of those is either absent from their own site or known only from a third-party
- * directory that returned 403 to a direct fetch. `CONTENT-GAPS.md` lists each with what it would
+ * No licensed capacity, no Ministry service number, no ERO summary, no named staff. Every one of
+ * those is either absent from their own site or known only from a third-party directory that returned
+ * 403 to a direct fetch.
+ *
+ * Photographs of the premises ARE here as of 2026-08-07, taken from their own site — the seven that
+ * show no child. The four that show children are still withheld pending written consent for public
+ * use; see `lib/photos.ts`. `CONTENT-GAPS.md` lists each with what it would
  * take to close it. A page that guesses a capacity is a page that misinforms a parent about
  * whether there is room for their child.
  *
@@ -81,6 +87,17 @@ export default async function CentrePage({ params }: { params: Promise<{ centre:
         {CENTRE_FACTS.ages}.
       </p>
 
+      {/*
+        The same two photographs on both centre pages, and that is a gap rather than a shortcut: their
+        old site had no per-centre photography either, so there is nothing to tell them apart with.
+        Recorded in CONTENT-GAPS.md rather than papered over by showing a different room on each and
+        implying it belongs to that site.
+      */}
+      <div className="photo-row">
+        <Photo photo={PHOTOS.entrance} priority />
+        <Photo photo={PHOTOS.playground} />
+      </div>
+
       <h2>Find us</h2>
       <dl className="facts">
         <dt>Address</dt>
@@ -113,10 +130,9 @@ export default async function CentrePage({ params }: { params: Promise<{ centre:
       </p>
 
       <div className="gap">
-        <strong>Still to come on this page.</strong> Photographs of the centre, the team you would
-        meet, and this centre&rsquo;s licence details. We are not publishing those until they have
-        been confirmed with us — see <Link href="/contact">contact</Link> to ask anything in the
-        meantime.
+        <strong>Still to come on this page.</strong> The team you would meet, and this
+        centre&rsquo;s licence details. We are not publishing those until they have been confirmed
+        with us — see <Link href="/contact">contact</Link> to ask anything in the meantime.
       </div>
 
       <div className="callout">

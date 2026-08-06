@@ -5,6 +5,46 @@ says so.*
 
 ---
 
+2026-08-07 — **Their own logo and photography moved onto the new site**, and the four photographs that
+did not come with it. See [[public-website]].
+
+Eleven photographs on their old site, all named after Flickr ids. Every one was downloaded and **looked
+at** rather than judged from its filename, because that is the only way this call can be made. Seven show
+the premises and nothing else — the entrance, four rooms, the playground, the sandpit — and those are in
+now, renamed to what they show, taken from the `_2x` variants their own site already served, and
+converted to WebP at a third to a half of the bytes. The logo came across too, trimmed and palette-
+compressed from 30kB to 13kB, and the site has a favicon for the first time.
+
+**Four show identifiable children and are not here.** A group of five at a table looking straight at the
+camera, a toddler covered in paint, a child drawing, two asleep on a rug. They stay out until the centre
+holds current written consent for **public** use for each child in each frame — the distinction the
+platform already models as `photo_internal` versus `photo_public`, because families who agree to a photo
+in a learning journal routinely refuse one on a website. Consent given in 2018 to a site nobody has
+updated since is not consent for a new site now. The list lives in `src/lib/photos.ts` rather than only in
+a markdown file, so the next person asked "can we put some photos of the children up?" finds the answer
+beside the photographs.
+
+Three assets were **images of text** — the tagline and both centre names, rendered to PNG by Adobe Muse —
+and were left behind: the site already renders all three as real text, which is selectable, translatable
+and resizable. Their nautical decorations were left behind on **licence** grounds: `noun_boat_1630770` and
+`noun_submarine_605221` are Noun Project asset ids, the social icons are Iconmonstr, and a Noun Project
+asset is either CC BY needing attribution or royalty-free under somebody else's subscription. Their pages
+carry no attribution, so it cannot be determined from outside which applies, and copying them in would be
+inheriting a licence position sight unseen. Gap 15, with the cheaper answer: draw them fresh as inline SVG
+and let them take their colour from the tokens.
+
+**And the axe claim for this site turned out to be a one-off.** [[public-website]] has said since the site
+was built that all ten routes pass axe at 390px and 1440px with zero violations. True when written, and
+not repeatable by anybody — the same species of claim this repo keeps catching. Adding eight images across
+five pages is exactly what would have broken it quietly. `npm run audit:site` now runs it: twenty page
+views, clean.
+
+**It does not catch the failure the images risk, and that is worth recording.** Emptying one photograph's
+`alt` and re-running the audit reported no violations anywhere. axe is right: `alt=""` is a *valid* way to
+declare an image decorative, and no tool can know a photograph of a playground is not. So alt text is
+guarded by a data-contract test — every entry described, longer than a label, not starting "photo of" —
+which does catch it. `apps/site` had no test runner at all before yesterday; it now has 13 tests.
+
 2026-08-07 — **Sixteen defects, found by tracing logic flows against the code rather than by any
 check.** Every gate was green before this and every gate is green after it, which is the whole point:
 `typecheck`, `lint`, `test`, `test:rls`, `tokens:check`, `check:docs`, `check:bundle`,

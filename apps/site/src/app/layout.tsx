@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 import { CENTRES, CENTRE_FACTS } from '@/lib/centres';
+import { PHOTOS } from '@/lib/photos';
 import { appUrl, siteOrigin } from '@/lib/site';
 import { NavLink } from './NavLink';
 import './globals.css';
@@ -83,9 +84,28 @@ export const metadata: Metadata = {
     siteName: 'Little Pearls Educare Centre',
     title: 'Little Pearls Educare Centre',
     description: DESCRIPTION,
+    /*
+     * The entrance, and the choice of photograph is the point.
+     *
+     * This used to read "no Twitter card image until there is a photograph cleared for public use",
+     * which was the right rule and is no longer a reason to have none: seven of the eleven
+     * photographs on their old site show only the premises, and a picture of a building engages
+     * nobody's consent. The four that show children are still not on this site — see
+     * `lib/photos.ts`.
+     *
+     * A shared link previews as the front door somebody would actually walk up to, which is more use
+     * to a parent than a logo on a white square.
+     */
+    images: [
+      {
+        url: PHOTOS.entrance.src,
+        width: 720,
+        height: 720,
+        alt: PHOTOS.entrance.alt,
+      },
+    ],
   },
-  // No Twitter card image until there is a photograph cleared for public use. An OG tag pointing
-  // at a missing file renders as a broken preview, which is worse than a text-only one.
+  twitter: { card: 'summary_large_image' },
   alternates: { canonical: '/' },
 };
 
@@ -112,6 +132,17 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <header className="masthead">
           <div className="wrap masthead-inner">
             <a className="brand" href="/">
+              {/*
+                Their own logo, off their own site. `alt=""` on purpose, and it is the one empty alt
+                on this site: the words immediately beside it already say "Little Pearls Educare
+                Centre", so a screen reader that also announced the image would read the name twice.
+                An alt of "Little Pearls logo" is the classic version of that mistake.
+
+                Explicit `width`/`height` so the header does not jump once the image arrives, and no
+                `loading="lazy"` because it is the first thing on the page — lazy-loading something
+                above the fold delays it for no benefit.
+              */}
+              <img className="brand-logo" src="/logo.png" alt="" width={316} height={303} />
               <span>
                 <span className="brand-name">Little Pearls Educare Centre</span>
                 <br />

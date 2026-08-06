@@ -1,4 +1,6 @@
 import type { Metadata } from 'next';
+import { Photo } from '../Photo';
+import { PHOTOS } from '@/lib/photos';
 import Link from 'next/link';
 import { CENTRE_FACTS, ROOMS } from '@/lib/centres';
 
@@ -43,6 +45,8 @@ export default function RoomsPage() {
             </dd>
           </dl>
           <p>{room.approach}</p>
+          {/* Named by the room's own `photo` key, so this cannot drift out of step with the list. */}
+          <Photo photo={PHOTOS[room.photo]} />
         </section>
       ))}
 

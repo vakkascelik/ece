@@ -1,4 +1,6 @@
 import type { Metadata } from 'next';
+import { Photo } from '../Photo';
+import { PHOTOS } from '@/lib/photos';
 
 export const metadata: Metadata = {
   title: 'Our philosophy',
@@ -54,6 +56,10 @@ export default function PhilosophyPage() {
         We are in a bicultural country living in a multicultural society. We aim to promote te reo
         Māori and tikanga Māori in daily practice.
       </p>
+
+      {/* Placed against "our environment", which is what it shows. No caption: the section that
+          follows describes the room better than a line under a picture could. */}
+      <Photo photo={PHOTOS.quietCorner} showCaption={false} />
 
       <h2>Our environment</h2>
       <p>

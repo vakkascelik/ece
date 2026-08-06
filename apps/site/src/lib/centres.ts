@@ -21,6 +21,8 @@
  * because it appears in URLs; that decision is what makes relying on it safe.
  */
 
+import { PHOTOS } from './photos';
+
 export interface Centre {
   /** The URL segment on this site. Short, because it is typed and shared. */
   path: string;
@@ -111,17 +113,34 @@ export const ROOMS = [
     ratio: 'no more than 1 adult to 3–4 children',
     approach:
       'A home-like room built on respect. Their programme draws on Pikler and RIE, the schema concept, and Te Whāriki.',
+    /*
+     * `photo` is a key into `PHOTOS`, held here rather than matched by index in the page.
+     *
+     * The page used to be able to do `PHOTO_LIST[i]`, and that is a bug waiting for whoever reorders
+     * these three rooms: it would keep rendering and quietly show the preschool room under "Infant".
+     * A named key breaks the build instead.
+     */
+    photo: 'infantRoom',
   },
   {
     name: 'Toddler',
     ages: '2 to 3½ years',
     ratio: 'no more than 1 adult to 6–7 children',
     approach: 'Interest-based activities, guided by Te Whāriki.',
+    photo: 'playKitchen',
   },
   {
     name: 'Preschool',
     ages: '3½ to 5 years',
     ratio: 'no more than 1 adult to 7–8 children',
     approach: 'Play-based learning with a focus on the transition to school, guided by Te Whāriki.',
+    photo: 'preschoolRoom',
   },
-] as const;
+] as const satisfies readonly {
+  name: string;
+  ages: string;
+  ratio: string;
+  approach: string;
+  // Constrained to the keys that exist, so a typo or a removed photograph is a type error.
+  photo: keyof typeof PHOTOS;
+}[];

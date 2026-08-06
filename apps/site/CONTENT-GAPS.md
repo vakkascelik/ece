@@ -93,17 +93,59 @@ and issuu.com did not resolve.
 
 Not carried over. A footer of dead links is worse than no footer.
 
-### 10. Photographs
+### 10. Photographs — seven in use, four withheld
 
-Their three homepage photos are hosted on Flickr and show children. **None are used**, and the site
-ships with no child photographs at all.
+**Updated 2026-08-07**, when their existing photography was brought across. This gap used to say the
+site carried no photographs at all; it now carries seven, and the four that are missing are missing for
+a reason that has not changed.
 
-The platform models why: `photo_public` is a **separate consent** from `photo_internal`, because
-families who agree to a photo in the private journal routinely refuse one on a public website. A
-photograph on this site needs current written consent for public use, per child.
+Their old site has eleven photographs. Every one was downloaded and **looked at**, rather than judged
+from its filename, and they split cleanly:
 
-**To close it:** photographs of the building, playground and resources need none of that and would
-improve every page. Staff photographs need each person's agreement.
+| In use | Shows |
+|---|---|
+| `centre-entrance.webp` | The entrance, with the logo on the wall |
+| `preschool-room.webp` | The preschool room, tables and artwork |
+| `infant-room.webp` | Open shelves, baskets, blocks, an armchair |
+| `quiet-corner.webp` | A sofa and canopy through an ivy-trailed doorway |
+| `play-kitchen.webp` | The wooden play kitchen |
+| `playground.webp` | Artificial grass, timber archway, climbing frame |
+| `sandpit.webp` | Decked sandpit under two thatched umbrellas |
+
+Nobody's consent is engaged by a photograph of an empty room, so these needed no permission beyond the
+centre's own.
+
+**Four are withheld**, listed in `src/lib/photos.ts` with what each shows: a group of five children at a
+table looking straight at the camera, a toddler covered in paint with their face filling the frame, a
+child drawing in profile, and two toddlers asleep on a rug.
+
+**To close it:** the centre confirms it holds **current written consent for public use** for each child
+in each photograph. Not consent in general, and not the consent that covers a learning journal — the
+platform's own schema separates `photo_internal` from `photo_public` precisely because families who
+agree to one routinely refuse the other. Consent given in 2018, for a site nobody has updated since, is
+not consent for a new site in 2026. The sleeping pair would want particular thought even with a
+signature.
+
+Better than reusing any of them: new photography taken knowing it is for a public website, with the
+consent collected at the time.
+
+### 15. Their nautical icons are third-party, and the licence is not ours to assume
+
+Their site decorates pages with a boat, a submarine, fish and building blocks. The filenames give them
+away — `noun_boat_1630770.png`, `noun_submarine_605221.png` — those numbers are **Noun Project** asset
+ids. The four social icons are `iconmonstr-*.png`, from Iconmonstr.
+
+**They were deliberately not copied across.** A Noun Project asset is either CC BY, which requires
+visible attribution, or royalty-free under a subscription held by whoever built the old site — and
+their current pages carry no attribution, so which of those applies cannot be determined from the
+outside. Copying them into this repo would be inheriting somebody else's licence position sight unseen.
+
+Nothing is lost today: the site reads well without them, and the four social icons have no use because
+the site links to no social accounts (gap 9 — nobody has confirmed the accounts are live).
+
+**To close it:** either the centre confirms the original licence, or the decorative marks get drawn
+fresh as inline SVG. The second is cheap, has no licence question, scales without a second file, and
+would tint from the brand tokens instead of being fixed-colour PNGs.
 
 ### 11. Whether the old enrolment form still reaches anyone
 
@@ -161,7 +203,12 @@ feature. It is worth doing at the same time as gap 12, because both exist for th
 - **No robots.txt; a sitemap with 2018 dates and `http://` URLs.** Fixed, and the sitemap is
   generated from the route list so a page cannot be forgotten.
 - **Every `<img alt="">`, including the logo; headings faked with styled `<p>`.** Fixed: real
-  heading elements throughout, and no decorative image carries meaning.
+  heading elements throughout. Every photograph now carries a described `alt`, asserted by a test —
+  axe cannot catch this, because `alt=""` is a *valid* way to say an image is decorative and no tool
+  can tell that a photograph of a playground is not.
+- **The tagline and the centre names were images of text.** Adobe Muse rendered them as PNG, so they
+  could not be selected, translated, searched or resized. They are real text now, and the PNGs were
+  not brought across.
 - **Philosophy only as a PDF.** Now a page, with macrons restored and its typos fixed.
 - **"Our Centres" described rooms, not centres.** Split into `/centres/*` and `/rooms`.
 - **Careers was a mailto link, so every application lived in a shared mailbox** with no record of

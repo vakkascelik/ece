@@ -323,3 +323,66 @@ dl.facts dd { margin: 0; }
 }
 .form-result[data-ok='false'] { border-left-color: var(--coral-ink); }
 .form-result p { margin: 0; }
+
+/* --- Images -------------------------------------------------------------------- */
+
+/*
+ * The logo, at the size the header needs rather than the size the file is.
+ *
+ * `height: auto` alongside the HTML `width`/`height` attributes: the attributes give the browser the
+ * aspect ratio so the header does not jump when the image lands, and this lets CSS pick the rendered
+ * size without squashing it.
+ */
+.brand-logo {
+  width: 3.25rem;
+  height: auto;
+  flex-shrink: 0;
+}
+
+/*
+ * Their photographs are square crops, so the aspect ratio is declared rather than left to the file.
+ * A wrong ratio here would letterbox them; a missing one lets the page reflow as each arrives, which
+ * on a phone means the thing somebody is reading jumps under their thumb.
+ */
+.photo {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border-radius: var(--radius-md);
+  background: var(--aqua-pale);
+}
+
+figure.photo-figure {
+  margin: 0 0 var(--space-4);
+}
+
+/* The caption is a caption, not body copy — smaller, and it does not compete with the paragraph
+   above it. `figcaption` rather than a styled div so the association is in the markup. */
+figure.photo-figure figcaption {
+  font-size: var(--text-sm);
+  margin-top: var(--space-2);
+  max-width: 60ch;
+}
+
+/* A row of photographs. Narrower minimum than `.grid`, because these are pictures rather than cards
+   of text and three across is comfortable on a laptop. */
+.photo-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: var(--space-4);
+  margin: 0 0 var(--space-5);
+}
+.photo-row figure.photo-figure {
+  margin: 0;
+}
+
+/*
+ * The lead image on the homepage. Wider than tall, because a square hero pushes everything below the
+ * fold on a phone — so the square file is cropped by CSS rather than re-cut into a second file.
+ */
+.photo-lead {
+  aspect-ratio: 16 / 9;
+  margin-bottom: var(--space-5);
+}

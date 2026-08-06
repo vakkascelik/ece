@@ -44,7 +44,8 @@ Three defects made it urgent rather than cosmetic, all measured rather than asse
 - **Every fact on the site traces to their own site or their philosophy PDF.** Everything else is in
   `apps/site/CONTENT-GAPS.md` and, where a parent would look for it, marked on the page itself.
 - **All ten routes pass axe (WCAG 2.2 AA) at 390px and 1440px with zero violations and zero
-  horizontal overflow.** Their predecessor fails on every page at every width.
+  horizontal overflow.** Their predecessor fails on every page at every width. Repeatable since
+  2026-08-07 as `npm run audit:site` — before that it was a one-off run, which is not a check.
 - Their brand is used, not the platform's — and **none of their colours can carry text.**
 
 ## Details
@@ -205,3 +206,54 @@ details and a coarse age band, which staff promote to `waitlist` by hand.
 - [[unverified-claims]] — and `apps/site/CONTENT-GAPS.md`, its equivalent for site content
 
 *Last updated: 2026-08-06*
+
+
+## Their own photographs, and the four that are not here
+
+Added 2026-08-07. The site launched with no imagery at all, which was the right default and a poor
+result: a childcare page with no picture of the place tells a parent nothing about the place.
+
+Their old site carries eleven photographs, named after Flickr ids. Every one was downloaded and
+**looked at** rather than judged from its filename, which is the only way this decision can be made:
+
+- **Seven show the premises and nothing else** — the entrance, four rooms, the playground, the sandpit.
+  Those are in `apps/site/public/`, renamed to what they show, resized from the `_2x` variants their own
+  site already served, and converted to WebP. Between a third and a half of the original bytes.
+- **Four show identifiable children** and are not here, and must not be until the centre holds current
+  written consent for **public** use for each child in each frame. Listed in `src/lib/photos.ts` with
+  what each shows, so the next person asked "can we put some photos of the children up?" finds the
+  answer beside the photographs rather than in a markdown file.
+
+The distinction is the one the platform already models: `photo_internal` and `photo_public` are separate
+consent kinds because families who agree to a photo in a learning journal routinely refuse one on a
+website. Consent given in 2018 for a site nobody has updated since is not consent for a new site now.
+
+**Three of their assets were images of text** — the tagline and both centre names, rendered to PNG by
+Adobe Muse. Not brought across: real text is selectable, translatable, searchable and resizable, and
+WCAG 1.4.5 asks for it. The site already renders all three as text.
+
+**Their nautical decorations were left behind on licence grounds.** `noun_boat_1630770.png` and
+`noun_submarine_605221.png` are Noun Project assets — the numbers are the asset ids — and the four
+social icons are Iconmonstr. A Noun Project asset is either CC BY, needing visible attribution, or
+royalty-free under a subscription held by whoever built the old site; their pages carry no attribution,
+so it cannot be told from outside which applies. Copying them in would be inheriting somebody else's
+licence position unseen. Recorded as gap 15 with the cheaper alternative: draw them fresh as inline SVG,
+which also lets them take their colour from the brand tokens.
+
+### axe for this site is now a script, because the claim was a one-off
+
+This page has said since the site was built that "all ten routes pass axe (WCAG 2.2 AA) at 390px and
+1440px with zero violations and zero horizontal overflow". True when written — and a **one-off run**
+nobody could repeat, which is the exact species of claim this repo keeps catching itself making.
+Adding eight images across five pages is what would have quietly broken it.
+
+`npm run audit:site` now does it: ten routes at two widths, WCAG 2.2 AA, `best-practice` excluded for the
+same reason the app excludes it. Twenty page views, clean.
+
+**And it does not catch the failure the images actually risk**, which is worth writing down because the
+opposite is easy to assume. Emptying one photograph's `alt` and re-running the audit reported no
+violations anywhere. That is axe being right: `alt=""` is a *valid* declaration that an image is
+decorative, and no tool can know that a photograph of a playground is not. So the alt text is guarded by
+a data-contract test instead — every entry in `PHOTOS` has a description, it is longer than a label, and
+it does not begin "photo of". The one empty `alt` on the site is the masthead logo, where the name is
+already beside it in text.

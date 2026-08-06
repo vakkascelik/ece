@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { Photo } from './Photo';
+import { PHOTOS } from '@/lib/photos';
 import { CENTRES, CENTRE_FACTS } from '@/lib/centres';
 
 /**
@@ -25,6 +27,13 @@ export default function HomePage() {
         and Puketāpapa / Mt Roskill.
       </p>
 
+      {/*
+        The front door, cropped wide. A square hero would push the buttons below the fold on a phone,
+        so the crop is CSS on the square file rather than a second file cut to 16:9.
+        No caption: the paragraph above already says who and where.
+      */}
+      <Photo photo={PHOTOS.entrance} className="photo-lead" showCaption={false} priority />
+
       <p>
         <Link className="btn" href="/enrolment">
           Enquire about a place
@@ -44,6 +53,12 @@ export default function HomePage() {
       <p>
         <Link href="/philosophy">Read our philosophy</Link>
       </p>
+
+      <div className="photo-row">
+        <Photo photo={PHOTOS.playground} />
+        <Photo photo={PHOTOS.sandpit} />
+        <Photo photo={PHOTOS.preschoolRoom} />
+      </div>
 
       <h2>Food made on site</h2>
       <p>
