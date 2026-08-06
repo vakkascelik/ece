@@ -334,7 +334,7 @@ Service → Settings → **Config-as-code** → `railway.site.json`.
 
 | Variable | Needed | Why |
 |---|---|---|
-| `SITE_CANONICAL_HOST` | recommended | `www.littlepearls.org.nz`. The middleware 308s anything else to it. Unset means no redirect, which is how their old site ended up answering on four addresses |
+| `SITE_CANONICAL_HOST` | **leave unset at first** | `www.littlepearls.org.nz` — but only once that domain resolves to this service. See the warning below |
 | `SITE_ORIGIN` | recommended | `https://www.littlepearls.org.nz`. Absolute URLs in Open Graph, `robots.txt` and the sitemap |
 | `SITE_APP_URL` | optional | Where "Sign in to the centre app" points. Defaults to the platform's Railway hostname |
 
@@ -352,6 +352,30 @@ Supabase variables set on it, and Nixpacks bakes every Railway variable into the
 All three variables **fail soft**, so `/api/health` returns 200 with `usingDefaultsFor` naming any
 that are unset. Refusing traffic over a canonical-URL setting would take a working website offline
 to complain about a redirect.
+
+> ### Do not set `SITE_CANONICAL_HOST` before the domain points here
+>
+> **This failed the first deploy of this service**, and the failure was mine — an earlier version of
+> this page recommended setting it straight away.
+>
+> The middleware 308s any request whose host is not the canonical one. Set to
+> `www.littlepearls.org.nz` before that domain is attached, it redirects **the working Railway URL**
+> to a hostname that does not resolve, so the site is unreachable in a browser — and it redirected
+> the health check too, which is what actually broke the deploy: eight probes failed with "service
+> unavailable" and the replica never became healthy, while the container itself had logged
+> `Ready in 359ms` and was serving fine on port 8080.
+>
+> `/api/health` is now exempt from the redirect, so a health check always answers locally. But the
+> browser-facing half is a sequencing rule, not a code fix:
+>
+> 1. Deploy with `SITE_CANONICAL_HOST` **unset**. The service is reachable at its
+>    `*.up.railway.app` hostname.
+> 2. Attach the custom domain and wait for Railway to report the DNS as resolving.
+> 3. *Then* set `SITE_CANONICAL_HOST`, and confirm the Railway hostname 308s to the real one.
+>
+> Worth knowing if you ever try to be cleverer about this: requiring `x-forwarded-host` to be
+> present does **not** distinguish an internal request from a public one, because Next populates
+> that header from `Host` when the proxy has not. Measured, not assumed.
 
 ### 3. Custom domain — and here the naming rule inverts
 

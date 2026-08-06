@@ -32,14 +32,46 @@ export function middleware(request: NextRequest) {
   const nonce = newNonce();
   const csp = contentSecurityPolicy({ nonce, dev: process.env.NODE_ENV !== 'production' });
 
+  /*
+   * The canonical redirect, and the two conditions that took a failed deploy to get right.
+   *
+   * THIS BROKE THE FIRST DEPLOY. The first version redirected whenever the request's host was not
+   * `SITE_CANONICAL_HOST`, falling back to the `host` header. Railway's health check hits the
+   * container on its internal address, so every probe got a 308 instead of a 200, eight attempts
+   * failed with "service unavailable", and the replica never became healthy — while the container
+   * itself was fine and had logged `Ready in 359ms`.
+   *
+   * Worse, it made the service unreachable in a browser too: the value was set to the real domain
+   * before that domain pointed at the service, so the Railway URL redirected to a host that was
+   * not yet there.
+   *
+   * **Never redirect the health path.** A health check is the platform asking this container
+   * whether it is alive, and the answer has to come from this container. That single exemption is
+   * what makes the probe return 200, verified by running this app with `SITE_CANONICAL_HOST` set
+   * and curling it the way Railway does.
+   *
+   * A note on what does NOT work, because it looked like it would: requiring `x-forwarded-host` to
+   * be present does not distinguish an internal request from a public one. **Next populates that
+   * header from `Host` when the proxy has not**, so an internal request has it too — measured, not
+   * assumed. The header is still the right thing to *compare* against, since it carries the public
+   * host when there is one; it just says nothing about where the request came from.
+   *
+   * The operational corollary, which is in docs/deploy-railway.md: leave `SITE_CANONICAL_HOST`
+   * unset until the custom domain actually resolves to this service. Set earlier, it redirects the
+   * working Railway URL to a hostname that is not there yet.
+   *
+   * `proto === 'http'` rather than `!== 'https'`: only downgrade-redirect when the proxy actually
+   * told us it was plain HTTP. Absent means unknown, and unknown is not a reason to bounce.
+   */
   const canonical = process.env.SITE_CANONICAL_HOST;
-  const host = request.headers.get('x-forwarded-host') ?? request.headers.get('host');
-  const proto = request.headers.get('x-forwarded-proto') ?? 'https';
+  const forwardedHost = request.headers.get('x-forwarded-host');
+  const proto = request.headers.get('x-forwarded-proto');
+  const isHealthCheck = request.nextUrl.pathname === '/api/health';
 
-  if (canonical && host && (host !== canonical || proto !== 'https')) {
+  if (canonical && forwardedHost && !isHealthCheck && (forwardedHost !== canonical || proto === 'http')) {
     const target = new URL(request.nextUrl.pathname + request.nextUrl.search, `https://${canonical}`);
-    // 308, not 301: the enquiry form is a POST, and a 301 is permitted to rewrite it to a GET —
-    // which would silently drop a family's message.
+    // 308, not 301: a 301 is permitted to rewrite a POST to a GET, which would silently drop a
+    // form submission.
     return NextResponse.redirect(target, 308);
   }
 
