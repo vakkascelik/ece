@@ -5,6 +5,126 @@ says so.*
 
 ---
 
+2026-08-07 — **Sixteen defects, found by tracing logic flows against the code rather than by any
+check.** Every gate was green before this and every gate is green after it, which is the whole point:
+`typecheck`, `lint`, `test`, `test:rls`, `tokens:check`, `check:docs`, `check:bundle`,
+`review:security`, `build`, `build:site`, `test:e2e` and `drill:restore` all passed while a childcare
+compliance product was hiding ratio breaches from its own licensing binder.
+
+Migrations `0025`-`0028`. Corrections on [[attendance-and-ratios]], [[offline-outbox]],
+[[password-recovery]], [[funding-and-billing]], [[security-review]], [[recruitment]],
+[[unverified-claims]], the README and `docs/deploy-railway.md`. Every fix mutation-tested.
+
+**The pattern, stated first because it is the finding.** Eleven of the sixteen were **a comment or a
+document describing a protection the code did not have**. Not stale prose — load-bearing claims that a
+reader would act on. `offline-outbox.md` described the shared-tablet scoping as a property of the
+outbox; it was a property of *mobile*, and the web queue had none of it. `password-recovery.md` records
+rejecting the weaker design for `/account`, and `/reset-password` implemented exactly the rejected
+design. `deploy-railway.md` told the operator to check `/login` for CSP violations and then reassured
+them the e2e suite covered it — while four routes had every script blocked. This repo's rule that a
+wrong comment is a defect turns out to be the single most productive check it has, and nothing
+automates it.
+
+**The three that mattered most.**
+
+*Every script on the public site was refused in production.* `script-src` is
+`'self' 'nonce-…' 'strict-dynamic'`, and a statically prerendered page cannot carry a per-request
+nonce — `careers.html` had 16 script tags and zero `nonce=` attributes. With `'strict-dynamic'`
+present, CSP3 requires the browser to ignore `'self'`, so there was no fallback. All ten site routes
+plus `/login`, `/no-access` and the app's 404. The site being shown to the centre's manager showed a
+wall of security errors to anyone who opened devtools. Invisible because a React form degrades to a
+full-page POST, so every login in the e2e suite kept working, and because the suite's CSP test visits a
+*dynamic* route that could not fail. Both apps now render per request, set on the root layouts so a
+prerendered page cannot be added by accident; verified by serving both builds and matching each script
+tag's nonce against the response header.
+
+*An issued invoice did not freeze — a line could still be DELETED from it.* `invoice_lines_write` was
+`FOR ALL` with `status = 'draft'` in its WITH CHECK only, and PostgreSQL checks USING for DELETE. So
+the condition never applied to that verb, and `0022` preserved the asymmetry faithfully when it split
+the policy. Because a credit is a negative line by design, deleting one moves the total in either
+direction: remove the "centre closed" credit and a family owes more than the invoice they hold, after
+issue, with no void-and-reissue and no reason recorded. Three documents asserted the enforcement,
+including the row in [[unverified-claims]] filing it as a claim that was *once* false and now
+test-backed. `0025` fixes the verb and asserts the **class**: no `_write_delete` USING may be broader
+than its `_write_insert` WITH CHECK, with an allowlist for the two tables where the difference is a
+write-consistency rule. Found by asking the catalogue, which found two holes where one was reported —
+`posts` had the same shape, letting any educator destroy a colleague's write-up of a child's day.
+
+*The licensing binder hid real ratio breaches, and the correction feature was the mechanism.*
+`attendance_events` is append-only with a supersede pointer, so every reader must resolve the chain.
+Three readers existed and one did. `replayDay` applied both a corrected sign-out and its correction, so
+breaches in that window vanished from `/compliance/binder` — the one artefact handed to a reviewer, in
+the flattering direction. `attendance_today` had the same blindness with a nastier twist: **a correction
+usually carries an EARLIER time than the row it replaces**, so `order by at desc` preferred the
+superseded row, and a child corrected back onto the roll stayed off it. `resolveCorrections` is now
+generic over `{ id, corrects }` so there is one rule rather than three readings of it.
+
+**Two more that were live and quiet.** `/reset-password` accepted any signed-in session, so anyone at
+an unlocked browser could set a new password without knowing the old one and lock the real holder out
+of every device — now gated on the session's `amr` claim, chosen over a cookie because `httpOnly` stops
+JavaScript and not a person with devtools open, and the two token shapes were measured on a throwaway
+user rather than assumed. And `/auth/confirm`'s same-origin check was defeated by one backslash:
+`new URL('/\\evil.com', origin)` resolves to `https://evil.com/`, because the WHATWG parser treats `\`
+as `/`. An open redirect on the domain a password-reset email points at.
+
+**The one that loses a child.** The web outbox's `flush` read a snapshot, awaited the network, then
+wrote the survivors back wholesale — erasing anything enqueued during that window. A tap made while an
+earlier flush was in the air disappeared with no error, no pending chip, the row back to "Not signed
+in", and sign-out not blocked because the unsent count was zero. A child in the room, on nobody's roll
+and out of the ratio, produced by the mechanism built to prevent exactly that. Mobile never had it: it
+deletes by `client_uuid` instead of rewriting the queue. Now merged at commit time, which holds across
+tabs too — where a reentrancy guard cannot help, because localStorage is shared.
+
+**And the corrections feature, in production, was 12-13 hours out.** `correct()` called
+`new Date(datetimeLocalString)` inside a `'use server'` action, and an offset-less string parses in the
+runtime's zone — UTC on the server. So every correction attempted during the New Zealand working day was
+refused by `attendance_not_future`, and the ones entered late enough to clear that window were stored at
+the wrong instant and put a child who had gone home back onto the roll. Invisible because a dev machine
+and CI on Pacific/Auckland parse the same string correctly; the bug exists only where `TZ=UTC`. The
+comment above it was wrong twice over — it described a `time` input and the browser's clock, and the
+field is `datetime-local` and the code runs on the server.
+
+**Six were in the careers feature committed the previous day**, and they are listed on [[recruitment]]
+rather than here. The two worth carrying: the honeypot returned a different sentence from a real
+success, so it announced itself; and "either centre" was two uncompensated inserts, so a partial failure
+told the applicant nothing was saved while their application sat in the database.
+
+Also fixed: deleting a staff account was impossible once they had moved an application, because a
+symmetric CHECK met `on delete set null` (`0026`); publishing or archiving a colleague's post was
+refused by the policy while the UI offered it to every staff member (`0028`); a permanently-refused
+sign-in was discarded with no message, because `describeSignOut`'s warning branch was unreachable; web
+sign-out used the default global scope and killed the person's phone session, which this wiki has said
+not to do since the mobile work; `createAnonClient` started a 30-second refresh ticker per password
+change, with defaults right for a browser it has no callers in; the two-press delete existed only after
+hydration; and the applications screen promised managers they could log an emailed application, which
+nothing in the repo can do.
+
+
+**Seventeenth, reported from a phone while the rest was being fixed: "Sign in to the centre app" led
+to the site's own 404.** `SITE_APP_URL` had been set on the Railway service to the **description
+column** out of the variable table in `docs/deploy-railway.md` — the literal words
+*where "Sign in to the centre app" points*. `appUrl()` returned it verbatim, so the footer rendered
+`<a href="where &quot;Sign in to the centre app&quot; points">`, which has no scheme and is therefore
+a **relative** URL. The browser resolved it against the site's own host, and the site's own 404 page
+is convincing enough that it looked like a routing bug rather than a configuration one.
+
+Three things changed, because only one of them is about the variable. `apps/site/src/lib/site.ts`
+validates both URL variables and falls back rather than emitting a broken `href` — recovering a
+scheme-less host, which is the honest mistake, and refusing prose, `javascript:` and a bare word.
+`/api/health` now reports `setButNotAUrl`, so a wrong value is visible without reading the HTML. And
+the doc table changed: it had a copy-pasteable value and a prose description in adjacent columns, and
+somebody copied the wrong one — the values are now literal and the prose is underneath.
+
+`apps/site` also had **no test runner at all**, which is how a function feeding an `href` came to have
+no validation. It has one now, and eight tests. One of them immediately earned its place: the first
+version of the guard reported trouble by comparing its result to the fallback, and a scheme-less host
+recovers to exactly the fallback — so "recovered" and "gave up" were indistinguishable and a working
+configuration was reported as broken. Comparing to a fallback is not a way to ask whether something
+worked.
+
+RLS assertions 197 -> 203. End-to-end 55 -> 56. `drill:restore` re-run for three migrations: 35 tables,
+4/4.
+
 2026-08-06 — **Career applications are handled in the product**, and with them the first public
 write path this schema has ever had. New page [[recruitment]]; migration `0024_recruitment.sql`.
 

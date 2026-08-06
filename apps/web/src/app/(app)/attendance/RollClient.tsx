@@ -51,6 +51,7 @@ export function RollClient({
   healthPairs,
   adultsPresent,
   timeZone,
+  userId,
 }: {
   /** Not `children`: that name is React's slot prop and this component takes no slot. */
   childList: Child[];
@@ -58,6 +59,12 @@ export function RollClient({
   /** A Map cannot cross the server/client boundary, so it arrives as pairs. */
   healthPairs: [string, HealthCondition[]][];
   adultsPresent: number;
+  /**
+   * Whose queue this is. Every outbox read and write is scoped to it, so a tap made by one
+   * educator cannot be flushed under the next person's token and recorded as theirs — see the
+   * note on `OutboxEntry.userId`.
+   */
+  userId: string;
   timeZone: string;
 }) {
   const router = useRouter();
@@ -68,7 +75,7 @@ export function RollClient({
   // Read on mount rather than during render: localStorage does not exist on the server, and
   // reading it in render would make the first client paint disagree with the server's HTML.
   useEffect(() => {
-    const sync = () => setQueue(pending());
+    const sync = () => setQueue(pending(userId));
     sync();
     window.addEventListener(OUTBOX_EVENT, sync);
     // `storage` fires for *other* tabs. Two tablets in one room are two devices, but two tabs
@@ -78,20 +85,22 @@ export function RollClient({
       window.removeEventListener(OUTBOX_EVENT, sync);
       window.removeEventListener('storage', sync);
     };
-  }, []);
+    // `userId` is in the deps because every read is scoped to it — a closure holding a stale id
+    // would show one educator another's queue.
+  }, [userId]);
 
   const send = useCallback(async () => {
     setSyncing(true);
     try {
-      const result = await flush(browserDb());
-      setQueue(pending());
+      const result = await flush(browserDb(), userId);
+      setQueue(pending(userId));
       // Only when something actually landed. A refresh on every failed attempt would
       // re-render the roll from the server on a loop while the wifi is down.
       if (result.sent > 0) router.refresh();
     } finally {
       setSyncing(false);
     }
-  }, [router]);
+  }, [router, userId]);
 
   useEffect(() => {
     setOnline(navigator.onLine);
@@ -114,11 +123,11 @@ export function RollClient({
     (childId: string, present: boolean) => {
       // Local first, always. The row shows its chip in this same tick, which is why the
       // outbox is synchronous.
-      enqueue({ childId, kind: present ? 'out' : 'in' });
-      setQueue(pending());
+      enqueue({ childId, kind: present ? 'out' : 'in', userId });
+      setQueue(pending(userId));
       void send();
     },
-    [send],
+    [send, userId],
   );
 
   const health = new Map(healthPairs);

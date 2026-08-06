@@ -139,6 +139,19 @@ is what their old page did in different words. Nothing in the platform models a 
 **To close it:** ask the centre whether they want to advertise specific roles, or would rather keep
 receiving open applications. If it is the former, that is a table this schema does not have.
 
+### 14. An emailed application cannot be logged in the platform
+
+Added 2026-08-07, found by tracing the screen against the code rather than by using it.
+
+Gap 12 says CVs arrive by email. The staff screen's empty state originally went further and told
+managers that an emailed application "can be added to this list" — which the product cannot do.
+`recordApplication` exists in `@ece/api` with `source` values for `email`, `walk_in` and `referral`,
+and nothing calls it: there is no form. The copy now says so plainly instead.
+
+**To close it:** a small "log an application we received another way" form on `/applications`. The
+query function and the schema are already there, so this is a form and a server action, not a
+feature. It is worth doing at the same time as gap 12, because both exist for the same reason.
+
 ## Resolved by rebuilding
 
 - **No `<meta name="viewport">` and no responsive layout.** Fixed: the site is fluid and asserted

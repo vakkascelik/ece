@@ -74,7 +74,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
             there is unsent work. The server action is passed down and called only once the
             queue allows it. See SignOutControl.
           */}
-          <SignOutControl signOut={signOut} />
+          <SignOutControl signOut={signOut} userId={ctx.userId} />
         </div>
       </SideRail>
 

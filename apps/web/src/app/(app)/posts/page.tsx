@@ -87,6 +87,15 @@ export default async function PostsPage() {
               url: signed.get(m.id) ?? null,
             }))}
             canManage={isStaff}
+            /* Its author, or somebody accountable for what the centre publishes. Mirrors
+               `posts_write_update` after 0028 — the policy is the boundary, this only decides
+               whether the button is drawn. */
+            canSteward={
+              isStaff &&
+              (post.authorId === null ||
+                post.authorId === ctx.userId ||
+                can(ctx.role, 'manageCentre'))
+            }
             childOptions={children.map((c) => ({ id: c.id, name: displayName(c) }))}
           />
         ))

@@ -6,7 +6,7 @@ centre's manager acts on. Migration `0024_recruitment.sql`.
 The recruitment part is ordinary. The part worth reading is that this is **the only place where
 somebody holding nothing but the anon key can write to this database**, and until 0024 the honest
 one-line summary of `anon` was "reaches nothing at all". That sentence is now false, so what it can
-do instead is written down here and pinned by twenty-two assertions in `rls_isolation.sql`.
+do instead is written down here and pinned by assertions in `rls_isolation.sql`.
 
 ## Why it exists
 
@@ -60,18 +60,33 @@ application at the wrong one of this centre's own two sites.
 **A repeat submission while an application is open is a quiet no-op, not an error.** Raising "you
 have already applied" would answer the question *has this address applied to this centre* for anybody
 who asked. That is the same oracle the password-recovery flow exists to avoid, and the honest-looking
-error is the leak. Scoped to open statuses, so somebody declined last year can apply again — which is
-asserted, because a unique index would have been the obvious implementation and would be wrong.
+error is the leak.
+
+*Corrected 2026-08-07:* this used to end "a unique index would have been the obvious implementation
+and would be wrong". Half right. A unique index on `(centre_id, lower(email))` outright would indeed be
+wrong, because somebody declined last year is entitled to apply again — but a **partial** one, scoped
+to the open statuses, says exactly what is meant and is what makes the check atomic rather than
+advisory. `0027` adds it. The `if exists` check stays, because it is what keeps a repeat submission
+*silent*: the index alone would raise a 23505 that tells the caller what the index knows.
 
 **The flood guard is in SQL, not in the website process.** An in-process limiter does not survive a
 restart and does not see a second instance. Ten submissions a minute at one small centre is
 automation, not a busy afternoon. The threshold is deliberately loose: a real applicant refused
 because a stranger was running a script has been failed by this.
 
-There is **no minimum-time-to-submit check**, and that is a decision rather than an omission. It
-needs a timestamp rendered into the form, and the careers page is statically generated — every
-visitor would receive the build time, so the interval would always be days and the check would pass
-everything. A timestamp set by client JavaScript is both forgeable and breaks the form without JS.
+There is **no minimum-time-to-submit check**, and the reason changed on 2026-08-07 — which is worth
+recording, because the original reason was good and is now gone.
+
+It used to be impossible: the check needs a timestamp rendered into the form, the careers page was
+statically generated, so every visitor received the build time and the interval would always be days.
+The CSP fix made every route on the site render per request, so a real per-visitor timestamp is now
+available and that argument no longer applies.
+
+It is still not built, for a weaker reason honestly stated: an unsigned timestamp in a hidden field is
+forgeable by anything sophisticated enough to be worth stopping, so it would need an HMAC and a secret
+to be worth anything — machinery for a filter that only catches bots which already fell for the
+honeypot. The limit that actually holds is the flood guard inside `submit_job_application`, which is in
+the database, so it survives a restart and sees every instance.
 
 ## What `anon` can and cannot do, as asserted
 
@@ -168,3 +183,65 @@ says — which is the smell itself. The migration was dropped and re-applied rat
 0025 rename, after confirming the table held no rows and nothing depended on it.
 
 The counts in [[security-review]] and the README moved from 17 `SECURITY DEFINER` functions to 18.
+
+
+## Six defects in this feature, found the day after it shipped
+
+Every gate passed when this was committed, and a flow trace found six things wrong with it. Recorded
+here rather than quietly patched, because five of the six are the same shape: **a comment describing a
+protection the code did not have.**
+
+**The function validated three fields and the table constrained six.** `submit_job_application`
+checked the name is present, the email has an `@`, and the message is under 4000 characters. The table
+also caps the name at 200, the email at 320, the phone at 40 and the position at 120 — and the
+function checked none of those, so a direct call with a 500-character phone number got a raw
+`job_applications_phone_len` violation. The table held, which is the important half. But the function
+advertises itself as the layer that turns a constraint into a sentence, and for three of six fields it
+produced the constraint. The only caller who hits it is one not using the form — which is exactly the
+caller it exists to be safe against. Fixed in `0027`.
+
+**The duplicate check was advisory, not atomic.** `if exists (...) then return; end if;` followed by an
+insert is two statements: a double-tapped submit on a slow connection runs both checks before either
+inserts, and both insert. The comment said the quiet return exists so "a double-clicked submit button
+must not create two rows for one person", and nothing enforced it. `0027` adds a **partial** unique
+index on `(centre_id, lower(email))` where the status is open — partial because somebody declined last
+year is entitled to apply again, so uniqueness outright would be wrong. The `if exists` check stays: it
+is what makes a repeat submission *silent*, where the index alone would raise a 23505 the caller could
+read. Verified with ten concurrent submissions for one mailbox: one row, no errors.
+
+**The honeypot announced itself.** The trap returned "Thank you — we have your application and will be
+in touch." while a real submission named the centre. Anything comparing two responses could read
+straight off the wording which field not to fill in. One success sentence now, for everybody; naming
+the centre back was worth something and not this much.
+
+**"Either centre" was two transactions with no compensation.** The loop was wrapped in one try/catch,
+so if the first centre succeeded and the second threw, the applicant was told "we could not save that,
+please email us" while their application was **already in the database**. They then email as
+instructed, and staff hold one record and one email for the same person with no way to know they are
+the same event. There is no rollback to write either — a submitted application must not be withdrawn
+because a second insert failed. So the outcomes are collected per centre and the truth is reported.
+
+**The two-press delete did not exist until hydration.** The guard lived entirely in a React `onSubmit`,
+so with JavaScript off the first press deleted somebody's application outright. The armed state is now
+a form field the server checks, so the same two presses happen either way — which is the standard this
+app holds itself to elsewhere.
+
+**A note-only save re-attributed the decision.** `changeStatus` stamped `status_changed_by` and
+`status_changed_at` on every call, and the stage select posts its unchanged value alongside the note. So
+Alice declines an applicant on the 1st, Bob fixes a typo on the 5th, and the row says Bob declined them
+on the 5th — with the old values unrecoverable, because the audit trigger keeps column names and no
+payload. Exactly the question `0024`'s constraint was written to keep answerable. The actor is now
+passed only when the stage actually moved, and **"Last moved" is displayed on the row**: these columns
+were written and rendered nowhere, which is how they came to be wrong without anybody noticing.
+
+### And one place the constraint itself was wrong
+
+`job_applications_status_change_complete` required `status_changed_at` and `status_changed_by` to be
+both null or both set. `status_changed_by` is `on delete set null` against `auth.users` — the
+referential action is an UPDATE, CHECK constraints are enforced on it, so **deleting a staff account
+failed** with a 23514 naming a recruitment constraint, which is the last place anybody offboarding
+somebody would look. Measured against the live database.
+
+It was also wrong about the domain. `(at set, by null)` is not half a record; it is the honest
+description of a move made by somebody whose account has since been removed. The useless state is the
+reverse. `0026` makes the invariant one-directional: if we know who, we know when.

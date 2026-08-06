@@ -35,9 +35,20 @@ export async function changeStatus(_prev: ActionResult, form: FormData): Promise
   if (!target) return { error: 'That application is not at this centre.' };
 
   const db = await serverDb();
-  // `actorId` rather than letting the query layer read a session it does not own — @ece/api takes
-  // a `Db` and nothing else, which is what lets the same functions serve a script.
-  await setApplicationStatus(db, applicationId, { status, note, actorId: ctx.userId });
+  /*
+   * The stage and the note share one Save button, so most saves change only the note — and the
+   * select posts its unchanged `defaultValue` alongside it. Stamping the actor unconditionally
+   * therefore re-attributed the decision to whoever last fixed a typo.
+   *
+   * `target.status` is the stored value, already fetched by the ownership check above. Passing
+   * null leaves `status_changed_by`/`_at` untouched. Same shape as `members/actions.ts`, which
+   * branches on `target.role` for the same reason.
+   */
+  await setApplicationStatus(db, applicationId, {
+    status,
+    note,
+    movedBy: status === target.status ? null : ctx.userId,
+  });
   revalidatePath('/applications');
   return { ok: true };
 }
@@ -51,10 +62,19 @@ export async function changeStatus(_prev: ActionResult, form: FormData): Promise
  * happened and keeps no copy of the row, which is asserted in `rls_isolation.sql` — so "we removed
  * your application" is a true sentence rather than a comforting one.
  *
- * The confirmation is in the button, not here: `ApplicationRow` makes Delete a two-press control
- * rather than opening a dialogue. A `window.confirm` cannot guard a server action at all, and this
- * app has no modal component — a second press is honest about being a real deletion without
- * inventing one.
+ * THE CONFIRMATION IS ENFORCED HERE, not only in the button.
+ *
+ * `ApplicationRow` makes Delete a two-press control, and the first version did that entirely in a
+ * React `onSubmit` — so the guard did not exist until the page had hydrated. With JavaScript off, or
+ * in the window before the bundle runs, the first press deleted somebody's application outright. A
+ * progressively-enhanced form is exactly the case this app is built for: the roll works without JS
+ * on purpose.
+ *
+ * So the armed state is a form field, and this action refuses unless it is set. The client still
+ * flips it without a round trip when hydrated; without JS the first press posts `armed=""`, gets
+ * refused, and the server re-renders the armed button. Same two presses either way.
+ *
+ * A `window.confirm` was never an option — it cannot guard a server action at all.
  */
 export async function remove(_prev: ActionResult, form: FormData): Promise<ActionResult> {
   const ctx = await requireCapability('manageRecruitment');
@@ -62,6 +82,11 @@ export async function remove(_prev: ActionResult, form: FormData): Promise<Actio
 
   const target = await ownApplication(ctx.centre.id, applicationId);
   if (!target) return { error: 'That application is not at this centre.' };
+
+  if (String(form.get('armed') ?? '') !== 'yes') {
+    // Not an error the person did anything wrong — the message is what the button will say next.
+    return { error: `Press delete again to remove ${target.applicantName} permanently.` };
+  }
 
   const db = await serverDb();
   await deleteApplication(db, applicationId);

@@ -107,28 +107,40 @@ export async function listApplications(
 }
 
 /**
- * Move an application to a new stage.
+ * Save an application's stage and note.
  *
- * `status_changed_by` and `status_changed_at` are written together because
- * `job_applications_status_change_complete` refuses half of a record. `actorId` is passed in
- * rather than read from the client's session here, because this layer takes a `Db` and does
- * not own the session — the app's server action supplies it.
+ * `movedBy` IS THE WHOLE INTERFACE, and null is a meaningful value rather than an absence.
+ *
+ * The first version of this stamped `status_changed_by` and `status_changed_at` on every call,
+ * which meant editing a note re-attributed the decision: Alice declines an applicant on the 1st,
+ * Bob fixes a typo in the note on the 5th, and the row now says Bob declined them on the 5th. The
+ * old values are unrecoverable from the product — `audit_trigger` records the changed column
+ * *names* and no payload — which is precisely the question 0024's constraint exists to keep
+ * answerable.
+ *
+ * So the caller passes the actor only when the stage actually moved, and null when it did not; on
+ * null the two columns are left out of the patch entirely rather than written as null, which would
+ * erase an earlier move and violate `job_applications_status_change_complete` besides. The caller
+ * decides because this layer takes a `Db` and does not own the session or the previous row.
  */
 export async function setApplicationStatus(
   db: Db,
   applicationId: string,
-  input: { status: ApplicationStatus; note?: string | null; actorId: string },
+  input: { status: ApplicationStatus; note?: string | null; movedBy: string | null },
 ): Promise<void> {
-  const { error } = await db
-    .from('job_applications')
-    .update({
-      status: input.status,
-      // An empty textarea means "no note", not an empty note.
-      status_note: input.note?.trim() ? input.note.trim() : null,
-      status_changed_by: input.actorId,
-      status_changed_at: new Date().toISOString(),
-    })
-    .eq('id', applicationId);
+  const patch: Record<string, unknown> = {
+    status: input.status,
+    // An empty textarea means "no note", not an empty note.
+    status_note: input.note?.trim() ? input.note.trim() : null,
+  };
+
+  if (input.movedBy !== null) {
+    // Both together: the constraint refuses half a record of who moved something.
+    patch.status_changed_by = input.movedBy;
+    patch.status_changed_at = new Date().toISOString();
+  }
+
+  const { error } = await db.from('job_applications').update(patch).eq('id', applicationId);
   if (error) throw new Error(`setApplicationStatus: ${error.message}`);
 }
 

@@ -111,3 +111,35 @@ cascades from the children.
 - [[tenancy-and-rls]]
 
 *Last updated: 2026-08-04*
+
+
+> ### CORRECTED 2026-08-07: two of three readers ignored `corrects`
+>
+> `attendance_events` is append-only and a correction is a new row pointing at the one it supersedes,
+> so every reader has to resolve that chain. Three readers existed and **one did**.
+>
+> `readFundingPeriod` selected `corrects` and called `resolveCorrections`. The other two did not:
+>
+> - **`readDayRatio` / `replayDay`** — `ReplayAttendanceEvent` was `{ childId, kind, at }`, with no
+>   notion of a superseded row, and the query did not even select `corrects`. An educator signs a
+>   child out at 15:00 by mistake, a manager records the correction the product asks for, and the
+>   replay applied **both**: deleting the child from the present set at 15:00, then deleting an
+>   already-absent id at 16:30. Every breach in that hour disappeared from `/compliance/binder` — the
+>   one artefact here that is handed to a reviewer — and it disappeared in the flattering direction.
+>   The more diligently a centre corrected its record, the more of its own breaches vanished.
+> - **`attendance_today`** — the live roll. `distinct on (child_id) ... order by at desc` with no
+>   notion of a superseded row, and the mechanism is counter-intuitive: **a correction usually carries
+>   an EARLIER time than the row it replaces**, because it carries the time the event should have had.
+>   So `order by at desc` preferred the superseded row, and the correction was ignored in exactly the
+>   common case — somebody noticing at 15:00 that a child was never signed in that morning. The child
+>   stayed off the roll and out of the ratio while standing in the room. `event_id` was also the
+>   superseded one, so a second correction attached to an already-corrected event and the chain became
+>   two siblings.
+>
+> Fixed in `0026` (the view, with a partial index on `corrects`) and in `packages/core` — where
+> `resolveCorrections` is now generic over `{ id, corrects }` so the replay calls the same function
+> rather than a second copy of the rule. Six tests plus two RLS assertions, all mutation-tested.
+>
+> The lesson is not "add `corrects` to that query". It is that an append-only table with a supersede
+> pointer has an invariant every reader must honour, and nothing was enforcing it — so the count of
+> readers that got it right was a coincidence.

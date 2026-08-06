@@ -23,11 +23,26 @@
 
 import { isUnderTwo } from './children';
 import { assessRatio, type RatioAssessment, type RatioTable } from './ratios';
+import { resolveCorrections } from './hours';
 
 export interface ReplayAttendanceEvent {
+  /**
+   * `id` and `corrects` are not decoration.
+   *
+   * This interface used to be `{ childId, kind, at }`, and the replay therefore could not tell a
+   * superseded event from a live one. An educator signs a child out at 15:00 by mistake, a manager
+   * records the correction the product asks them to record, and the replay applied BOTH — deleting
+   * the child from the present set at 15:00 and then deleting an already-absent id at 16:30. Every
+   * breach in that hour disappeared from `/compliance/binder`, which is the one artefact here that
+   * is handed to a reviewer. The failure direction was "reports itself as compliant", and the more
+   * diligently a centre corrected its record the more of its own breaches vanished.
+   */
+  id: number;
   childId: string;
   kind: 'in' | 'out';
   at: string;
+  /** The id of an event this one supersedes. Null for an original. */
+  corrects: number | null;
 }
 
 export interface ReplayAdultEvent {
@@ -88,8 +103,15 @@ export function replayDay(input: {
     | { at: string; cause: 'sign-in' | 'sign-out'; childId: string; kind: 'in' | 'out' }
     | { at: string; cause: 'adult-count'; adults: number };
 
+  /*
+   * Superseded events are dropped before anything is replayed, using the same function the funding
+   * reader uses. A corrected sign-out must not still be applied — see the note on
+   * `ReplayAttendanceEvent.id`.
+   */
+  const live = resolveCorrections(input.attendance);
+
   const steps: Step[] = [
-    ...input.attendance.map(
+    ...live.map(
       (e): Step => ({
         at: e.at,
         cause: e.kind === 'in' ? 'sign-in' : 'sign-out',

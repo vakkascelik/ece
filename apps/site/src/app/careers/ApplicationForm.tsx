@@ -8,9 +8,12 @@ import { apply, type ApplyResult } from './actions';
 /**
  * The application form.
  *
- * A client component only because it reports a result. `useActionState` needs the boundary; the
- * rest of the page stays a server component and the route stays statically generated — the action
- * is a POST endpoint, not a reason to render this page per request.
+ * A client component only because it reports a result. `useActionState` needs the boundary; the rest
+ * of the page stays a server component.
+ *
+ * It used to say the route "stays statically generated". It does not, and not because of this
+ * component: a statically prerendered page cannot carry the per-request CSP nonce, so every script on
+ * it was blocked in production. The root layout is now `force-dynamic`. See the note there.
  *
  * WHAT THIS DELIBERATELY DOES NOT ASK
  *

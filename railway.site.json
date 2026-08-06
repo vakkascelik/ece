@@ -20,8 +20,11 @@
     "WHY A SEPARATE SERVICE RATHER THAN ONE CONTAINER SERVING BOTH",
     "",
     "One Next process cannot serve two apps, but the real reason is the boundary. This container",
-    "holds NO service-role key and no Supabase credential of any kind — apps/site has no",
-    "@supabase/* dependency at all. Nixpacks bakes every Railway variable into the image as",
+    "holds NO service-role key. CORRECTED 2026-08-07: it used to say 'no Supabase credential of",
+    "any kind — apps/site has no @supabase/* dependency at all', which stopped being true when",
+    "the careers form was built. It holds the ANON key, whose whole capability is one",
+    "void-returning definer function; anon has no table grant anywhere and review:security fails",
+    "the build at high severity if that changes. Nixpacks bakes every Railway variable into the image as",
     "ARG/ENV, so image access is variable access; keeping the public-facing, unauthenticated",
     "surface in an image with no database credentials in it is the whole point.",
     "",
@@ -47,7 +50,9 @@
       "",
       "It is a named script in the root package.json rather than an inline command here, so it is",
       "runnable locally, reviewable in a diff, and cannot quietly diverge from something CI could",
-      "also run. `apps/site` depends on @ece/core only — no @ece/api, no @supabase/*."
+      "also run. `apps/site` depends on @ece/core, @supabase/supabase-js, and ONE module of",
+      "@ece/api (recruitment.ts, whose only imports are types) — never @ece/api's index, so the",
+      "public container cannot construct a service-role client."
     ],
     "buildCommand": "npm run build:site"
   },

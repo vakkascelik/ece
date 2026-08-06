@@ -5,6 +5,37 @@ import { appUrl, siteOrigin } from '@/lib/site';
 import { NavLink } from './NavLink';
 import './globals.css';
 
+/*
+ * EVERY ROUTE ON THIS SITE IS DYNAMIC, AND IT IS A SECURITY FIX.
+ *
+ * Set on the root layout so it covers all ten routes at once, because the failure it fixes was
+ * total rather than per-page.
+ *
+ * These pages were statically prerendered, and a prerendered page CANNOT carry a nonce: the
+ * nonce is minted per request in `middleware.ts` and read back by the renderer, so with no
+ * render there is nothing to stamp it onto. Measured from the build output, not inferred —
+ * `careers.html` had 16 script tags and zero `nonce=` attributes.
+ *
+ * And it failed closed rather than open. `script-src` is `'self' 'nonce-...' 'strict-dynamic'`,
+ * and CSP Level 3 requires a browser seeing `'strict-dynamic'` to **ignore** `'self'`. So every
+ * script on every page was refused in production: the client router never started, so each
+ * navigation was a full page load, and anyone who opened devtools on this childcare service's
+ * own marketing site saw a wall of security errors. The careers form still delivered, because
+ * React's progressive-enhancement markup survives in static HTML — which is exactly why nothing
+ * caught it.
+ *
+ * WHY NOT KEEP STATIC AND WEAKEN THE POLICY instead — drop the nonce, allow `'unsafe-inline'`,
+ * which is what most static Next sites do? Because the cost of dynamic rendering here is close
+ * to zero and the benefit of the policy is not. There is no CDN in front of this: Railway serves
+ * from the container, so "static" was only ever saving a React render of a page with no data
+ * fetching, on a site with tiny traffic. It also keeps ONE CSP shape across this app and
+ * `apps/web` rather than two that drift.
+ *
+ * `robots.ts` and `sitemap.ts` sit outside this layout and stay static. They contain no scripts,
+ * so the nonce is irrelevant to them.
+ */
+export const dynamic = 'force-dynamic';
+
 /**
  * THE VIEWPORT TAG IS THE SINGLE MOST IMPORTANT LINE IN THIS APP.
  *

@@ -11,6 +11,20 @@ export interface ApplyResult {
 }
 
 /**
+ * ONE success sentence, and that is the point rather than tidiness.
+ *
+ * The honeypot returned "Thank you — we have your application and will be in touch." while a real
+ * submission returned "…has gone to both centres…" or "…has gone to Ōwairaka / Mt Albert…". So the
+ * trap announced itself: anything comparing two responses could read straight off the wording which
+ * field was the one not to fill in, which is the whole value of a honeypot gone.
+ *
+ * Naming the centre back to the applicant was worth something and not this much. It is dropped for
+ * everybody rather than kept for the humans, because keeping it for the humans is exactly what
+ * distinguishes them.
+ */
+const ACCEPTED = 'Thank you — we have your application and will be in touch.';
+
+/**
  * Receive an application from the public careers form.
  *
  * WHAT REACHES POSTGRES, AND WHAT DOES NOT
@@ -32,16 +46,20 @@ export async function apply(_previous: ApplyResult | null, form: FormData): Prom
    * page. Returning the same confirmation a real applicant gets means a bot has no signal to
    * adapt to — telling it "rejected as spam" is free feedback for whoever wrote it.
    *
-   * WHAT IS NOT HERE, and this is worth stating rather than implying: there is no
-   * minimum-time-to-submit check. It would need a timestamp rendered into the form, and this
-   * page is statically generated — every visitor would receive the build time, so the elapsed
-   * interval would always be days and the check would pass everything. A timestamp set by
-   * client JavaScript instead is both forgeable and would break the form for anybody without
-   * JS. The real limit on volume is the flood guard inside `submit_job_application`, which is
-   * in the database, so it survives a restart and sees every instance.
+   * WHAT IS NOT HERE, and the reason changed: there is no minimum-time-to-submit check. It used to
+   * be impossible — the check needs a timestamp rendered into the form, this page was statically
+   * generated, and every visitor would have received the build time. The CSP fix made every route on
+   * this site render per request, so a real per-visitor timestamp is now available and that argument
+   * is gone.
+   *
+   * Still not built, for a weaker reason stated rather than dressed up: an unsigned timestamp in a
+   * hidden field is forgeable by anything sophisticated enough to be worth stopping, so it would need
+   * an HMAC and a secret to mean anything. The limit that actually holds is the flood guard inside
+   * `submit_job_application`, which is in the database, so it survives a restart and sees every
+   * instance.
    */
   if ((form.get('website') as string | null)?.trim()) {
-    return { ok: true, message: 'Thank you — we have your application and will be in touch.' };
+    return { ok: true, message: ACCEPTED };
   }
 
   const applicantName = String(form.get('applicantName') ?? '');
@@ -84,9 +102,26 @@ export async function apply(_previous: ApplyResult | null, form: FormData): Prom
   const holdsPractisingCertificate =
     certificate === 'yes' ? true : certificate === 'no' ? false : null;
 
-  try {
-    const db = anonDb();
-    for (const centre of centres) {
+  /*
+   * "Either centre" is two independent inserts, and there is no transaction across them.
+   *
+   * The first version wrapped the loop in one try/catch, so if the first centre succeeded and the
+   * second threw, the applicant was told "we could not save that — please email us" while their
+   * application was **already in the database** for one of the two centres. They then email as
+   * instructed, and staff hold one record and one email for the same person with no way to know
+   * they are the same event.
+   *
+   * There is no compensation to write, either: a submitted application must not be rolled back
+   * because a second insert failed, and `anon` has no DELETE on the table anyway. So the outcomes
+   * are collected and the truth is reported. Any success means the centre has the application, and
+   * that is what the applicant is told.
+   */
+  const db = anonDb();
+  const failures: unknown[] = [];
+  let landed = 0;
+
+  for (const centre of centres) {
+    try {
       await submitApplication(db, {
         centreSlug: centre.platformSlug,
         applicantName,
@@ -97,16 +132,21 @@ export async function apply(_previous: ApplyResult | null, form: FormData): Prom
         availableFrom,
         message,
       });
+      landed += 1;
+    } catch (error) {
+      failures.push(error);
+      // Named, because a half-delivered application is the case somebody has to reconcile by hand.
+      console.error(`careers application failed for ${centre.platformSlug}`, error);
     }
-  } catch (error) {
-    /*
-     * The applicant gets a way through, and the server keeps the detail.
-     *
-     * A form that says "something went wrong" and nothing else, on a page whose whole purpose is
-     * to receive an application, loses the application. The careers mailbox is the fallback that
-     * already worked before this form existed.
-     */
-    console.error('careers application failed', error);
+  }
+
+  /*
+   * Nothing landed. The applicant gets a way through and the server keeps the detail — a form that
+   * says "something went wrong" and nothing else, on a page whose whole purpose is to receive an
+   * application, loses the application. The careers mailbox is the fallback that already worked
+   * before this form existed.
+   */
+  if (landed === 0) {
     return {
       ok: false,
       message:
@@ -115,11 +155,19 @@ export async function apply(_previous: ApplyResult | null, form: FormData): Prom
     };
   }
 
-  return {
-    ok: true,
-    message:
-      centres.length > 1
-        ? 'Thank you — your application has gone to both centres and we will be in touch.'
-        : `Thank you — your application has gone to ${centres[0].name} and we will be in touch.`,
-  };
+  if (failures.length > 0) {
+    /*
+     * One of two centres took it. Told plainly, and with the mailbox for the other, because "we
+     * have your application" would be true and would also leave them thinking both sites had seen
+     * it. The one that did have it is not named — see ACCEPTED — so this says "one of our centres".
+     */
+    return {
+      ok: true,
+      message:
+        `${ACCEPTED} One of our centres could not be reached just now, so if you wanted both, ` +
+        `please email ${CENTRE_FACTS.careersEmail} as well.`,
+    };
+  }
+
+  return { ok: true, message: ACCEPTED };
 }

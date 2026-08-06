@@ -76,6 +76,44 @@ export function dayWindow(date: string, timeZone: string): { fromUtc: string; to
   return { fromUtc: from.toISOString(), toUtc: to.toISOString() };
 }
 
+/**
+ * A wall-clock date and time in a named zone, as a UTC instant.
+ *
+ * WHY THIS EXISTS: `new Date('2026-08-06T08:05')` DOES NOT DO THIS.
+ *
+ * A datetime string with no offset is interpreted in the *parsing runtime's* zone. On a developer
+ * machine set to Pacific/Auckland that is accidentally correct; in production the server runs UTC,
+ * so a manager correcting a sign-in to 08:05 got `08:05Z` — 20:05 in New Zealand, eleven hours in
+ * the future. The insert then failed `attendance_not_future`, so the correction path was dead for
+ * the whole working day, and the corrections that did land after 9pm were stored at the wrong
+ * instant and flipped a child who had gone home back onto the roll.
+ *
+ * It is invisible to the suite because a dev machine and a CI runner on Pacific/Auckland parse the
+ * same string correctly. The bug only exists where TZ=UTC, which is only production.
+ *
+ * The same guess-and-correct as `startOfLocalDay`, and for the same reason: reading the offset at
+ * the naive instant can be an hour out on the two days a year the offset moves, so it is re-read at
+ * the candidate and corrected once.
+ *
+ * A time that does not exist — 02:30 on the morning New Zealand springs forward — resolves to the
+ * instant one offset either side rather than raising. Deliberate: refusing it would mean a manager
+ * cannot record a correction on that date at all, and being an hour out on a clock that skipped an
+ * hour is the smaller wrong.
+ */
+export function zonedWallClockToUtc(wallClock: string, timeZone: string): string {
+  const parsed = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?$/.exec(wallClock.trim());
+  if (!parsed) throw new Error(`Not a local date and time: ${wallClock}`);
+
+  const n = (i: number) => Number(parsed[i] ?? 0);
+  // The wall clock read as though it were UTC. Not the answer — the starting point.
+  const naive = Date.UTC(n(1), n(2) - 1, n(3), n(4), n(5), n(6));
+
+  const guess = offsetMinutes(timeZone, new Date(naive));
+  const first = new Date(naive - guess * 60_000);
+  const actual = offsetMinutes(timeZone, first);
+  return (actual === guess ? first : new Date(naive - actual * 60_000)).toISOString();
+}
+
 /** Today and the six days before it, oldest first. */
 export function lastSevenDays(today: string): string[] {
   const [y, m, d] = today.split('-').map(Number);

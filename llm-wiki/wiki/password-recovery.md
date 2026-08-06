@@ -44,6 +44,59 @@ childcare centre.
   on a throwaway anon client. A session is not proof of knowing the password — an unlocked
   laptop in a staff room is the ordinary case.
 - **Both flows revoke every other session** (`signOut({ scope: 'others' })`) after the change.
+
+> **CORRECTED 2026-08-07 — the current-password check was bypassable by typing a URL.**
+>
+> This page records rejecting `updateUser` without the current password on `/account`, because it
+> "converts walking past an unlocked screen into owning the account". `/reset-password` did exactly
+> that: it checked only that `auth.user` existed and called `updateUser({ password })`, which GoTrue
+> accepts on session authority alone. Anyone at an unlocked, signed-in browser could set a new
+> password without knowing the old one — and the `signOut({ scope: 'others' })` above then locked the
+> real holder out of every other device, with no email configured to tell them.
+>
+> The comment in the action described a protection it did not have: "what stands in for it is the
+> recovery link ... holding it proves holding the mailbox". Nothing checked that a link had been used.
+>
+> **The gate is a signed claim, not a cookie**, and that choice was measured rather than assumed. A
+> short-lived cookie set by `/auth/confirm` would stop a script and not the actual threat: `httpOnly`
+> stops JavaScript, not a person with devtools open on the machine they are already sitting at. So a
+> throwaway user was created and the two tokens compared:
+>
+> | session from | `amr` |
+> |---|---|
+> | password sign-in | `[{ method: 'password' }]` |
+> | recovery link | `[{ method: 'otp' }]` |
+>
+> and the two carry different `session_id`s, so a recovery link is a new session rather than a
+> relabelling of the one already in the browser. `/reset-password` now requires a session **not**
+> established with a password — an absence rather than a presence, so a mailbox-proving method GoTrue
+> adds later is allowed, while an MFA session (`[password, totp]`) is correctly refused: holding a
+> second factor is not knowing the current password. Enforced in the page and again in the action,
+> because the action is the thing that changes the password.
+
+### `/auth/confirm`'s same-origin check was defeated by one backslash
+
+Also 2026-08-07. The `next` parameter was sanitised with
+`next.startsWith('/') && !next.startsWith('//')`, which looks exhaustive:
+
+```js
+new URL('/\\evil.com', 'https://app.example.nz').href   // 'https://evil.com/'
+```
+
+A single leading slash passed the check — and the WHATWG parser treats a backslash as a slash for
+special schemes, so `/\` is `//` and everything after it is a host. Measured, not deduced.
+
+That is an open redirect on the domain a password-reset email points at, which is the ideal phishing
+primitive: the link really is the centre's own app, and the page it lands on is not. Cookies are
+same-origin so the session itself does not leak, but a convincing "your session has expired, sign in
+again" form does not need it.
+
+Fixed by stopping reasoning about the string and asking the parser instead: resolve the value against
+this origin and compare `.origin`, carrying forward only `pathname + search`. Robust against
+backslashes, encodings, leading whitespace, `javascript:` and the next trick nobody has thought of,
+because it is the same function the browser will use. In `lib/nextPath.ts` with tests, mutation-tested
+against the old check.
+
 - **One password rule, one place**: `apps/web/src/lib/password.ts`, shared by invitation
   acceptance, change and reset. Ten characters minimum, no composition rules.
 - **Whether reset emails actually deliver is unverified** — see [[unverified-claims]]. The

@@ -110,10 +110,33 @@ lines is worse than a slow query.
 disagree with itself; two would mean an invoice total and a credit total that a reader has to
 reconcile, which they will do wrongly.
 
-### Issued invoices freeze — which took two mechanisms, not one
+### Issued invoices freeze — which took three mechanisms, not two
 
-The write policy on `invoice_lines` requires `status = 'draft'`. Changing what a family was billed
-after they were billed it is not an edit — it is a different invoice. Voiding requires a reason and
+The write policy on `invoice_lines` requires `status = 'draft'` — on **every** verb, which took
+until `0025` to be true. See the correction below. Changing what a family was billed
+after they were billed it is not an edit — it is a different invoice. 
+**CORRECTED 2026-08-07, and this is the second time this exact claim has been wrong.** The page
+said "the write policy on `invoice_lines` requires `status = 'draft'`" and the enforcement had a
+hole in it for five phases: the policy was declared `FOR ALL` with the status condition in its
+**WITH CHECK only**, and PostgreSQL checks USING for DELETE, not WITH CHECK. So a line could be
+DELETED from an issued, paid or void invoice by any owner or manager of that centre with a JWT.
+
+Because a credit is a negative line by design, that moves the total in either direction: remove
+the "centre closed" credit and the family owes MORE than the invoice they hold, after issue, with
+no void-and-reissue and no reason recorded. `invoice_totals` is a view, so the app would show the
+new figure while the family's copy showed the old one — the outcome `0021` and the trigger were
+built to prevent, reached in one statement instead of three.
+
+`0022` is not to blame. It split fourteen `FOR ALL` policies into insert/update/delete by reading
+the expressions out of the catalogue and re-issuing them verbatim, precisely so a transcription
+error was impossible — and it preserved this asymmetry exactly as it found it. What it could not
+see is that `FOR ALL` was **already** asymmetric. The general hazard, now asserted in
+`rls_isolation.sql` for every table rather than reasoned about per table: *a narrowing condition
+placed only in WITH CHECK is not enforced on DELETE.* `0025` carries the fix, an assertion on the
+verb, an assertion on the class, and an allowlist for the two tables where the difference is
+legitimate.
+
+Voiding requires a reason and
 keeps the reference, because a deleted invoice takes its number with it and the next one reuses it,
 so two different amounts end up sharing one reference in a family's records.
 

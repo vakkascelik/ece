@@ -1,14 +1,24 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { CENTRES, CENTRE_FACTS, centreByPath } from '@/lib/centres';
+import { CENTRE_FACTS, centreByPath } from '@/lib/centres';
 
 /**
  * One centre.
  *
- * Statically generated — `generateStaticParams` means both pages are HTML at build time, with no
- * server work per visit. Nothing on this page comes from a database, so there is nothing to be
- * stale about.
+ * NO LONGER STATICALLY GENERATED, and `generateStaticParams` is gone with the reason.
+ *
+ * It used to say: "generateStaticParams means both pages are HTML at build time, with no server
+ * work per visit. Nothing on this page comes from a database, so there is nothing to be stale
+ * about." All true, and it broke the Content Security Policy — a prerendered page cannot carry
+ * the per-request nonce the policy names, and because the policy also carries `'strict-dynamic'`
+ * a browser must ignore `'self'`, so every script on the page was refused. The root layout is
+ * now `force-dynamic`; `generateStaticParams` overrode it for exactly these two routes, which is
+ * why they stayed `●` in the build output after everything else went dynamic. See the layout.
+ *
+ * The valid paths are still enumerated — `centreByPath` returns undefined and this calls
+ * `notFound()`, so an unknown centre is a 404 rather than a render. That was always the real
+ * guard; the param list was only a build hint.
  *
  * WHAT IS NOT HERE, AND WHY
  *
@@ -21,10 +31,6 @@ import { CENTRES, CENTRE_FACTS, centreByPath } from '@/lib/centres';
  * No map embed either — a link out to a maps search instead. An iframe is a third party on a page
  * aimed at parents of three-month-olds, and the CSP forbids frames for that reason.
  */
-export function generateStaticParams() {
-  return CENTRES.map((centre) => ({ centre: centre.path }));
-}
-
 export async function generateMetadata({
   params,
 }: {

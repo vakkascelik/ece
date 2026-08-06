@@ -203,3 +203,42 @@ policy text alone.
 - [[unverified-claims]] — items 13 and 14 came from here
 
 *Last updated: 2026-08-04*
+
+
+### The CSP was refusing every script on four routes, in production only
+
+Found 2026-08-07 by tracing flows rather than by any check. `script-src` is
+`'self' 'nonce-<per request>' 'strict-dynamic'`, and a **statically prerendered page cannot carry a
+nonce** — the nonce is minted per request in middleware and read back by the renderer, so with no
+render there is nothing to stamp it onto. Measured from the build output, not inferred: `login.html`
+had 16 script tags and zero `nonce=` attributes.
+
+And it failed closed with no fallback. CSP Level 3 requires a browser that sees `'strict-dynamic'` to
+**ignore** `'self'`, so every script on the page was blocked.
+
+Four routes were affected — `/login`, `/no-access` and `/_not-found` in the app, and **all ten routes
+of the public website**. Consequences in order of who they hurt: the site showed a wall of console
+security errors to anyone who opened devtools on a childcare service's own marketing page, while its
+client router was dead so every navigation was a full page load; and on `/login`, the `useEffect` that
+moves focus to the error message never ran, so the accessibility behaviour the design pack asked for
+was absent for exactly the person who needs it.
+
+**Why nothing caught it.** Sign-in survives as a full-page POST, because React leaves
+progressive-enhancement markup in static HTML — so every login in the e2e suite kept working. The
+suite's own `the page loads with no CSP violation` test visits `/attendance`, which is rendered per
+request and always received a nonce, so it could not fail. And `docs/deploy-railway.md` told whoever
+deployed it to check `/login` for exactly this, then reassured them the e2e suite already covered it.
+The one manual check that would have found it had been waved off in writing.
+
+**Fixed by making every route render per request**, set on both root layouts so a prerendered page
+cannot be added by accident. The alternative — keep static and weaken the policy to `'unsafe-inline'`,
+which is what most static Next deployments do — was refused for the app, which renders a named
+under-five's anaphylaxis plan, and refused for the site too because there is no CDN in front of it:
+Railway serves from the container, so "static" was only ever saving a React render of a page with no
+data fetching. Verified by serving both builds and confirming every script tag carries the CSP
+header's nonce, and a new e2e test visits `/login`, `/no-access` and a 404 without a session and
+asserts hydration actually happened.
+
+Note for anyone adding route config: `export const dynamic` is **not honoured in a client component**.
+Putting it in `login/page.tsx`, which starts with `'use client'`, left the route prerendered while
+looking fixed.

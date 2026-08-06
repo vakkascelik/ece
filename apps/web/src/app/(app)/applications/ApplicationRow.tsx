@@ -18,9 +18,12 @@ import { changeStatus, remove, type ActionResult } from './actions';
 export function ApplicationRow({
   application,
   received,
+  movedBy,
 }: {
   application: JobApplication;
   received: string;
+  /** "someone@centre.nz on 1/08/2026", or null if nobody has moved it yet. */
+  movedBy: string | null;
 }) {
   const {
     id,
@@ -38,7 +41,15 @@ export function ApplicationRow({
 
   const [statusState, statusAction, statusBusy] = useActionState(changeStatus, null as ActionResult);
   const [removeState, removeAction, removeBusy] = useActionState(remove, null as ActionResult);
-  const [armed, setArmed] = useState(false);
+  /*
+   * Armed either by the client (hydrated: no round trip) or by the server having just refused an
+   * unarmed delete (not hydrated: the refusal is what arms it). Both paths give the same two presses.
+   */
+  const [clientArmed, setClientArmed] = useState(false);
+  const serverAskedAgain =
+    removeState !== null && 'error' in removeState && /press delete again/i.test(removeState.error);
+  const armed = clientArmed || serverAskedAgain;
+  const setArmed = setClientArmed;
 
   const error =
     (statusState && 'error' in statusState ? statusState.error : null) ??
@@ -99,6 +110,17 @@ export function ApplicationRow({
             <dd style={{ whiteSpace: 'pre-wrap' }}>{message}</dd>
           </>
         )}
+        {movedBy && (
+          <>
+            {/* Named "Last moved" and not "Decided", because moving something to Reviewing is not
+                a decision — the same reason the columns are `status_changed_*` and not
+                `decided_*`. */}
+            <dt>Last moved</dt>
+            <dd>
+              to {APPLICATION_STATUS_LABELS[status].toLowerCase()} by {movedBy}
+            </dd>
+          </>
+        )}
       </dl>
 
       {error && <p className="error">{error}</p>}
@@ -154,6 +176,12 @@ export function ApplicationRow({
         }}
       >
         <input type="hidden" name="applicationId" value={id} />
+        {/*
+          The armed state travels with the request, so the server enforces the second press too.
+          Without this the guard lived only in the `onSubmit` above and therefore did not exist
+          until hydration — the first press deleted an application outright with JavaScript off.
+        */}
+        <input type="hidden" name="armed" value={armed ? 'yes' : ''} />
         <button
           className="danger"
           type="submit"

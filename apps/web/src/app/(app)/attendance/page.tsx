@@ -113,6 +113,7 @@ export default async function AttendancePage({
         healthPairs={[...healthByChild.entries()]}
         adultsPresent={adultsPresent}
         timeZone={ctx.centre.timezone}
+        userId={ctx.userId}
       />
     </>
   );

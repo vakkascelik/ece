@@ -903,6 +903,71 @@ select pg_temp.expect(
   'attendance_today shows the child as present'
 );
 
+/*
+ * 0026: a corrected event must not decide the roll — and the case that matters is the one where
+ * the correction moves the time BACKWARDS.
+ *
+ * A correction carries the time the event should have had, so fixing a sign-in that was recorded at
+ * 15:00 to its real 08:05 inserts a row with an EARLIER `at` than the row it supersedes. The view
+ * ordered by `at desc`, so it preferred the superseded row — meaning the correction was ignored in
+ * exactly the common case: somebody noticing in the afternoon that a child was never signed in.
+ *
+ * Written as the owner so the fixture is not the thing under test, then read back as the educator.
+ */
+set local role postgres;
+
+/*
+ * Times derived from the child's own latest event, not from midnight.
+ *
+ * A first attempt anchored these to `centre_day_start + N hours`, which made the assertion depend
+ * on what time of day the suite happened to run — in the first hours of an NZ day the fixture's own
+ * sign-in was still the latest event and the test failed for a reason that had nothing to do with
+ * corrections. Relative offsets make the ordering a property of the fixture instead of the clock.
+ *
+ * Required order: existing sign-in < the correction < the superseded row it replaces. That is the
+ * shape that catches the bug, because `order by at desc` prefers the superseded row.
+ */
+insert into public.attendance_events (id, child_id, kind, at, recorded_by, client_uuid)
+select 900001, 'a1111111-1111-4111-8111-111111111111', 'out',
+       max(ae.at) + interval '2 minutes',
+       '11111111-1111-4111-8111-111111111111', '00000000-0000-4000-8000-000000000901'
+  from public.attendance_events ae
+ where ae.child_id = 'a1111111-1111-4111-8111-111111111111';
+
+-- `attendance_correction_has_note` requires a reason on any row carrying `corrects`, which is why
+-- this one has one and the original does not.
+insert into public.attendance_events (id, child_id, kind, at, recorded_by, client_uuid, corrects, note)
+select 900002, 'a1111111-1111-4111-8111-111111111111', 'out',
+       (select at from public.attendance_events where id = 900001) - interval '1 minute',
+       '11111111-1111-4111-8111-111111111111', '00000000-0000-4000-8000-000000000902', 900001,
+       'Signed out at the wrong time; corrected to when they actually left.';
+
+select pg_temp.expect(
+  (select event_id from public.attendance_today
+    where child_id = 'a1111111-1111-4111-8111-111111111111') = 900002,
+  'attendance_today returns the CORRECTION, not the later event it supersedes'
+);
+
+/*
+ * And the id it hands back is the one a further correction should point at. Without this the next
+ * correction attaches to an already-superseded event, the chain becomes two siblings, and
+ * `resolveCorrections` then drops the original while leaving both corrections live.
+ */
+select pg_temp.expect(
+  not exists (
+    select 1 from public.attendance_today
+     where child_id = 'a1111111-1111-4111-8111-111111111111'
+       and event_id = 900001
+  ),
+  'and never hands back an event that something corrects'
+);
+
+-- Cleaned up so the assertions after this see the roll they expect.
+delete from public.attendance_events where id in (900001, 900002);
+
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+
 -- A guardian signs their own child in, because in New Zealand the attendance record
 -- underpinning a funding claim carries a parent's signature.
 set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
@@ -1974,6 +2039,25 @@ select pg_temp.expect(
   'a line can be added to a DRAFT invoice'
 );
 
+/*
+ * And removed from one, which is the positive half of the DELETE assertion below.
+ *
+ * Without this, 0025 could have been "revoke DELETE on invoice_lines" and the negative
+ * assertion would still pass — while making a draft invoice uneditable, which is the opposite
+ * of what draft means. A negative-only pair of assertions cannot tell those two apart.
+ */
+insert into public.invoice_lines (invoice_id, description, quantity, unit_cents)
+values ('55555555-5555-4555-8555-555555555555', 'Typed by mistake', 1, 100);
+
+delete from public.invoice_lines
+ where invoice_id = '55555555-5555-4555-8555-555555555555' and description = 'Typed by mistake';
+
+select pg_temp.expect(
+  (select count(*) from public.invoice_lines
+    where invoice_id = '55555555-5555-4555-8555-555555555555') = 1,
+  'a line CAN be removed while the invoice is still a DRAFT'
+);
+
 update public.invoices set status = 'issued', issued_at = now()
  where id = '55555555-5555-4555-8555-555555555555';
 
@@ -1993,6 +2077,32 @@ begin
     blocked := true;
   end;
   perform pg_temp.expect(blocked, 'a line CANNOT be changed once the invoice is ISSUED');
+end $$;
+
+/*
+ * 1b. DELETE, which is the verb this file did not cover and the one that was open.
+ *
+ * `invoice_lines_write` was declared FOR ALL with `status = 'draft'` in its WITH CHECK only —
+ * and PostgreSQL checks USING for DELETE, not WITH CHECK. So the condition never applied to
+ * DELETE, and 0022 faithfully preserved that when it split the policy by verb. An owner could
+ * remove a line from an issued invoice and change what a family had already been billed.
+ *
+ * Asserted on the row still being there rather than on an exception: a policy filters the row
+ * out instead of raising, so a successful delete and a refused one are both "no error".
+ * Checking the count is the only thing that distinguishes them. Fixed in 0025.
+ */
+do $$
+declare blocked boolean := false;
+begin
+  begin
+    delete from public.invoice_lines
+     where invoice_id = '55555555-5555-4555-8555-555555555555';
+    blocked := (select count(*) from public.invoice_lines
+                 where invoice_id = '55555555-5555-4555-8555-555555555555') = 1;
+  exception when insufficient_privilege then
+    blocked := true;
+  end;
+  perform pg_temp.expect(blocked, 'a line CANNOT be DELETED once the invoice is ISSUED');
 end $$;
 
 -- 2. The half that did not. Reverting to draft would have re-opened the lines.
@@ -2192,18 +2302,42 @@ select pg_temp.expect(
   'the owner can move an application to interview'
 );
 
--- Half a status change is refused. A row saying somebody was declined with no record of who
--- decided is unreadable a year later, which is when it gets asked about.
+/*
+ * The status-change record is ONE-DIRECTIONAL, and 0026 changed which direction.
+ *
+ * 0024 required both-or-neither, on the reasoning that "a row saying somebody was declined with no
+ * record of who decided is unreadable a year later". That made it impossible to delete a staff
+ * account: `status_changed_by` is `on delete set null`, the referential action is an UPDATE, CHECK
+ * constraints are enforced on it, and the delete failed with a 23514 naming a recruitment
+ * constraint — which is the last place anybody offboarding somebody would look. Measured against
+ * the live database, not guessed.
+ *
+ * It was also wrong about the domain. `(at set, by null)` is not half a record; it is the honest
+ * description of a move made by somebody whose account has since been removed. The useless state is
+ * the reverse — a name with no time — so that is what is refused.
+ */
 do $$
 declare code text := 'none (the update SUCCEEDED)';
 begin
   begin
-    update public.job_applications set status_changed_at = now(), status_changed_by = null
+    update public.job_applications set status_changed_by = '11111111-1111-4111-8111-111111111111',
+           status_changed_at = null
      where id = 'c0ffee00-0000-4000-8000-000000000001';
   exception when others then code := sqlstate;
   end;
-  perform pg_temp.expect(code = '23514', 'a status change without a person is refused, got ' || code);
+  perform pg_temp.expect(code = '23514',
+    'a named mover with no time is refused, got ' || code);
 end $$;
+
+-- And the state that `on delete set null` produces is legal, so offboarding works.
+update public.job_applications set status_changed_at = now(), status_changed_by = null
+ where id = 'c0ffee00-0000-4000-8000-000000000001';
+
+select pg_temp.expect(
+  (select status_changed_by is null and status_changed_at is not null
+     from public.job_applications where id = 'c0ffee00-0000-4000-8000-000000000001'),
+  'a move by an account that has since been deleted keeps its time and loses its name'
+);
 
 /*
  * DELETE is granted here and is not granted on `waitlist`. The difference is deliberate: a
@@ -2352,6 +2486,174 @@ begin
   end loop;
   perform pg_temp.expect(code = 'P0001',
     'the flood guard stops a script before it fills the table, got ' || code);
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- 0025: DELETE is the verb a FOR ALL policy checks with USING, not WITH CHECK
+--
+-- The asymmetry that hid a hole in `invoice_lines` for five phases. A `FOR ALL` policy
+-- applies USING to DELETE and WITH CHECK to INSERT, so a narrowing condition written only
+-- into WITH CHECK was never enforced on DELETE — and 0022 faithfully preserved that when it
+-- split the policies by verb, because it re-issued the expressions exactly as it found them.
+--
+-- Two assertions here, and the second is the one worth having: the first covers the instance,
+-- the second covers the class, so the next policy written this way fails the suite instead of
+-- being found by a later audit.
+-- ---------------------------------------------------------------------------
+
+set local role postgres;
+
+-- A post authored by Alice, so the educator below is a *colleague* of the author rather than a
+-- stranger. Both are members of centre A, so this is not the tenant boundary being tested.
+insert into public.posts (id, centre_id, author_id, kind, title, body)
+values ('d0570000-0000-4000-8000-000000000001', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        '11111111-1111-4111-8111-111111111111', 'panui', 'Colleague post', 'Body');
+
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+
+/*
+ * An educator could destroy a colleague's write-up of a child's day, while being correctly
+ * refused permission to *edit* it — the author condition sat in WITH CHECK only. 0025 removed
+ * the verb rather than picking a predicate, because nothing in this product deletes a post:
+ * `publishPost` and `archivePost` are the whole vocabulary, and a pānui a family has already
+ * read should not be able to vanish.
+ *
+ * 42501 here rather than a silent no-op, because this is a missing GRANT and not a policy
+ * filtering rows — Postgres tests the table privilege first.
+ */
+do $$
+declare code text := 'none (the delete SUCCEEDED)';
+begin
+  begin
+    delete from public.posts where id = 'd0570000-0000-4000-8000-000000000001';
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '42501',
+    'an educator CANNOT delete a colleague''s post — nobody can, the verb is revoked, got ' || code);
+end $$;
+
+set local role postgres;
+select pg_temp.expect(
+  (select count(*) from public.posts where id = 'd0570000-0000-4000-8000-000000000001') = 1,
+  'and the post is still there, so the refusal was real rather than a filtered no-op'
+);
+
+/*
+ * 0028: who may publish or archive a post.
+ *
+ * `posts_write` put the author condition in WITH CHECK only, and publishing is an UPDATE whose check
+ * runs against the resulting row — whose `author_id` is still the colleague's. So **nobody but the
+ * author could publish or archive**, including the centre's owner, while the screen offered both
+ * buttons to every staff member. Offered by the UI, refused by the policy.
+ *
+ * Three assertions, because only the middle one was ever true and the other two are the point.
+ */
+set local role postgres;
+
+insert into public.posts (id, centre_id, author_id, kind, title, body)
+values ('d0570000-0000-4000-8000-000000000002', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        '55555555-5555-4555-8555-555555555555', 'panui', 'Educator draft', 'Body');
+
+set local role authenticated;
+
+-- The author publishes their own. This always worked.
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+update public.posts set published_at = now()
+ where id = 'd0570000-0000-4000-8000-000000000002';
+
+select pg_temp.expect(
+  (select published_at is not null from public.posts
+    where id = 'd0570000-0000-4000-8000-000000000002'),
+  'an educator can publish their own post'
+);
+
+/*
+ * And still cannot publish a colleague's. This is the case the widened policy must NOT admit:
+ * 0028 added owners and managers, not every staff member.
+ *
+ * Wrapped for the same reason as the owner case below. The two policies refuse this in different
+ * ways — the old one let the row through USING and then failed WITH CHECK, which RAISES, while the
+ * new one excludes it in USING, which FILTERS. An unwrapped statement therefore aborted the suite
+ * with a bare 42501 under the old policy instead of naming the property that had changed.
+ */
+do $$
+declare still_draft boolean;
+begin
+  begin
+    update public.posts set published_at = now()
+     where id = 'd0570000-0000-4000-8000-000000000001';
+  exception when others then null;
+  end;
+  still_draft := (select published_at is null from public.posts
+                   where id = 'd0570000-0000-4000-8000-000000000001');
+  perform pg_temp.expect(still_draft, 'an educator still CANNOT publish a colleague''s post');
+end $$;
+
+/*
+ * The owner can, which is what was broken. A manager is accountable for what the centre publishes to
+ * its whanau — they have to be able to hold back a draft naming a child whose consent is not in
+ * place, and to archive something already sent.
+ *
+ * Asserted on the value rather than on an absent exception: a policy filters the row out instead of
+ * raising, so "no error" is what a refusal looks like from the client.
+ */
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+
+/*
+ * Wrapped, so a regression reports by name.
+ *
+ * With the old policy this UPDATE **raises** 42501 rather than being filtered — a WITH CHECK
+ * violation raises, a USING mismatch filters — so an unwrapped statement aborted the whole suite
+ * with a bare "new row violates row-level security policy for table posts" and no indication of
+ * which property had broken. Catching it turns that into a named failure.
+ */
+do $$
+declare ok boolean := false;
+begin
+  begin
+    update public.posts set archived_at = now()
+     where id = 'd0570000-0000-4000-8000-000000000002';
+    ok := (select archived_at is not null from public.posts
+            where id = 'd0570000-0000-4000-8000-000000000002');
+  exception when others then ok := false;
+  end;
+  perform pg_temp.expect(ok, 'an owner CAN archive an educator''s post, which 0028 fixed');
+end $$;
+
+/*
+ * The class. Every `_write_delete` policy's USING must equal its `_write_insert` counterpart's
+ * WITH CHECK, so a condition cannot be enforced on one verb and quietly not the other.
+ *
+ * `bookings` and `enrolments` are exempt, and the exemption is the interesting part: their
+ * extra condition is "this row's centre must match the child's centre", which constrains what
+ * may be WRITTEN and says nothing about who may remove it. On DELETE the USING clause already
+ * confines the caller to their own centre, and a row breaking that consistency rule could
+ * never have been inserted — so adding it to DELETE would only make an inconsistent row
+ * undeletable. Duplicated from 0025 on purpose: that assertion runs once at migration time,
+ * this one runs on every suite run, and the second is what catches a policy added later.
+ */
+do $$
+declare offenders text;
+begin
+  select string_agg(d.tablename, ', ' order by d.tablename)
+    into offenders
+    from pg_policies d
+    join pg_policies i
+      on i.schemaname = d.schemaname
+     and i.tablename  = d.tablename
+     and i.policyname = replace(d.policyname, '_delete', '_insert')
+   where d.schemaname = 'public'
+     and d.cmd = 'DELETE'
+     and d.policyname like '%\_write\_delete'
+     and d.qual is distinct from i.with_check
+     and d.tablename not in ('bookings', 'enrolments');
+
+  perform pg_temp.expect(
+    offenders is null,
+    'no DELETE policy is broader than its INSERT check'
+      || coalesce(' — BROADER ON: ' || offenders, '')
+  );
 end $$;
 
 -- ---------------------------------------------------------------------------

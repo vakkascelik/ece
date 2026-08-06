@@ -25,6 +25,18 @@ export async function signIn(_prev: unknown, form: FormData) {
 
 export async function signOut() {
   const db = await serverDb();
-  await db.auth.signOut();
+  /*
+   * `local`, not the default `global`.
+   *
+   * Global revokes refresh tokens on every device the person owns, so signing out of the staffroom
+   * tablet would sign them out of their own phone. `llm-wiki/wiki/offline-outbox.md` has said this
+   * since the mobile sign-out work — remote revocation is a containment action for the breach
+   * runbook, not a side effect of a tap on the device you are still holding — and the web app was
+   * doing the thing that page says not to do.
+   *
+   * `/account` and `/reset-password` still use `scope: 'others'` after a password change, which is
+   * the opposite case and deliberately so: there, ending every other session is the point.
+   */
+  await db.auth.signOut({ scope: 'local' });
   redirect('/login');
 }

@@ -8,9 +8,19 @@
  *
  * The app's policy exists to limit what an injected script could exfiltrate from a screen showing
  * a named under-five's anaphylaxis plan. Its `connect-src` allows exactly itself and Supabase.
- * **This app has no Supabase dependency at all** — `apps/site/package.json` does not list one, and
- * `tsconfig.json` has no `@ece/api` path — so its `connect-src` is `'self'` and nothing else,
- * which is *stricter* than the app's on the directive that matters most.
+ * Here `connect-src` is `'self'` and nothing else, which is *stricter* than the app's on the
+ * directive that matters most.
+ *
+ * **CORRECTED 2026-08-07.** That used to be justified with "this app has no Supabase dependency at
+ * all — `apps/site/package.json` does not list one, and `tsconfig.json` has no `@ece/api` path".
+ * The careers form falsified both halves, and this file mattered most of the four places that
+ * claimed it, because the CSP decision was resting on it.
+ *
+ * The directive is still correct, for a narrower and now-verified reason: **the browser** reaches
+ * nothing but this origin. The anon key is read from unprefixed environment variables, so Next
+ * cannot inline it into client JavaScript, and only the site's *server* talks to Postgres. Checked
+ * rather than asserted — `.next/static/` was grepped for the key, the project URL and the string
+ * `supabase`, and contains none of them.
  *
  * What is deliberately deferred: extracting the shared shape into `packages/core`. The app's
  * exact header values are asserted byte-for-byte by its end-to-end suite, so that move is a

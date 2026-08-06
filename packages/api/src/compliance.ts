@@ -389,7 +389,11 @@ export async function readDayRatio(
   const [attendance, adults, children] = await Promise.all([
     db
       .from('attendance_events')
-      .select('child_id, kind, at, children!inner(centre_id)')
+      // `id, corrects` are load-bearing: without them the replay cannot tell a superseded event
+      // from a live one, and a corrected sign-out kept hiding real breaches from the binder. The
+      // funding reader in billing.ts has always selected them; this one did not, so two readers of
+      // one append-only table disagreed about which rows were live.
+      .select('id, child_id, kind, at, corrects, children!inner(centre_id)')
       .eq('children.centre_id', input.centreId)
       .gte('at', input.fromUtc)
       .lt('at', input.toUtc)
@@ -428,9 +432,21 @@ export async function readDayRatio(
 
   return replayDay({
     date: input.date,
-    attendance: (attendance.data as { child_id: string; kind: 'in' | 'out'; at: string }[]).map(
-      (r) => ({ childId: r.child_id, kind: r.kind, at: r.at }),
-    ),
+    attendance: (
+      attendance.data as {
+        id: number;
+        child_id: string;
+        kind: 'in' | 'out';
+        at: string;
+        corrects: number | null;
+      }[]
+    ).map((r) => ({
+      id: r.id,
+      childId: r.child_id,
+      kind: r.kind,
+      at: r.at,
+      corrects: r.corrects,
+    })),
     adultCounts: (adults.data as { adults: number; at: string }[]).map((r) => ({
       adults: r.adults,
       at: r.at,

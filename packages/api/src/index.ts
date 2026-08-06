@@ -19,12 +19,36 @@ import type { Centre, Membership, Session } from '@ece/core';
 export type Db = SupabaseClient;
 
 /**
- * Anon-key client. Safe in the browser and in the mobile bundle: every request
- * carries the user's JWT and RLS decides what it can see.
+ * Anon-key client. The key is safe to expose — every request carries the user's JWT and RLS decides
+ * what it can see — but read the defaults below before using this in a browser.
+ *
+ * THE DEFAULTS ARE SERVER-SAFE, WHICH IS THE OPPOSITE OF WHAT THEY WERE.
+ *
+ * They used to be `{ persistSession: true, autoRefreshToken: true }` — right for a browser, and
+ * every actual caller is server-side: the current-password check in `/account`, and two scripts.
+ * Nothing in a browser calls this at all (the web app has `lib/supabaseBrowser.ts`, mobile has its
+ * own), so the defaults were wrong for 100% of the callers and right for the one in the comment.
+ *
+ * What that cost: `autoRefreshToken` starts a ticker that fires every thirty seconds, so each
+ * password change left a timer holding a reference to a client nobody would use again, keeping
+ * Node's event loop alive. `persistSession` on a server is worse than useless — it makes two
+ * simultaneous callers share one process-wide storage adapter.
+ *
+ * A browser caller must now opt in explicitly, which is the right way round: a session that fails
+ * to persist is visible immediately, and a leaked timer is not.
  */
-export function createAnonClient(url: string, anonKey: string): Db {
+export function createAnonClient(
+  url: string,
+  anonKey: string,
+  auth: { persistSession?: boolean; autoRefreshToken?: boolean; detectSessionInUrl?: boolean } = {},
+): Db {
   return createClient(url, anonKey, {
-    auth: { persistSession: true, autoRefreshToken: true },
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+      ...auth,
+    },
   });
 }
 

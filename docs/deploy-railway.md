@@ -267,8 +267,17 @@ curl -s -o /dev/null -w '%{http_code}\n' $D/ # 307 → /login when signed out
    present on what the matcher covers — that is every route and no static asset.
 3. **Signed out lands on `/login`**, and the page renders rather than erroring. If it renders
    but the browser console shows CSP violations, the nonce is not reaching Next's inline
-   scripts; the e2e suite has a test for exactly that (`the page loads with no CSP
-   violation`) and it passes locally.
+   scripts.
+
+   > **This instruction was actively misleading until 2026-08-07, and the correction is the
+   > useful part.** It used to end "the e2e suite has a test for exactly that (`the page loads
+   > with no CSP violation`) and it passes locally." That test visits `/attendance`, which
+   > renders per request and always received a nonce. `/login` — the page this step tells you to
+   > open — was **prerendered**, and a prerendered page cannot carry a per-request nonce, so
+   > every script on it was refused. So the one manual check that would have caught it had been
+   > waved off in writing, by this document. Fixed by making every route render per request
+   > (see the root layouts of both apps), and there is now a test that actually visits `/login`,
+   > `/no-access` and a 404 without a session and asserts hydration really happened.
 4. **An invitation link contains the new domain.** Issue one and read it:
    `npm run onboard -- --existing-centre <uuid> --owner <address>`.
 5. **A write works.** Sign in and sign a child in on the demo tenant.
@@ -334,9 +343,30 @@ Service → Settings → **Config-as-code** → `railway.site.json`.
 
 | Variable | Needed | Why |
 |---|---|---|
-| `SITE_CANONICAL_HOST` | optional | `www.littlepearls.org.nz`. Chooses between www and apex and forces https **on the real domain only** — the `*.up.railway.app` hostname is never redirected, so it is safe to set before the domain is attached |
-| `SITE_ORIGIN` | recommended | `https://www.littlepearls.org.nz`. Absolute URLs in Open Graph, `robots.txt` and the sitemap |
-| `SITE_APP_URL` | optional | Where "Sign in to the centre app" points. Defaults to the platform's Railway hostname |
+> **Copy the value column, not the notes.** `SITE_APP_URL` was once set to the words
+> *Where "Sign in to the centre app" points* — the old notes column for that row — which is not a URL,
+> so the footer link became a relative path and "Sign in to the centre app" landed on the site's own
+> 404 page. The values below are literal and paste as they are. `apps/site/src/lib/site.ts` now
+> validates both URL variables and falls back rather than rendering a broken link, and `/api/health`
+> reports `setButNotAUrl` when one of them is set to something that is not one — but the doc put the
+> two columns side by side, so the doc changed too.
+
+| Variable | Required? | Value to paste |
+|---|---|---|
+| `SITE_CANONICAL_HOST` | optional | `www.littlepearls.org.nz` |
+| `SITE_ORIGIN` | recommended | `https://www.littlepearls.org.nz` |
+| `SITE_APP_URL` | optional | `https://ece-production-fc07.up.railway.app/login` |
+
+Notes on those three:
+
+- `SITE_CANONICAL_HOST` chooses between www and apex and forces https **on the real domain only** —
+  the `*.up.railway.app` hostname is never redirected, so it is safe to set before the domain is
+  attached.
+- `SITE_ORIGIN` is the origin for absolute URLs in Open Graph, `robots.txt` and the sitemap. No
+  trailing slash needed; one is stripped.
+- `SITE_APP_URL` is where "Sign in to the centre app" points. Omit it and it defaults to the value
+  above, which is correct today — so the safest thing is to leave it unset until the platform has a
+  custom domain.
 | `SUPABASE_URL` | **required for the careers form** | The same project URL the platform uses |
 | `SUPABASE_ANON_KEY` | **required for the careers form** | The **anon** key, never the service-role key |
 
@@ -357,10 +387,21 @@ Service → Settings → **Config-as-code** → `railway.site.json`.
 > That is deliberate: the state it replaces is their Adobe Muse mailer, which accepted applications
 > and silently discarded them.
 
-**No Supabase variables. No service-role key. No anon key.** `apps/site` has no `@supabase/*`
-dependency and no `@ece/api` path in its tsconfig, so there is nothing for a credential to be used
-by — verified by building it with `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` and
-`SUPABASE_SERVICE_ROLE_KEY` all unset from the environment, which succeeds.
+**No service-role key, ever.** That key bypasses RLS on every table in the database and has no
+business in the public container. The site needs the **anon** key and the project URL, both listed
+as required in the table above, and nothing else.
+
+> **Corrected 2026-08-07.** This paragraph used to read "No Supabase variables. No service-role
+> key. No anon key. `apps/site` has no `@supabase/*` dependency and no `@ece/api` path in its
+> tsconfig, so there is nothing for a credential to be used by." That was true until the careers
+> form, and it survived twenty lines below a table that marks two Supabase variables **required** —
+> a direct contradiction, with the false half in bold, which is the half an operator follows.
+>
+> An operator who followed it got a green deploy: the build succeeds because the key is only read
+> at request time, `/api/health` returns 200 because its soft list covers only the three `SITE_*`
+> variables, and all ten pages render. Every applicant then saw "Sorry — we could not save that.
+> Please email career@littlepearls.org.nz", and nothing anywhere said why. The mailbox fallback is
+> deliberate and means nothing was lost, but the feature was dead with no signal.
 
 That is why the build command is `npm run build:site` (core, then site) rather than the root
 `npm run build`. The root chain includes `apps/web`, whose `next build` needs the two

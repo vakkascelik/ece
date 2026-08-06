@@ -160,6 +160,60 @@ nobody discards anything and nobody inherits anything.
 Three things fall out of it: no misattribution, no jam, and A's queue stops counting into B's
 ratio.
 
+> **CORRECTED 2026-08-07. Everything above was true of MOBILE and not of the web outbox**, which is
+> the app that actually runs on the tablet by the door — the argument that justified building a web
+> queue at all. `OutboxEntry` had no `userId`, and `pending`, `snapshot` and `flush` read the whole
+> browser store. So educator A's queued sign-ins were flushed under whoever was signed in when the
+> wifi returned, recorded as them, permanently; and A's queue counted into B's ratio. Found by
+> tracing this page against the code rather than by using either app.
+>
+> Fixed: the web entry carries `userId` and every read and write is scoped to it, mirroring mobile.
+> An entry written by the previous build matches nobody and sits inert — acceptable rather than
+> migrated, because nobody has used the product and there are no child records in any centre.
+>
+> The web queue did **not** have mobile's jam problem: its flush loop continues past a failed entry
+> instead of breaking, so one stuck row never blocked the rest.
+
+### The write-back was a lost update, and it lost children
+
+Also 2026-08-07, and the worse of the two. `flush` read a snapshot, awaited the network per entry,
+then wrote the snapshot's survivors back **wholesale** — erasing anything enqueued during that
+window:
+
+```
+08:00:00  flush A starts, snapshot [ana], POST in flight on a slow connection
+08:00:02  educator taps "Sign in Ben"  -> store is [ana, ben]
+08:00:03  a second flush fails transiently and writes [ana, ben]
+08:00:08  flush A's already-delivered POST returns ok; its survivors are [] -> writes []
+```
+
+Ben's sign-in is gone from localStorage, was never sent, his row reads "Not signed in", the pending
+count is 0 so nothing is shown and sign-out is not blocked. A child in the room, on nobody's roll and
+out of the ratio — the exact failure this whole mechanism exists to prevent, arrived at by the
+mechanism itself. A dead-letter recorded by the concurrent flush vanished the same way.
+
+Mobile never had it: it deletes by `client_uuid` row by row rather than rewriting the queue.
+
+The fix re-reads at commit time and applies the flush's outcomes to the store as it is *then*, keyed
+by `clientUuid`. That holds for any interleaving, which matters because the reentrancy guard added
+alongside it **cannot help across tabs** — localStorage is shared between them, and two open copies
+of the roll on one tablet is ordinary. Three tests, all mutation-tested against the old write.
+
+`enqueue` is still a read-then-write, so two tabs enqueuing in the same instant can lose one. Stated
+rather than fixed: it needs a lock, and localStorage has no transaction.
+
+### A permanently-refused sign-in was discarded with no message
+
+`describeSignOut` returns `allowed: true` **with a warning** when the queue holds only dead entries —
+they cannot be rescued by waiting, so they must not hold somebody on the device, but they are still
+records of children that will never reach the server. `SignOutControl` branched on `allowed` alone,
+went straight to sign-out, and called `discardDead()`. So the warning branch was unreachable and the
+comment saying dead entries "are named in the dialog and then let go" described something that could
+not happen: the dialog only ever opened when the verdict was `allowed: false`. It now opens for the
+warning too, naming each stuck record and what refused it, with a primary action that says it
+discards them.
+
+
 ### Sign-out does not clear the queue, and `clearAll()`'s docstring was wrong
 
 `clearAll()` describes itself as being "for signing out on a shared tablet". **It is not**, and the
@@ -177,6 +231,21 @@ Also `signOut({ scope: 'local' })`. The default is global, which revokes refresh
 device the person owns — so signing out of the staffroom tablet would sign them out of their own
 phone. Remote revocation is a containment action for the breach runbook, not a side effect of a tap
 on the device you are still holding.
+
+> **The web app was doing the thing this paragraph says not to do**, until 2026-08-07:
+> `login/actions.ts` called `db.auth.signOut()` with no argument, and the default scope is global. So
+> signing out of the staffroom tablet revoked the person's refresh token on their own phone. Now
+> `scope: 'local'`. `/account` and `/reset-password` keep `scope: 'others'` after a password change,
+> which is the opposite case and deliberate.
+>
+> A second leak found next to it: the throwaway client `changePassword` builds to verify the current
+> password used `createAnonClient`, whose defaults were `persistSession: true, autoRefreshToken:
+> true`. Every password change therefore started a refresh ticker firing every thirty seconds against
+> a client nobody would use again, and left a live session on the auth server. **Every caller of
+> `createAnonClient` is server-side** — the defaults were right for the browser named in its comment
+> and wrong for all three real callers — so they are now server-safe, a browser caller opts in, and
+> the throwaway session is signed out explicitly.
+
 ### The merge rule, and why both shortcuts fail
 
 `buildRoll` in `packages/core/src/roll.ts` — pure, and tested, because this is the part of

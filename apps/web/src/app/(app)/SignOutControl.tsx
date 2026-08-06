@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { describeSignOut } from '@ece/core';
 import { browserDb } from '@/lib/supabaseBrowser';
-import { discardDead, flush, pending, snapshot, OUTBOX_EVENT } from '@/lib/outbox';
+import { deadEntries, discardDead, flush, pending, snapshot, OUTBOX_EVENT } from '@/lib/outbox';
 
 /**
  * Sign out, and screen 5: the refusal.
@@ -32,7 +32,14 @@ import { discardDead, flush, pending, snapshot, OUTBOX_EVENT } from '@/lib/outbo
  * waiting, so holding somebody on the device forever to protect a row that will never land
  * would be a queue that can never be emptied. They are named, then discarded on sign-out.
  */
-export function SignOutControl({ signOut }: { signOut: () => Promise<void> }) {
+export function SignOutControl({
+  signOut,
+  userId,
+}: {
+  signOut: () => Promise<void>;
+  /** Whose queue to count. See the note on `OutboxEntry.userId`. */
+  userId: string;
+}) {
   const [queue, setQueue] = useState({ unsent: 0, dead: 0 });
   const [asking, setAsking] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -40,7 +47,7 @@ export function SignOutControl({ signOut }: { signOut: () => Promise<void> }) {
   const opener = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    const sync = () => setQueue(snapshot());
+    const sync = () => setQueue(snapshot(userId));
     sync();
     window.addEventListener(OUTBOX_EVENT, sync);
     window.addEventListener('storage', sync);
@@ -48,7 +55,7 @@ export function SignOutControl({ signOut }: { signOut: () => Promise<void> }) {
       window.removeEventListener(OUTBOX_EVENT, sync);
       window.removeEventListener('storage', sync);
     };
-  }, []);
+  }, [userId]);
 
   const stay = useCallback(() => {
     setAsking(false);
@@ -89,25 +96,37 @@ export function SignOutControl({ signOut }: { signOut: () => Promise<void> }) {
   const go = useCallback(async () => {
     // Dead entries are named in the dialog and then let go: they cannot land, and carrying
     // them to the next person's session would be worse than losing them.
-    discardDead();
+    discardDead(userId);
     await signOut();
-  }, [signOut]);
+  }, [signOut, userId]);
 
   const attempt = useCallback(() => {
-    const now = snapshot();
+    const now = snapshot(userId);
     setQueue(now);
-    if (describeSignOut(now).allowed) {
+    const verdict = describeSignOut(now);
+    /*
+     * `allowed` is not the whole answer, and reading it as though it were made a branch of
+     * `describeSignOut` unreachable.
+     *
+     * A queue holding only dead entries is `allowed: true` **with a warning** — dead entries cannot
+     * be rescued by waiting, so they must not hold somebody on the device forever, but they are
+     * still records of children that will never reach the server. This went straight to `go()`,
+     * which calls `discardDead()`. So the sign-in was destroyed with nothing shown, and the comment
+     * on `go` saying dead entries "are named in the dialog and then let go" described something that
+     * could not happen: the dialog only ever opened when the verdict was `allowed: false`.
+     */
+    if (verdict.allowed && verdict.warning === null) {
       void go();
       return;
     }
     setAsking(true);
-  }, [go]);
+  }, [go, userId]);
 
   const sendNow = useCallback(async () => {
     setSyncing(true);
     try {
-      await flush(browserDb());
-      const now = snapshot();
+      await flush(browserDb(), userId);
+      const now = snapshot(userId);
       setQueue(now);
       // Emptied: the thing they were being held for is done, so leave rather than making them
       // press it again.
@@ -118,7 +137,7 @@ export function SignOutControl({ signOut }: { signOut: () => Promise<void> }) {
     } finally {
       setSyncing(false);
     }
-  }, [go]);
+  }, [go, userId]);
 
   const verdict = describeSignOut(queue);
 
@@ -127,6 +146,55 @@ export function SignOutControl({ signOut }: { signOut: () => Promise<void> }) {
       <button ref={opener} className="secondary auth-secondary" type="button" onClick={attempt}>
         Sign out
       </button>
+
+      {/*
+        The dead-only case: sign-out is allowed, but not silently.
+        `describeSignOut` returns a warning here and nothing rendered it, so a permanently-refused
+        sign-in was discarded with no message at all. Separate from the refusal dialogue below
+        because it is a different act — this one confirms a loss rather than preventing one, so the
+        primary action says what it destroys instead of offering to retry something that cannot land.
+      */}
+      {asking && verdict.allowed && verdict.warning !== null && (
+        <>
+          <div className="dialog-scrim" aria-hidden="true" />
+          <div
+            ref={dialog}
+            className="dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="dead-title"
+          >
+            <span className="flag flag-pending">
+              {'↻'} {queue.dead} stuck
+            </span>
+
+            <h2 id="dead-title">Some records cannot be saved</h2>
+            <p>{verdict.warning}</p>
+
+            <ul className="dialog-list">
+              {deadEntries(userId).map((entry) => (
+                <li key={entry.clientUuid}>
+                  {entry.kind === 'in' ? 'Sign-in' : 'Sign-out'} at{' '}
+                  {new Date(entry.at).toLocaleTimeString('en-NZ', {
+                    hour: 'numeric',
+                    minute: '2-digit',
+                  })}
+                  {entry.lastError && ` · ${entry.lastError}`}
+                </li>
+              ))}
+            </ul>
+
+            <div className="dialog-actions">
+              <button type="button" data-primary onClick={() => void go()}>
+                Discard them and sign out
+              </button>
+              <button type="button" className="secondary" onClick={stay}>
+                Stay signed in
+              </button>
+            </div>
+          </div>
+        </>
+      )}
 
       {asking && !verdict.allowed && (
         <>
@@ -148,7 +216,7 @@ export function SignOutControl({ signOut }: { signOut: () => Promise<void> }) {
             <p>{verdict.message}</p>
 
             <ul className="dialog-list">
-              {pending().map((entry) => (
+              {pending(userId).map((entry) => (
                 <li key={entry.clientUuid}>
                   {entry.kind === 'in' ? 'Sign-in' : 'Sign-out'} at{' '}
                   {new Date(entry.at).toLocaleTimeString('en-NZ', {

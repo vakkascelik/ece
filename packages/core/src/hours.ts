@@ -68,9 +68,17 @@ export interface AttendedHours {
  *
  * A correction points at the event it replaces, and a correction can itself be corrected — so this
  * walks the chain rather than doing one pass. Without it, correcting a mistyped sign-in would leave
- * both the wrong time and the right one in the calculation, and the day would be claimed twice.
+ * both the wrong time and the right one in the calculation, and the day would be claimed twice. *
+ * Generic over `{ id, corrects }` rather than over `HoursEvent`, because **the ratio replay needs
+ * exactly this rule and did not have it.** `readDayRatio` did not even select `corrects`, so
+ * `replayDay` treated a corrected event and its correction as two independent events — and the
+ * licensing binder printed "no ratio breaches recorded" for a day that had one. Two readers of one
+ * append-only table disagreeing about which rows are live is the shape of that bug; one function
+ * they both call is the fix.
  */
-export function resolveCorrections(events: HoursEvent[]): HoursEvent[] {
+export function resolveCorrections<T extends { id: number; corrects: number | null }>(
+  events: T[],
+): T[] {
   const superseded = new Set<number>();
   for (const e of events) {
     if (e.corrects !== null) superseded.add(e.corrects);

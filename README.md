@@ -792,8 +792,8 @@ Stripe's real decisions — disputes, refunds, a live account in the centre's na
 while the price is NZ$0. `payments` records money that arrived; wiring Stripe later adds a source
 column and a webhook.
 
-An issued invoice **freezes**: the write policy on lines requires `status = 'draft'`, **and** a
-trigger refuses to put the status back — because changing what a family was billed after they were
+An issued invoice **freezes**: the write policy on lines requires `status = 'draft'` on insert,
+update **and delete**, **and** a trigger refuses to put the status back — because changing what a family was billed after they were
 billed it is a different invoice, not an edit. The trigger is the half that was missing until the
 Phase 6 security review; the line policy alone was defeated by three ordinary statements. A credit is
 a negative line rather than a second table, so the total is a sum and cannot disagree with itself.

@@ -19,13 +19,25 @@ export function PostCard({
   childNames,
   media,
   canManage,
+  canSteward,
   childOptions,
 }: {
   post: Post;
   kindLabel: string;
   childNames: string[];
   media: MediaView[];
+  /** Staff: may attach media and see drafts. */
   canManage: boolean;
+  /**
+   * May publish or archive **this** post: its author, or an owner/manager of the centre.
+   *
+   * Separate from `canManage` because they were conflated, and the policy was not. Every staff
+   * member was offered Publish on every draft while `posts_write_update` allowed only the author —
+   * so an educator pressing Publish on a colleague's post got a bare 42501. 0028 widened the policy
+   * to owners and managers; this stops the button being offered to the one case that is still
+   * correctly refused, an educator acting on somebody else's post.
+   */
+  canSteward: boolean;
   childOptions: { id: string; name: string }[];
 }) {
   const [attaching, setAttaching] = useState(false);
@@ -114,7 +126,7 @@ export function PostCard({
 
       {canManage && (
         <div className="inline">
-          {draft && (
+          {draft && canSteward && (
             <form action={pubAction}>
               <input type="hidden" name="postId" value={post.id} />
               <button className="small" type="submit" disabled={publishing}>
@@ -125,12 +137,16 @@ export function PostCard({
           <button className="secondary small" type="button" onClick={() => setAttaching((v) => !v)}>
             Add a photo
           </button>
-          <form action={archAction}>
-            <input type="hidden" name="postId" value={post.id} />
-            <button className="secondary small" type="submit" disabled={archiving}>
-              Archive
-            </button>
-          </form>
+          {/* Archive is an UPDATE too, so the same permission decides it. Offering it to an
+              educator on a colleague's post produced a bare 42501 from the policy. */}
+          {canSteward && (
+            <form action={archAction}>
+              <input type="hidden" name="postId" value={post.id} />
+              <button className="secondary small" type="submit" disabled={archiving}>
+                Archive
+              </button>
+            </form>
+          )}
         </div>
       )}
 

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import type { EmailOtpType } from '@supabase/supabase-js';
 import { report } from '@/lib/observability';
+import { sameOriginPath } from '@/lib/nextPath';
 import { serverDb } from '@/lib/supabase';
 
 /**
@@ -26,10 +27,9 @@ export async function GET(request: NextRequest) {
   const tokenHash = url.searchParams.get('token_hash');
   const type = url.searchParams.get('type') as EmailOtpType | null;
 
-  // The destination is client-supplied, so it is a path or nothing: an absolute
-  // URL here would let a doctored email bounce a fresh session to another site.
-  const next = url.searchParams.get('next') ?? '/reset-password';
-  const dest = next.startsWith('/') && !next.startsWith('//') ? next : '/reset-password';
+  // Client-supplied, so reduced to a path on this origin. See lib/nextPath.ts — the prefix check
+  // this replaces was defeated by a single backslash.
+  const dest = sameOriginPath(url.searchParams.get('next'), url.origin, '/reset-password');
 
   const db = await serverDb();
 

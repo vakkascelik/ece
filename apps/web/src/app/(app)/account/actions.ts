@@ -33,6 +33,11 @@ export async function changePassword(_prev: unknown, form: FormData): Promise<Ch
   const { data: auth } = await db.auth.getUser();
   if (!auth.user?.email) return { error: 'You are not signed in.' };
 
+  /*
+   * No session persistence and no refresh ticker — now the default in `createAnonClient`, which used
+   * to set both to true for a browser it has no callers in. Each password change was leaving a timer
+   * firing every thirty seconds against a client nobody would use again.
+   */
   const checker = createAnonClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -42,6 +47,14 @@ export async function changePassword(_prev: unknown, form: FormData): Promise<Ch
     password: current,
   });
   if (verify.error) return { error: 'Your current password is not right.' };
+
+  /*
+   * The throwaway session is ended explicitly. `signInWithPassword` created a real session on the
+   * auth server; leaving it alive means every password change leaves a live refresh token behind
+   * that nothing will ever use and nothing will revoke. `scope: 'local'` because it is this
+   * client's own session and no other device is involved.
+   */
+  await checker.auth.signOut({ scope: 'local' });
 
   const { error } = await db.auth.updateUser({ password });
   if (error) return actionError(error, 'changePassword');

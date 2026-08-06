@@ -25,6 +25,7 @@ import { revalidatePath } from 'next/cache';
 import { correctAttendance, listAttendanceForChild, recordAdultsPresent } from '@ece/api';
 import { requireCapability } from '@/lib/auth';
 import { actionError } from '@/lib/actionError';
+import { zonedWallClockToUtc } from '@/lib/dayWindow';
 import { serverDb } from '@/lib/supabase';
 
 export type Result = { error: string } | { ok: true };
@@ -39,7 +40,9 @@ const str = (f: FormData, k: string): string => (f.get(k) ?? '').toString().trim
  * database has no UPDATE path for this table anyway.
  */
 export async function correct(_prev: unknown, form: FormData): Promise<Result> {
-  await requireCapability('recordDailyPractice');
+  // The context is needed for the centre's timezone, not only for the guard — see the conversion
+  // below.
+  const ctx = await requireCapability('recordDailyPractice');
   const db = await serverDb();
 
   const childId = str(form, 'childId');
@@ -52,16 +55,30 @@ export async function correct(_prev: unknown, form: FormData): Promise<Result> {
   if (!time) return { error: 'What time should it have been?' };
   if (note.length < 3) return { error: 'Say why it is being corrected.' };
 
-  // A time input gives HH:MM with no date, so it is anchored to today in the
-  // browser's clock. Read back as a local Date and sent as an instant.
-  const at = new Date(time);
-  if (Number.isNaN(at.getTime())) return { error: 'That is not a time.' };
+  /*
+   * Converted in the CENTRE's timezone, not the runtime's.
+   *
+   * The comment here used to say "a time input gives HH:MM with no date, so it is anchored to
+   * today in the browser's clock", and it was wrong twice over: the input is `datetime-local`, so
+   * it carries a date, and this is a `'use server'` action, so nothing about the browser's clock
+   * is involved. `new Date(time)` on an offset-less string parses in the *server's* zone — UTC in
+   * production — so every correction a manager made during the New Zealand working day came out
+   * 12 to 13 hours in the future and was refused by `attendance_not_future`. The ones entered late
+   * enough in the evening to clear that window were stored at the wrong instant, which put a child
+   * who had gone home back onto the roll.
+   */
+  let at: string;
+  try {
+    at = zonedWallClockToUtc(time, ctx.centre.timezone);
+  } catch {
+    return { error: 'That is not a time.' };
+  }
 
   try {
     await correctAttendance(db, {
       childId,
       kind,
-      at: at.toISOString(),
+      at,
       clientUuid: randomUUID(),
       corrects: eventId,
       note,

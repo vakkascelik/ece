@@ -160,3 +160,59 @@ test('the page loads with no CSP violation', async ({ page }) => {
 
   expect(violations, `CSP blocked something:\n${violations.join('\n')}`).toEqual([]);
 });
+
+/**
+ * The same assertion on the routes nobody is signed in for — and this is the test that was
+ * missing rather than an extra one.
+ *
+ * The test above visits `/attendance`, which is rendered per request and has always received a
+ * nonce, so it could not fail. `/login`, `/no-access` and the 404 were **prerendered**, and a
+ * prerendered page cannot carry a per-request nonce: no render, nothing to stamp it onto. With
+ * `'strict-dynamic'` in `script-src`, CSP3 requires the browser to ignore `'self'`, so every
+ * script on the first screen every user meets was refused in production.
+ *
+ * It stayed invisible for two compounding reasons. Sign-in survives as a full-page POST, because
+ * React leaves progressive-enhancement markup in the HTML — so the seed step and every login in
+ * this suite kept working. And `docs/deploy-railway.md` told whoever deployed it to look for
+ * exactly this on `/login`, then reassured them the e2e suite already covered it. It did not.
+ *
+ * A fresh context, because `storageState` on this project is a signed-in owner and `/login`
+ * redirects them away.
+ */
+test('no CSP violation on the routes that are reached without a session', async ({ browser }) => {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  const violations: string[] = [];
+  page.on('console', (msg) => {
+    if (/Content Security Policy|Refused to (load|execute|apply)/i.test(msg.text())) {
+      violations.push(`${page.url()}: ${msg.text()}`);
+    }
+  });
+
+  for (const path of ['/login', '/no-access', '/this-route-does-not-exist']) {
+    await page.goto(path);
+    // Wait for hydration rather than for load: a blocked bundle still fires load, so asserting
+    // on the network would pass against the broken build. React only removes its
+    // progressive-enhancement attribute once the client bundle has actually run.
+    await page.waitForLoadState('networkidle');
+  }
+
+  // /login is the one that has to hydrate: its useEffect moves focus to the error on a failed
+  // sign-in, which is the accessibility behaviour the handoff asked for and the first thing lost
+  // when scripts are blocked.
+  await page.goto('/login');
+  await expect(page.getByRole('button', { name: /sign in/i })).toBeVisible();
+  await page.getByLabel(/email/i).fill('nobody@ece.invalid');
+  await page.getByLabel(/password/i).fill('wrong-password-on-purpose');
+  await page.getByRole('button', { name: /sign in/i }).click();
+  // `p[role=alert]`, not `getByRole('alert')` — Next injects its own
+  // `<div role="alert" id="__next-route-announcer__">`, so the bare role matches two elements and
+  // trips strict mode. Scoped to the login form's own alert.
+  const alert = page.locator('p[role="alert"]');
+  await expect(alert).toBeVisible();
+  // Proof that the client bundle ran: focus is on the alert, which only the useEffect does.
+  await expect(alert).toBeFocused();
+
+  expect(violations, `CSP blocked something:\n${violations.join('\n')}`).toEqual([]);
+  await context.close();
+});
