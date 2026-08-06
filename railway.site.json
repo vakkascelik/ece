@@ -35,13 +35,21 @@
     "builder": "NIXPACKS",
 
     "//": [
-      "The same root `npm run build` as the platform service, which now builds core, api, web and",
-      "site. Both services therefore build all four workspaces and each starts one of them. That",
-      "is wasteful — the site service builds the platform it will never run — and it is the honest",
-      "trade for a single build command that cannot drift from CI's. If build minutes ever matter,",
-      "the fix is a per-service build command, not a second build script that CI does not run."
+      "`build:site` — core, then site. NOT the root `npm run build`, and the reason is the whole",
+      "point of this service existing.",
+      "",
+      "The root build chain includes `-w @ece/web`, and `next build` on the platform needs",
+      "NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY at BUILD time — Next inlines",
+      "them into the client bundle. So a site service running the root build would need Supabase",
+      "variables set on it, Nixpacks would bake them into this image as ARG/ENV, and the public",
+      "marketing container would ship with database credentials in its layers. That is exactly the",
+      "property this service was separated to avoid.",
+      "",
+      "It is a named script in the root package.json rather than an inline command here, so it is",
+      "runnable locally, reviewable in a diff, and cannot quietly diverge from something CI could",
+      "also run. `apps/site` depends on @ece/core only — no @ece/api, no @supabase/*."
     ],
-    "buildCommand": "npm run build"
+    "buildCommand": "npm run build:site"
   },
 
   "deploy": {

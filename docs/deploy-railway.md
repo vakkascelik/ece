@@ -307,6 +307,81 @@ for the same reason.
 deploying. That remains true until professional indemnity insurance is in place — see
 [tenant-little-pearls](tenant-little-pearls.md).
 
+## Deploying the public website — a second service
+
+Since 2026-08-06 this repo also holds **Little Pearls' public website** (`apps/site`). It is a
+second Railway service in the same project, from the same repository, and everything above about
+the platform applies to the platform only.
+
+### The one mistake that is silent
+
+**Set the config path, or the new service boots the platform.** `railway.json` is a single-service
+manifest whose `startCommand` is `npm run start -w @ece/web`. A second service that reads it will
+build, start, and *pass its health check* while serving the app that holds children's records on
+the marketing domain.
+
+Service → Settings → **Config-as-code** → `railway.site.json`.
+
+### 1. Create it
+
+- **New Service → GitHub Repo → the same repo.** Railway's workspace detection will again offer
+  a service per workspace; you want one, and its **root directory must be the repository root**,
+  not `apps/site`. Same reason as the platform: config-as-code lives at the root, and `npm ci`
+  needs the workspace root to link `@ece/core`.
+- Set the config path to `railway.site.json` as above.
+
+### 2. Variables — there are no secrets here, and that is the point
+
+| Variable | Needed | Why |
+|---|---|---|
+| `SITE_CANONICAL_HOST` | recommended | `www.littlepearls.org.nz`. The middleware 308s anything else to it. Unset means no redirect, which is how their old site ended up answering on four addresses |
+| `SITE_ORIGIN` | recommended | `https://www.littlepearls.org.nz`. Absolute URLs in Open Graph, `robots.txt` and the sitemap |
+| `SITE_APP_URL` | optional | Where "Sign in to the centre app" points. Defaults to the platform's Railway hostname |
+
+**No Supabase variables. No service-role key. No anon key.** `apps/site` has no `@supabase/*`
+dependency and no `@ece/api` path in its tsconfig, so there is nothing for a credential to be used
+by — verified by building it with `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` and
+`SUPABASE_SERVICE_ROLE_KEY` all unset from the environment, which succeeds.
+
+That is why the build command is `npm run build:site` (core, then site) rather than the root
+`npm run build`. The root chain includes `apps/web`, whose `next build` needs the two
+`NEXT_PUBLIC_` values *at build time* — so a site service running the root build would need
+Supabase variables set on it, and Nixpacks bakes every Railway variable into the image as
+`ARG`/`ENV`. The public container would ship with database credentials in its layers.
+
+All three variables **fail soft**, so `/api/health` returns 200 with `usingDefaultsFor` naming any
+that are unset. Refusing traffic over a canonical-URL setting would take a working website offline
+to complain about a redirect.
+
+### 3. Custom domain — and here the naming rule inverts
+
+The platform must **not** carry a customer's name (see above). This service must: it *is* Little
+Pearls' website. Point `littlepearls.org.nz` and `www.littlepearls.org.nz` at it, set
+`SITE_CANONICAL_HOST` to whichever you choose as canonical, and the other redirects with a 308.
+
+**Do not change `site_url` in Supabase Auth for this.** That setting is where invitation and
+password-reset links land, and those belong to the platform. `npm run deploy:auth` manages it;
+the website is not in that flow at all.
+
+### 4. Verify
+
+```bash
+curl -s https://<host>/api/health                    # {"ok":true}
+curl -sI https://<host>/ | grep -i "content-security\|strict-transport"
+curl -s https://<host>/robots.txt
+curl -s https://<host>/sitemap.xml | head -5
+```
+
+Then, on a phone: the site should reflow rather than zoom out. That is the defect the rebuild
+existed to fix, and it is the one thing a desktop browser will not show you.
+
+### What this service does not do
+
+It has no database access, so it publishes no fees, no capacity, no roll and no news — see
+[`apps/site/CONTENT-GAPS.md`](../apps/site/CONTENT-GAPS.md) for what is still to come from the
+centre, and [public-website](../llm-wiki/wiki/public-website.md) for why the enquiry form and
+platform news were deliberately not built.
+
 ## Rolling back
 
 Railway redeploys a previous build from the deployments list. That rolls back **the code and
@@ -335,6 +410,8 @@ would be the honest way to have one, and it does not exist.
 
 ---
 
-*Last updated 2026-08-05. Not yet deployed: steps 1 and 3 need a Railway project. Steps 2, 4
-and 5 have been prepared and the commands tested — the build has been run with no env file
-present and the health route verified returning both 200 and 503.*
+*Last updated 2026-08-06. The platform: steps 1 and 3 need a Railway project; steps 2, 4 and 5 are
+prepared and their commands tested. The website service has never been created either — what has
+been verified is that `apps/site` builds with every Supabase variable unset, that its ten routes
+pass axe at 390px and 1440px, and that its health route, CSP, HSTS, robots.txt and generated
+sitemap all respond correctly on a local production server.*
