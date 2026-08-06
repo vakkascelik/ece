@@ -71,6 +71,56 @@ test.describe('the shell on a phone', () => {
   });
 
   /**
+   * The drawer is an overlay, which makes it a modal, which means it owes the reader four
+   * behaviours that are easy to ship without and impossible to notice missing in a
+   * screenshot. All four are asserted because none of them are visible to axe.
+   */
+  test('the menu drawer closes the way an overlay has to', async ({ page }) => {
+    await visit(page, '/');
+    const toggle = page.getByRole('button', { name: /Menu/ });
+    const attendance = page.getByRole('link', { name: 'Attendance' });
+
+    // 1. Closed, the drawer is out of the accessibility tree — not merely off-screen. A
+    //    translated element is still focusable, so `visibility` is doing real work here.
+    await expect(attendance).toBeHidden();
+
+    // 2. Escape closes it, and focus returns to the control that opened it rather than to
+    //    the top of the document.
+    await toggle.click();
+    await expect(attendance).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(attendance).toBeHidden();
+    await expect(toggle).toBeFocused();
+
+    // 3. The scrim closes it. It is the large, forgiving target for somebody who opened the
+    //    menu by accident and is not hunting for a small ✕.
+    //
+    //    Clicked in the strip beside the drawer, computed from the drawer's own box rather
+    //    than hardcoded. Playwright clicks an element's centre by default, and the scrim's
+    //    centre is behind the drawer — which is a fact about the test, not a bug, but it
+    //    also means the exposed strip is the only part a person can actually hit. Asserting
+    //    it is wide enough to be one.
+    await toggle.click();
+    await expect(attendance).toBeVisible();
+
+    const panel = await page.locator('#side-nav').boundingBox();
+    const viewport = page.viewportSize()!;
+    const strip = viewport.width - (panel!.x + panel!.width);
+    expect(strip, `only ${Math.round(strip)}px of scrim is reachable beside the drawer`).toBeGreaterThan(80);
+
+    await page.mouse.click(panel!.x + panel!.width + strip / 2, viewport.height / 2);
+    await expect(attendance).toBeHidden();
+
+    // 4. Navigating closes it. This layout is not remounted between routes, so without an
+    //    explicit close the drawer sits on top of the page it just took you to — which
+    //    reads as a tap that did nothing.
+    await toggle.click();
+    await attendance.click();
+    await expect(page).toHaveURL(/\/attendance$/);
+    await expect(page.getByRole('link', { name: 'Attendance' })).toBeHidden();
+  });
+
+  /**
    * The other half of the same defect, and the half a scroll-width check misses
    * entirely: `/` never overflowed, it just had 166px of usable width because the rail
    * took the other 224. So this asserts the content column actually gets the screen.

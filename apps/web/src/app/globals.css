@@ -98,6 +98,8 @@ a { color: var(--accent); }
 
 /* Hidden above the breakpoint: there the rail has a column to itself. */
 .nav-toggle { display: none; }
+/* The drawer's own header and close button exist only when it is a drawer. */
+.side-drawer-head { display: none; }
 
 /* Pushes the sign-out block to the bottom of the rail whatever the nav length. */
 .side-foot { margin-top: auto; }
@@ -141,17 +143,80 @@ a { color: var(--accent); }
     flex: 0 0 auto;
   }
 
-  /* Collapsed by default — 312px of a 852px screen was 37% navigation. */
-  .side-collapse { display: none; }
-  .side-collapse.open { display: flex; padding-top: 12px; }
+  /*
+   * The drawer.
+   *
+   * Off-canvas rather than `display: none`, because a display change cannot be transitioned
+   * and the point of this shape is that it slides. `visibility` is what keeps a closed
+   * drawer out of the tab order and out of the accessibility tree — a translated element is
+   * still focusable, so a keyboard user would otherwise tab into a menu sitting off the left
+   * edge of the screen. It is transitioned alongside the transform so it flips at the end of
+   * the close rather than the start.
+   */
+  .side-collapse {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 30;
+    /*
+     * Not the full width. The strip of scrim left beside it is the large, forgiving way to
+     * dismiss the menu, and at 86vw that strip was 70px on a 390px phone — technically
+     * tappable, and not what somebody reaches for. 70vw leaves about 117px.
+     */
+    width: min(300px, 70vw);
+    padding: 16px;
+    background: var(--panel);
+    border-right: 1px solid var(--line);
+    overflow-y: auto;
+    transform: translateX(-100%);
+    visibility: hidden;
+    /* 260ms is the pack's dialog-entry timing, and both values come from the token file
+       rather than being retyped here. */
+    transition:
+      transform var(--motion-slow) var(--motion-ease),
+      visibility var(--motion-slow);
+  }
+  .side-collapse.open { transform: translateX(0); visibility: visible; }
 
-  .side nav { flex-direction: row; flex-wrap: wrap; gap: 4px; margin-bottom: 12px; }
-  /* Nothing to push to the bottom once the rail is a bar. */
-  .side-foot { margin-top: 0; display: flex; gap: 12px; align-items: center; }
+  .side-drawer-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding-bottom: 12px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid var(--line);
+  }
+  .drawer-close {
+    height: var(--target-min);
+    min-width: var(--target-min);
+    padding: 0 12px;
+    border-radius: var(--radius-sm);
+  }
+
+  /* A column in a tall drawer, not the wrapping row the top-bar version needed. */
+  .side nav { flex-direction: column; gap: 2px; margin-bottom: 12px; }
+  .side-foot { margin-top: auto; display: flex; flex-direction: column; gap: 12px; align-items: stretch; }
   .side-foot p { margin: 0; }
-  .side-foot form { flex: 0 1 12rem; }
+
+  /* Dims the page behind the drawer and is the large, obvious way to dismiss it. */
+  .side-scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 25;
+    background: rgba(27, 26, 24, 0.45);
+  }
   .main { padding: 20px 16px; }
   .auth { margin: 1.5rem auto; padding: 32px 24px; }
+}
+
+/*
+ * Vestibular disorders are common and this drawer opens dozens of times a day. The panel
+ * still appears and disappears — only the sliding stops.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .side-collapse { transition: none; }
 }
 
 /*

@@ -69,6 +69,12 @@
   --target-min: 44px;
   --target-comfortable: 56px;
   --target-primary: 64px;
+
+  /* Motion */
+  --motion-fast: 120ms;
+  --motion-base: 180ms;
+  --motion-slow: 260ms;
+  --motion-ease: cubic-bezier(0.2, 0, 0, 1);
 }
 
 /*

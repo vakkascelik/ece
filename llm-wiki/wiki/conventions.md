@@ -145,6 +145,12 @@ Flags always carry a **symbol and a word**, never colour alone (WCAG 1.4.1). Wha
 is "this child could stop breathing", and about one man in twelve cannot reliably separate the
 red from the green.
 
+The generated file carries colour, spacing, radius, type scale, touch targets and — since
+2026-08-06 — **motion**, including the easing curve. Motion was added the moment a component
+needed the 260ms dialog timing and was about to retype it next to the token that already held
+it. That is the whole failure this generator exists to prevent, so the rule is: if a value
+lives in `tokens.ts` and a stylesheet wants it, emit it rather than copying it.
+
 ### Versions worth not re-litigating
 
 - **Expo 57 / React Native 0.86 / React 19.** Expo 55 and 56 peer-require React 18, which

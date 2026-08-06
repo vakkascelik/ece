@@ -5,6 +5,30 @@ says so.*
 
 ---
 
+2026-08-06 — The phone menu became a slide-in drawer, on request: the owner pointed at their own
+charity admin console, where the menu overlays a dimmed page with a header and an ✕. **My earlier
+reasoning was wrong on the part that mattered.** I twice argued against a drawer on the grounds
+that an inline expander needs no focus trap — true, and beside the point. An expander *pushes the
+page down when it opens*, so the thing you were reading moves. A drawer overlays and the page
+stays put.
+
+The cost is paid rather than skipped, because an overlay covering the page is a modal: Escape,
+scrim click, focus in on open and back to the toggle on close, Tab trapped, body scroll locked.
+All four asserted, because none are visible to axe or to a screenshot. Three details worth
+keeping: closed means `visibility: hidden` and not merely translated off-canvas, or a keyboard
+user tabs into a menu sitting off the left edge; the breakpoint is duplicated in `matchMedia`
+because `role="dialog"` and `aria-modal` are attributes that cannot respond to a media query, and
+leaving them on would tell a desktop screen-reader user the sidebar is a modal trapping them; and
+the drawer is 70vw rather than 86vw, because the first attempt left a 70px strip of scrim —
+technically tappable and not what anybody reaches for. That last one surfaced because Playwright
+clicks an element's centre and the scrim's centre was *behind* the drawer: a fact about the test
+that pointed at a real one.
+
+Also **`--motion-*` now exists in the generated CSS**, easing curve included. The drawer needed
+the pack's 260ms dialog timing and was about to hardcode it beside the `motion` token that already
+held it — the exact duplication `tokens:check` exists to prevent. Rule recorded in [[conventions]]:
+if a value lives in `tokens.ts` and a stylesheet wants it, emit it rather than copying it.
+
 2026-08-06 — Screen 13, the wall display, at `/attendance?wall=1` — a query parameter rather
 than a route, since it is the same screen at a different reading distance. The sizes are
 arithmetic and worth recording because they look arbitrary: the pack sizes the status line to

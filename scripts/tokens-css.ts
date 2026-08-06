@@ -17,7 +17,7 @@
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { color, contrastRatio, CONTRAST_PAIRS, font, radius, space, target } from '@ece/core';
+import { color, contrastRatio, CONTRAST_PAIRS, font, motion, radius, space, target } from '@ece/core';
 
 const OUT = path.resolve(import.meta.dirname, '../apps/web/src/app/tokens.css');
 
@@ -67,6 +67,16 @@ function generate(): string {
   );
   for (const [name, value] of Object.entries(target)) {
     lines.push(`  --target-${kebab(name)}: ${value}px;`);
+  }
+
+  /*
+   * Motion. Added when the nav drawer needed the 260ms dialog timing and was about to
+   * hardcode it — which is the exact duplication this generator exists to prevent. The
+   * easing curve is one string in one place for the same reason.
+   */
+  lines.push('', '  /* Motion */');
+  for (const [name, value] of Object.entries(motion)) {
+    lines.push(`  --motion-${kebab(name)}: ${typeof value === 'number' ? `${value}ms` : value};`);
   }
 
   lines.push('}', '');

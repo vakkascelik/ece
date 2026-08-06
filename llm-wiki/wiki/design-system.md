@@ -184,6 +184,44 @@ must start within 160px, and opening the menu must reveal the links — otherwis
 is just a way of hiding the navigation. Mutation-tested: leaving the menu expanded fails
 with "content starts 253px down a 780px screen (32% is navigation)".
 
+**Third pass, and the pattern changed on request.** The owner pointed at their own charity
+admin console: a drawer sliding in from the left over a dimmed page, with a header and an ✕.
+The menu is now that, and the reasoning above — twice arguing against a drawer — was wrong on
+the part that mattered. An inline expander needs no focus trap, which is what I kept
+defending; what I missed is that it **pushes the page down when it opens**, so the thing you
+were reading moves. A drawer overlays and the page stays put.
+
+The cost is paid rather than skipped, because an overlay covering the page *is* a modal:
+Escape closes it, the scrim closes it, focus moves in on open and back to the toggle on close,
+Tab is trapped while it is over the page, and the body cannot scroll behind it. All four are
+asserted in the e2e suite, because none are visible to axe or to a screenshot.
+
+Three details worth keeping:
+
+- **Closed means `visibility: hidden`, not merely translated off-canvas.** A translated
+  element is still focusable, so a keyboard user would otherwise tab into a menu sitting off
+  the left edge of the screen. `display: none` cannot be transitioned, which is why the drawer
+  needs both.
+- **The breakpoint is duplicated in JavaScript**, via `matchMedia`. `role="dialog"` and
+  `aria-modal` are attributes, and attributes do not respond to media queries — left on
+  unconditionally they would tell a screen reader that the sidebar on a 1440px desktop is a
+  modal trapping their focus. The duplication is a real cost; the alternative is lying about
+  the structure at one of the two widths.
+- **The drawer is 70vw, not 86vw.** The first attempt filled almost the whole screen, leaving
+  a 70px strip of scrim — technically tappable, and not what anybody reaches for. Found
+  because Playwright clicks an element's centre and the scrim's centre was *behind* the
+  drawer: a fact about the test that pointed at a real one. The strip is ~117px on a 390px
+  phone now, and the suite asserts it stays above 80px.
+
+The palette stays this product's own rather than the reference's dark drawer. The ask was
+about how the menu appears and disappears, and borrowing the colour would mean inventing one
+the token file does not have.
+
+**`--motion-*` now exists in the generated CSS.** The drawer needed the pack's 260ms
+dialog-entry timing and was about to hardcode it beside the `motion` token that already holds
+it — the exact duplication `tokens:check` exists to prevent. The generator emitted colour,
+spacing, radius, type and targets but not motion; it does now, easing curve included.
+
 Two findings from the first fix, both worth more than that fix:
 
 1. **An accessibility helper was causing the layout defect.** After the table itself was
