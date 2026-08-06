@@ -5,6 +5,33 @@ says so.*
 
 ---
 
+2026-08-06 — Screens 10 and 11, the whānau surface, and **a correction to my own change made
+within the hour.** Screen 10 gained the header it never had (56px initials, name 28/600, a green
+"Signed in at 8:12 am today" block) and the pack's two eyebrows, which are better than the bare
+"Health"/"Consents" they replace: "Health · read-only" and "Consents · you can change these" tell
+a parent what a section is before they try to change it.
+
+**Refused the pack's 56×32 consent switches**, on the evidence of the pack's own web spec three
+screens earlier, which models consent as **three** states — Given, Withdrawn, and "Never recorded"
++ a Record button. A switch has two, so "never asked" would render as "declined", telling a parent
+they refused something nobody asked them, about photographs of their child. The pack's
+`ConsentSwitch` also has a "saving (queued)" state this app deliberately lacks: queueing a consent
+would show "given" on the phone while the restrictive policy still refuses the photo.
+
+Then screen 11, where I was wrong. The pack requires a withdrawn photo to render nothing — no
+notice, because the notice is the disclosure — and the mobile feed had a chip reading "a photo is
+not available", so I deleted it. **The gate is a restrictive SELECT policy on `public.media`: a
+withdrawn photo's row never reaches a client at all**, asserted with `count(*) = 0`. A null URL is
+a malfunction, so deleting the notice silenced a real failure and protected nothing. Restored with
+honest wording.
+
+What sent it wrong was a comment in `@ece/api` claiming a null URL usually means "the caller may no
+longer read it, which is the gate working" — impossible, since such a caller has no row to sign.
+Two comments in this repo disagreed about the same condition and the wrong one was the one I read.
+Corrected, with the mechanism in [[consent-gated-media]]. The general lesson kept there: **the pack
+asks for a rendering rule where this schema makes the data absent**, which is strictly stronger —
+a privacy rule enforced by a policy cannot be forgotten by a component.
+
 2026-08-06 — Screen 9, the mobile staff roll. Two of the three changes are about the room rather
 than the mockup. **The action moved inside the card**: it had been a block below each card, which
 cost a row of vertical space per child and put each button nearer the *next* child's name than to

@@ -25,8 +25,29 @@ export interface FeedPost {
  *
  * Images come from short-lived signed URLs, because the bucket is private — a public URL for a
  * photograph of a child is a disclosure, not a configuration choice. A null URL means one could
- * not be issued, which normally means consent no longer covers it; the card says so plainly
- * rather than rendering a broken image.
+ * not be issued, and `signMediaUrl` says what that usually means: "the caller may no longer read
+ * it, which is the gate working".
+ *
+ * WHAT A NULL URL ACTUALLY MEANS, AND WHY THE NOTICE STAYS
+ *
+ * It is **not** a withdrawn consent, and getting this wrong in either direction matters.
+ *
+ * The design pack requires that a photo whose consent was withdrawn renders nothing at all — no
+ * placeholder, no notice, nothing announced, because a notice explaining the absence discloses
+ * the family's decision. That requirement is already met, and it is met in the strongest possible
+ * place: `media_consent_required` is a **restrictive** SELECT policy on `public.media`, so
+ * withdrawing consent removes the *row*. The client never learns the photo existed. The RLS suite
+ * asserts it directly — "withdrawing consent hides existing media from STAFF, not only from
+ * whānau" — with `count(*) = 0`.
+ *
+ * So a row that arrives here with `url === null` is a **malfunction**: storage unreachable, a bad
+ * path, a clock skew. Saying so is correct. Removing this notice on privacy grounds — which was
+ * tried on 2026-08-06 — silences a real failure and buys no privacy at all, because the case it
+ * was protecting never reaches this component.
+ *
+ * (What sent that change the wrong way was a comment on `signMediaUrl` claiming the usual cause of
+ * a null URL is "the caller may no longer read it, which is the gate working". It cannot be: a
+ * caller who may not read it has no row to sign. That comment is now corrected.)
  */
 export function PostCard({ post }: { post: FeedPost }) {
   const photos = post.media.filter((m) => m.kind === 'photo');
@@ -67,10 +88,15 @@ export function PostCard({ post }: { post: FeedPost }) {
           />
         ))}
 
+      {/*
+        A malfunction, not a consent decision — see the note above. Worded as a loading failure
+        rather than "not available", which reads like a permission and is the one thing this is
+        not.
+      */}
       {unavailable > 0 && (
         <View style={{ marginTop: space['2'] }}>
           <Flag tone="quiet">
-            {unavailable === 1 ? 'a photo is not available' : `${unavailable} photos not available`}
+            {unavailable === 1 ? 'a photo could not be loaded' : `${unavailable} photos could not be loaded`}
           </Flag>
         </View>
       )}

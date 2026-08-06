@@ -371,6 +371,56 @@ has `summary`, which is what RatioBar already used), and `accessibilityElementsH
 valid on `Text`. A glyph is kept out of the accessible name with `accessibilityLabel`
 instead.
 
+### Screens 10 and 11 — the whānau surface
+
+**Screen 10 gains a header it never had.** The screen showed a muted age line under whatever
+the navigator put in the title bar; it now has the pack's 56px initials, the child's name at
+28/600, and a green `✓ Signed in at 8:12 am today` block at 17/500. That block answers the
+question the screen is opened with, and it was not answerable here before — the same
+`listAttendanceToday` addition as the web record, safe for the same asserted reason.
+
+The two eyebrows are the pack's and they are better than the bare "Health" and "Consents"
+they replace: **"Health · read-only"** and **"Consents · you can change these"** tell a parent
+what a section is before they try to change it. A parent who taps a wrong allergy expecting to
+fix it and gets nothing has learnt that the app is broken, not that the centre owns the record.
+Health entries are now tinted cards ending in the pack's line, "Message the centre to change
+anything here."
+
+**Refused: the 56×32 consent switches.** The pack specifies a two-state switch per consent, and
+the evidence against it is the pack's *own web spec* three screens earlier, which models
+consent as **three** states — "✓ Given", "✕ Withdrawn", and "Never recorded" + a Record button.
+A switch has two. Rendering "never asked" as an off switch tells a parent they declined
+something nobody asked them, and the thing they would appear to have declined is photographs of
+their child. The existing two labelled buttons stay, with the third state named as its own
+sentence. The pack's `ConsentSwitch` also carries a "saving (queued)" state, which this app
+deliberately does not have: queueing a consent would show "given" on the phone while the
+restrictive policy in Postgres still refuses the photograph — two sources of truth for the one
+rule that must have exactly one.
+
+### Screen 11, where I was wrong and the check caught it
+
+The pack is emphatic that a withdrawn photo renders nothing — "no placeholder, no broken image,
+no 'photo removed' notice, no alt text, nothing announced", because the notice is itself the
+disclosure. The mobile feed had a chip reading "a photo is not available", which looked like
+precisely that violation, and I removed it.
+
+That was wrong, and the reason it was wrong is worth more than the screen. **The consent gate is
+a restrictive SELECT policy on `public.media`, so a withdrawn photo's row never reaches a
+client** — asserted with `count(*) = 0` in the RLS suite. A null URL is therefore a malfunction,
+not a consent decision, and deleting the notice silenced a real failure while protecting
+nothing.
+
+What sent it the wrong way was a comment in `@ece/api` claiming a null URL usually means "the
+caller may no longer read it, which is the gate working" — impossible, since such a caller has
+no row to sign. Two comments in this repo disagreed about the same condition; the web card's
+"normally the row is gone too" was right and the API's was wrong. The notice is restored with
+accurate wording ("could not be loaded" rather than "not available", which reads like a
+permission), and the false comment is corrected. Recorded in [[consent-gated-media]].
+
+The general point: **the pack asks for a rendering rule where this schema makes the data
+absent.** That is strictly stronger, and it is the shape to prefer — a privacy rule enforced by
+a policy cannot be forgotten by a component.
+
 ### Deviations so far
 
 | Screen | Deviation | Why |
@@ -396,16 +446,13 @@ instead.
 
 ### Not yet applied
 
-Screens 4, 5, 10, 11 and 13 are **not** done:
+Screens 4, 5 and 13 are **not** done:
 
 - **4 (offline roll) and 5 (sign-out refusal) are not purely visual.** The offline outbox is a
   mobile capability; the web app has no local queue, so these two screens need the queue on web
   before they can be built at all. The pack shows them because the web app also runs on a
   wall-mounted tablet. The sign-out refusal logic already exists in `@ece/core` — see
   `signOut.test.ts` — so it is the web queue that is missing, not the decision.
-- **10 and 11** are the remaining mobile anatomy: the whānau child detail with its 56×32
-  consent switches and its **absent** custody heading, and the pānui feed where a withdrawn
-  photo consent must render nothing at all — no placeholder, no notice, nothing announced.
 - **13**, the three-metre tablet proof, is a web concern and needs the ratio block sized so
   its status line subtends the same angle at 3m as 15px body text does at 40cm.
 The mobile surface shares tokens and vocabulary with web and deliberately shares no
@@ -420,4 +467,4 @@ Nothing on this page should be read as claiming the product now looks like the b
 - [[unverified-claims]] — the unchecked product name
 - [[mobile-app]] — why the mobile screens are a separate surface sharing only tokens
 
-*Last updated: 2026-08-06 (screens 1, 2, 3, 6, 7's no-access half, 8, 9 and 12)*
+*Last updated: 2026-08-06 (screens 1, 2, 3, 6, 7's no-access half, 8, 9, 10, 11 and 12)*

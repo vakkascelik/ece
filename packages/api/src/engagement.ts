@@ -314,9 +314,9 @@ export async function attachChildToMedia(
  * A time-limited URL for a private object.
  *
  * The bucket is private, so this is the only way to display media. Signing goes through the
- * caller's own client, which means the storage policy — and through it the consent gate — decides
- * whether a URL can be issued at all. A withdrawn consent stops the URL being issuable rather
- * than merely hiding the row.
+ * caller's own client, so the storage policy decides whether a URL can be issued — a second wall
+ * behind the row-level one, not the only one. A withdrawn consent removes the row (see the
+ * correction below); this stops a leaked *path* from being signable.
  *
  * Short expiry on purpose. A signed URL is a bearer token for a photograph of a child, and it
  * will end up in a browser cache and possibly a chat message.
@@ -329,8 +329,20 @@ export async function signMediaUrl(
   const { data, error } = await db.storage
     .from(MEDIA_BUCKET)
     .createSignedUrl(storagePath, expiresInSeconds);
-  // Null rather than throwing: the usual cause is that the caller may no longer read it, which
-  // is the gate working, and one hidden photo should not fail a whole feed.
+  /*
+    Null rather than throwing, so one bad object does not fail a whole feed.
+
+    CORRECTION, 2026-08-06. This comment used to say "the usual cause is that the caller may no
+    longer read it, which is the gate working". That is not possible. The consent gate is
+    `media_consent_required`, a **restrictive** SELECT policy on `public.media`, so a caller who
+    may no longer read a photo never receives its row and never reaches this function for it —
+    asserted in the RLS suite with `count(*) = 0` ("withdrawing consent hides existing media from
+    STAFF, not only from whānau").
+
+    So a null here is a **malfunction**: storage unreachable, a bad path, a clock skew. The wrong
+    comment mattered — it was read as licence to delete the mobile feed's "could not be loaded"
+    notice on privacy grounds, which would have silenced a real failure and protected nothing.
+  */
   if (error) return null;
   return data?.signedUrl ?? null;
 }

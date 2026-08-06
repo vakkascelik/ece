@@ -4,6 +4,7 @@ import type { RouteProp } from '@react-navigation/native';
 import { useRoute } from '@react-navigation/native';
 import {
   getChild,
+  listAttendanceToday,
   listConsents,
   listGuardiansOfChild,
   listHealthConditions,
@@ -13,13 +14,13 @@ import {
   CONSENT_DETAIL,
   REQUIRED_CONSENTS,
   formatAge,
+  initials,
   type Child,
   type ConsentKind,
   type ConsentState,
   type HealthCondition,
 } from '@ece/core';
 import { color, font, radius, space, target, theme } from '../theme';
-import { Flag } from '../components/Flag';
 import { useSession } from '../state/SessionProvider';
 import { supabase } from '../lib/supabase';
 
@@ -51,20 +52,26 @@ export function ChildScreen() {
   const [conditions, setConditions] = useState<HealthCondition[]>([]);
   const [consents, setConsents] = useState<ConsentState[]>([]);
   const [ownGuardianId, setOwnGuardianId] = useState<string | null>(null);
+  const [signedInAt, setSignedInAt] = useState<string | null>(null);
   const [busy, setBusy] = useState<ConsentKind | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
-      const [c, health, current, whanau] = await Promise.all([
+      const [c, health, current, whanau, attendance] = await Promise.all([
         getChild(supabase, params.childId),
         listHealthConditions(supabase, params.childId),
         listConsents(supabase, params.childId),
         listGuardiansOfChild(supabase, params.childId),
+        // Their own child only: the policy on attendance keys on guardianship, which the RLS
+        // suite asserts directly ("cannot read another family's attendance either").
+        centre ? listAttendanceToday(supabase, centre.id) : Promise.resolve([]),
       ]);
       setChild(c);
       setConditions(health);
       setConsents(current);
+      const state = attendance.find((s) => s.childId === params.childId);
+      setSignedInAt(state?.kind === 'in' ? state.at : null);
       // Which guardian record is *this* person's, so a recorded decision is attributed to them
       // rather than to whoever happened to be holding the phone. Same resolution the web app does.
       setOwnGuardianId(whanau.find((g) => g.guardian.userId === session?.userId)?.guardian.id ?? null);
@@ -72,7 +79,7 @@ export function ChildScreen() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not load this record.');
     }
-  }, [params.childId, session?.userId]);
+  }, [params.childId, session?.userId, centre]);
 
   useEffect(() => {
     void load();
@@ -114,37 +121,76 @@ export function ChildScreen() {
   return (
     <ScrollView style={theme.screen} contentContainerStyle={theme.content}>
       {child && (
-        <Text style={theme.muted}>
-          {formatAge(child.dateOfBirth, centre?.timezone)}
-          {child.iwi ? ` · ${child.iwi}` : ''}
-        </Text>
+        <View style={styles.head}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText} accessibilityElementsHidden>
+              {initials(child)}
+            </Text>
+          </View>
+          <View style={styles.headWho}>
+            {/* 28/600. The pack's header, and the screen previously had none at all — only a
+                muted age line under whatever the navigator put in the title bar. */}
+            <Text style={styles.headName}>{child.preferredName || child.firstName}</Text>
+            <Text style={styles.headMeta}>
+              {formatAge(child.dateOfBirth, centre?.timezone)}
+              {child.iwi ? ` · ${child.iwi}` : ''}
+            </Text>
+          </View>
+        </View>
+      )}
+
+      {/* "Is my child there" is the question this screen is opened with, and it was not
+          answerable here before. `ok` tint at 17/500, per the pack. */}
+      {signedInAt && (
+        <View style={styles.presentBlock}>
+          <Text style={styles.presentText}>
+            {'✓ '}Signed in at{' '}
+            {new Date(signedInAt).toLocaleTimeString('en-NZ', { hour: 'numeric', minute: '2-digit' })}{' '}
+            today
+          </Text>
+        </View>
       )}
 
       <View style={styles.block}>
-        <Text style={theme.h2}>Health</Text>
+        {/*
+          The eyebrow says what this section IS to the reader — read-only — before they try to
+          change something and find they cannot. The pack's wording, and it is better than the
+          bare "Health" it replaces for a reason worth keeping: a parent who taps a health entry
+          expecting to fix a wrong allergy and gets nothing has learnt that the app is broken,
+          not that the centre owns the record.
+        */}
+        <Text style={theme.h2}>Health · read-only</Text>
         {conditions.length === 0 ? (
           <Text style={theme.muted}>Nothing recorded.</Text>
         ) : (
-          conditions.map((c) => (
-            <View key={c.id} style={styles.card}>
-              <Text style={styles.name}>{c.name}</Text>
-              {c.severity && (
-                <Flag tone={c.severity === 'anaphylaxis' || c.severity === 'severe' ? 'critical' : 'warn'}>
-                  {c.severity === 'anaphylaxis' ? 'Anaphylaxis' : c.severity}
-                </Flag>
-              )}
-              {c.responsePlan && <Text style={theme.body}>{c.responsePlan}</Text>}
-            </View>
-          ))
+          conditions.map((c) => {
+            const severe = c.severity === 'anaphylaxis' || c.severity === 'severe';
+            return (
+              <View key={c.id} style={[styles.healthCard, severe ? styles.healthCritical : styles.healthWarn]}>
+                <Text style={[styles.healthTitle, severe ? styles.textCritical : styles.textWarn]}>
+                  {severe ? '▲ ' : '● '}
+                  {c.name}
+                </Text>
+                {c.severity && (
+                  <Text style={[styles.healthDetail, severe ? styles.textCritical : styles.textWarn]}>
+                    {c.severity === 'anaphylaxis' ? 'Anaphylaxis' : c.severity}
+                    {c.responsePlan ? ` · ${c.responsePlan}` : ''}
+                  </Text>
+                )}
+                {!c.severity && c.responsePlan && (
+                  <Text style={[styles.healthDetail, styles.textWarn]}>{c.responsePlan}</Text>
+                )}
+              </View>
+            );
+          })
         )}
         <Text style={[theme.muted, styles.note]}>
-          Health details are recorded by the centre. Tell a kaiako if anything here is wrong or out
-          of date.
+          Message the centre to change anything here.
         </Text>
       </View>
 
       <View style={styles.block}>
-        <Text style={theme.h2}>Consents</Text>
+        <Text style={theme.h2}>Consents · you can change these</Text>
         {!ownGuardianId && (
           <Text style={theme.muted}>
             The centre needs to add you as a guardian before you can record consent here.
@@ -201,6 +247,36 @@ export function ChildScreen() {
 }
 
 const styles = StyleSheet.create({
+  head: { flexDirection: 'row', alignItems: 'center', gap: space['3'], marginBottom: space['4'] },
+  headWho: { flex: 1, minWidth: 0 },
+  avatar: {
+    width: 56,
+    height: 56,
+    borderRadius: radius.pill,
+    backgroundColor: color.surfaceSunken,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: { fontSize: font.size.lg, fontWeight: font.weight.semibold, color: color.inkMuted },
+  headName: { fontSize: font.size['2xl'], fontWeight: font.weight.semibold, color: color.ink },
+  headMeta: { fontSize: font.size.sm, color: color.inkMuted, marginTop: 2 },
+
+  presentBlock: {
+    backgroundColor: color.okSoft,
+    borderRadius: radius.md,
+    paddingVertical: space['3'],
+    paddingHorizontal: space['4'],
+  },
+  presentText: { fontSize: font.size.mobileBase, fontWeight: font.weight.medium, color: color.ok },
+
+  healthCard: { borderRadius: radius.md, padding: space['3'], marginTop: space['3'] },
+  healthCritical: { backgroundColor: color.breachSoft },
+  healthWarn: { backgroundColor: color.warnSoft },
+  healthTitle: { fontSize: font.size.mobileBase, fontWeight: font.weight.semibold },
+  healthDetail: { fontSize: font.size.base, lineHeight: 22, marginTop: space['1'] },
+  textCritical: { color: color.breach },
+  textWarn: { color: color.warn },
+
   block: { marginTop: space['5'] },
   card: {
     backgroundColor: color.surface,

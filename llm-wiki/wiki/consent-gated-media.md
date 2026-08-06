@@ -70,6 +70,33 @@ Every other `FOR ALL` policy was re-read afterwards. They are all narrower than 
 matching select policy, so OR-ing them adds no visibility — `media` was the only case where the
 select policy was *narrower*, which is precisely the shape that produces this.
 
+### A null signed URL is a malfunction, not a withdrawn consent
+
+Recorded on 2026-08-06 because a wrong comment nearly caused a real regression, and the same
+mistake is available to anybody reading this code.
+
+`signMediaUrl` returns `null` when a URL cannot be issued, and its comment claimed the usual
+cause was "the caller may no longer read it, which is the gate working". **That cannot happen.**
+The gate is a restrictive policy on `public.media` **SELECT**, so a caller who may no longer
+read a photo never receives its row, never has a `storagePath`, and never calls the signer. The
+suite asserts exactly this with `count(*) = 0` — "withdrawing consent hides existing media from
+STAFF, not only from whānau".
+
+So `url === null` means storage is unreachable, the path is wrong, or a clock is skewed. It is a
+fault, and both feeds are right to say so.
+
+The consequence of believing otherwise: the design pack requires that a withdrawn photo render
+**nothing** — no placeholder, no notice, nothing announced, because a notice explaining an
+absence discloses the family's decision. Reading the wrong comment made the mobile feed's
+"could not be loaded" chip look like exactly that disclosure, and it was deleted on those
+grounds before the policy was checked. That would have silenced a genuine failure and bought no
+privacy at all, because the case being protected never reaches a client.
+
+**The pack's requirement is already satisfied, one layer lower than the pack imagines.** It asks
+for a rendering rule; this schema makes the data absent. That is strictly stronger, and it is
+the general shape to prefer: a privacy rule enforced by a policy cannot be forgotten by a
+component.
+
 ### The restrictive policy is SELECT-only, deliberately
 
 Staff must be able to **delete** media whose consent has been withdrawn — which is exactly media
