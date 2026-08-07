@@ -369,6 +369,24 @@ The queue is in `localStorage` and persists, but the app is server-rendered with
 worker, so a reload with no connection gives the browser's error page. Mobile is a binary and
 does survive a restart. See [[offline-outbox]].
 
+### 22. Whether a dose must be witnessed by a second person
+
+Added 2026-08-07 with `medication_administrations` (0032). Many services require two staff to
+sign for a medicine. Whether that is a **licensing requirement** or a widely-adopted good
+practice has not been read out of the criteria — which is the same position this repo takes on
+every other criterion, because [[compliance-and-evidence]] ships `criteria` empty rather than
+inventing numbers.
+
+| | |
+|---|---|
+| **What is asserted** | Nothing. `centres.medication_requires_witness` defaults to **false** |
+| **Why that direction** | Defaulting to true would encode a regulation nobody here has sourced, and a centre that hit the refusal would reasonably conclude the law requires it. Defaulting to false asserts nothing and still makes the control real the moment a centre turns it on — the trigger refuses an unwitnessed dose, and the suite asserts it in both positions |
+| **To close it** | Read the licensing criteria on medicine administration. If it is required, the default changes and the change belongs in a commit that records who read what — the `RATIO_TABLES_VERIFIED` rule |
+
+The window check beside it is **not** in this category and is enforced unconditionally: that a
+dose must fall inside the period a guardian authorised is not a regulatory reading, it is what
+the authority record already says. See [[medication-administration]].
+
 ## See Also
 
 - [[attendance-and-ratios]] — where the ratio bands are used

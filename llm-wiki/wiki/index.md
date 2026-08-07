@@ -33,6 +33,9 @@ and [`../schema.md`](../schema.md) for the page template.
 - [[incident-register]] — one table with two audiences and the boundary running inside a centre:
   the draft a family must not see, why the generic `jsonb` register breaks the audit log, and the
   `EXECUTE` grant a code review cannot see because the file does not mention it
+- [[medication-administration]] — the half of a medication record that never existed: a window
+  check that has to be a trigger, the timezone bug that would have refused a child their
+  antibiotics, and the first assertion that a purge reaches a table nobody can `DELETE`
 - [[consent-gated-media]] — a photograph that cannot exist without a recorded consent decision,
   and the RLS trap that made the first version leak to staff
 - [[funding-and-billing]] — attendance into money: why a broken record is excluded rather than

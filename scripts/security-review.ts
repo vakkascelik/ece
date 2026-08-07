@@ -519,6 +519,7 @@ async function main() {
      where n.nspname = 'public' and c.relkind = 'r'
        and c.relname not in ('attendance_events', 'staff_count_events', 'consent_events',
                              'messages', 'payments', 'audit_events',
+                             'medication_administrations',
                              'criteria', 'criteria_sets', 'schema_migrations',
                              'push_tokens', 'notification_preferences', 'notifications',
                              'invitations')

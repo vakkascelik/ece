@@ -1861,9 +1861,207 @@ select pg_temp.expect(
   'and it is still there, so the refusal was real rather than a filtered no-op'
 );
 
--- Cleaned up so the purge assertions below count what they expect to.
+-- Deliberately NOT cleaned up. The retention section below purges Ana, and this row
+-- is the only thing in the schema that proves a cascade reaches a table from which
+-- DELETE has been revoked for every role. See the assertion after the purge.
+
+-- ===========================================================================
+-- MEDICATION ADMINISTRATION (0032)
+--
+-- `medication_authorities` records that a guardian said yes. This records that
+-- somebody then gave the child something. Append-only, so the interesting
+-- assertions are the refusals: outside the authorised window, against the wrong
+-- child's authority, and the two verbs nobody holds.
+-- ===========================================================================
+
 set local role postgres;
-delete from public.incidents where child_id = 'a1111111-1111-4111-8111-111111111111';
+insert into public.medication_authorities
+  (id, child_id, medicine, dose, authorised_by, starts_on, expires_on)
+values
+  ('f1111111-1111-4111-8111-111111111111',
+   'a1111111-1111-4111-8111-111111111111',
+   'Amoxicillin', '5ml', 'd1111111-1111-4111-8111-111111111111',
+   ((now() at time zone 'Pacific/Auckland')::date - 1),
+   ((now() at time zone 'Pacific/Auckland')::date + 5)),
+  -- Beau's, used to prove an administration cannot cite another child's authority.
+  ('f2222222-2222-4222-8222-222222222222',
+   'b2222222-2222-4222-8222-222222222222',
+   'Paracetamol', '2.5ml', 'd2222222-2222-4222-8222-222222222222',
+   ((now() at time zone 'Pacific/Auckland')::date - 1),
+   ((now() at time zone 'Pacific/Auckland')::date + 5)),
+  -- Expired yesterday. The window is the point of the table.
+  ('f3333333-3333-4333-8333-333333333333',
+   'a1111111-1111-4111-8111-111111111111',
+   'Ibuprofen', '5ml', 'd1111111-1111-4111-8111-111111111111',
+   ((now() at time zone 'Pacific/Auckland')::date - 10),
+   ((now() at time zone 'Pacific/Auckland')::date - 1));
+
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+
+insert into public.medication_administrations
+  (authority_id, child_id, given_at, dose_given, given_by, client_uuid)
+values
+  ('f1111111-1111-4111-8111-111111111111',
+   'a1111111-1111-4111-8111-111111111111',
+   now() - interval '30 minutes', '5ml',
+   '55555555-5555-4555-8555-555555555555',
+   '0e111111-1111-4111-8111-111111111111');
+
+select pg_temp.expect(
+  (select count(*) from public.medication_administrations
+    where child_id = 'a1111111-1111-4111-8111-111111111111') = 1,
+  'an educator can record a dose inside the authorised window'
+);
+
+-- The window. An authority that expired yesterday does not authorise today.
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.medication_administrations
+      (authority_id, child_id, given_at, dose_given, given_by, client_uuid)
+    values ('f3333333-3333-4333-8333-333333333333',
+            'a1111111-1111-4111-8111-111111111111',
+            now(), '5ml', '55555555-5555-4555-8555-555555555555', gen_random_uuid());
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'a dose CANNOT be recorded against an expired authority');
+end $$;
+
+-- The denormalised child_id cannot drift from the authority it cites.
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.medication_administrations
+      (authority_id, child_id, given_at, dose_given, given_by, client_uuid)
+    values ('f2222222-2222-4222-8222-222222222222',
+            'a1111111-1111-4111-8111-111111111111',
+            now(), '5ml', '55555555-5555-4555-8555-555555555555', gen_random_uuid());
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'a dose CANNOT cite an authority belonging to a different child');
+end $$;
+
+-- The outbox contract, identical to attendance: the same key twice is one dose.
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.medication_administrations
+      (authority_id, child_id, given_at, dose_given, given_by, client_uuid)
+    values ('f1111111-1111-4111-8111-111111111111',
+            'a1111111-1111-4111-8111-111111111111',
+            now(), '5ml', '55555555-5555-4555-8555-555555555555',
+            '0e111111-1111-4111-8111-111111111111');
+  exception when unique_violation then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'a replayed client_uuid is refused, so a flaky flush cannot double-dose the record');
+end $$;
+
+-- Append-only, enforced by the absent grant rather than by an absent policy.
+do $$
+declare ok boolean := false;
+begin
+  begin
+    update public.medication_administrations set dose_given = '10ml'
+     where client_uuid = '0e111111-1111-4111-8111-111111111111';
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'nobody can UPDATE a medication record — the verb is revoked, got 42501');
+end $$;
+
+do $$
+declare ok boolean := false;
+begin
+  begin
+    delete from public.medication_administrations
+     where client_uuid = '0e111111-1111-4111-8111-111111111111';
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'nor DELETE one');
+end $$;
+
+-- Read: unlike an incident draft, there is nothing to withhold here. A parent is
+-- entitled to know their child was given medicine.
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.medication_administrations
+    where child_id = 'a1111111-1111-4111-8111-111111111111') = 1,
+  'the child''s own parent CAN read the dose their child was given'
+);
+
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.medication_administrations
+      (authority_id, child_id, given_at, dose_given, given_by, client_uuid)
+    values ('f1111111-1111-4111-8111-111111111111',
+            'a1111111-1111-4111-8111-111111111111',
+            now(), '5ml', '33333333-3333-4333-8333-333333333333', gen_random_uuid());
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'a parent CANNOT record an administration');
+end $$;
+
+set local request.jwt.claims = '{"sub":"44444444-4444-4444-8444-444444444444","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.medication_administrations
+    where child_id = 'a1111111-1111-4111-8111-111111111111') = 0,
+  'another family at the same centre CANNOT read it'
+);
+
+set local request.jwt.claims = '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.medication_administrations) = 0,
+  'and another centre reads nothing at all'
+);
+
+/*
+ * The witness rule, which is a centre setting rather than a regulation this repo has
+ * read. Off by default; asserted here in both positions, because a setting that is
+ * never exercised in the on position is a setting nobody knows works.
+ */
+set local role postgres;
+update public.centres set medication_requires_witness = true
+ where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.medication_administrations
+      (authority_id, child_id, given_at, dose_given, given_by, client_uuid)
+    values ('f1111111-1111-4111-8111-111111111111',
+            'a1111111-1111-4111-8111-111111111111',
+            now(), '5ml', '55555555-5555-4555-8555-555555555555', gen_random_uuid());
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'where the centre requires a witness, an unwitnessed dose is refused');
+end $$;
+
+insert into public.medication_administrations
+  (authority_id, child_id, given_at, dose_given, given_by, witnessed_by, client_uuid)
+values ('f1111111-1111-4111-8111-111111111111',
+        'a1111111-1111-4111-8111-111111111111',
+        now(), '5ml',
+        '55555555-5555-4555-8555-555555555555',
+        '11111111-1111-4111-8111-111111111111',
+        gen_random_uuid());
+
+select pg_temp.expect(
+  (select count(*) from public.medication_administrations
+    where child_id = 'a1111111-1111-4111-8111-111111111111') = 2,
+  'and a witnessed one is accepted'
+);
+
+set local role postgres;
+update public.centres set medication_requires_witness = false
+ where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 set local role authenticated;
 
 -- ===========================================================================
@@ -1977,6 +2175,34 @@ select pg_temp.expect(
   (select count(*) from public.consent_events
     where child_id = 'a1111111-1111-4111-8111-111111111111') = 0,
   'and the consent history'
+);
+
+/*
+ * And the two tables 0030 and 0032 added — which is the assertion the new-table
+ * checklist has never had.
+ *
+ * A child-linked table declared `on delete set null`, or `restrict`, breaks the
+ * purge in one of two ways: it survives as an orphan holding the description of a
+ * child's injury and the medicines they were given (a privacy failure that nothing
+ * would report), or it blocks the purge outright (an operational one). Neither is
+ * visible in any other test, and both are one word in a migration away.
+ *
+ * `incidents` is the interesting half. DELETE is revoked on it for every role
+ * including `service_role`, and it is still gone — because a referential action runs
+ * as the table owner and does not consult grants. That is the same mechanism that
+ * lets a child be purged out of `attendance_events`, asserted here rather than
+ * believed.
+ */
+select pg_temp.expect(
+  (select count(*) from public.incidents
+    where child_id = 'a1111111-1111-4111-8111-111111111111') = 0,
+  'and the incident register, from which nobody holds DELETE'
+);
+
+select pg_temp.expect(
+  (select count(*) from public.medication_administrations
+    where child_id = 'a1111111-1111-4111-8111-111111111111') = 0,
+  'and every record of what medicine that child was given'
 );
 
 -- The payoff from 0005 keeping values out of `detail`: the evidence that a record
@@ -2870,7 +3096,8 @@ begin
      -- Append-only tables: the row is its own record, so an audit row would describe an
      -- insert that can never be followed by an edit. Reasoning from 0005.
      and c.relname not in ('attendance_events', 'staff_count_events', 'consent_events',
-                           'messages', 'payments', 'audit_events')
+                           'messages', 'payments', 'audit_events',
+                           'medication_administrations')
      -- Reference data, and settings that belong to a person rather than a centre — the
      -- trigger could not attribute them to a tenant even if it fired.
      and c.relname not in ('criteria', 'criteria_sets', 'schema_migrations',
