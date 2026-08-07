@@ -4,7 +4,7 @@ import { requireCapability } from '@/lib/auth';
 import { dayWindow, shiftLocalDate } from '@/lib/dayWindow';
 import { serverDb } from '@/lib/supabase';
 import { IncidentList, type IncidentRow } from './IncidentList';
-import { NewIncident, type Amending } from './NewIncident';
+import { NewIncident, type BasedOn } from './NewIncident';
 
 /**
  * The incident register.
@@ -24,7 +24,7 @@ const WINDOW_DAYS = 14;
 export default async function IncidentsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ days?: string; amend?: string }>;
+  searchParams: Promise<{ days?: string; amend?: string; edit?: string }>;
 }) {
   const ctx = await requireCapability('recordDailyPractice');
   const db = await serverDb();
@@ -87,25 +87,33 @@ export default async function IncidentsPage({
   const defaultWallClock = `${part('year')}-${part('month')}-${part('day')}T${part('hour')}:${part('minute')}`;
 
   /*
-    The report being amended, if `?amend=` names one.
+    The report the form is opened from — `?edit=` for a draft, `?amend=` for a final
+    one. Never both: `edit` wins, arbitrarily, because a URL carrying both is
+    malformed and picking one is better than rendering neither.
 
-    Resolved from the rows already fetched rather than by id: an id that is not in
-    this window, or belongs to another centre, simply does not match and the form
-    opens as an ordinary new report. That is the safe direction, and it means the
-    query parameter cannot be used to confirm that an incident exists somewhere the
-    caller cannot see.
+    Resolved from the rows already fetched rather than by a lookup, so an id outside
+    this window or belonging to another centre simply does not match and the form
+    opens as an ordinary new report. The safe direction, and it means the query
+    parameter cannot be used to confirm that an incident exists somewhere the caller
+    cannot see.
 
-    Refused for a report that is already superseded, or still a draft — a draft is
-    editable in place, so amending one would produce two rows where an edit was
-    meant.
+    Each mode refuses the other's rows. A draft cannot be amended — it is editable in
+    place, so amending one would produce two rows where an edit was meant. A final
+    report cannot be edited — 0030's trigger refuses it, and offering the control
+    would be offering a button that fails.
   */
-  const target = params.amend
-    ? incidents.find(
-        (i) => i.id === params.amend && i.status === 'final' && !replaced.has(i.id),
-      )
+  const editTarget = params.edit
+    ? incidents.find((i) => i.id === params.edit && i.status === 'draft')
     : undefined;
+  const amendTarget =
+    !editTarget && params.amend
+      ? incidents.find(
+          (i) => i.id === params.amend && i.status === 'final' && !replaced.has(i.id),
+        )
+      : undefined;
+  const target = editTarget ?? amendTarget;
 
-  // The wall clock the amendment starts from is the original's time in the centre's
+  // The wall clock the form starts from is the original's time in the centre's
   // zone — the incident happened when it happened, whatever the correction changes.
   const wallClockOf = (instant: string) => {
     const p = new Intl.DateTimeFormat('en-CA', {
@@ -121,8 +129,9 @@ export default async function IncidentsPage({
     return `${g('year')}-${g('month')}-${g('day')}T${g('hour')}:${g('minute')}`;
   };
 
-  const amending: Amending | null = target
+  const basedOn: BasedOn | null = target
     ? {
+        mode: editTarget ? 'edit' : 'amend',
         id: target.id,
         childId: target.childId,
         kind: target.kind,
@@ -175,20 +184,20 @@ export default async function IncidentsPage({
       </div>
 
       {/*
-        `key` forces a remount when the amendment target changes.
+        `key` forces a remount when the form's subject or mode changes.
 
         Navigating from `/incidents` to `/incidents?amend=…` is the same route with
         different search params, so Next re-renders this client component rather than
-        replacing it — `useState(Boolean(amending))` keeps whatever it was initialised
+        replacing it — `useState(Boolean(basedOn))` keeps whatever it was initialised
         with and the form stays collapsed while its props say otherwise. Every default
         value inside it has the same problem, so an effect that only opened the form
         would leave the fields showing the previous report.
       */}
       <NewIncident
-        key={amending?.id ?? 'new'}
+        key={basedOn ? `${basedOn.mode}-${basedOn.id}` : 'new'}
         childOptions={children.map((c) => ({ id: c.id, name: `${c.firstName} ${c.lastName}` }))}
         defaultWallClock={defaultWallClock}
-        amending={amending}
+        basedOn={basedOn}
       />
 
       <IncidentList rows={rows} />

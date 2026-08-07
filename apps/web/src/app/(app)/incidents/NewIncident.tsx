@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useState } from 'react';
 import { INCIDENT_KINDS, INCIDENT_KIND_LABELS } from '@ece/core';
-import { openDraft, type Result } from './actions';
+import { openDraft, saveDraft, type Result } from './actions';
 
 export interface ChildOption {
   id: string;
@@ -24,15 +24,25 @@ export interface ChildOption {
 // centre AND React's own slot prop, and a component whose `children` is a select list is a
 // trap for whoever edits it next.
 /**
- * The report being replaced, when this form is opened as an amendment.
+ * The report this form is opened from — either to correct or to replace.
  *
- * A finalised report freezes — 0030's trigger refuses an edit — so a correction is a
- * new row carrying `supersedes`. Reusing this form rather than building a second one
- * is deliberate: an amendment is a full report, not a patch, and a cut-down "what
- * changed" form would produce a document that only makes sense next to the original.
- * The family reads the amendment on its own.
+ * One form serves all three acts. An amendment is a *full* report, not a patch: a
+ * cut-down "what changed" form would produce a document that only makes sense beside
+ * the original, and the family reads the amendment on its own.
  */
-export interface Amending {
+export interface BasedOn {
+  /**
+   * `edit` corrects a draft in place. `amend` writes a new report replacing a
+   * finalised one.
+   *
+   * The same fields and two completely different acts, which is why the mode is
+   * explicit rather than inferred from the source report's status. A draft has not
+   * been shown to anybody, so fixing a typo in one leaves no trace worth keeping;
+   * once final the same typo costs a superseding report that marks the original as
+   * replaced forever. Inferring the mode would make that distinction an accident of
+   * state rather than a decision.
+   */
+  mode: 'edit' | 'amend';
   id: string;
   childId: string;
   kind: string;
@@ -46,16 +56,21 @@ export interface Amending {
 export function NewIncident({
   childOptions,
   defaultWallClock,
-  amending,
+  basedOn,
 }: {
   childOptions: ChildOption[];
   defaultWallClock: string;
-  amending?: Amending | null;
+  basedOn?: BasedOn | null;
 }) {
-  // Opened already when amending: the person arrived here by pressing Amend, and
+  // Opened already when correcting or amending: the person arrived by pressing Edit
+  // or Amend, and
   // making them press a second button to see the form they asked for is noise.
-  const [open, setOpen] = useState(Boolean(amending));
-  const [state, action, pending] = useActionState<Result | null, FormData>(openDraft, null);
+  const [open, setOpen] = useState(Boolean(basedOn));
+  // One form, two server actions. An edit updates a row; an amendment inserts one.
+  const [state, action, pending] = useActionState<Result | null, FormData>(
+    basedOn?.mode === 'edit' ? saveDraft : openDraft,
+    null,
+  );
 
   // In an effect, not during render. Closing the form is a consequence of the action
   // having succeeded, and calling setState in the render body to react to it is the
@@ -77,14 +92,23 @@ export function NewIncident({
 
   return (
     <form action={action} className="card" style={{ marginBottom: '1rem' }}>
-      <h2 style={{ marginTop: 0 }}>{amending ? 'Amend a report' : 'Record an incident'}</h2>
-      {amending && (
+      <h2 style={{ marginTop: 0 }}>{basedOn?.mode === 'edit' ? 'Correct this draft' : basedOn ? 'Amend a report' : 'Record an incident'}</h2>
+      {basedOn?.mode === 'amend' && (
         <>
-          <input type="hidden" name="supersedes" value={amending.id} />
+          <input type="hidden" name="supersedes" value={basedOn.id} />
           <p className="sub">
             This replaces a report that has already been finalised. The original stays on the
             register and stays readable &mdash; that is what makes freezing it worth anything.
             This one starts as a draft and has to be finalised and sent like any other.
+          </p>
+        </>
+      )}
+      {basedOn?.mode === 'edit' && (
+        <>
+          <input type="hidden" name="editing" value={basedOn.id} />
+          <p className="sub">
+            Correcting a draft nobody outside the centre can see. It stays a draft &mdash;
+            finalising is a separate, deliberate step.
           </p>
         </>
       )}
@@ -97,7 +121,7 @@ export function NewIncident({
 
       <div className="field">
         <label htmlFor="childId">Child</label>
-        <select id="childId" name="childId" required defaultValue={amending?.childId ?? ''}>
+        <select id="childId" name="childId" required defaultValue={basedOn?.childId ?? ''}>
           <option value="" disabled>
             Choose a child
           </option>
@@ -111,7 +135,7 @@ export function NewIncident({
 
       <div className="field">
         <label htmlFor="kind">What kind</label>
-        <select id="kind" name="kind" required defaultValue={amending?.kind ?? 'injury'}>
+        <select id="kind" name="kind" required defaultValue={basedOn?.kind ?? 'injury'}>
           {INCIDENT_KINDS.map((k) => (
             <option key={k} value={k}>
               {INCIDENT_KIND_LABELS[k]}
@@ -132,13 +156,13 @@ export function NewIncident({
           name="occurredAt"
           type="datetime-local"
           required
-          defaultValue={amending?.occurredWallClock ?? defaultWallClock}
+          defaultValue={basedOn?.occurredWallClock ?? defaultWallClock}
         />
       </div>
 
       <div className="field">
         <label htmlFor="description">What happened</label>
-        <textarea id="description" name="description" rows={4} required defaultValue={amending?.description ?? ''} />
+        <textarea id="description" name="description" rows={4} required defaultValue={basedOn?.description ?? ''} />
         <p className="sub" style={{ fontSize: '0.8125rem' }}>
           Write it as the child&rsquo;s whānau will read it. Once this is final it cannot be
           edited — an amendment is a new report that replaces it.
@@ -147,17 +171,17 @@ export function NewIncident({
 
       <div className="field">
         <label htmlFor="location">Where (optional)</label>
-        <input id="location" name="location" type="text" defaultValue={amending?.location ?? ''} />
+        <input id="location" name="location" type="text" defaultValue={basedOn?.location ?? ''} />
       </div>
 
       <div className="field">
         <label htmlFor="firstAidGiven">First aid given (optional)</label>
-        <input id="firstAidGiven" name="firstAidGiven" type="text" defaultValue={amending?.firstAidGiven ?? ''} />
+        <input id="firstAidGiven" name="firstAidGiven" type="text" defaultValue={basedOn?.firstAidGiven ?? ''} />
       </div>
 
       <div className="field">
         <label htmlFor="witnessName">Witness (optional)</label>
-        <input id="witnessName" name="witnessName" type="text" defaultValue={amending?.witnessName ?? ''} />
+        <input id="witnessName" name="witnessName" type="text" defaultValue={basedOn?.witnessName ?? ''} />
         <p className="sub" style={{ fontSize: '0.8125rem' }}>
           A name, not an account — a witness is often a parent collecting another child.
         </p>
@@ -165,7 +189,7 @@ export function NewIncident({
 
       <div className="inline">
         <button type="submit" disabled={pending}>
-          {pending ? 'Saving…' : amending ? 'Save amendment as draft' : 'Save as draft'}
+          {pending ? 'Saving…' : basedOn?.mode === 'edit' ? 'Save correction' : basedOn ? 'Save amendment as draft' : 'Save as draft'}
         </button>
         <button className="secondary" type="button" onClick={() => setOpen(false)}>
           Cancel

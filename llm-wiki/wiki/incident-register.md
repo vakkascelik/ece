@@ -201,6 +201,30 @@ outstanding counts entirely, while the amendment is counted normally, so an amen
 finalised still surfaces. Mutation-tested: removing the exclusion fails two unit tests and the
 browser assertion.
 
+### Editing a draft, which is not the same act as amending
+
+A draft has not been shown to anybody, so correcting one is an edit and leaves no trace worth
+keeping. Once final, the same typo costs a superseding report that marks the original as
+replaced *forever* — right for a correction a family has seen, absurd for a missing letter
+nobody outside the centre ever read.
+
+`updateIncidentDraft` had existed in `@ece/api` since the query layer was written and **nothing
+called it**, so until now the only way to fix a word in an unsent draft was to finalise it and
+amend — permanently marking a report as replaced for no reason. Found by grepping the package's
+exports for callers rather than by using the product, which is the same class of gap as
+[[mobile-app]]'s eleven defects in code that had never executed.
+
+One form serves all three acts, with an explicit `mode` rather than one inferred from the source
+report's status. The fields are identical and the acts are not, and inferring would make that
+distinction an accident of state. Each mode refuses the other's rows, in the page and on screen:
+a draft offers **Edit** and no Amend, a final report offers **Amend** and no Edit. Asserted both
+ways, because a control that is merely absent for the wrong reason is one refactor from
+appearing.
+
+`saveDraft` does not accept `status`. Finalising is its own action for the reason that one
+records: a patch that happens to carry a status is how a report gets sent to a family as a side
+effect of fixing a word.
+
 ### The React trap this hit on the way
 
 Clicking **Amend** navigates to `/incidents?amend=…` — the same route with different search

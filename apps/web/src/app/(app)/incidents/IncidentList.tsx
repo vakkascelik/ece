@@ -127,12 +127,25 @@ function Row({ row }: { row: IncidentRow }) {
       </td>
       <td>
         {i.status === 'draft' && (
-          <form action={finaliseAction}>
-            <input type="hidden" name="id" value={i.id} />
-            <button className="small" type="submit" disabled={finalising}>
-              {finalising ? 'Finalising…' : 'Finalise'}
-            </button>
-          </form>
+          <>
+            <form action={finaliseAction}>
+              <input type="hidden" name="id" value={i.id} />
+              <button className="small" type="submit" disabled={finalising}>
+                {finalising ? 'Finalising…' : 'Finalise'}
+              </button>
+            </form>
+            {/*
+              A draft edits in place. Only a finalised report needs the heavyweight
+              path — amending marks the original as replaced forever, which is right
+              for a correction a family has seen and absurd for a typo nobody has
+              read.
+            */}
+            <p style={{ margin: '0.35rem 0 0' }}>
+              <Link href={`/incidents?edit=${i.id}`} className="small">
+                Edit
+              </Link>
+            </p>
+          </>
         )}
         {i.status === 'final' && !row.notifiedLabel && (
           <form action={notifyAction}>

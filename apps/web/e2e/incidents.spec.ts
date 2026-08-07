@@ -88,6 +88,72 @@ test('a finalised report is amended by a new one, and the original stays and sto
   await expect(stillThere.getByRole('link', { name: 'Amend' })).toHaveCount(0);
 });
 
+test('a draft is corrected in place, without becoming a replaced report', async ({ page }) => {
+  const t = tenant();
+  await visit(page, '/incidents');
+
+  await page.getByRole('button', { name: 'Record an incident' }).click();
+  const childSelect = page.getByLabel('Child');
+  const value = await childSelect
+    .locator('option', { hasText: t.childName })
+    .first()
+    .getAttribute('value');
+  await childSelect.selectOption(value!);
+  await page.getByLabel('What happened').fill('Tripped on teh mat.');
+  await submit(page, 'Save as draft');
+
+  await page.getByRole('row', { name: /Tripped on teh mat/ }).getByRole('link', { name: 'Edit' }).click();
+  await page.waitForURL(/[?&]edit=/);
+
+  await expect(page.getByRole('heading', { name: 'Correct this draft' })).toBeVisible();
+  await page.getByLabel('What happened').fill('Tripped on the mat.');
+  await submit(page, 'Save correction');
+
+  /*
+    One row, corrected. The point of having an edit path at all: without it a typo in
+    an unsent draft could only be fixed by finalising and amending, which marks the
+    original as replaced forever for something nobody outside the centre ever read.
+  */
+  const corrected = page.getByRole('row', { name: /Tripped on the mat/ });
+  await expect(corrected).toBeVisible();
+  await expect(page.getByRole('row', { name: /Tripped on teh mat/ })).toHaveCount(0);
+  // Scoped to this row, not the page: the amendment test above deliberately leaves a
+  // superseded report behind, and these tests share one tenant.
+  await expect(corrected.getByText('Replaced by a later report')).toHaveCount(0);
+  await expect(corrected.getByText('Replaces an earlier report')).toHaveCount(0);
+
+  // Still a draft. Correcting is not finalising, and the family still cannot see it.
+  await expect(
+    page.getByRole('row', { name: /Tripped on the mat/ }).getByText(/whānau cannot see this/),
+  ).toBeVisible();
+});
+
+test('a final report offers no Edit, and a draft offers no Amend', async ({ page }) => {
+  const t = tenant();
+  await visit(page, '/incidents');
+
+  await page.getByRole('button', { name: 'Record an incident' }).click();
+  const childSelect = page.getByLabel('Child');
+  const value = await childSelect
+    .locator('option', { hasText: t.childName })
+    .first()
+    .getAttribute('value');
+  await childSelect.selectOption(value!);
+  await page.getByLabel('What happened').fill('Bumped elbow on the door.');
+  await submit(page, 'Save as draft');
+
+  const row = () => page.getByRole('row', { name: /Bumped elbow/ });
+  // A draft: editable, not amendable.
+  await expect(row().getByRole('link', { name: 'Edit' })).toBeVisible();
+  await expect(row().getByRole('link', { name: 'Amend' })).toHaveCount(0);
+
+  await page.getByRole('row', { name: /Bumped elbow/ }).getByRole('button', { name: 'Finalise' }).click();
+  await expect(row().getByRole('link', { name: 'Amend' })).toBeVisible();
+  // Final: amendable, not editable. 0030's trigger refuses an edit, so offering the
+  // control would be offering a button that fails.
+  await expect(row().getByRole('link', { name: 'Edit' })).toHaveCount(0);
+});
+
 test('an amend link naming an unknown report opens an ordinary new one', async ({ page }) => {
   // The safe direction, and it means the query parameter cannot be used to confirm
   // that an incident exists somewhere this caller cannot see.
