@@ -165,6 +165,13 @@ existed.
 - **`upsert` without `ignoreDuplicates` needs `UPDATE` privilege.** On an append-only table it
   fails with `42501` before any `CHECK` is evaluated — which can make a test pass for the
   wrong reason.
+- **A concatenated `select()` string silently loses the row type.** `supabase-js` infers the
+  result from the *literal text* of the select, so `'id, name' + ', more'` degrades the return
+  to `GenericStringError[]`. The visible symptom is a confusing `TS2352` on the cast that
+  follows — "neither type sufficiently overlaps" — several lines away from the cause. The
+  invisible symptom is worse: if the cast is written as `as unknown as Row[]` to make the error
+  go away, every field access downstream typechecks against nothing. Keep a column list as one
+  string literal however long it gets; `registers.ts` and `compliance.ts` both do.
 
 ### Testing
 

@@ -189,3 +189,4 @@ export * from './compliance';
 export * from './engagement';
 export * from './billing';
 export * from './recruitment';
+export * from './registers';
