@@ -246,30 +246,55 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         </main>
 
         {/*
-          One line per centre, no headings, and no second copy of the sign-in link.
+          THREE COLUMNS, restored on the owner's call after a pass had collapsed it to one line per
+          centre. Their preference, and it is theirs to have.
 
-          It was three columns repeating both full postal addresses on all ten pages — and on
-          `/contact`, where the body already carries them, that made four copies of each address and
-          two `<h2>`s per centre name in one heading outline. A footer is a reminder of who and where;
-          `/contact` is where the detail belongs. See the note in globals.css.
+          What is NOT restored is the `<h2>` on each column, and that part is not a style choice.
+          Each centre's name was an `<h2>` here and an `<h2>` in the contact card on `/contact`, so a
+          screen reader working that page's heading list met "Ōwairaka / Mt Albert" twice with
+          different content under each — a heading outline that lists the same name twice at the same
+          level is one somebody cannot navigate by. These are `<p class="foot-head">` now: visually
+          identical, and correct, because a footer column label is a label and not a section of the
+          document. `<footer>` is already the `contentinfo` landmark.
 
-          Phone stays because "ring them" is the one thing somebody does straight from a footer.
-          Email and postcode do not — they are one click away and were the bulk of the repetition.
+          The cost that came back with the columns is real and is worth naming: `/contact` carries
+          both addresses in its body, so the page now states each of them twice. That is a repetition
+          a reader can ignore, where two identical headings is one a screen-reader user cannot.
         */}
         <footer className="foot">
           <div className="wrap">
-            <ul className="foot-centres">
+            <div className="foot-grid">
               {CENTRES.map((centre) => (
-                <li key={centre.path}>
-                  <strong>{centre.name}</strong> — {centre.street}, {centre.suburb} ·{' '}
-                  <a href={`tel:${centre.phoneHref}`}>{centre.phone}</a>
-                </li>
+                <div key={centre.path}>
+                  <p className="foot-head">{centre.name}</p>
+                  <p>
+                    {centre.street}
+                    <br />
+                    {centre.suburb} {centre.postcode}
+                  </p>
+                  <p>
+                    <a href={`tel:${centre.phoneHref}`}>{centre.phone}</a>
+                  </p>
+                  <p>
+                    <a href={`mailto:${centre.email}`}>{centre.email}</a>
+                  </p>
+                </div>
               ))}
-            </ul>
-            <p>
-              {CENTRE_FACTS.hours}. Children {CENTRE_FACTS.ages}.{' '}
-              <a href="/contact">Contact us</a>
-            </p>
+              <div>
+                <p className="foot-head">Hours</p>
+                <p>{CENTRE_FACTS.hours}</p>
+                <p>Children {CENTRE_FACTS.ages}</p>
+                {/*
+                  Back in the footer as well as the masthead. Deliberate duplication: the masthead
+                  link is the one that gets used, and somebody who has scrolled to the bottom
+                  looking for it should not have to scroll back up.
+                */}
+                <p className="foot-head foot-head-spaced">For families and kaiako</p>
+                <p>
+                  <a href={appUrl()}>Sign in to Doorway</a>
+                </p>
+              </div>
+            </div>
 
             {/*
               The developer credit.

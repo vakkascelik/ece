@@ -448,16 +448,18 @@ genuinely is the right picture, because a link preview is seen by people who did
 
 ### The footer repeated both addresses on every page
 
+> **PARTLY REVERSED THE SAME DAY, on the owner's call — the three columns are back.** See "The
+> footer, reversed" below. The heading half of this did not come back with them, and the distinction
+> is the point.
+
 Three columns, two full postal addresses, two phone numbers, two email addresses, an `<h2>` per
 centre — on all ten routes. On `/contact` that made the third and fourth copy of each address, and
 each centre name was an `<h2>` in the footer **and** an `<h2>` in the card above it, so a screen
 reader working that page's heading list hit "Ōwairaka / Mt Albert" twice with different content under
 each.
 
-Now one line per centre, no headings at all — `<footer>` is already the `contentinfo` landmark and a
-list of two places does not need one. Phone stays, because ringing them is the one thing somebody
-does straight from a footer; email and postcode go, because they are one click away and were the bulk
-of the repetition.
+It was collapsed to one line per centre with no headings at all — `<footer>` is already the
+`contentinfo` landmark and a list of two places does not need one.
 
 ### "(as published by the centre)" is gone from /rooms
 
@@ -541,6 +543,46 @@ mark is a filled box rather than an outline.
 uses to *say* things — buttons, callouts, links. A third-party mark is identity, and the review
 already carved out the pink of Little Pearls' own logo on exactly that basis. Salix green `#1a5a4a`
 appears once, at 28px, in the footer.
+
+## The footer, reversed — and the half that did not come back
+
+The owner looked at the collapsed footer and preferred the three columns. They are back. That is a
+style preference and it is theirs to have; what is worth recording is that **the two things the
+collapse fixed were separable, and only one of them was a preference.**
+
+| | Came back? |
+|---|---|
+| Three columns, both full addresses, both emails, on all ten routes | Yes. On `/contact` that means each address is stated twice. A reader skips it |
+| A `<h2>` per centre in the footer, duplicating the `<h2>` per centre in the contact cards | **No.** The column labels are `<p class="foot-head">` — identical on screen, and correct |
+
+A footer column label is a label, not a section of the document. Nothing is lost by it not being a
+heading, because `<footer>` is already the `contentinfo` landmark; what was lost by it *being* one is
+a heading outline with the same name twice at the same level, which is not navigable. Repetition a
+sighted reader can skip is a different cost from a broken outline a screen-reader user cannot.
+
+The general shape, worth more than the specific case: **when a change bundles a taste call with a
+defect fix, unbundle them before reverting.** The instruction was "the previous footer was better",
+and the previous footer was better in one respect and broken in another.
+
+The sign-in link is deliberately in both the masthead and the footer now. The masthead one is the one
+that gets used; somebody who has scrolled to the bottom looking for it should not have to scroll back
+up.
+
+### Two CSS specificity bugs in one footer, both the same shape
+
+Both were invisible in the diff and obvious in a screenshot, and both are the kind that read as a
+typo in the markup rather than a losing rule in the stylesheet.
+
+- `.foot p { margin: 0 }` is (0,1,1) and `.foot-credit` is (0,1,0), so the credit's top margin was
+  discarded and the line sat welded to the one above it. It is `.foot .foot-credit` now.
+- `.foot .foot-head` and `.foot .foot-head-spaced` are both (0,2,0), so **source order decides** —
+  and the first uses the `margin` shorthand, which sets `margin-top: 0`. Written in the wrong order
+  it silently undoes the rule meant to override it. Caught before it shipped only because the first
+  bug had just been paid for.
+
+The credit's hairline needed `max-width: none` for a third reason of the same family: `p` caps at
+66ch globally, so a border meant to span the footer stopped two-thirds across and read as an
+underline struck through the text above it.
 
 The bug found on the way is a specificity one and is the sort that looks like a typo in the markup.
 `.foot p { margin: 0 }` is (0,1,1); `.foot-credit { margin-top: … }` is (0,1,0), so the margin was

@@ -292,22 +292,22 @@ a:hover { text-decoration-thickness: 2px; }
 .main .wrap { max-width: 44rem; }
 
 /*
- * ONE LINE PER CENTRE, and the headings are gone.
+ * THREE COLUMNS — two centres and a third for hours and the way in.
  *
- * This was a three-column block repeating both full postal addresses, both phone numbers and both
- * email addresses under an `<h2>` each, on all ten pages. Two costs, and the second is the one that
- * decided it:
+ * A pass had collapsed this to one line per centre, for two reasons. The owner preferred the
+ * columns and they are back; it is worth writing down which of the two reasons came back with them
+ * and which did not.
  *
- *  - On `/contact` the same two addresses appear in the body, which is where somebody looking for
- *    them is. The footer was the third and fourth copy on that page.
- *  - Each centre's name was an `<h2>` here *and* an `<h2>` in the contact card above, so a screen
- *    reader working the heading list on that page hit "Ōwairaka / Mt Albert" twice with different
- *    content under each. Duplicate headings at the same level are how a heading outline stops being
- *    navigable.
+ *  - **Repetition, which returns.** On `/contact` both addresses are in the body, so that page now
+ *    states each of them twice. A reader skips it. Accepted.
+ *  - **Duplicate headings, which do not.** Each centre's name was an `<h2>` here *and* an `<h2>` in
+ *    the contact card above, so a screen reader working that page's heading list met "Ōwairaka / Mt
+ *    Albert" twice with different content under each — an outline nobody can navigate by. The
+ *    column labels are `<p class="foot-head">` now: identical on screen, and correct, because a
+ *    footer column label is a label rather than a section of the document. `<footer>` is already
+ *    the `contentinfo` landmark.
  *
- * So the footer is now a reminder — who and where and how to ring — and `/contact` is the detail.
- * No headings at all: `<footer>` is already the `contentinfo` landmark, and a list of two places
- * does not need one.
+ * A style preference can be restored without restoring the defect that shared a commit with it.
  */
 .foot {
   background: var(--sand);
@@ -316,31 +316,52 @@ a:hover { text-decoration-thickness: 2px; }
   padding: var(--space-6) 0;
   font-size: var(--text-base);
 }
-.foot-centres {
-  list-style: none;
-  margin: 0 0 var(--space-3);
-  padding: 0;
+.foot-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: var(--space-5);
 }
-.foot-centres li { margin: 0 0 var(--space-1); }
-.foot p { margin: 0; }
+.foot-head {
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-size: var(--text-sm);
+  color: var(--teal-ink);
+}
+.foot p { margin: 0 0 var(--space-1); }
+/*
+ * ORDER MATTERS BELOW, and it is the same class of bug that ate the credit's margin last time.
+ * Both selectors are (0,2,0), so source order decides — and `.foot .foot-head` uses the `margin`
+ * shorthand, which sets `margin-top: 0`. Put it second and it silently undoes the rule above it.
+ */
+.foot .foot-head { margin: 0 0 var(--space-2); }
+/* The second label in the third column needs air above it; the first does not. */
+.foot .foot-head-spaced { margin-top: var(--space-4); }
 
 /*
- * The developer credit, quieter than everything above it and set off by a hairline.
+ * The developer credit — the very bottom, under the three columns, set off by a full-width hairline.
  *
- * `--text-sm`, and the link keeps the footer's own colour rather than being played down further:
+ * `max-width: none` IS THE LOAD-BEARING LINE. `p` caps at 66ch globally, which is right for prose
+ * and wrong for a rule meant to span the footer: the first attempt at this border stopped
+ * two-thirds of the way across and read as an underline struck through the text above it rather
+ * than as a divider. Invisible in the CSS, obvious in a screenshot.
+ *
+ * `--teal` rather than `--sand` for the line. This is the one hairline on the site that is a colour
+ * rather than a tone, and it earns it: sand on sand is nothing, and this divides content *inside* a
+ * block rather than marking the boundary between two.
+ *
+ * `.foot .foot-credit` and not `.foot-credit`: `.foot p { margin: … }` above is (0,1,1) and would
+ * otherwise outrank a lone class and flatten the margin. It did, once.
+ *
+ * `--text-sm`, and the link keeps the footer's own colour rather than being played down further —
  * a credit that has to be squinted at is worse than no credit, and 13px is already the smallest
  * step in the scale.
  */
-/*
- * No rule above it. There was one, and it was wrong twice over: `p` caps at 66ch globally, so the
- * border stopped mid-footer and read as an underline struck through the line above rather than as
- * a separator. Space does the job a line was being asked to do.
- */
-/* `.foot .foot-credit` and not `.foot-credit`: `.foot p { margin: 0 }` above is (0,1,1) and would
-   otherwise outrank a lone class and flatten this to nothing. It did — the credit sat jammed under
-   the hours line looking like a continuation of it. */
 .foot .foot-credit {
-  margin-top: var(--space-5);
+  max-width: none;
+  margin: var(--space-6) 0 0;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--teal);
   font-size: var(--text-sm);
 }
 .foot-credit a {

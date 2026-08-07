@@ -906,4 +906,19 @@ And a CSS specificity bug of the shape that reads as a typo in the markup: `.foo
 is (0,1,1) and `.foot-credit` is (0,1,0), so the credit's top margin was silently discarded and the
 line sat welded to the one above it. **A rule that loses is invisible in a diff.**
 
+2026-08-07 — The collapsed footer was reversed on the owner's call; the three columns are back, and
+the credit moved to a bar at the very bottom. Recorded in [[public-website]].
+
+The part worth keeping is not the layout. The collapse had bundled **a taste call** (fewer copies of
+each address) with **a defect fix** (each centre's name was an `<h2>` in the footer *and* an `<h2>`
+in the contact card, so `/contact`'s heading outline listed the same name twice at the same level).
+"The previous footer was better" is about the first and not the second, so the columns came back and
+the headings did not — they are `<p class="foot-head">`, identical on screen and correct underneath.
+**When a change bundles a preference with a fix, unbundle them before reverting.**
+
+Also a second specificity bug in the same footer, hours after the first: `.foot .foot-head` and
+`.foot .foot-head-spaced` are both (0,2,0), so source order decides, and the first uses the `margin`
+shorthand — which zeroes `margin-top` and silently undoes the rule meant to override it. Written in
+the right order only because the first bug had just been paid for.
+
 *Log last updated: 2026-08-07*
