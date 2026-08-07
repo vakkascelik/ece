@@ -2065,6 +2065,129 @@ update public.centres set medication_requires_witness = false
 set local role authenticated;
 
 -- ===========================================================================
+-- SLEEP CHECKS (0033)
+--
+-- The most repetitive record in the building. Same append-only shape as the two
+-- above, so the assertions here are about the boundary and the verbs rather than
+-- about new machinery — and about the interval, which the schema deliberately does
+-- not know.
+-- ===========================================================================
+
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+
+insert into public.sleep_checks
+  (child_id, at, observed_position, breathing_observed, checked_by, client_uuid)
+values
+  ('b2222222-2222-4222-8222-222222222222',
+   now() - interval '20 minutes', 'back', true,
+   '55555555-5555-4555-8555-555555555555',
+   '0f111111-1111-4111-8111-111111111111');
+
+select pg_temp.expect(
+  (select count(*) from public.sleep_checks
+    where child_id = 'b2222222-2222-4222-8222-222222222222') = 1,
+  'an educator can record a sleep check'
+);
+
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.sleep_checks
+      (child_id, at, observed_position, breathing_observed, checked_by, client_uuid)
+    values ('b2222222-2222-4222-8222-222222222222',
+            now(), 'side', true, '55555555-5555-4555-8555-555555555555',
+            '0f111111-1111-4111-8111-111111111111');
+  exception when unique_violation then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'a replayed sleep-check key is refused, so a cot-room retry cannot double-record');
+end $$;
+
+do $$
+declare ok boolean := false;
+begin
+  begin
+    update public.sleep_checks set breathing_observed = false
+     where client_uuid = '0f111111-1111-4111-8111-111111111111';
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'nobody can UPDATE a sleep check — the verb is revoked');
+end $$;
+
+do $$
+declare ok boolean := false;
+begin
+  begin
+    delete from public.sleep_checks
+     where client_uuid = '0f111111-1111-4111-8111-111111111111';
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'nor DELETE one');
+end $$;
+
+-- Beau's father reads it; Ana's mother does not.
+set local request.jwt.claims = '{"sub":"44444444-4444-4444-8444-444444444444","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.sleep_checks
+    where child_id = 'b2222222-2222-4222-8222-222222222222') = 1,
+  'the sleeping child''s own parent CAN read that somebody looked at them'
+);
+
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.sleep_checks) = 0,
+  'another family at the same centre CANNOT'
+);
+
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.sleep_checks
+      (child_id, at, observed_position, breathing_observed, checked_by, client_uuid)
+    values ('a1111111-1111-4111-8111-111111111111',
+            now(), 'back', true, '33333333-3333-4333-8333-333333333333', gen_random_uuid());
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'and a parent CANNOT record a sleep check for their own child');
+end $$;
+
+/*
+ * The interval is null until a centre states one, and that is the product decision
+ * this asserts. A default of 5 or 10 would be this repo inventing a licensing
+ * figure, which is the thing `criteria` ships empty to avoid.
+ */
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+select pg_temp.expect(
+  (select sleep_check_minutes from public.centres
+    where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') is null,
+  'a centre has NO sleep-check interval until it states one — none is assumed'
+);
+
+do $$
+declare ok boolean := false;
+begin
+  begin
+    update public.centres set sleep_check_minutes = 0
+     where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'and a nonsensical interval is refused by the constraint');
+end $$;
+
+-- One for Ana as well, purely so the purge below has something to take. The
+-- assertions above deliberately use Beau, so that they cannot pass by accident on a
+-- fixture every other section has already touched.
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+insert into public.sleep_checks
+  (child_id, at, observed_position, breathing_observed, checked_by, client_uuid)
+values
+  ('a1111111-1111-4111-8111-111111111111',
+   now() - interval '15 minutes', 'not_observed', true,
+   '55555555-5555-4555-8555-555555555555',
+   '0f222222-2222-4222-8222-222222222222');
+
+-- ===========================================================================
 -- RETENTION AND PURGING
 --
 -- `purge_child` is the most destructive thing in the product and it is SECURITY
@@ -2203,6 +2326,21 @@ select pg_temp.expect(
   (select count(*) from public.medication_administrations
     where child_id = 'a1111111-1111-4111-8111-111111111111') = 0,
   'and every record of what medicine that child was given'
+);
+
+select pg_temp.expect(
+  (select count(*) from public.sleep_checks
+    where child_id = 'a1111111-1111-4111-8111-111111111111') = 0,
+  'and every sleep check made on them'
+);
+
+-- The other child's records are untouched. Without this the three assertions above
+-- are satisfied by a purge that deleted the whole table, which is not the property
+-- being claimed.
+select pg_temp.expect(
+  (select count(*) from public.sleep_checks
+    where child_id = 'b2222222-2222-4222-8222-222222222222') = 1,
+  'while the child who was not purged keeps theirs'
 );
 
 -- The payoff from 0005 keeping values out of `detail`: the evidence that a record
@@ -3097,7 +3235,7 @@ begin
      -- insert that can never be followed by an edit. Reasoning from 0005.
      and c.relname not in ('attendance_events', 'staff_count_events', 'consent_events',
                            'messages', 'payments', 'audit_events',
-                           'medication_administrations')
+                           'medication_administrations', 'sleep_checks')
      -- Reference data, and settings that belong to a person rather than a centre — the
      -- trigger could not attribute them to a tenant even if it fired.
      and c.relname not in ('criteria', 'criteria_sets', 'schema_migrations',

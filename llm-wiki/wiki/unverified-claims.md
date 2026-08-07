@@ -387,6 +387,25 @@ The window check beside it is **not** in this category and is enforced unconditi
 dose must fall inside the period a guardian authorised is not a regulatory reading, it is what
 the authority record already says. See [[medication-administration]].
 
+### 23. How often a sleeping child must be checked
+
+Added 2026-08-07 with `sleep_checks` (0033). Five and ten minutes are both commonly quoted;
+neither is sourced here.
+
+Unlike every other item on this page, **the product makes no claim to flag**.
+`centres.sleep_check_minutes` is nullable and null means not configured, so there is no default
+to be wrong about. The screen shows elapsed time — a fact — and only computes "overdue" against
+an interval the centre itself stated, attributed to them.
+
+| | |
+|---|---|
+| **The gap this leaves** | The product cannot tell a centre whether their interval is adequate, and will not try. A binder can show *that* checks were made and how far apart; it cannot show they were frequent enough |
+| **Why not a default** | A centre seeing ten minutes enforced would reasonably conclude ten is the rule. If it is five, the product has talked them into a breach behind a green screen |
+| **To close it** | Read the licensing criteria on sleeping children. It changes the guidance the UI can offer, not the schema |
+
+The suite asserts the absence directly, so a default cannot be introduced without a test failing
+and somebody justifying it. See [[sleep-checks]].
+
 ## See Also
 
 - [[attendance-and-ratios]] — where the ratio bands are used

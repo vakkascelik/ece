@@ -36,6 +36,8 @@ and [`../schema.md`](../schema.md) for the page template.
 - [[medication-administration]] — the half of a medication record that never existed: a window
   check that has to be a trigger, the timezone bug that would have refused a child their
   antibiotics, and the first assertion that a purge reaches a table nobody can `DELETE`
+- [[sleep-checks]] — the register that refuses to say how often, and why a default interval
+  would be worse than none: it would talk a centre into a breach behind a green screen
 - [[consent-gated-media]] — a photograph that cannot exist without a recorded consent decision,
   and the RLS trap that made the first version leak to staff
 - [[funding-and-billing]] — attendance into money: why a broken record is excluded rather than
