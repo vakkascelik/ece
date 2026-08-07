@@ -163,6 +163,10 @@ export * from './funding';
 // depends on this package and on nothing else in the monorepo.
 export * from './recruitment';
 
+// The daily registers — incidents, medicine given, sleep checks. Nothing in here reads
+// a clock: `now` is a parameter, because both things it decides are time-relative.
+export * from './registers';
+
 // ---------------------------------------------------------------------------
 // Design tokens
 // ---------------------------------------------------------------------------
