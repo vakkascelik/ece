@@ -242,6 +242,24 @@ test.describe('staff screens', () => {
     await auditPage(page, '/attendance');
   });
 
+  test('incidents', async ({ page }) => {
+    await visit(page, '/incidents');
+    await expect(page.getByRole('heading', { name: 'Incidents' })).toBeVisible();
+    await auditPage(page, '/incidents');
+  });
+
+  test('sleep checks, with the register open', async ({ page }) => {
+    await visit(page, '/sleep');
+    await expect(page.getByRole('heading', { name: 'Sleep checks' })).toBeVisible();
+    // Audited with a form expanded, not just the collapsed list. The radio group and
+    // its legend are the part most likely to fail, and they do not exist until a row
+    // is opened — auditing the closed page would report a pass on markup that is not
+    // on screen.
+    const open = page.getByRole('button', { name: 'Record a check' }).first();
+    if (await open.isVisible().catch(() => false)) await open.click();
+    await auditPage(page, '/sleep');
+  });
+
   test('posts', async ({ page }) => {
     await visit(page, '/posts');
     await expect(page.getByText('Audit pānui')).toBeVisible();

@@ -57,6 +57,47 @@ be constrained into existence. Worse, a database that refused a late check would
 evidence that it was late, which is the exact record a review needs. The register records what
 happened; the screen is what draws attention to a gap.
 
+### The screen, and the tick it will not draw
+
+`/sleep`, staff-only, scoped to children who are **signed in** — a register listing the whole
+roll is a register nobody scans, and "who is here" comes from `attendance_events` like every
+other presence answer in this product.
+
+Sorted longest-since-a-check first, with children never checked today at the top. Sorting by
+name would be tidier and useless: the person holding the tablet is looking for who to check
+next, and that is the top of the list or it is nowhere. Same reasoning as
+`compareIncidentUrgency`.
+
+**Four states, and three of them are easy.** A child never checked reads *No check recorded
+today* — not "overdue", because an interval has not started running for them. Past the stated
+interval is a red flag naming the interval and whose it is. Inside it is a green tick.
+
+The fourth is the one the feature exists for: **no interval stated**. `overdue` is `null`, and
+the row shows a plain elapsed time in the quiet style — deliberately *not* the green tick. A
+tick would read as approval of a gap nobody has measured against anything, which is exactly how
+a product talks a centre into a breach behind a green screen.
+
+That distinction lives entirely in the view. `test:rls` covers the write and cannot see it, and
+`registers.test.ts` proves `sleepStatuses` returns `null` rather than `false` but not what gets
+drawn. So `sleep.spec.ts` asserts the absence of `.flag-ok` on that row, and it was
+mutation-tested: rendering the null case as the tick made the suite fail on exactly that
+assertion.
+
+**The breathing question has no preselected answer.** It is `required` with neither radio
+checked, so the browser refuses an empty submission. A default of "yes" would mean the single
+most consequential claim on the screen — that somebody observed a sleeping child breathing —
+gets recorded by nobody answering it.
+
+The time comes from the server, not from a field, for the same reason: a check records the
+moment somebody looked, and a time input invites filling the register in afterwards from
+memory, which is the practice it replaces. `client_uuid` is minted per submission and refreshed
+after each success, the same contract as `GiveMedicine` and for the same reason — a key fixed at
+mount would swallow the 2:10 check as a duplicate of the 2:00 one and report success.
+
+Elapsed times are a server-render snapshot rather than a ticking client counter. A counter would
+be friendlier and would also keep counting on a tablet nobody is holding; a number that is
+obviously a snapshot is the safer lie to not tell.
+
 ## See Also
 
 - [[medication-administration]] — same shape, and where the append-only reasoning is written out

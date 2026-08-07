@@ -52,6 +52,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
               recorded. `recordDailyPractice` includes educators, who are the people who file
               these; a parent reads their own child's through the child record. */}
           {can(ctx.role, 'recordDailyPractice') && <NavLink href="/incidents">Incidents</NavLink>}
+          {can(ctx.role, 'recordDailyPractice') && <NavLink href="/sleep">Sleep checks</NavLink>}
           {can(ctx.role, 'manageMembers') && <NavLink href="/members">People</NavLink>}
           {/* Next to People because both are about who works here — but a separate capability, for
               the reason recorded on `manageRecruitment` in @ece/core. */}

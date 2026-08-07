@@ -66,6 +66,14 @@ const MATRIX: Array<{ path: string; guard: string; allowed: Record<Role, boolean
     allowed: { owner: true, manager: true, educator: true, parent: false },
   },
   {
+    // Same audience as the roll and for the same reason: the person checking a cot is
+    // the person holding the tablet. A parent reads that their child slept through the
+    // child record, not here.
+    path: '/sleep',
+    guard: 'recordDailyPractice',
+    allowed: { owner: true, manager: true, educator: true, parent: false },
+  },
+  {
     path: '/posts',
     guard: 'requireCtx',
     allowed: { owner: true, manager: true, educator: true, parent: true },
@@ -113,22 +121,22 @@ const MATRIX: Array<{ path: string; guard: string; allowed: Record<Role, boolean
 /** Nav links each role should be offered. Presentation, but a wrong link is a wrong promise. */
 const NAV: Record<Role, { shown: string[]; hidden: string[] }> = {
   owner: {
-    shown: ['Overview', 'Children', 'Posts', 'Messages', 'Attendance', 'Incidents', 'People', 'Compliance', 'Funding', 'Settings'],
+    shown: ['Overview', 'Children', 'Posts', 'Messages', 'Attendance', 'Incidents', 'Sleep checks', 'People', 'Compliance', 'Funding', 'Settings'],
     hidden: [],
   },
   manager: {
-    shown: ['Overview', 'Children', 'Posts', 'Messages', 'Attendance', 'Incidents', 'People', 'Compliance', 'Funding', 'Settings'],
+    shown: ['Overview', 'Children', 'Posts', 'Messages', 'Attendance', 'Incidents', 'Sleep checks', 'People', 'Compliance', 'Funding', 'Settings'],
     hidden: [],
   },
   educator: {
-    shown: ['Overview', 'Children', 'Posts', 'Messages', 'Attendance', 'Incidents'],
+    shown: ['Overview', 'Children', 'Posts', 'Messages', 'Attendance', 'Incidents', 'Sleep checks'],
     hidden: ['People', 'Compliance', 'Funding', 'Settings'],
   },
   parent: {
     // "Your tamariki" and "Pānui", not "Children" and "Posts" — the same routes, named for
     // the person reading them.
     shown: ['Overview', 'Your tamariki', 'Pānui', 'Messages'],
-    hidden: ['Attendance', 'Incidents', 'People', 'Compliance', 'Funding', 'Settings', 'Children', 'Posts'],
+    hidden: ['Attendance', 'Incidents', 'Sleep checks', 'People', 'Compliance', 'Funding', 'Settings', 'Children', 'Posts'],
   },
 };
 
