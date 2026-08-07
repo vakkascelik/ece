@@ -114,13 +114,28 @@ export function zonedWallClockToUtc(wallClock: string, timeZone: string): string
   return (actual === guess ? first : new Date(naive - actual * 60_000)).toISOString();
 }
 
+/**
+ * Move an already-resolved local date by a number of days.
+ *
+ * The input is a calendar date somebody else resolved with `todayInZone`, and the
+ * output is another calendar date. `Date.UTC` at both ends means the offset cancels
+ * and no zone is consulted — this never asks what day it is, which is what keeps it
+ * out of the trap `localDates.test.ts` guards.
+ *
+ * It exists because two callers wanted the same arithmetic and the second one
+ * (`/incidents`) wrote it out again. The guard caught the copy, which is a better
+ * outcome than the guard gaining a second allowlist entry: one exemption with one
+ * argument beats two of each.
+ */
+export function shiftLocalDate(date: string, deltaDays: number): string {
+  const [y, m, d] = date.split('-').map(Number);
+  if (!y || !m || !d) throw new Error(`Not an ISO date: ${date}`);
+  return new Date(Date.UTC(y, m - 1, d + deltaDays)).toISOString().slice(0, 10);
+}
+
 /** Today and the six days before it, oldest first. */
 export function lastSevenDays(today: string): string[] {
-  const [y, m, d] = today.split('-').map(Number);
-  if (!y || !m || !d) throw new Error(`Not an ISO date: ${today}`);
   const out: string[] = [];
-  for (let back = 6; back >= 0; back -= 1) {
-    out.push(new Date(Date.UTC(y, m - 1, d - back)).toISOString().slice(0, 10));
-  }
+  for (let back = 6; back >= 0; back -= 1) out.push(shiftLocalDate(today, -back));
   return out;
 }

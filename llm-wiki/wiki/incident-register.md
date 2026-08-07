@@ -120,6 +120,41 @@ in neither reading, because **the grant is not written anywhere in the file**. I
 `create function` does when you say nothing. A check against the live schema sees what the file
 does not say; a code review cannot.
 
+### The screen, and the two-step it refuses to collapse
+
+`/incidents` is staff-only, behind `recordDailyPractice` so educators can file — they are the
+people who witness these. That is a nav decision, not the boundary; 0030's policy is.
+
+Two things on it are deliberate and would both be "improved" away by somebody optimising the
+flow:
+
+- **There is no "save and send".** The submit button says *Save as draft* and has no sibling.
+  Final is the version a family reads and nobody can edit afterwards, and a one-press path to it
+  gets pressed by somebody standing up holding a crying child.
+- **The draft state says so on screen** — *Draft — whānau cannot see this*. A teacher who
+  believes they have told the family and has left the report in draft is the exact failure this
+  column exists to surface, and no policy will tell them.
+
+The summary counts what is **outstanding**, not how many incidents occurred, so a centre with
+forty resolved reports reads the same as one with none. Same argument as `summarise().clean` in
+the compliance code.
+
+Every time is formatted on the server in the centre's zone. `toLocaleString` in the browser uses
+the *device's* zone, and an incident time that shifts depending on who opens the page is worse
+than useless in a review.
+
+### The guard caught the new page, which is the point of having it
+
+`/incidents` needed "fourteen days before today" and wrote the arithmetic out inline —
+`Date.UTC(y, m - 1, d - n).toISOString().slice(0, 10)`. Legitimate, and identical to what
+`lastSevenDays` in `dayWindow.ts` already did.
+
+`localDates.test.ts` failed on it, because the allowlist is keyed by file and the new page was
+not in it. **The fix was not a second allowlist entry.** It was `shiftLocalDate` in
+`dayWindow.ts`, which both callers now use: one exemption with one argument beats two of each,
+and the duplication the guard exposed was a real one. A guard that only ever gets appeased is a
+guard being ignored slowly.
+
 ## See Also
 
 - [[tenancy-and-rls]] — the two boundaries, and why the one inside a centre is the hard one

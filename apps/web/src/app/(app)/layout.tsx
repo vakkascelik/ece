@@ -47,6 +47,11 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           <NavLink href="/posts">{ctx.role === 'parent' ? 'Pānui' : 'Posts'}</NavLink>
           <NavLink href="/messages">Messages</NavLink>
           {can(ctx.role, 'recordDailyPractice') && <NavLink href="/attendance">Attendance</NavLink>}
+          {/* Beside Attendance because it is the same shift and the same tablet — not under
+              Compliance, which is where the binder is assembled rather than where the day is
+              recorded. `recordDailyPractice` includes educators, who are the people who file
+              these; a parent reads their own child's through the child record. */}
+          {can(ctx.role, 'recordDailyPractice') && <NavLink href="/incidents">Incidents</NavLink>}
           {can(ctx.role, 'manageMembers') && <NavLink href="/members">People</NavLink>}
           {/* Next to People because both are about who works here — but a separate capability, for
               the reason recorded on `manageRecruitment` in @ece/core. */}
