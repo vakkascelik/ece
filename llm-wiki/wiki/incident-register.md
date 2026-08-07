@@ -143,6 +143,33 @@ Every time is formatted on the server in the centre's zone. `toLocaleString` in 
 the *device's* zone, and an incident time that shifts depending on who opens the page is worse
 than useless in a review.
 
+### The family's side, and the wording on the button
+
+A guardian never visits `/incidents`. They read their own child's reports on the child record,
+in a panel beside Consent — the two things on that page a family reads, and the two a family
+writes.
+
+**The panel does not filter drafts out.** `incidents_select` returns a draft only to staff, so a
+guardian's query never contains one. If the component filtered, the filter would be the thing
+keeping a family out of a half-written injury report, and it would be one careless edit from
+failing. The same panel serves staff, who *do* see drafts, labelled — a manager reading a child
+record should see the report still sitting unfinished.
+
+The button says **"I have read this"**, not "Acknowledge". The second invites the reading that
+the family agrees with the centre's account; the first is the claim actually being recorded, and
+it is the one a review asks about.
+
+The offer is gated on *having a guardian record*, not on `role === 'parent'`. An educator whose
+own child attends the same centre is staff by every predicate in the schema and is still that
+child's parent — which is exactly why 0030's trigger decides by what changed rather than by who
+called. Gating the button on the role would have locked them out of a report about their own
+child, and nothing would have shown it: the trigger would have accepted the write.
+
+`acknowledgeIncidentReport` uses `requireCtx`, not `requireCapability`, and there is no
+capability for this. Acknowledging is the one act on a child's record that only a guardian may
+perform, and a capability gate would suggest the app decides. It does not — staff, including an
+owner, are refused by the trigger whatever the app thinks.
+
 ### The guard caught the new page, which is the point of having it
 
 `/incidents` needed "fourteen days before today" and wrote the arithmetic out inline —

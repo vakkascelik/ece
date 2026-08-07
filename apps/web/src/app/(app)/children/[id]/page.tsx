@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import {
   getChild,
   listAttendanceToday,
+  listChildIncidents,
   listConsentHistory,
   listConsents,
   listCustodyArrangements,
@@ -30,6 +31,7 @@ import { CustodyPanel } from './CustodyPanel';
 import { DetailsForm } from './DetailsForm';
 import { EnrolmentPanel } from './EnrolmentPanel';
 import { HealthPanel } from './HealthPanel';
+import { IncidentsPanel, type ChildIncident } from './IncidentsPanel';
 import { WhanauPanel } from './WhanauPanel';
 
 /**
@@ -59,19 +61,31 @@ export default async function ChildPage({ params }: { params: Promise<{ id: stri
   const canManage = can(ctx.role, 'manageChildren');
   const canViewCustody = can(ctx.role, 'viewCustody');
 
-  const [conditions, medications, whanau, enrolments, consents, history, custody, attendance] =
-    await Promise.all([
-      listHealthConditions(db, id),
-      listMedications(db, id),
-      listGuardiansOfChild(db, id),
-      listEnrolments(db, id),
-      listConsents(db, id),
-      listConsentHistory(db, id),
-      canViewCustody ? listCustodyArrangements(db, id) : Promise.resolve([]),
-      // For the header's "signed in" chip. Derived from the events like everywhere else —
-      // there is no stored "present" flag to read, deliberately.
-      listAttendanceToday(db, ctx.centre.id),
-    ]);
+  const [
+    conditions,
+    medications,
+    whanau,
+    enrolments,
+    consents,
+    history,
+    custody,
+    attendance,
+    incidents,
+  ] = await Promise.all([
+    listHealthConditions(db, id),
+    listMedications(db, id),
+    listGuardiansOfChild(db, id),
+    listEnrolments(db, id),
+    listConsents(db, id),
+    listConsentHistory(db, id),
+    canViewCustody ? listCustodyArrangements(db, id) : Promise.resolve([]),
+    // For the header's "signed in" chip. Derived from the events like everywhere else —
+    // there is no stored "present" flag to read, deliberately.
+    listAttendanceToday(db, ctx.centre.id),
+    // Unconditional. A parent's query comes back without drafts because the policy
+    // withholds them, not because this call was narrowed — see 0030.
+    listChildIncidents(db, id),
+  ]);
 
   const state = attendance.find((s) => s.childId === id);
   const signedInAt = state?.kind === 'in' ? state.at : null;
@@ -87,6 +101,26 @@ export default async function ChildPage({ params }: { params: Promise<{ id: stri
   const ownGuardianId = whanau.find((g) => g.guardian.userId === ctx.userId)?.guardian.id ?? null;
 
   const enrolledOn = enrolments.length > 0 ? enrolments[0].startDate : null;
+
+  /*
+    Formatted on the server in the centre's zone, like every other time in this
+    product. A parent opening this from a phone in another country must see the time
+    the incident happened at the centre, not the time it was on their own clock.
+  */
+  const when = new Intl.DateTimeFormat('en-NZ', {
+    timeZone: ctx.centre.timezone,
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+  const incidentRows: ChildIncident[] = incidents.map((incident) => ({
+    incident,
+    occurredLabel: when.format(new Date(incident.occurredAt)),
+    notifiedLabel: incident.parentNotifiedAt ? when.format(new Date(incident.parentNotifiedAt)) : null,
+    acknowledgedLabel: incident.acknowledgedAt ? when.format(new Date(incident.acknowledgedAt)) : null,
+  }));
 
   return (
     <div className="record">
@@ -180,6 +214,20 @@ export default async function ChildPage({ params }: { params: Promise<{ id: stri
           history={history}
           guardians={whanau.map((g) => ({ id: g.guardian.id, name: g.guardian.fullName }))}
           canRecord={can(ctx.role, 'recordConsent')}
+          isParent={ctx.role === 'parent'}
+          ownGuardianId={ownGuardianId}
+        />
+      </div>
+
+      {/*
+        Directly after Consent because both are things a family reads and one of the
+        two things on this page a family writes. A parent's query returns no drafts —
+        0030's policy sees to that, not this page.
+      */}
+      <div className="section">
+        <IncidentsPanel
+          childId={child.id}
+          rows={incidentRows}
           isParent={ctx.role === 'parent'}
           ownGuardianId={ownGuardianId}
         />

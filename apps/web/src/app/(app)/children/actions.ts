@@ -16,6 +16,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import {
+  acknowledgeIncident,
   addCustodyArrangement,
   addHealthCondition,
   addMedicationAuthority,
@@ -494,6 +495,57 @@ export async function supersedeCustody(_prev: unknown, form: FormData): Promise<
     await supersedeCustodyArrangement(db, id);
   } catch (e) {
     return actionError(e, 'supersedeCustody');
+  }
+  revalidatePath(`/children/${childId}`);
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Incidents — the one thing on this page a family authors
+// ---------------------------------------------------------------------------
+
+/**
+ * A guardian's own acknowledgement of a finalised incident.
+ *
+ * `requireCtx`, not `requireCapability`. There is no capability for this and there
+ * should not be: acknowledging is the one act on a child's record that only a
+ * *guardian* may perform, and staff — including an owner — are refused by the
+ * trigger in 0030 no matter what the app thinks. A capability gate here would
+ * suggest the app decides, and it does not.
+ *
+ * `guardianId` comes from the page, which already resolves which guardian record
+ * belongs to the caller for the consent panel. The trigger refuses anything that is
+ * not the caller's own, so this is a convenience rather than a check — and an
+ * educator whose own child attends the same centre goes through this path too,
+ * because 0030 decides by what changed rather than by who called.
+ *
+ * The time is taken here rather than from the form. This records the moment somebody
+ * pressed the button; a field would invite back-dating the only fact in the record
+ * the centre is not the author of.
+ */
+export async function acknowledgeIncidentReport(
+  _prev: unknown,
+  form: FormData,
+): Promise<Result> {
+  await requireCtx();
+  const db = await serverDb();
+
+  const incidentId = str(form, 'incidentId');
+  const childId = str(form, 'childId');
+  const guardianId = str(form, 'guardianId');
+
+  if (!incidentId) return { error: 'Missing incident.' };
+  if (!guardianId) {
+    return {
+      error:
+        'You are not recorded as a guardian for this child, so an acknowledgement cannot be attributed to you.',
+    };
+  }
+
+  try {
+    await acknowledgeIncident(db, incidentId, guardianId, new Date().toISOString());
+  } catch (e) {
+    return actionError(e, 'acknowledgeIncidentReport');
   }
   revalidatePath(`/children/${childId}`);
   return { ok: true };

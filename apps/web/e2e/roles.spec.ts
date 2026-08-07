@@ -56,6 +56,16 @@ const MATRIX: Array<{ path: string; guard: string; allowed: Record<Role, boolean
     allowed: { owner: true, manager: true, educator: true, parent: false },
   },
   {
+    // Educators included, unlike the office screens: they are the people who witness an
+    // injury and the report has to be written by whoever saw it. A parent is shut out of
+    // the register and still reads their own child's FINAL reports through the child
+    // record — 0030's policy draws that line, and this covers the redirect, which RLS
+    // cannot.
+    path: '/incidents',
+    guard: 'recordDailyPractice',
+    allowed: { owner: true, manager: true, educator: true, parent: false },
+  },
+  {
     path: '/posts',
     guard: 'requireCtx',
     allowed: { owner: true, manager: true, educator: true, parent: true },
@@ -103,22 +113,22 @@ const MATRIX: Array<{ path: string; guard: string; allowed: Record<Role, boolean
 /** Nav links each role should be offered. Presentation, but a wrong link is a wrong promise. */
 const NAV: Record<Role, { shown: string[]; hidden: string[] }> = {
   owner: {
-    shown: ['Overview', 'Children', 'Posts', 'Messages', 'Attendance', 'People', 'Compliance', 'Funding', 'Settings'],
+    shown: ['Overview', 'Children', 'Posts', 'Messages', 'Attendance', 'Incidents', 'People', 'Compliance', 'Funding', 'Settings'],
     hidden: [],
   },
   manager: {
-    shown: ['Overview', 'Children', 'Posts', 'Messages', 'Attendance', 'People', 'Compliance', 'Funding', 'Settings'],
+    shown: ['Overview', 'Children', 'Posts', 'Messages', 'Attendance', 'Incidents', 'People', 'Compliance', 'Funding', 'Settings'],
     hidden: [],
   },
   educator: {
-    shown: ['Overview', 'Children', 'Posts', 'Messages', 'Attendance'],
+    shown: ['Overview', 'Children', 'Posts', 'Messages', 'Attendance', 'Incidents'],
     hidden: ['People', 'Compliance', 'Funding', 'Settings'],
   },
   parent: {
     // "Your tamariki" and "Pānui", not "Children" and "Posts" — the same routes, named for
     // the person reading them.
     shown: ['Overview', 'Your tamariki', 'Pānui', 'Messages'],
-    hidden: ['Attendance', 'People', 'Compliance', 'Funding', 'Settings', 'Children', 'Posts'],
+    hidden: ['Attendance', 'Incidents', 'People', 'Compliance', 'Funding', 'Settings', 'Children', 'Posts'],
   },
 };
 
