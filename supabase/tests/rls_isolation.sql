@@ -1697,6 +1697,176 @@ select pg_temp.expect(
 );
 
 -- ===========================================================================
+-- INCIDENTS (0030)
+--
+-- One table, two audiences, and the boundary between them runs *inside* a centre —
+-- the hard kind. `caller_may_see_child` is true for staff and guardians alike, so
+-- using it on this table would stream a half-written injury report to a family's
+-- phone as a teacher typed it. The draft/final split is the product decision; these
+-- are the assertions that make it a property rather than an intention.
+--
+-- Ana (a1111…) is at centre A. Priya (3333…, guardian d1111…) is her mother. Quinn
+-- (4444…, guardian d2222…) is Beau's father and no relation. Ed (5555…) is an
+-- educator at centre A. Bob (2222…) owns centre B.
+-- ===========================================================================
+
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+
+insert into public.incidents
+  (id, centre_id, child_id, kind, occurred_at, description, reported_by)
+values
+  ('e1111111-1111-4111-8111-111111111111',
+   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+   'a1111111-1111-4111-8111-111111111111',
+   'injury', now() - interval '1 hour',
+   'Grazed knee on the path by the sandpit.',
+   '55555555-5555-4555-8555-555555555555');
+
+select pg_temp.expect(
+  (select count(*) from public.incidents
+    where id = 'e1111111-1111-4111-8111-111111111111') = 1,
+  'an educator can open a draft incident for a child at their centre'
+);
+
+-- A report filed against the wrong centre lands in the wrong binder. The child's
+-- centre is the authority, not whatever the caller sent.
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.incidents (centre_id, child_id, kind, occurred_at, description)
+    values ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+            'a1111111-1111-4111-8111-111111111111',
+            'injury', now(), 'Filed against the wrong centre.');
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'an incident CANNOT be filed against a centre that is not the child''s');
+end $$;
+
+-- THE ONE. A draft is working material.
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.incidents
+    where child_id = 'a1111111-1111-4111-8111-111111111111') = 0,
+  'a parent CANNOT READ a draft incident about their own child'
+);
+
+set local request.jwt.claims = '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.incidents) = 0,
+  'an owner of another centre CANNOT READ the incident at all'
+);
+
+-- Finalise it, as the educator who wrote it.
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+update public.incidents set status = 'final'
+ where id = 'e1111111-1111-4111-8111-111111111111';
+
+select pg_temp.expect(
+  (select status from public.incidents
+    where id = 'e1111111-1111-4111-8111-111111111111') = 'final',
+  'an educator can finalise their own draft'
+);
+
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.incidents
+    where id = 'e1111111-1111-4111-8111-111111111111') = 1,
+  'and once final, the child''s own parent CAN read it'
+);
+
+-- Guardianship, not tenancy. Quinn is a parent at the same centre and no relation.
+set local request.jwt.claims = '{"sub":"44444444-4444-4444-8444-444444444444","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.incidents
+    where child_id = 'a1111111-1111-4111-8111-111111111111') = 0,
+  'another family at the SAME CENTRE cannot read it even when final'
+);
+
+/*
+ * The acknowledgement, which is the only fact in this table the centre does not
+ * author. Three ways it can go wrong and all three are asserted: a parent editing
+ * the report itself, a parent acknowledging as somebody else, and staff recording
+ * the family's acknowledgement for them.
+ */
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+do $$
+declare ok boolean := false;
+begin
+  begin
+    update public.incidents set description = 'It was nothing, really.'
+     where id = 'e1111111-1111-4111-8111-111111111111';
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'a parent CANNOT rewrite the description of an incident');
+end $$;
+
+do $$
+declare ok boolean := false;
+begin
+  begin
+    update public.incidents
+       set acknowledged_at = now(),
+           acknowledged_by = 'd2222222-2222-4222-8222-222222222222'
+     where id = 'e1111111-1111-4111-8111-111111111111';
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'a parent CANNOT acknowledge as a different guardian');
+end $$;
+
+update public.incidents
+   set acknowledged_at = now(),
+       acknowledged_by = 'd1111111-1111-4111-8111-111111111111'
+ where id = 'e1111111-1111-4111-8111-111111111111';
+
+select pg_temp.expect(
+  (select acknowledged_by from public.incidents
+    where id = 'e1111111-1111-4111-8111-111111111111')
+    = 'd1111111-1111-4111-8111-111111111111',
+  'the child''s own guardian CAN acknowledge it, attributed to themselves'
+);
+
+-- Final means final. An amendment is a new row carrying `supersedes`.
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+do $$
+declare ok boolean := false;
+begin
+  begin
+    update public.incidents set description = 'Actually it was a bruise.'
+     where id = 'e1111111-1111-4111-8111-111111111111';
+    ok := (select description from public.incidents
+            where id = 'e1111111-1111-4111-8111-111111111111')
+          <> 'Actually it was a bruise.';
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'a finalised incident CANNOT be edited, even by its author');
+end $$;
+
+-- Nobody deletes licensing evidence. The verb is revoked, so this is refused before
+-- any policy is consulted — and it is revoked from `service_role` too.
+do $$
+declare ok boolean := false;
+begin
+  begin
+    delete from public.incidents where id = 'e1111111-1111-4111-8111-111111111111';
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'nobody can DELETE an incident — the verb is revoked, got 42501');
+end $$;
+
+select pg_temp.expect(
+  (select count(*) from public.incidents
+    where id = 'e1111111-1111-4111-8111-111111111111') = 1,
+  'and it is still there, so the refusal was real rather than a filtered no-op'
+);
+
+-- Cleaned up so the purge assertions below count what they expect to.
+set local role postgres;
+delete from public.incidents where child_id = 'a1111111-1111-4111-8111-111111111111';
+set local role authenticated;
+
+-- ===========================================================================
 -- RETENTION AND PURGING
 --
 -- `purge_child` is the most destructive thing in the product and it is SECURITY

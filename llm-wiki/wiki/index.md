@@ -30,6 +30,9 @@ and [`../schema.md`](../schema.md) for the page template.
   why the adult count is an event rather than a setting
 - [[compliance-and-evidence]] — staff records with expiry, criteria that ship empty on
   purpose, and a binder that never claims compliance
+- [[incident-register]] — one table with two audiences and the boundary running inside a centre:
+  the draft a family must not see, why the generic `jsonb` register breaks the audit log, and the
+  `EXECUTE` grant a code review cannot see because the file does not mention it
 - [[consent-gated-media]] — a photograph that cannot exist without a recorded consent decision,
   and the RLS trap that made the first version leak to staff
 - [[funding-and-billing]] — attendance into money: why a broken record is excluded rather than
