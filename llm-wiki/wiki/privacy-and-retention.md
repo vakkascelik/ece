@@ -45,6 +45,17 @@ anything is deleted, so a failure part-way leaves the intention recorded.
 thing standing between a caller and another centre's records. All of them are asserted in the
 suite, including that an owner of the *other* centre cannot use it.
 
+**Those guard assertions are weaker than they look, which 0029 exposed.** Each one calls the
+function, catches whatever comes back, and asserts an exception occurred — so *any* failure
+satisfies them, including a failure that has nothing to do with authorisation. 0029 changed the
+function's opening `SELECT` to join `centres` (to compute `was_under_two` in the centre's own
+timezone rather than UTC), and a botched join would have returned no row, raised "No such child",
+and left all four refusal assertions green. Two things actually pin it: the still-enrolled case
+asserts the *specific* message, which only appears once the row comes back, and a new assertion
+checks the audit row's `was_under_two` is `true` or `false` rather than null. Nothing reads that
+field yet — which is precisely why a null in it would have gone unnoticed for as long as the
+audit rows outlive the children they describe. See [[conventions]].
+
 ### Why purging works at all, given append-only tables
 
 Because of a decision made in `0005_audit_triggers.sql`: `audit_events.detail` records column

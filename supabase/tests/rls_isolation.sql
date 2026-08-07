@@ -1824,6 +1824,27 @@ select pg_temp.expect(
   'with the stated reason'
 );
 
+/*
+ * And with `was_under_two` actually decided.
+ *
+ * Added with 0029, which moved that expression off `current_date` and onto the centre's own
+ * timezone — reached by a join `purge_child` did not previously make. The refusal assertions
+ * above cannot catch a broken join: every one of them passes on *any* exception, so a join
+ * that returned no row would raise "No such child" and leave the suite green. The
+ * "still enrolled" case does prove the row comes back, and this proves the expression that
+ * depends on the joined column produced a value rather than a null.
+ *
+ * Asserted as "is a boolean", not as true or false: the answer depends on the fixture's date
+ * of birth relative to the run date, and an assertion that has to be revisited every birthday
+ * is one that gets deleted. Nothing reads this field yet — it is an annotation on the record
+ * that outlives the data it describes, which is exactly why a null would go unnoticed.
+ */
+select pg_temp.expect(
+  (select detail -> 'was_under_two' from public.audit_events
+    where action = 'purge' and entity = 'children' limit 1) in ('true'::jsonb, 'false'::jsonb),
+  'and with was_under_two decided rather than left null by a failed join'
+);
+
 select pg_temp.expect(
   not exists (
     select 1 from public.audit_events
@@ -2704,6 +2725,62 @@ select pg_temp.expect(
   (select relrowsecurity from pg_class where oid = 'public.schema_migrations'::regclass),
   'schema_migrations has RLS enabled, so it does not depend on an absent grant'
 );
+
+-- ---------------------------------------------------------------------------
+-- No calendar day may come from the UTC session, as a rule rather than per column.
+--
+-- Not an isolation property, and it lives here anyway for the same reason the audit
+-- coverage assertion above does: this is where class assertions run on every change,
+-- and the rule is one nobody remembers. It has now been broken four times — twice
+-- before 0006, once in `recordPayment`, and three column defaults plus a function
+-- body that 0006 did not sweep and 0029 finished.
+--
+-- The pair to `packages/core/src/__tests__/localDates.test.ts`, which does the same
+-- job for TypeScript. Between them, both spellings of the mistake are caught by
+-- something that runs, instead of by a bullet point in AGENTS.md that four commits
+-- have now walked past.
+--
+-- `::date` without `at time zone` is the general form: `current_date`, `now()::date`
+-- and `current_timestamp::date` all read the session zone, and PostgREST's session is
+-- UTC. `(now() at time zone ce.timezone)::date` is the correct shape and passes.
+-- ---------------------------------------------------------------------------
+
+do $$
+declare offenders text;
+begin
+  select string_agg(table_name || '.' || column_name, ', ' order by table_name, column_name)
+    into offenders
+    from information_schema.columns
+   where table_schema = 'public'
+     and column_default is not null
+     and (column_default ilike '%current_date%'
+          or (column_default ilike '%::date%' and column_default not ilike '%at time zone%'));
+
+  perform pg_temp.expect(
+    offenders is null,
+    'no column default takes a calendar day from the UTC session'
+      || coalesce(' — UTC-DATED: ' || offenders, '')
+  );
+end $$;
+
+do $$
+declare offenders text;
+begin
+  select string_agg(p.proname, ', ' order by p.proname)
+    into offenders
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'public'
+     and p.prokind = 'f'
+     and (p.prosrc ilike '%current_date%'
+          or (p.prosrc ilike '%::date%' and p.prosrc not ilike '%at time zone%'));
+
+  perform pg_temp.expect(
+    offenders is null,
+    'no function body takes a calendar day from the UTC session'
+      || coalesce(' — UTC-DATED: ' || offenders, '')
+  );
+end $$;
 
 set local role postgres;
 select pg_temp.expect(true, 'ALL RLS ISOLATION CHECKS PASSED');

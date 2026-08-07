@@ -69,7 +69,7 @@ change a view's column list, so a later migration adding a column to a view make
 the earlier one fail with "cannot drop columns from view". Use `drop view if exists` then
 `create view`. Found by the runner on its first real use.
 
-### Timezones — the trap this repo fell into twice
+### Timezones — the trap this repo has now fallen into five times
 
 `current_date` in Postgres uses the session timezone, and PostgREST connects as **UTC**. New
 Zealand is 12 or 13 hours ahead, so for the whole New Zealand morning UTC is *yesterday*.
@@ -123,14 +123,35 @@ The test asserts its own file count and mutation-tests its own regex inline, bec
 source-scanning test that matches nothing is a green test that checked nothing — which is the
 same class of failure one level up.
 
-**Still outstanding, in SQL.** Three `default current_date` columns remain:
-`medication_authorities.starts_on` (0004), and `fee_schedules.active_from` and `payments.paid_on`
-(0019). `children_due_for_purge` (0008) does date arithmetic against it too. 0006 fixed this
-class for `children.date_of_birth` and did not sweep the rest. The medication one is the one that
-bites: an authority to administer a prescription medicine becomes valid a day early. They are
-**not** allowlisted anywhere — the guard above scans TypeScript only, deliberately, because
-adding an exemption to make a known defect quiet is the move this repo has already recorded as
-worse than no check. Fixing them needs a migration, and a migration needs database access.
+**Fifth time, in SQL, and 0029 closes it.** Three `default current_date` columns survived 0006 —
+`medication_authorities.starts_on` (0004), `fee_schedules.active_from` and `payments.paid_on`
+(0019) — plus one function body, `purge_child`, computing `was_under_two` for the audit record
+that outlives the child's data. Found by querying the live catalogue rather than reading the
+migration files, which is the only way to know what a column actually defaults to after
+twenty-eight migrations. The medication one was the one that bit: an authority to administer a
+prescription medicine became valid a day early.
+
+They are now `(now() at time zone 'Pacific/Auckland')::date`, the form AGENTS §4.3 names.
+**Not dropped**, which was the stronger fix and was rejected: the columns are `NOT NULL`, so no
+default at all means a forgetful caller fails loudly, and every caller in `packages/api` already
+passes the date. But `rls_isolation.sql` itself inserts into `fee_schedules` and `payments`
+without them, and so would any statement typed into the SQL editor during an incident. Trading a
+wrong default for a foot-gun in the tool you reach for at 2am is a bad trade.
+
+The zone is hard-coded and that is not laziness: **a column default cannot see other columns of
+its own row**, let alone join to `centres`, so the per-centre-correct value is not expressible as
+a default at any price. `purge_child` does use the centre's own timezone, because there the
+centre is one join away — and that join is why 0029 also asserts `was_under_two` comes back
+decided rather than null. Every refusal assertion around `purge_child` passes on *any* exception,
+so a join returning no row would raise "No such child" and leave the suite green. The failure
+mode is a JSON `null` rather than a SQL `NULL`, which was checked rather than assumed.
+
+**Enforced now, in both languages.** `rls_isolation.sql` gained the SQL twin of
+`localDates.test.ts`: no column default and no function body may take a calendar day from the
+session zone. It catches `current_date`, `now()::date` and `current_timestamp::date` alike, via
+the general form — `::date` without `at time zone`. Mutation-tested the honest way round: written
+first, run against the unfixed schema, and it named all three offending columns before 0029
+existed.
 
 ### PostgREST traps
 
