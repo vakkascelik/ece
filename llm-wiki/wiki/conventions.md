@@ -188,6 +188,35 @@ useful part:
 that matches nothing returns `error: null`, and under RLS "matches nothing" is what a refusal
 looks like — so a caller who may not update a centre would otherwise be told "Saved.".
 
+### A policy that reads another table inherits that table's RLS
+
+Found 2026-08-08 while trying to mutation-test `immunisation_records`. The attempted weakening
+was the classic mistake — keying on the child's centre instead of on guardianship:
+
+```sql
+using (exists (select 1 from public.children c
+                where c.id = child_id and c.centre_id in (select public.caller_centre_ids())))
+```
+
+The suite stayed green, and for a while that looked like an assertion that could not fail.
+
+It is not. **A policy expression is evaluated as the querying user, so a table referenced inside
+it is subject to its own policies.** `children` is restricted by guardianship, so for a parent
+the inner `SELECT` returns nothing, `EXISTS` is false, and the row is hidden — the "weakened"
+policy was accidentally as strict as the real one. Replacing it with `using (true)` failed the
+assertion immediately, which is what proved the test works.
+
+Two consequences worth carrying:
+
+- **A mutation test can fail to mutate.** A green suite after a deliberate weakening is not
+  evidence the assertion is sound; it may be evidence the weakening did nothing. Reach for the
+  bluntest possible mutation (`using (true)`) before concluding a test is weak.
+- **The `caller_*` predicates are `SECURITY DEFINER` for exactly this reason.** They read
+  `memberships` and `child_guardians` as the owner, so they answer honestly rather than being
+  silently narrowed by the policies on the tables they consult. A hand-written `exists (select …)`
+  in a policy does not have that property, which makes it unpredictable in both directions —
+  accidentally safe here, accidentally *restrictive* somewhere it matters. Use the predicates.
+
 ### PostgREST traps
 
 - **Bulk inserts do not apply column defaults.** One `INSERT` is built from the *union* of

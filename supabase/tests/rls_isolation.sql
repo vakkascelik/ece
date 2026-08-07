@@ -2340,6 +2340,120 @@ select pg_temp.expect(
 set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
 
 -- ===========================================================================
+-- VISITORS (0035) AND IMMUNISATION (0036)
+--
+-- Two tables with two different boundaries, which is why they are two migrations.
+-- The visitor book is centre-scoped and staff-only like the rest of Phase 9; an
+-- immunisation record is about a child, so guardianship applies and the purge
+-- cascade is back in play.
+-- ===========================================================================
+
+insert into public.visitors (id, centre_id, full_name, organisation, purpose, visiting, signed_in_at, recorded_by)
+values ('c3333333-3333-4333-8333-333333333333',
+        'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        'Sam Plumber', 'Pipes Ltd', 'Fixing the tap in the bathroom', 'Alice',
+        now() - interval '1 hour',
+        '55555555-5555-4555-8555-555555555555');
+
+select pg_temp.expect(
+  (select count(*) from public.visitors where signed_out_at is null
+    and centre_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') = 1,
+  'a visitor is on site until signed out — the question asked during an evacuation'
+);
+
+do $$
+declare ok boolean := false;
+begin
+  begin
+    update public.visitors set signed_out_at = signed_in_at - interval '1 hour'
+     where id = 'c3333333-3333-4333-8333-333333333333';
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'a visitor cannot be signed out before they signed in');
+end $$;
+
+update public.visitors set signed_out_at = now()
+ where id = 'c3333333-3333-4333-8333-333333333333';
+select pg_temp.expect(
+  (select signed_out_at is not null from public.visitors
+    where id = 'c3333333-3333-4333-8333-333333333333'),
+  'and CAN be signed out'
+);
+
+do $$
+declare ok boolean := false;
+begin
+  begin
+    delete from public.visitors where id = 'c3333333-3333-4333-8333-333333333333';
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'nobody can remove a name from the visitor book');
+end $$;
+
+-- Immunisation. Ana is Priya's; Beau is Quinn's.
+insert into public.immunisation_records
+  (id, child_id, status, sighted_by, sighted_at, reference, recorded_by)
+values ('c4444444-4444-4444-8444-444444444444',
+        'a1111111-1111-4111-8111-111111111111',
+        'up_to_date',
+        '55555555-5555-4555-8555-555555555555', now(),
+        'Well Child book, seen at enrolment',
+        '55555555-5555-4555-8555-555555555555');
+
+select pg_temp.expect(
+  (select count(*) from public.immunisation_records
+    where child_id = 'a1111111-1111-4111-8111-111111111111') = 1,
+  'an educator can record what they were shown about a child''s immunisation'
+);
+
+-- A sighting cannot be attributed to somebody else, exactly as with consent.
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.immunisation_records (child_id, status, sighted_by, sighted_at)
+    values ('b2222222-2222-4222-8222-222222222222', 'up_to_date',
+            '11111111-1111-4111-8111-111111111111', now());
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'a sighting CANNOT be recorded against a different person');
+end $$;
+
+-- Read: the child's own family, and nobody else's.
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.immunisation_records
+    where child_id = 'a1111111-1111-4111-8111-111111111111') = 1,
+  'the child''s own parent CAN read it — there is no half-written state to withhold'
+);
+
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.immunisation_records (child_id, status)
+    values ('a1111111-1111-4111-8111-111111111111', 'up_to_date');
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'but CANNOT record one — the centre records what it saw');
+end $$;
+
+set local request.jwt.claims = '{"sub":"44444444-4444-4444-8444-444444444444","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.immunisation_records) = 0,
+  'another family at the same centre reads nothing'
+);
+
+-- The visitor book is staff-only, like everything else in this phase.
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.visitors) = 0,
+  'a parent reads no visitor record'
+);
+
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+
+-- ===========================================================================
 -- RETENTION AND PURGING
 --
 -- `purge_child` is the most destructive thing in the product and it is SECURITY
@@ -2484,6 +2598,12 @@ select pg_temp.expect(
   (select count(*) from public.sleep_checks
     where child_id = 'a1111111-1111-4111-8111-111111111111') = 0,
   'and every sleep check made on them'
+);
+
+select pg_temp.expect(
+  (select count(*) from public.immunisation_records
+    where child_id = 'a1111111-1111-4111-8111-111111111111') = 0,
+  'and what the centre was shown about their immunisation'
 );
 
 -- The other child's records are untouched. Without this the three assertions above

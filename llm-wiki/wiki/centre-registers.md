@@ -93,6 +93,65 @@ product shows how long it has been without calling it late. Fourth outing of the
 `RATIO_TABLES_VERIFIED` argument, second of the [[sleep-checks]] shape, and the suite asserts
 the absence directly so a default cannot be added without somebody justifying it.
 
+### The visitor book (0035)
+
+One mutable row per visit, signed out by setting a column — not two append-only events like
+attendance. A child has a persistent identity that both events hang off, and those events
+underpin a funding claim. A visitor has neither: there is nothing to join a second event to
+except the first, so the pair would be a row with extra steps, and the append-only discipline
+buys nothing when nobody is claiming money against a plumber.
+
+`purpose` and `visiting` are separate fields. "Contractor" and "here to see the manager about
+the roof" answer different questions, and after an incident the second is the one that matters —
+it is how you work out whether an adult was ever alone with children.
+
+A partial index on `signed_out_at is null`, because "who is still in the building" is asked
+during an evacuation, and it is asked while the building is on fire. No `DELETE`: a visitor book
+somebody can remove a name from is not a visitor book.
+
+### Immunisation (0036), and the schedule this product refuses to hold
+
+Child-linked, so guardianship is back and so is the purge cascade — both asserted.
+
+**No vaccine list, no ages, no due-date arithmetic.** The National Immunisation Schedule is a
+published clinical document this repo has not read, it changes, and encoding a remembered
+version would produce a screen telling a centre a child is overdue for something — against a
+table nobody here checked, about a matter where being wrong is a conversation with a family
+about their child's health. This is the `criteria` argument applied to medicine rather than
+regulation, and stricter for the obvious reason.
+
+`next_due_on` exists and is a date somebody **typed off the document in front of them**. Nothing
+derives it and nothing derives from it.
+
+`declined` and `not_provided` are separate statuses. A family who decline to immunise and a
+family who have not brought the certificate in are in different situations, and collapsing them
+would make the register say something about a family's decision that they never said. **Neither
+status carries a consequence in this product** — nothing is blocked and nothing is flagged
+non-compliant, because what follows from either is a regulatory question this repo has not
+answered.
+
+Sighting is its own pair of columns, as on `staff_records`: "the family told us she is up to
+date" and "somebody looked at the certificate" are different claims, and only the second
+survives a review. Records are **superseded rather than edited**, following
+`custody_arrangements` — a child's status changes when they get their four-year-old
+immunisations, and "were they up to date at enrolment" is a different question from "are they
+now". An update in place answers only the second and destroys the first.
+
+Read is staff plus the child's own guardians; write is staff only. Letting a parent write it
+would make `sighted_by` meaningless.
+
+### A mutation test that failed to mutate
+
+Worth recording because it briefly looked like a hole. The attempted weakening of
+`immunisation_select` keyed on the child's centre rather than guardianship — and the suite
+stayed green, because a policy expression that reads `children` inherits `children`'s own RLS.
+For a parent the inner `EXISTS` returns nothing, so the "weakened" policy was accidentally as
+strict as the real one. `using (true)` failed the assertion immediately.
+
+The general lesson is in [[conventions]]: a green suite after a deliberate weakening may mean
+the weakening did nothing, and the `caller_*` predicates are `SECURITY DEFINER` precisely so
+they are not silently narrowed by the tables they consult.
+
 ## See Also
 
 - [[incident-register]] — the harder boundary, and where the append-only reasoning is written out
