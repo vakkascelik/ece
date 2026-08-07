@@ -129,10 +129,12 @@ export default async function CentrePage({ params }: { params: Promise<{ centre:
         <Link href="/rooms">See what happens in each</Link>.
       </p>
 
+      {/* Leads with the offer rather than the absence — see the note on the same block in
+          `enrolment/page.tsx`. */}
       <div className="gap">
-        <strong>Still to come on this page.</strong> The team you would meet, and this
-        centre&rsquo;s licence details. We are not publishing those until they have been confirmed
-        with us — see <Link href="/contact">contact</Link> to ask anything in the meantime.
+        <strong>Ask us about the team here, and this centre&rsquo;s licence details.</strong> We are
+        not publishing either until they have been confirmed with us —{' '}
+        <Link href="/contact">get in touch</Link> and we will answer anything in the meantime.
       </div>
 
       <div className="callout">

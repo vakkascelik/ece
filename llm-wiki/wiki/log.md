@@ -873,4 +873,24 @@ The same detection sets the root directory to `apps/web`, and that failure is th
 guesses the build command, the start command and the health check path — a deploy that looks
 configured and is not.
 
-*Log last updated: 2026-08-05*
+2026-08-07 — Ten pieces of design feedback on the public site, recorded in [[public-website]]. Nine
+acted on, one deferred, and **one of them was factually wrong in a way worth keeping**: the claim
+that black on their coral fails 4.5:1. It measures 6.05:1, it is asserted in
+`LITTLE_PEARLS_CONTRAST_PAIRS`, and the number is recomputed into `tokens.css` on every generator
+run. The coral went anyway — a saturated red-pink block reads as an alert whatever its ratio, and it
+was carrying opening hours on eight routes. Taking the contrast argument at face value would have
+produced the wrong fix: darken the coral until a number passes, and keep the alarm.
+
+Two defects that no gate saw, both found by screenshotting the pages and looking at them after
+`typecheck`, `lint`, `test`, `tokens:check`, `build:site` and `audit:site` were all green — the
+homepage hero photograph also appearing in the row below it, and a masthead that cost three rows on
+a 390px phone with the new sign-in link stranded alone on the third.
+
+Corrected two pages rather than editing around them, per the contradiction clause above.
+[[public-website]]'s feature table described a weave divider that has been removed, and
+[[unverified-claims]] #19 said of the Doorway product name that "nothing in this repo uses it yet —
+so there is no exposure today". The masthead of a real customer's public website now carries the
+name and the mark on every route, before the IPONZ search has been run. That is the entry's own
+warning arriving rather than being heeded, and it is written down as such.
+
+*Log last updated: 2026-08-07*

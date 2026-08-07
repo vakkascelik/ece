@@ -77,10 +77,18 @@ export default function EnrolmentPage() {
       </p>
 
       <h2>Fees</h2>
+      {/*
+        LEADS WITH THE OFFER, not the absence. Same block, same honesty, opposite first sentence.
+
+        It opened "Our fees are not published on this page yet" in bold, inside a red-bordered
+        tinted panel — so the first thing a parent met on the page they came to for a number was
+        the site reporting a fault in itself. The information is unchanged and the reason is still
+        stated; what moved is which half of it arrives first.
+      */}
       <div className="gap">
-        <strong>Our fees are not published on this page yet.</strong> Please ask us and we will send
-        you the current schedule, including what is included and any funding you may be entitled to.
-        We would rather tell you an accurate figure than publish one that is out of date.
+        <strong>Ask us and we will send you the current fee schedule</strong> — including what is
+        covered and any funding you may be entitled to. We do not publish fees on this page, because
+        we would rather tell you an accurate figure than leave one here that is out of date.
       </div>
 
       <h2>Hours and ages</h2>
@@ -93,11 +101,8 @@ export default function EnrolmentPage() {
 
       <div className="callout">
         <p style={{ margin: 0 }}>
-          Already with us? Families and kaiako can{' '}
-          <a href={appUrl()}>
-            sign in to the centre app
-          </a>
-          . Access comes from the centre inviting you — there is no sign-up.
+          Already with us? Families and kaiako can <a href={appUrl()}>sign in to Doorway</a>, the
+          centre app. Access comes from the centre inviting you — there is no sign-up.
         </p>
       </div>
 

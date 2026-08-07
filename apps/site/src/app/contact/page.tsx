@@ -73,10 +73,8 @@ export default function ContactPage() {
 
       <h2>Families and kaiako</h2>
       <p>
-        <a href={appUrl()}>
-          Sign in to the centre app
-        </a>
-        . Access comes from the centre inviting you — there is no sign-up.
+        <a href={appUrl()}>Sign in to Doorway</a>, the centre app. Access comes from the centre
+        inviting you — there is no sign-up.
       </p>
     </>
   );

@@ -310,15 +310,28 @@ email.
 ### 19. The product name has not been cleared
 
 The design handoff gives the product a working name, **Doorway**, and says in its own first
-paragraph that the name has not been trademark- or domain-checked. Nothing in this repo uses it
-yet — the web app still says "ECE Platform" — so there is no exposure today, and that is exactly
-why it is worth recording before a screen, a store listing or a manifest starts carrying it.
+paragraph that the name has not been trademark- or domain-checked.
+
+**CORRECTED 2026-08-07 — this entry used to say there was no exposure.** It read: "Nothing in this
+repo uses it yet — the web app still says 'ECE Platform' — so there is no exposure today, and that
+is exactly why it is worth recording before a screen, a store listing or a manifest starts carrying
+it." That is no longer true, and the thing it warned about has happened rather than been prevented.
+
+The public website now carries the name **and the mark** in the masthead of all ten routes — "Sign
+in to Doorway", plus two mentions in body copy on `/enrolment` and `/contact`. That is not an
+internal screen behind a login. It is a real childcare service's public marketing site, at their own
+domain, in front of anybody who visits, and it went up before the IPONZ search was run. See
+[[public-website]] for why the link was promoted.
+
+The risk is small and it is not nil, and it is now asymmetric in a way it was not before: if the
+name has to change, it changes on a customer's live site rather than in a repo.
 
 | | |
 |---|---|
 | **The claim** | "Doorway" is available to use as a product name in New Zealand |
 | **What is actually verified** | Nothing. The handoff states the check has not been done |
-| **To close it** | IPONZ trade mark search in the relevant classes, a companies-register check, and the domain. Before any store submission or marketing asset, not after |
+| **Exposure** | Public, since 2026-08-07 — masthead of every route on `apps/site`, plus two body-copy mentions |
+| **To close it** | IPONZ trade mark search in the relevant classes, a companies-register check, and the domain. This was supposed to happen before any marketing asset; it has not, so it is now overdue rather than pending |
 
 ### 20. The mobile workspace has no unit tests, and the checklist does not say so
 

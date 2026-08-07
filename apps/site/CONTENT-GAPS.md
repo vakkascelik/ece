@@ -73,7 +73,13 @@ this repo has not sourced** — the platform's own ratio bands are unverified fo
 reason — so neither is repeated on the site.
 
 The centre's *own* published ratios (1:3–4 infant, 1:6–7 toddler, 1:7–8 preschool) **are** on
-`/rooms`, attributed to the centre rather than stated as compliance.
+`/rooms`, stated as what they staff to and never as what a regulation requires.
+
+**Changed 2026-08-07.** Each one used to be followed on the page by "(as published by the centre)".
+That attribution is honest on a third-party directory and self-defeating here, because on their own
+site the centre *is* the publisher — it read as the service declining to stand behind its own number
+in front of a parent. The distinction this gap exists to protect is untouched: their published ratio
+is sourced and stays; the two claims about a regulatory minimum stay off the site.
 
 ### 7. Mt Roskill's opening time
 

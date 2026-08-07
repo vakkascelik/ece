@@ -93,7 +93,7 @@ export function siteOrigin(): string {
   return urlFromEnv('SITE_ORIGIN', DEFAULT_ORIGIN).replace(/\/$/, '');
 }
 
-/** Where "Sign in to the centre app" points. */
+/** Where "Sign in to Doorway" points — the masthead link, and two in body copy. */
 export function appUrl(): string {
   return urlFromEnv('SITE_APP_URL', DEFAULT_APP_URL);
 }

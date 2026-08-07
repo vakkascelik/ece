@@ -28,12 +28,21 @@ export default function HomePage() {
       </p>
 
       {/*
-        The front door, arched. Two things already theirs meet here: the rounded badge of the logo,
-        and the ivy-trailed archway their quiet corner is photographed through. Cropped wide as well,
-        because a full square hero pushes the buttons below the fold on a phone.
-        No caption — the paragraph above already says who and where.
+        CHILDREN, NOT THE FRONT DOOR.
+
+        The hero was `entrance` — and looked at rather than described, that photograph is an orange
+        wall, a sliding glass door, a surveillance-camera warning sign and a painted yellow parking
+        line. It is a good photograph of a building and it was the wrong first thing on a page whose
+        job is to make somebody want to leave a three-month-old here. Every warm image the centre
+        owns was two clicks away on /rooms.
+
+        `entrance` has not been dropped. It is still the Open Graph share image — see the note in
+        layout.tsx, which is the one place a building genuinely is the right picture, because a link
+        preview is seen by people who did not choose to look — and it still opens both centre pages.
+
+        No caption; the paragraph above already says who and where.
       */}
-      <Photo photo={PHOTOS.entrance} className="photo-lead" showCaption={false} priority />
+      <Photo photo={PHOTOS.atTheTable} className="photo-lead" showCaption={false} priority />
 
       <p>
         <Link className="btn" href="/enrolment">
@@ -44,9 +53,9 @@ export default function HomePage() {
         </Link>
       </p>
 
-      {/* Te Whāriki is "the woven mat". The rule between sections is a weave — decorative, so it is
-          hidden from assistive technology; the heading already says a new section has begun. */}
-      <hr className="weave" aria-hidden="true" />
+      {/* Decorative, so it is hidden from assistive technology; the heading already says a new
+          section has begun. Was a woven-mat glyph — see globals.css for why it is a hairline. */}
+      <hr className="rule" aria-hidden="true" />
 
       <h2>Learning through play</h2>
       <p>
@@ -57,18 +66,22 @@ export default function HomePage() {
       </p>
 
       {/* Arched, because these are square — the shape only works on a square or portrait box, and
-          it is the shape of their own ivy doorway and their own badge. */}
+          it is the shape of their own ivy doorway and their own badge.
+
+          `atTheTable` left this row when it became the hero above. Showing the same photograph twice
+          on one page makes a centre look like it owns three pictures. `playKitchen` takes the slot
+          because this section is about play and that is what it shows. */}
       <div className="photo-row">
-        <Photo photo={PHOTOS.atTheTable} className="photo-arch" />
         <Photo photo={PHOTOS.painting} className="photo-arch" />
         <Photo photo={PHOTOS.writing} className="photo-arch" />
+        <Photo photo={PHOTOS.playKitchen} className="photo-arch" />
       </div>
 
       <p>
         <Link href="/philosophy">Read our philosophy</Link>
       </p>
 
-      <hr className="weave" aria-hidden="true" />
+      <hr className="rule" aria-hidden="true" />
 
       <h2>Food made on site</h2>
       <p>

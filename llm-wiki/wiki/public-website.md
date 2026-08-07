@@ -292,7 +292,7 @@ Two ideas already theirs carry it:
 | **Type** | One self-hosted face for headings; body stays on the system stack so the text a parent reads paints instantly |
 | **Masthead** | Was a full-width saturated teal band — the loudest thing on every page, and the opposite of what a centre practising RIE is saying. Now the same paper as the page, with a hairline. The teal returns where it means something |
 | **Shape** | An arch on square photographs, from their logo badge and the real ivy archway their quiet corner is shot through |
-| **Weave** | A small centred woven swatch between sections, drawn in CSS from two crossed gradients — warp and weft. Costs no request, tints from the tokens, and settles the Noun Project licence question by being unambiguously theirs |
+| **Weave** | A small centred woven swatch between sections, drawn in CSS from two crossed gradients — warp and weft. **Removed on 2026-08-07**; it read as a broken image at every size tried. See "The design review" below |
 | **Photographs** | Three more, after the centre confirmed consent |
 
 ### The typeface nearly shipped a spelling error
@@ -344,3 +344,175 @@ is not.
 Worth keeping as the general lesson: **31 lines of CSS were written to fix failures that did not
 exist.** Once the harness was honest they were removed, and the audit stayed green without them. A
 broken measurement does not just hide defects; it manufactures them, and you fix the phantoms.
+
+## The design review, 2026-08-07
+
+Ten pieces of feedback from the owner on the built site. The writing was not in question; every item
+was the visual system, and most were **one mistake repeated**. Nine were acted on, one was deferred
+as a feature, and one carried a factual claim that was wrong.
+
+### The claim that was wrong, and why it is worth recording
+
+> "Black text on that coral almost certainly fails 4.5:1 too."
+
+It does not. `#1b1a18` on `#ff6565` measures **6.05:1**, it is asserted as `dark text on coral` in
+`LITTLE_PEARLS_CONTRAST_PAIRS`, and the number is recomputed into the header of `tokens.css` every
+time the generator runs. The colour was still wrong and it still went.
+
+That is the useful shape of this: **the design judgement was right and the mechanism offered for it
+was not.** A saturated red-pink block is the grammar of an alert whatever its contrast ratio, and
+this one was carrying opening hours, "not sure which room?" and "already with us?" on nearly every
+page — a parent scanning met alarm where a nudge was meant. Had the contrast argument been taken at
+face value, the fix would have been to darken the coral until a number passed, which fixes nothing.
+The repo's own check said the colour was compliant. It was compliant, and wrong.
+
+### The one mistake, repeated
+
+Three accents were competing — teal buttons, coral blocks, the pink of their own logo — and coral had
+drifted from "one per page, this is what to do next" into decoration on eight routes. The rule now is
+**one accent, theirs, plus the logo's pink as the single exception, never adjacent**.
+
+| Was | Is |
+|---|---|
+| `.callout` on `--coral` | `--aqua-pale` with an `--aqua` hairline. Same family as the buttons and links |
+| `.gap` with a `--coral-ink` left rule and bold red lead sentence | `--sand`, ink text, no accent rule |
+| `a:hover` to `--coral-ink` | Thickens the underline. Every link was a second accent waiting for a mouse |
+| `.foot` hairline in `--aqua` | Gone. Sand against shell is the edge |
+
+Coral is untouched in `brandLittlePearls`. It is their colour; it is simply not what a page uses to
+say "come and see us".
+
+### The gap blocks were styled as errors and are not errors
+
+`.gap` marks something the centre has to supply — fees, vacancies, a licence detail — on the page
+rather than only in a tracking file, because a placeholder that lives in a tracking file is a
+placeholder that ships. That reasoning is unchanged.
+
+What was wrong is that a tinted panel with a red left rule and a bold red first sentence is what
+every framework renders a validation failure as. "Our fees are not published on this page yet" read
+as the site reporting a fault in itself, on the page a parent opens wanting to be reassured. Not
+publishing a fee you cannot stand behind is a normal editorial state and a defensible one — **the
+styling was arguing against the copy.**
+
+All three now lead with the offer instead of the absence: *"Ask us and we will send you the current
+fee schedule"*, *"Send us an application whenever you are ready"*, *"Ask us about the team here"*.
+The reason follows in the same block. Nothing was hidden and no gap was closed.
+
+### The column was centred and still looked left-hugging
+
+The measure and the column were two numbers that had to agree and did not. `p` capped at 66ch, which
+at the 15px body size is about 545px, sitting inside an 800px column inside a 1400px window — so
+every page ended two-thirds of the way across its own container, and centring the container only
+moved the problem. The earlier fix had narrowed 68rem to 50rem and stopped one step short.
+
+Body copy is now `--text-mobile-base` (17px) and `.main .wrap` is 44rem. Same 66ch measure — the
+thing that actually governs readability — but about 620px of text in 672px of content. The floor on
+how narrow the column can go is `.photo-row`: three photographs at a 13rem minimum plus two gaps need
+656px, so under about 43rem the homepage rows drop to two across.
+
+`--text-mobile-base` rather than a new size: `--text-base` is the platform's *density* step, written
+for a manager scanning a table. Nothing on this site is a table.
+
+### The weave did not survive contact with a browser
+
+Recorded as a loss, not a tidy-up. Te Whāriki means "the woven mat", it is the centre's own metaphor,
+it is physically in their rooms, and it settled the Noun Project licence question by being
+unambiguously theirs. It was still removed.
+
+Two attempts, both wrong at the size they shipped at. Full width on a 3-on-8 pitch read as a dotted
+border somebody had styled oddly; a 72×12px centred swatch on a tighter pitch read, at reading
+distance, as **an image that failed to load** — the worst thing a mark can do on a page whose job is
+to look like somewhere you would leave a child. It is now a 1px `--sand` hairline, the same line
+colour as the masthead and the cards.
+
+If the weave returns it should return as their own photography of their own baskets and canopy, which
+is a real texture and is already on the site, rather than as a gradient standing in for one.
+
+### The homepage led with a wall and a door
+
+The hero was `entrance` — looked at rather than described, that is an orange wall, a sliding glass
+door, a surveillance-camera warning sign and a painted yellow parking line. A good photograph of a
+building, and the wrong first thing on a page whose job is to make somebody want to leave a
+three-month-old here. Every warm image the centre owns was two clicks away on `/rooms`.
+
+It is now `atTheTable`, and `playKitchen` takes the slot that vacated in the row below — the same
+photograph twice on one page makes a centre look like it owns three pictures.
+
+`painting` is the strongest image they have and is **not** the hero: it is a tight portrait, and
+`object-fit: cover` on a 3:2 box would crop the top of the child's head. `.photo-lead` went from 16:9
+to 3:2 for the same reason — on a 720px square, 16:9 keeps rows 157–562 and clips the nearest child
+in `atTheTable`; 3:2 keeps 120–600 and every face survives.
+
+`entrance` was not dropped. It is still the Open Graph share image, which is the one place a building
+genuinely is the right picture, because a link preview is seen by people who did not choose to look.
+
+### The footer repeated both addresses on every page
+
+Three columns, two full postal addresses, two phone numbers, two email addresses, an `<h2>` per
+centre — on all ten routes. On `/contact` that made the third and fourth copy of each address, and
+each centre name was an `<h2>` in the footer **and** an `<h2>` in the card above it, so a screen
+reader working that page's heading list hit "Ōwairaka / Mt Albert" twice with different content under
+each.
+
+Now one line per centre, no headings at all — `<footer>` is already the `contentinfo` landmark and a
+list of two places does not need one. Phone stays, because ringing them is the one thing somebody
+does straight from a footer; email and postcode go, because they are one click away and were the bulk
+of the repetition.
+
+### "(as published by the centre)" is gone from /rooms
+
+It was there so the site would not imply a compliance claim the platform itself refuses to make —
+`RATIO_TABLES_VERIFIED` is `false` and every ratio screen in the product says so. That reasoning
+still holds and the page still makes no regulatory claim.
+
+What it did on the page was hedge the centre's own staffing on the centre's own website, in front of
+a parent, in their own accent colour. On a third-party directory that attribution is honest; here the
+centre **is** the publisher, so it read as the service quietly declining to stand behind its own
+number.
+
+Removing it is not a rule-5 problem. Rule 5 forbids asserting an unsourced regulatory figure; this is
+sourced — their published ratio, in `lib/centres.ts` — and is still stated as what they staff to. The
+two claims that genuinely are about a regulatory minimum ("higher than required ratios", "more than
+the minimum number of staff required by the Ministry") remain off the site entirely.
+
+### Doorway is now named on a customer's public website
+
+The masthead carries the mark plus "Sign in to Doorway", promoted from a line of footer body text.
+For a family or a kaiako already at the centre this is the most-used link on the site, and it was in
+small print below ten pages of marketing copy.
+
+**This creates an exposure that did not exist before.** [[unverified-claims]] #19 recorded that the
+product name has not been trademark- or domain-checked and that "nothing in this repo uses it yet —
+so there is no exposure today". That sentence is now false, and #19 has been corrected. The name is
+on a real service's public site, in front of the public, before an IPONZ search has been run.
+
+Two smaller decisions inside it. The mark is the handoff's **mono** variant (`#1b1a18` box, white
+shapes) and not its primary `#2f6f4f` green, because dropping a fourth colour into the masthead is
+the exact problem this pass exists to fix — and recolouring another product's mark into Little
+Pearls' palette would be neither product's mark, so a sanctioned variant was used as specified. And
+the link sits **outside** `<nav>`: a main navigation whose last item is a different application lies
+to anybody working it with a keyboard or a screen reader.
+
+### Deferred: an enquiry form on /contact
+
+The strongest item in the review and the only one not done. The commercial purpose of the site is a
+family asking about a place, and that is currently "send us an email" while `/careers` — which serves
+far fewer people — gets a real form.
+
+It is a feature, not a visual fix: a table, a policy, a grant, an assertion in `rls_isolation.sql`, a
+flood guard, a screen in the app to read enquiries, and its own wiki entry. Roughly the size of
+[[recruitment]].
+
+It does **not** run into the insurance gate, for the same reason the careers form does not — the
+shape already written down in `enrolment/page.tsx` is the guardian's own details, a coarse age band,
+a hoped start date and a centre. No child's name and no date of birth. `docs/tenant-little-pearls.md`
+holds the line at a child record, and this is not one.
+
+### What was checked
+
+`typecheck`, `lint`, `test`, `tokens:check`, `build:site`, and `audit:site` — 20 page views across 10
+routes at 390px and 1440px, no violations and no horizontal overflow. Then every changed page was
+**screenshotted and looked at** at both widths, which is what turned up two defects no gate saw:
+`atTheTable` rendering twice on the homepage, and the masthead costing three rows on a phone with the
+sign-in link stranded alone on the third. The nav now declares its own line rather than being wrapped
+onto one, so the brand and the sign-in link share the top row at every width.

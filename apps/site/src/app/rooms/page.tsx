@@ -36,16 +36,30 @@ export default function RoomsPage() {
         <section key={room.name}>
           {/* Between rooms, not before the first — a mark that separates, not a decoration that
               repeats. */}
-          {i > 0 && <hr className="weave" aria-hidden="true" />}
+          {i > 0 && <hr className="rule" aria-hidden="true" />}
           <h2>{room.name}</h2>
           <dl className="facts">
             <dt>Ages</dt>
             <dd>{room.ages}</dd>
             <dt>Adult to child ratio</dt>
-            {/* Attributed, not asserted. See the note at the top of this file. */}
-            <dd>
-              {room.ratio} <span style={{ color: 'var(--teal-ink)' }}>(as published by the centre)</span>
-            </dd>
+            {/*
+              "(as published by the centre)" USED TO FOLLOW THIS AND IT IS GONE.
+
+              It was there to keep the site from implying a compliance claim the platform itself
+              refuses to make — see the note at the top of this file, which still holds. What it
+              actually did on the page was hedge the centre's own staffing on the centre's own
+              website, in front of a parent, in their own accent colour. On a third-party directory
+              that attribution is honest; here the centre *is* the publisher, so the phrase reads as
+              the service quietly declining to stand behind its own number.
+
+              Removing it is not a rule-5 problem. Rule 5 forbids asserting an unsourced regulatory
+              figure. This is sourced — it is their published ratio, in `lib/centres.ts` — and it is
+              still stated as what they staff to and never as what a regulation requires. The two
+              claims that ARE about a regulatory minimum ("higher than required ratios", "more than
+              the minimum number of staff required by the Ministry") remain off the site entirely;
+              CONTENT-GAPS.md gap 6 tracks both.
+            */}
+            <dd>{room.ratio}</dd>
           </dl>
           <p>{room.approach}</p>
           {/* Named by the room's own `photo` key, so this cannot drift out of step with the list. */}

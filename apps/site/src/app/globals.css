@@ -35,7 +35,21 @@ body {
    * decisions.
    */
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
-  font-size: var(--text-base);
+  /*
+   * 17px, not 15px, and it is a layout fix as much as a reading one.
+   *
+   * `--text-base` is the platform's density step — written for a manager scanning a table at a
+   * desk. Nothing on this site is a table. The token that matches what this page is (prose, read
+   * on a phone, one-handed) is the one the mobile app already uses for body copy, so it is reused
+   * rather than a third size being invented.
+   *
+   * The layout half: paragraphs cap at 66ch, and at 15px that is ~545px sitting inside an 800px
+   * column inside a 1400px window — which reads as a column that failed rather than a measure that
+   * was chosen. At 17px the same 66ch is ~620px and the column below is 672px, so the text fills
+   * it. Same measure in characters, which is the thing that actually governs readability; the
+   * emptiness beside it is what goes.
+   */
+  font-size: var(--text-mobile-base);
   line-height: 1.65;
   /* Their photographs and grounds are warm; let the browser render type the same way. */
   -webkit-font-smoothing: antialiased;
@@ -75,7 +89,14 @@ h3 { font-size: var(--text-lg); margin-top: var(--space-5); }
 p { margin: 0 0 var(--space-4); max-width: 66ch; }
 
 a { color: var(--teal-ink); }
-a:hover { color: var(--coral-ink); }
+/*
+ * Hover thickens the underline rather than changing hue.
+ *
+ * It used to go to `--coral-ink`, which meant every link on the site was a second accent waiting
+ * for a mouse. One accent is the rule now (see `.callout`), and a link that announces itself by
+ * getting heavier rather than by changing colour also stops relying on colour to do it.
+ */
+a:hover { text-decoration-thickness: 2px; }
 
 /*
  * Focus visibility (WCAG 2.4.7). Their current site has none that I could find, and a keyboard
@@ -170,8 +191,18 @@ a:hover { color: var(--coral-ink); }
   letter-spacing: 0.01em;
 }
 
+/*
+ * Always its own line, under the brand and the sign-in link.
+ *
+ * It was sharing the first line and never actually fitting: seven items plus a brand plus the new
+ * sign-in link exceed 68rem, so the browser wrapped it anyway — and on a 390px phone that landed the
+ * sign-in link alone on a third row, three rows of masthead before the page's own heading. Declaring
+ * the wrap rather than letting it happen puts the two things a returning visitor wants (who this is,
+ * and the way in) on one row at every width.
+ */
 .nav {
   display: flex;
+  flex: 1 0 100%;
   gap: var(--space-1);
   flex-wrap: wrap;
   align-items: center;
@@ -193,6 +224,49 @@ a:hover { color: var(--coral-ink); }
 .nav a[aria-current='page'] { background: var(--sand); font-weight: 600; }
 
 /*
+ * SIGNING IN IS THE MOST-USED LINK ON THIS SITE and it was body text in the footer.
+ *
+ * Every other link here is for somebody deciding whether to enrol — a decision made once. This one
+ * is for the families and kaiako already at the centre, who come back to it daily, and they were
+ * being asked to scroll ten pages' worth of marketing copy to find it in small print.
+ *
+ * Outlined rather than filled: it is the most *frequent* action, not the most important one. A
+ * solid button here would outrank "Enquire about a place" on the homepage, which is the thing the
+ * centre actually needs the site to do.
+ */
+.signin {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--target-min);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--teal-ink);
+  border-radius: var(--radius-sm);
+  color: var(--teal-ink);
+  font-size: var(--text-base);
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.signin:hover { background: var(--aqua-pale); }
+
+/*
+ * The Doorway mark, in the handoff's **mono** variant (#1b1a18 box, white shapes) rather than its
+ * primary green.
+ *
+ * Not a stylistic preference. Doorway's green is #2f6f4f, and this site deliberately runs on one
+ * accent — Little Pearls' teal — with their own pink logo as the single exception. Dropping a
+ * fourth colour into the masthead is the exact problem this pass exists to fix. The handoff offers
+ * mono as a sanctioned variant, so it is used as specified rather than recoloured into their
+ * palette, which would be neither product's mark.
+ */
+.doorway-mark {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+/*
  * One readable column, centred.
  *
  * The first version let `.wrap` run to 68rem in the main area while paragraphs capped themselves
@@ -201,31 +275,54 @@ a:hover { color: var(--coral-ink); }
  * the column itself is the narrower thing, and it is centred — which is what makes the whitespace
  * look deliberate. The masthead and footer keep the full width, because a navigation bar and a set
  * of addresses are not prose.
+ *
+ * 44rem RATHER THAN 50rem, and that is the second half of a fix the first half did not finish.
+ *
+ * Centring an 800px column did not help, because the paragraphs inside it were still only ~545px
+ * — so every page still read as a narrow ragged block hugging the left of its own container, with
+ * the container's centring only moving the problem. Two numbers have to agree: the measure and the
+ * column. 44rem is 704px, less 32px of padding, so 672px of content against a 66ch measure of
+ * ~620px at the new body size. The remaining slack is a line's worth of rag, which is what a
+ * justified-looking left column is supposed to have.
+ *
+ * The floor on how narrow this can go is `.photo-row`: three photographs at a 13rem minimum plus
+ * two 16px gaps need 656px, so anything under ~43rem drops the homepage rows to two across.
  */
 .main { padding: var(--space-7) 0 var(--space-8); }
-.main .wrap { max-width: 50rem; }
+.main .wrap { max-width: 44rem; }
 
+/*
+ * ONE LINE PER CENTRE, and the headings are gone.
+ *
+ * This was a three-column block repeating both full postal addresses, both phone numbers and both
+ * email addresses under an `<h2>` each, on all ten pages. Two costs, and the second is the one that
+ * decided it:
+ *
+ *  - On `/contact` the same two addresses appear in the body, which is where somebody looking for
+ *    them is. The footer was the third and fourth copy on that page.
+ *  - Each centre's name was an `<h2>` here *and* an `<h2>` in the contact card above, so a screen
+ *    reader working the heading list on that page hit "Ōwairaka / Mt Albert" twice with different
+ *    content under each. Duplicate headings at the same level are how a heading outline stops being
+ *    navigable.
+ *
+ * So the footer is now a reminder — who and where and how to ring — and `/contact` is the detail.
+ * No headings at all: `<footer>` is already the `contentinfo` landmark, and a list of two places
+ * does not need one.
+ */
 .foot {
   background: var(--sand);
-  border-top: 1px solid var(--aqua);
-  padding: var(--space-7) 0;
+  /* No border-top. It was `--aqua` — a cool line under a warm block, and the only place on the
+     site where a hairline was a colour rather than a tone. Sand against shell is the edge. */
+  padding: var(--space-6) 0;
   font-size: var(--text-base);
 }
-.foot-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
-  gap: var(--space-5);
-}
-.foot h2 {
-  font-size: var(--text-base);
-  font-family: inherit;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--teal-ink);
+.foot-centres {
+  list-style: none;
   margin: 0 0 var(--space-3);
+  padding: 0;
 }
-.foot p { margin: 0 0 var(--space-1); }
+.foot-centres li { margin: 0 0 var(--space-1); }
+.foot p { margin: 0; }
 
 /* --- Blocks ------------------------------------------------------------------ */
 
@@ -252,15 +349,31 @@ a:hover { color: var(--coral-ink); }
   gap: var(--space-4);
 }
 
-/* Coral as a background with dark text — 7.30:1, measured. Used once per page at most, which is
-   what keeps it meaning "this is the thing to do next" rather than being decoration. */
+/*
+ * NOT CORAL ANY MORE, and the reason is not contrast.
+ *
+ * Dark text on their coral measures 6.05:1 and is asserted as `dark text on coral` in
+ * LITTLE_PEARLS_CONTRAST_PAIRS — it passed AA with room. It was still the wrong colour, for a
+ * reason no automated check can see: a saturated red-pink block is the visual grammar of an
+ * alert, and this block was carrying opening hours, "not sure which room?" and "already with
+ * us?" on nearly every page. A parent scanning the page met alarm where a friendly nudge was
+ * intended, and met it as the loudest thing on the screen.
+ *
+ * Pale aqua with the teal hairline instead. It is the same family as the buttons and the links,
+ * which is the point — the site now has one accent (theirs, the teal) and one exception (the
+ * pink in their own logo, which is never placed beside it). Body ink on `--aqua-pale` is 6.47:1
+ * and `--teal-ink` on it is 5.34:1; both are already asserted, so this needs no new pair.
+ *
+ * Coral has not been deleted from the palette. It is their colour and it is still in the tokens;
+ * it is simply not what a page uses to say "come and see us".
+ */
 .callout {
-  background: var(--coral);
+  background: var(--aqua-pale);
+  border: 1px solid var(--aqua);
   border-radius: var(--radius-lg);
   padding: var(--space-5);
-  color: #1b1a18;
 }
-.callout a { color: #1b1a18; font-weight: 600; }
+.callout a { font-weight: 600; }
 
 .btn {
   display: inline-flex;
@@ -288,18 +401,31 @@ a:hover { color: var(--coral-ink); }
  * A gap the centre has to fill, marked on the page rather than filled with a plausible guess.
  * Visible on purpose: an invented fee is a fee a family gets billed, and a placeholder that only
  * exists in a tracking file is a placeholder that ships.
+ *
+ * IT WAS STYLED AS AN ERROR AND IT IS NOT ONE. A tinted panel with a red left rule and a bold red
+ * first sentence is the shape every framework uses for a validation failure — so "our fees are not
+ * published on this page yet" read as the site apologising for a fault in itself, on the page
+ * where a parent has come to be reassured. Not publishing a fee you cannot yet stand behind is a
+ * normal editorial state and a defensible one; the styling was arguing against the copy.
+ *
+ * A sunken warm block, ink text, no accent rule, and the pages that use it now lead with the offer
+ * rather than the absence. `--sand` and not `--aqua-pale` deliberately: pale aqua is what
+ * `.callout` uses to mean "do this next", and these two must not look like each other.
+ *
+ * `.band` is also sand. That is fine — a band is a section with a heading and a gap is one inset
+ * sentence, and no page puts them adjacent.
  */
 .gap {
-  border-left: 3px solid var(--coral-ink);
-  background: var(--aqua-pale);
-  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  background: var(--sand);
+  border-radius: var(--radius-md);
   padding: var(--space-4) var(--space-5);
   margin: 0 0 var(--space-5);
   font-size: var(--text-base);
 }
-.gap strong { color: var(--coral-ink); }
 
-dl.facts { margin: 0; }
+/* A bottom margin so the paragraph after a fact list is not mistaken for another value in it. On
+   /rooms the room's approach was butting straight onto the ratio with no gap at all. */
+dl.facts { margin: 0 0 var(--space-4); }
 dl.facts dt { font-weight: 600; margin-top: var(--space-3); }
 dl.facts dd { margin: 0; }
 
@@ -448,60 +574,48 @@ figure.photo-figure figcaption {
 /*
  * The lead image on the homepage. Wider than tall, because a square hero pushes everything below the
  * fold on a phone — so the square file is cropped by CSS rather than re-cut into a second file.
+ *
+ * 3:2 AND NOT 16:9, since the hero became a photograph of people. `object-fit: cover` takes a centred
+ * band, and on a 720px square 16:9 keeps rows 157–562 — which clips the top of the nearest child's
+ * head in `at-the-table.webp` by a few pixels. 3:2 keeps rows 120–600: every face intact, and still
+ * wide enough that the two buttons under it stay above the fold on a 390px phone.
  */
 .photo-lead {
-  aspect-ratio: 16 / 9;
+  aspect-ratio: 3 / 2;
   margin-bottom: var(--space-5);
 }
 
-/* --- The weave, and the arch ---------------------------------------------------- */
+/* --- The rule, and the arch ------------------------------------------------------ */
 
 /*
- * Te Whāriki means "the woven mat" — a mat for all to stand on. That is the centre's own
- * curriculum and their own metaphor, and it is already physically in their rooms: woven baskets, a
- * woven canopy over the quiet corner, rugs, the thatched shade over the sandpit.
+ * A HAIRLINE. This replaces `.weave`, and losing that is a real loss worth recording.
  *
- * So the divider between sections is a weave. Two repeating gradients crossing at right angles,
- * which is literally warp and weft, drawn in CSS rather than shipped as an image: it costs no
- * request, scales to any width, and takes its colour from the tokens — so it can never drift from
- * the palette the way a fixed-colour PNG does.
+ * Te Whāriki means "the woven mat", which is the centre's own curriculum and their own metaphor,
+ * and it is physically in their rooms — woven baskets, the canopy over the quiet corner, the
+ * thatched shade over the sandpit. So the divider between sections was a weave: two repeating
+ * gradients crossing at right angles, warp and weft, drawn in CSS so it cost no request and could
+ * not drift from the palette.
  *
- * This also replaces what their old site used for decoration: Noun Project boats and fish, whose
- * licence position could not be established from outside. A mark drawn here is unambiguously
- * theirs. See CONTENT-GAPS.md gap 15.
+ * It did not survive contact with a browser. Twice. The first attempt ran the full width on a
+ * 3-on-8 pitch and read as a dotted border somebody had styled oddly; the second shrank it to a
+ * 72px centred swatch on a tighter pitch, and at reading distance a 72×12 patch of teal dashes does
+ * not read as cloth — it reads as an image that failed to load. Which is the worst thing a mark can
+ * do on a page whose job is to look like somewhere you would leave a child.
  *
- * Decorative, so every use carries `aria-hidden` in the markup: a screen reader announcing "image"
- * between every section would be noise, and the heading already says a new section has started.
+ * The metaphor was good and the execution was wrong at every size tried, so the mark goes and the
+ * divider does the one job a divider has. If the weave comes back it should come back as their own
+ * photography of their own baskets and canopy — which is a real texture and is already on the site
+ * — rather than as a gradient standing in for one.
+ *
+ * `--sand` rather than a grey: it is the same hairline as `.masthead` and `.card`, so the site has
+ * one line colour. Decorative, so every use carries `aria-hidden` in the markup — the heading
+ * already says a new section has started.
  */
-/*
- * A SHORT CENTRED SWATCH, not a rule across the page — corrected after looking at it.
- *
- * The first version ran the full width at 10px tall on a 3-on-8 pitch, and at laptop width that is
- * not fabric, it is a dotted line. It read as a border somebody had styled oddly.
- *
- * A small centred piece reads as what it is: a scrap of woven mat set between two sections. The
- * pitch is tighter (2 on 5) so the threads cross often enough to look like cloth at reading
- * distance, and the whole thing is 72px wide, which is small enough to be a mark rather than a
- * divider.
- */
-.weave {
-  width: 72px;
-  height: 12px;
-  margin: var(--space-7) auto;
+.rule {
+  height: 0;
+  margin: var(--space-7) 0;
   border: 0;
-  border-radius: 2px;
-  background-image:
-    repeating-linear-gradient(90deg, var(--teal) 0 2px, transparent 2px 5px),
-    repeating-linear-gradient(0deg, var(--teal-mid) 0 2px, transparent 2px 5px);
-  opacity: 0.75;
-}
-
-/* Wider and quieter, for the one place a section genuinely needs separating rather than marking. */
-.weave-wide {
-  width: 100%;
-  height: 8px;
-  opacity: 0.35;
-  border-radius: 0;
+  border-top: 1px solid var(--sand);
 }
 
 /*

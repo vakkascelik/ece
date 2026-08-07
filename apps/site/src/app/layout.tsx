@@ -200,6 +200,37 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                 <span className="brand-tag">{CENTRE_FACTS.tagline}</span>
               </span>
             </a>
+            {/*
+              The link out to the platform, promoted from a line of footer body text.
+
+              Beside the brand and BEFORE the nav in source order, so the first row of the masthead
+              is "who this is" and "the way in" — the two things a family or a kaiako already at the
+              centre opens this site for. The nav takes the row below it at every width.
+
+              Outside the `<nav>` on purpose: it leaves this site. A main navigation whose last item
+              is a different application is a navigation that lies to anybody working it with a
+              screen reader or a keyboard.
+
+              The mark is inlined rather than fetched — one fewer request for three shapes, and
+              `img-src` would otherwise be carrying a file that exists only for this. `aria-hidden`
+              because the words beside it already say Doorway; `focusable="false"` because SVG
+              otherwise picks up a tab stop in some engines.
+            */}
+            <a className="signin" href={appUrl()}>
+              <svg
+                className="doorway-mark"
+                viewBox="0 0 128 128"
+                xmlns="http://www.w3.org/2000/svg"
+                aria-hidden="true"
+                focusable="false"
+              >
+                <rect width="128" height="128" rx="28" fill="#1b1a18" />
+                <circle cx="64" cy="45" r="19" fill="#fff" />
+                <rect x="28" y="74" width="72" height="23" rx="11.5" fill="#fff" />
+              </svg>
+              Sign in to Doorway
+            </a>
+
             <nav className="nav" aria-label="Main">
               {NAV.map((item) => (
                 <NavLink key={item.href} href={item.href}>
@@ -214,42 +245,31 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           <div className="wrap">{children}</div>
         </main>
 
+        {/*
+          One line per centre, no headings, and no second copy of the sign-in link.
+
+          It was three columns repeating both full postal addresses on all ten pages — and on
+          `/contact`, where the body already carries them, that made four copies of each address and
+          two `<h2>`s per centre name in one heading outline. A footer is a reminder of who and where;
+          `/contact` is where the detail belongs. See the note in globals.css.
+
+          Phone stays because "ring them" is the one thing somebody does straight from a footer.
+          Email and postcode do not — they are one click away and were the bulk of the repetition.
+        */}
         <footer className="foot">
           <div className="wrap">
-            <div className="foot-grid">
+            <ul className="foot-centres">
               {CENTRES.map((centre) => (
-                <div key={centre.path}>
-                  <h2>{centre.name}</h2>
-                  <p>
-                    {centre.street}
-                    <br />
-                    {centre.suburb} {centre.postcode}
-                  </p>
-                  <p>
-                    <a href={`tel:${centre.phoneHref}`}>{centre.phone}</a>
-                  </p>
-                  <p>
-                    <a href={`mailto:${centre.email}`}>{centre.email}</a>
-                  </p>
-                </div>
+                <li key={centre.path}>
+                  <strong>{centre.name}</strong> — {centre.street}, {centre.suburb} ·{' '}
+                  <a href={`tel:${centre.phoneHref}`}>{centre.phone}</a>
+                </li>
               ))}
-              <div>
-                <h2>Hours</h2>
-                <p>{CENTRE_FACTS.hours}</p>
-                <p>Children {CENTRE_FACTS.ages}</p>
-                <h2 style={{ marginTop: 'var(--space-4)' }}>For families and kaiako</h2>
-                {/*
-                  The only link between this site and the platform, and deliberately the whole of
-                  it for now. There is no sign-up: an account comes from the centre inviting
-                  somebody, which the app says on arrival.
-                */}
-                <p>
-                  <a href={appUrl()}>
-                    Sign in to the centre app
-                  </a>
-                </p>
-              </div>
-            </div>
+            </ul>
+            <p>
+              {CENTRE_FACTS.hours}. Children {CENTRE_FACTS.ages}.{' '}
+              <a href="/contact">Contact us</a>
+            </p>
           </div>
         </footer>
       </body>

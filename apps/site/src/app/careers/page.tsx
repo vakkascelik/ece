@@ -43,9 +43,12 @@ export default function CareersPage() {
         te reo Māori and tikanga Māori in daily practice.
       </p>
 
+      {/* Leads with the offer rather than the absence — see the note on the same block in
+          `enrolment/page.tsx`. */}
       <div className="gap">
-        <strong>Current vacancies are not listed here yet.</strong> Send an application anyway — we
-        will tell you what is open at each centre.
+        <strong>Send us an application whenever you are ready.</strong> We do not list current
+        vacancies here — tell us what you are looking for and we will say what is open at each
+        centre.
       </div>
 
       <h2>Apply</h2>
