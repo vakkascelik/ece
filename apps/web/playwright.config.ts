@@ -73,7 +73,11 @@ export default defineConfig({
     {
       name: 'owner',
       dependencies: ['seed'],
-      testMatch: /(a11y|journey|roles|offline)\.spec\.ts/,
+      // An explicit list, and the second place in this repo where a hardcoded list
+      // silently omitted a new file: a spec not named here does not run, and reports
+      // nothing to say so. `roles.spec.ts`'s MATRIX had the same shape. If a third
+      // one appears, this should become a glob with named exclusions instead.
+      testMatch: /(a11y|journey|roles|offline|medication)\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], storageState: OWNER_STATE },
     },
     {

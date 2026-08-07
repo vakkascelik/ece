@@ -18,6 +18,19 @@ export interface Centre {
   moeServiceNumber: string | null;
   slug: string;
   timezone: string;
+  /**
+   * Centre policy, not a regulation. `true` makes the trigger in 0032 refuse a dose
+   * with no witness. Defaults to false, because whether a second signature is
+   * required has not been read out of the licensing criteria — unverified-claims 22.
+   */
+  medicationRequiresWitness: boolean;
+  /**
+   * Minutes between sleep checks, as stated by the centre. **`null` means the centre
+   * has not stated one**, and that is not the same as zero or as a default: the
+   * product then shows elapsed time and declines to call anything overdue. See
+   * `sleep-checks.md` and unverified-claims 23.
+   */
+  sleepCheckMinutes: number | null;
   archivedAt: string | null;
 }
 

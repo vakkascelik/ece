@@ -101,6 +101,57 @@ item 22 in [[unverified-claims]].
 The window check is **not** in that category and is enforced unconditionally: it is not a
 regulatory reading, it is what the authority record already says.
 
+### The screen, and the one bug that needed a browser to find
+
+Dosing lives on the child record, in the same table that already listed the authorities —
+because "we may give this" and "we gave this at 9:04" are the two halves a review asks for and
+only the first existed. A **Given today** column now sits beside **Status**.
+
+The dose field is prefilled from the authority and **editable**. Half a dose because the child
+spat it out is the entry a reviewer most wants to find, and a read-only field would force
+somebody to record something untrue.
+
+`Record a dose` is offered only while the authority is in force. The trigger refuses an
+out-of-window dose regardless — the UI gate is about not presenting a form that was always going
+to be rejected, which is a different job from enforcing the rule. Neither the window nor the
+witness requirement is re-implemented in TypeScript; the action turns the database's refusals
+into sentences and nothing more, because a second copy of the rule is the copy that drifts.
+
+**The `client_uuid` lifecycle is the dangerous part.** `ON CONFLICT DO NOTHING` means a repeated
+key is discarded *and reported as success*. A component that minted its key once at mount would
+therefore discard the 2pm paracetamol as a duplicate of the 10am one and tell the person it
+worked. A silently dropped medication record is far worse than a duplicated one, which is
+visible and correctable with `corrects`.
+
+So the key is minted per submission, refreshed after every success, and held stable while a
+submission is in flight — which is also what makes a double-click safe. It is generated in an
+effect rather than in `useState`'s initialiser, because the component server-renders first and
+two different random values across the hydration boundary is a mismatch.
+
+**None of that is visible to `test:rls`.** At the database both statements look identical; the
+suite proves the contract and cannot see which key the browser chose. So `medication.spec.ts`
+gives the same medicine twice and asserts *two* entries appear. Mutation-tested: with the key
+pinned at mount, the second dose vanished and the test failed on `toHaveCount(2)` receiving 1 —
+the exact production bug, reproduced.
+
+The first version of that test asserted on the dose *text* and matched two elements, because the
+authority's own Dose column also reads "150 mcg". It now counts list items. Amusing in context:
+the test was conflating permission with administration, which is the conflation this whole table
+exists to undo.
+
+### A second hardcoded list that silently omitted the new thing
+
+`medication.spec.ts` did not run when first written. The `owner` project in
+`playwright.config.ts` selects specs with an explicit regex — `/(a11y|journey|roles|offline)\.spec\.ts/`
+— and a file not named there is skipped with no output saying so.
+
+That is the **second** instance of this shape in one session: `roles.spec.ts`'s `MATRIX` had
+already let `/incidents` pass unchecked. Both are now updated, and the config carries a note that
+a third occurrence should turn the list into a glob with named exclusions. A green run that
+silently covered nothing is the failure mode `bounded-queries.test.ts` and
+`localDates.test.ts` both guard against in their own domains — worth noticing that the *test
+harness* has the same disease.
+
 ## See Also
 
 - [[incident-register]] — the other Phase 8 table, and the harder RLS problem

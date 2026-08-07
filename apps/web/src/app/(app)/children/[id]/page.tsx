@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import {
   getChild,
+  listAdministrations,
   listAttendanceToday,
   listChildIncidents,
   listConsentHistory,
@@ -10,11 +11,13 @@ import {
   listEnrolments,
   listGuardiansOfChild,
   listHealthConditions,
+  listMembers,
   listMedications,
 } from '@ece/api';
 import {
   can,
   compareBySeverity,
+  dosesOnDate,
   displayName,
   formatAge,
   hasCriticalCondition,
@@ -30,7 +33,8 @@ import { ConsentPanel } from './ConsentPanel';
 import { CustodyPanel } from './CustodyPanel';
 import { DetailsForm } from './DetailsForm';
 import { EnrolmentPanel } from './EnrolmentPanel';
-import { HealthPanel } from './HealthPanel';
+import { HealthPanel, type DosesToday } from './HealthPanel';
+import type { WitnessOption } from './GiveMedicine';
 import { IncidentsPanel, type ChildIncident } from './IncidentsPanel';
 import { WhanauPanel } from './WhanauPanel';
 
@@ -71,6 +75,8 @@ export default async function ChildPage({ params }: { params: Promise<{ id: stri
     custody,
     attendance,
     incidents,
+    doses,
+    members,
   ] = await Promise.all([
     listHealthConditions(db, id),
     listMedications(db, id),
@@ -85,6 +91,12 @@ export default async function ChildPage({ params }: { params: Promise<{ id: stri
     // Unconditional. A parent's query comes back without drafts because the policy
     // withholds them, not because this call was narrowed — see 0030.
     listChildIncidents(db, id),
+    listAdministrations(db, id),
+    // Only for the witness selector, and only when the centre has asked for one.
+    // A guardian has no business enumerating the staff list.
+    ctx.centre.medicationRequiresWitness && can(ctx.role, 'recordDailyPractice')
+      ? listMembers(db, ctx.centre.id)
+      : Promise.resolve([]),
   ]);
 
   const state = attendance.find((s) => s.childId === id);
@@ -115,6 +127,33 @@ export default async function ChildPage({ params }: { params: Promise<{ id: stri
     hour: '2-digit',
     minute: '2-digit',
   });
+  /*
+    Doses given today, per authority.
+
+    `liveAdministrations` drops rows that a later row corrects — transitively — so a
+    corrected dose does not appear twice. `dosesOnDate` is handed a formatter rather
+    than reaching for `Intl` itself, so the "today" it filters on is the centre's day
+    and not the server's.
+  */
+  const toLocalDate = (instant: string) =>
+    new Intl.DateTimeFormat('en-CA', { timeZone: ctx.centre.timezone }).format(new Date(instant));
+  const clock = new Intl.DateTimeFormat('en-NZ', {
+    timeZone: ctx.centre.timezone,
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+  const dosesToday: DosesToday[] = medications.map((m) => ({
+    authorityId: m.id,
+    entries: dosesOnDate(doses, m.id, today, toLocalDate)
+      .slice()
+      .sort((a, b) => a.givenAt.localeCompare(b.givenAt))
+      .map((d) => `${clock.format(new Date(d.givenAt))} · ${d.doseGiven}`),
+  }));
+
+  const witnesses: WitnessOption[] = members
+    .filter((m) => m.role !== 'parent')
+    .map((m) => ({ userId: m.userId, label: m.email ?? m.userId }));
+
   const incidentRows: ChildIncident[] = incidents.map((incident) => ({
     incident,
     occurredLabel: when.format(new Date(incident.occurredAt)),
@@ -202,6 +241,11 @@ export default async function ChildPage({ params }: { params: Promise<{ id: stri
           guardians={whanau.map((g) => ({ id: g.guardian.id, name: g.guardian.fullName }))}
           canEdit={can(ctx.role, 'recordHealth')}
           today={today}
+          dosesToday={dosesToday}
+          canGive={can(ctx.role, 'recordDailyPractice')}
+          requiresWitness={ctx.centre.medicationRequiresWitness}
+          witnesses={witnesses}
+          currentUserId={ctx.userId}
         />
       </div>
 

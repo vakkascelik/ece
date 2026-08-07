@@ -10,6 +10,14 @@ import {
   type MedicationAuthority,
 } from '@ece/core';
 import { addCondition, addMedication, resolveCondition, type Result } from '../actions';
+import { GiveMedicine, type WitnessOption } from './GiveMedicine';
+
+/** One authority's doses today, formatted on the server in the centre's zone. */
+export interface DosesToday {
+  authorityId: string;
+  /** "9:04 am · 5ml", newest last. Already corrected-for by `liveAdministrations`. */
+  entries: string[];
+}
 
 /**
  * Allergies, conditions and medication authorities.
@@ -25,6 +33,11 @@ export function HealthPanel({
   guardians,
   canEdit,
   today,
+  dosesToday,
+  canGive,
+  requiresWitness,
+  witnesses,
+  currentUserId,
 }: {
   childId: string;
   conditions: HealthCondition[];
@@ -33,6 +46,12 @@ export function HealthPanel({
   canEdit: boolean;
   /** The date at the centre. Passed in rather than computed — see the child page. */
   today: string;
+  dosesToday: DosesToday[];
+  /** Staff may record a dose; a guardian reads the record and does not write it. */
+  canGive: boolean;
+  requiresWitness: boolean;
+  witnesses: WitnessOption[];
+  currentUserId: string;
 }) {
   const [adding, setAdding] = useState(false);
   const [addingMed, setAddingMed] = useState(false);
@@ -85,11 +104,13 @@ export function HealthPanel({
                 <th>Dose</th>
                 <th>Authorised by</th>
                 <th>Status</th>
+                <th>Given today</th>
               </tr>
             </thead>
             <tbody>
               {medications.map((m) => {
                 const current = isMedicationCurrent(m, today);
+                const given = dosesToday.find((d) => d.authorityId === m.id)?.entries ?? [];
                 return (
                   <tr key={m.id}>
                     <td>
@@ -113,6 +134,41 @@ export function HealthPanel({
                           ◌ {m.expiresOn && m.expiresOn < m.startsOn ? 'Invalid' : 'Expired'}
                           {m.expiresOn ? ` ${m.expiresOn}` : ''}
                         </span>
+                      )}
+                    </td>
+                    <td>
+                      {/*
+                        What was actually given, beside the permission to give it. The
+                        two used to be one column's worth of information and they are
+                        not: "we may give this" and "we gave this at 9:04" are the two
+                        halves a review asks for, and only the first existed.
+                      */}
+                      {given.length === 0 ? (
+                        <span className="empty">none today</span>
+                      ) : (
+                        <ul className="plain" style={{ margin: 0 }}>
+                          {given.map((entry, n) => (
+                            <li key={n} style={{ fontSize: '0.8125rem' }}>
+                              {entry}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      {/*
+                        Offered only while the authority is in force. The trigger in
+                        0032 refuses a dose outside the window regardless — this keeps
+                        somebody from filling in a form that was always going to be
+                        rejected, which is a different job from enforcing the rule.
+                      */}
+                      {canGive && current && (
+                        <GiveMedicine
+                          childId={childId}
+                          authorityId={m.id}
+                          authorisedDose={m.dose}
+                          requiresWitness={requiresWitness}
+                          witnesses={witnesses}
+                          currentUserId={currentUserId}
+                        />
                       )}
                     </td>
                   </tr>

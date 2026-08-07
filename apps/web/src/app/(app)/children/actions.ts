@@ -25,6 +25,7 @@ import {
   createEnrolment,
   createGuardian,
   linkGuardian,
+  recordAdministration,
   recordConsent,
   resolveHealthCondition,
   revokeGuardianLink,
@@ -547,6 +548,58 @@ export async function acknowledgeIncidentReport(
   } catch (e) {
     return actionError(e, 'acknowledgeIncidentReport');
   }
+  revalidatePath(`/children/${childId}`);
+  return { ok: true };
+}
+
+/**
+ * Record that a medicine was given.
+ *
+ * The refusals here are worth reading, because two of them come from the database
+ * and this function does not re-implement either: 0032's trigger rejects a dose
+ * outside the window the guardian authorised, and rejects an unwitnessed dose where
+ * the centre requires a witness. Checking those again here would put a second copy
+ * of the rule in the app, and the copy would be the one that drifts.
+ *
+ * What it does do is turn those refusals into sentences. A constraint name on screen
+ * to somebody holding a bottle of antibiotics is not an answer.
+ */
+export async function giveMedicine(_prev: unknown, form: FormData): Promise<Result> {
+  await requireCapability('recordDailyPractice');
+  const db = await serverDb();
+
+  const authorityId = str(form, 'authorityId');
+  const childId = str(form, 'childId');
+  const doseGiven = str(form, 'doseGiven');
+  const clientUuid = str(form, 'clientUuid');
+  const witnessedBy = str(form, 'witnessedBy');
+
+  if (!authorityId || !childId) return { error: 'Missing medicine.' };
+  if (!doseGiven) return { error: 'Record what was actually given, not what was authorised.' };
+  if (!clientUuid) return { error: 'The page did not finish loading. Reload and try again.' };
+
+  try {
+    const result = await recordAdministration(db, {
+      authorityId,
+      childId,
+      givenAt: new Date().toISOString(),
+      doseGiven,
+      clientUuid,
+      witnessedBy: witnessedBy || null,
+    });
+    /*
+      A duplicate is not an error and must never be shown as one. The key was already
+      recorded, so the dose is on the register — telling somebody the write failed is
+      how a child gets a second dose.
+    */
+    if (result.outcome === 'duplicate') {
+      revalidatePath(`/children/${childId}`);
+      return { ok: true };
+    }
+  } catch (e) {
+    return actionError(e, 'giveMedicine');
+  }
+
   revalidatePath(`/children/${childId}`);
   return { ok: true };
 }
