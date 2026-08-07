@@ -91,13 +91,48 @@ export async function countOwners(db: Db, centreId: string): Promise<number> {
 export async function updateCentre(
   db: Db,
   centreId: string,
-  patch: { name?: string; moeServiceNumber?: string | null },
+  patch: {
+    name?: string;
+    moeServiceNumber?: string | null;
+    medicationRequiresWitness?: boolean;
+    /**
+     * `null` is a value here, not an omission: it means the centre states no sleep-check
+     * interval, and the product then shows elapsed time and declines to call anything
+     * overdue. `undefined` means "leave it alone". The two must not be collapsed — see
+     * `sleep-checks.md`.
+     */
+    sleepCheckMinutes?: number | null;
+  },
 ): Promise<void> {
   const row: Record<string, unknown> = {};
   if (patch.name !== undefined) row.name = patch.name;
   if (patch.moeServiceNumber !== undefined) row.moe_service_number = patch.moeServiceNumber;
+  if (patch.medicationRequiresWitness !== undefined) {
+    row.medication_requires_witness = patch.medicationRequiresWitness;
+  }
+  if (patch.sleepCheckMinutes !== undefined) row.sleep_check_minutes = patch.sleepCheckMinutes;
   if (Object.keys(row).length === 0) return;
 
-  const { error } = await db.from('centres').update(row).eq('id', centreId);
+  /*
+    `.select('id')` is not decoration.
+
+    An UPDATE that matches no rows is not an error in PostgREST — `error` is null and
+    the call looks like a success. Under RLS "matches no rows" is the normal shape of
+    a refusal, so without this a caller who may not update this centre, or a centre id
+    that does not exist, gets a silent no-op and a "Saved." message.
+
+    Added while chasing a settings-form failure that turned out to be two other things
+    entirely (a test fixture holding an invalid service number, and a test racing the
+    server action). So: **not** evidence that this ever silently failed in production —
+    it did not, and an earlier version of this comment claiming otherwise was wrong.
+    Kept because the hazard is real and free to close: nothing else in this file would
+    have told the difference between "refused" and "saved".
+  */
+  const { data, error } = await db.from('centres').update(row).eq('id', centreId).select('id');
   if (error) throw new Error(`updateCentre: ${error.message}`);
+  if (!data || data.length === 0) {
+    throw new Error(
+      'updateCentre: no centre was updated. Either the id is wrong or the policy refused it.',
+    );
+  }
 }

@@ -19,9 +19,34 @@ export async function saveCentre(_prev: unknown, form: FormData) {
     return { error: 'A Ministry service number is 3 to 8 digits, e.g. 46365.' };
   }
 
+  /*
+    The two practice settings 0032 and 0033 added. Both were readable by the product
+    and settable by nobody until this — a column with no way to change it is a column
+    that will be changed with a hand-written UPDATE against production.
+
+    A blank interval is NULL, not zero. Null means "this centre has stated none", and
+    the sleep register then shows elapsed time without judging it. Zero would make
+    every child permanently overdue, which is why the CHECK in 0033 refuses it.
+  */
+  const witness = form.get('medicationRequiresWitness') === 'on';
+  const intervalRaw = String(form.get('sleepCheckMinutes') ?? '').trim();
+  let sleepCheckMinutes: number | null = null;
+  if (intervalRaw) {
+    const n = Number(intervalRaw);
+    if (!Number.isInteger(n) || n < 1 || n > 120) {
+      return { error: 'A sleep-check interval is a whole number of minutes between 1 and 120.' };
+    }
+    sleepCheckMinutes = n;
+  }
+
   const db = await serverDb();
   try {
-    await updateCentre(db, ctx.centre.id, { name, moeServiceNumber: raw || null });
+    await updateCentre(db, ctx.centre.id, {
+      name,
+      moeServiceNumber: raw || null,
+      medicationRequiresWitness: witness,
+      sleepCheckMinutes,
+    });
   } catch (err) {
     const message = (err as Error).message;
     if (/duplicate key|unique/i.test(message)) {

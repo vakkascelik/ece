@@ -174,16 +174,37 @@ export async function seedAuditTenant(): Promise<AuditTenant> {
     await db
       .from('centres')
       .insert([
+        /*
+          THE SERVICE NUMBERS ARE DIGITS, AND THAT MATTERS MORE THAN IT LOOKS.
+
+          These were `AUD-<tag>` — readable, unique, and rejected by the product's own
+          rule that a Ministry service number is 3 to 8 digits. The consequence was not
+          a failing test; it was the *absence* of one. `/settings` re-validates every
+          field on submit, so with an unparseable number already in the record the form
+          refused to save anything at all, reporting an error about a field the user had
+          not touched. Nothing noticed, because nothing had ever driven that form.
+
+          And behind that: `updateCentre` was matching zero rows and calling it success,
+          for however long. A fixture that seeds data the application considers invalid
+          does not test the application — it tests a state the application cannot reach,
+          and it hides everything downstream of the first refusal.
+
+          `tag` is six hex characters, so it is parsed as hex and re-rendered as digits.
+          Unique per run because the tag is, and `centres_moe_service_number_key` is a
+          unique index across every centre in the database — including Little Pearls',
+          which is why these are 8 digits from a random 24-bit value rather than a
+          counter that would eventually collide with a real one.
+        */
         {
           name: `Audit Mt Albert ${tag}`,
           slug: `audit-albert-${tag}`,
-          moe_service_number: `AUD-${tag}`,
+          moe_service_number: `1${parseInt(tag, 16).toString().padStart(7, '0')}`.slice(0, 8),
           timezone: 'Pacific/Auckland',
         },
         {
           name: `Audit Mt Roskill ${tag}`,
           slug: `audit-roskill-${tag}`,
-          moe_service_number: `AUD-${tag}-2`,
+          moe_service_number: `2${parseInt(tag, 16).toString().padStart(7, '0')}`.slice(0, 8),
           timezone: 'Pacific/Auckland',
         },
       ])

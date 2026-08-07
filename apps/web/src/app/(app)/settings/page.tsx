@@ -8,7 +8,12 @@ export default async function SettingsPage() {
     <>
       <h1>Settings</h1>
       <p className="sub">Details for {ctx.centre.name}.</p>
-      <SettingsForm name={ctx.centre.name} moeServiceNumber={ctx.centre.moeServiceNumber} />
+      <SettingsForm
+        name={ctx.centre.name}
+        moeServiceNumber={ctx.centre.moeServiceNumber}
+        medicationRequiresWitness={ctx.centre.medicationRequiresWitness}
+        sleepCheckMinutes={ctx.centre.sleepCheckMinutes}
+      />
     </>
   );
 }

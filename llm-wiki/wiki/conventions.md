@@ -153,6 +153,41 @@ the general form — `::date` without `at time zone`. Mutation-tested the honest
 first, run against the unfixed schema, and it named all three offending columns before 0029
 existed.
 
+### A fixture that seeds invalid data tests nothing
+
+Added 2026-08-08, and it cost an afternoon. The e2e tenant seeded
+`moe_service_number: 'AUD-<tag>'` — readable, unique, and **rejected by the product's own
+rule** that a Ministry service number is three to eight digits.
+
+Nothing failed, because nothing had ever driven `/settings`. The moment a test did, the form
+refused to save *anything* — it re-validates every field on submit, so an unparseable number
+already in the record blocked an unrelated change and reported an error about a field the user
+had not touched. The seeded state was one the application cannot reach through its own UI, and
+every assertion downstream of it was really asserting the first refusal.
+
+The rule: **a fixture must satisfy the validation the product enforces.** If it cannot, the
+validation and the fixture disagree about what a valid record is, and one of them is wrong.
+
+Two further diagnoses in the same chase were wrong and are recorded because the wrongness is the
+useful part:
+
+- *"The settings form has never saved anything."* False. It saves. The tests were reloading
+  immediately after `click()`, which returns as soon as the event is dispatched — the reload
+  raced the POST and the page came back with the old value. The tell was the **next** test in
+  the file reading back the value the previous one had in fact written. `save()` in
+  `settings.spec.ts` now waits on the response.
+- *"A `0` interval proves the server-side guard."* It proves nothing: `min={1}` on a
+  `type="number"` input means the browser never submits it, and its implicit `step="1"` blocks
+  `1.5` too. Both earlier versions of that test named a guard they could not reach, which is
+  worse than no test — it reports the guard as covered. The server branch and the
+  `centres_sleep_interval_sane` CHECK are second and third lines of defence for callers that are
+  not this form, and the test now asserts what is true at this layer: the field is invalid and
+  nothing saves.
+
+`updateCentre` came out of it with a `.select('id')` and a throw on zero rows. A PostgREST UPDATE
+that matches nothing returns `error: null`, and under RLS "matches nothing" is what a refusal
+looks like — so a caller who may not update a centre would otherwise be told "Saved.".
+
 ### PostgREST traps
 
 - **Bulk inserts do not apply column defaults.** One `INSERT` is built from the *union* of

@@ -73,11 +73,21 @@ export default defineConfig({
     {
       name: 'owner',
       dependencies: ['seed'],
-      // An explicit list, and the second place in this repo where a hardcoded list
-      // silently omitted a new file: a spec not named here does not run, and reports
-      // nothing to say so. `roles.spec.ts`'s MATRIX had the same shape. If a third
-      // one appears, this should become a glob with named exclusions instead.
-      testMatch: /(a11y|journey|roles|offline|medication)\.spec\.ts/,
+      /*
+        Every spec except the parent-session one, rather than a list of names.
+
+        This was `/(a11y|journey|roles|offline)\.spec\.ts/` and it silently did not run
+        `medication.spec.ts` when that file was added — no error, no skip notice, just a
+        green suite that covered less than it appeared to. That was the second hardcoded
+        list to do this in one session (`roles.spec.ts`'s MATRIX had already let
+        `/incidents` through unchecked), and the note left here said a third occurrence
+        should make it a glob. `settings.spec.ts` was the third.
+
+        Inverted now: a new spec is picked up by default and *excluding* one is the
+        thing you have to write down. `seed.setup.ts` and `cleanup.teardown.ts` are
+        already out because they do not end in `.spec.ts`.
+      */
+      testMatch: /^(?!.*a11y-parent\.spec\.ts).*\.spec\.ts$/,
       use: { ...devices['Desktop Chrome'], storageState: OWNER_STATE },
     },
     {
