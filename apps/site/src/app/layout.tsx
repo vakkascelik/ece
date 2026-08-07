@@ -1,10 +1,57 @@
 import type { Metadata, Viewport } from 'next';
+import { Literata } from 'next/font/google';
 import type { ReactNode } from 'react';
 import { CENTRES, CENTRE_FACTS } from '@/lib/centres';
 import { PHOTOS } from '@/lib/photos';
 import { appUrl, siteOrigin } from '@/lib/site';
 import { NavLink } from './NavLink';
 import './globals.css';
+
+/**
+ * The one typeface, self-hosted.
+ *
+ * WHY A TYPEFACE AT ALL, having deliberately not had one
+ *
+ * The site shipped on the system stack, and the reasoning still holds for what it was about: a
+ * webfont from a CDN is a third-party request on a page read by parents, and `font-src` here is
+ * `'self' data:` precisely to forbid that. What the reasoning got wrong is that it treated "no
+ * webfont" and "no third-party request" as the same decision. They are not. `next/font` downloads
+ * the files at build time and serves them from this origin, so the CSP is untouched and no
+ * request leaves the container.
+ *
+ * The cost of not having one was the whole character of the site. A centre whose rooms are timber,
+ * woven baskets and daylight had a website set in Segoe UI.
+ *
+ * WHY LITERATA, AND WHY NOT FRAUNCES — a real defect, caught by looking
+ *
+ * The first choice was Fraunces, for a good reason: it has a `SOFT` axis that rounds the terminals,
+ * which is the move their logo already makes. It was set, it built, it looked warm, and it was
+ * wrong.
+ *
+ * **Fraunces misplaces every macron.** Rendered at 56px and inspected, it puts the bar to the right
+ * of the vowel it belongs to: `Whānau` came out as `Whaῆau` with the macron over the n, and — the
+ * one that settles it — `Māori` came out as `Maōri`, which is a different word. Seven faces were
+ * rendered side by side against the system stack to confirm it was Fraunces and not the pipeline:
+ * Literata, Newsreader, Source Serif 4, Lora and Bitter are all correct; Petrona floats the `Ō` bar
+ * high; only Fraunces shifts them.
+ *
+ * That is the worst shape a bug can have. It does not fall back to a visibly different font, it
+ * does not throw, and it does not fail a build — it renders a plausible word that is the wrong
+ * word, on a site whose stated values include a commitment to te reo Māori. It would have shipped.
+ *
+ * Literata was designed for long-form reading, is warm without being cute, and places its marks
+ * where they belong. Headings only; body copy stays on the system stack, so there is one file to
+ * download and the text a parent is actually reading paints instantly.
+ *
+ * `latin-ext` IS NOT OPTIONAL — every macron here lives in Latin Extended-A, and without the subset
+ * the browser silently substitutes another face for exactly those characters. `display: 'swap'` so
+ * text is readable while the font loads rather than invisible.
+ */
+const display = Literata({
+  subsets: ['latin', 'latin-ext'],
+  display: 'swap',
+  variable: '--font-display',
+});
 
 /*
  * EVERY ROUTE ON THIS SITE IS DYNAMIC, AND IT IS A SECURITY FIX.
@@ -90,8 +137,12 @@ export const metadata: Metadata = {
      * This used to read "no Twitter card image until there is a photograph cleared for public use",
      * which was the right rule and is no longer a reason to have none: seven of the eleven
      * photographs on their old site show only the premises, and a picture of a building engages
-     * nobody's consent. The four that show children are still not on this site — see
-     * `lib/photos.ts`.
+     * nobody's consent.
+     *
+     * The centre confirmed the consents for the rest on 2026-08-07, so three of the four showing
+     * children are now on the site too. The entrance stays as the share image regardless — a link
+     * preview is seen by people who have not chosen to look, and a building is the right thing to
+     * put in front of them. See `lib/photos.ts`.
      *
      * A shared link previews as the front door somebody would actually walk up to, which is more use
      * to a parent than a logo on a white square.
@@ -121,7 +172,7 @@ const NAV = [
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en-NZ">
+    <html lang="en-NZ" className={display.variable}>
       <body>
         {/* WCAG 2.4.1 — the nav repeats on every page and is otherwise seven tab stops between a
             keyboard user and the content. */}

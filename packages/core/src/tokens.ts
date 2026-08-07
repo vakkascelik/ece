@@ -128,6 +128,27 @@ export const brandLittlePearls = {
   pink: '#ff9399',
 
   /**
+   * The two warm grounds the site actually sits on. Added 2026-08-07 with "the pearl and the
+   * woven mat".
+   *
+   * The site was white. White is not neutral — it is clinical, and it was the largest single
+   * reason a centre whose rooms are timber, woven baskets and daylight had a website that looked
+   * like an accountant's. `shell` is the paper the whole site is printed on; `sand` is the
+   * alternate ground that separates one section from the next without a rule.
+   *
+   * They are warm where the brand palette is cool, which is the point: aqua and coral now sit on
+   * something rather than floating on nothing, and the pairing is the one already in their rooms —
+   * daylight on timber, with the cool tones as the objects in it.
+   *
+   * MEASURED BEFORE BEING CHOSEN, against all four text colours, because the last time a colour
+   * here was picked and checked afterwards it failed on the surface nobody tested. The worst pair
+   * on `sand` is tealInk at 4.79:1 and on `shell` 5.40:1 — both above 4.5:1 with room, and all
+   * eight combinations are asserted in `LITTLE_PEARLS_CONTRAST_PAIRS`.
+   */
+  shell: '#faf7f0',
+  sand: '#f0e9dd',
+
+  /**
    * Their hues darkened for white text on them, or for use as text themselves.
    *
    * CORRECTED IMMEDIATELY AFTER FIRST USE — worth keeping, because the mistake is the kind that
@@ -189,6 +210,22 @@ export const LITTLE_PEARLS_CONTRAST_PAIRS: readonly {
   { fg: brandLittlePearls.coralInk, bg: brandLittlePearls.surface, min: 4.5, label: 'coral ink on white' },
   { fg: brandLittlePearls.coralInk, bg: brandLittlePearls.aquaPale, min: 4.5, label: 'coral ink on pale aqua' },
   { fg: brandLittlePearls.coralInk, bg: brandLittlePearls.aqua, min: 4.5, label: 'coral ink on aqua' },
+
+  /*
+   * The two warm grounds, against every colour that sits on them.
+   *
+   * Eight pairs rather than the two that would obviously break, because the lesson from the Ink
+   * variants is that checking a colour on one background tells you nothing about the others. These
+   * were measured before the hex values were chosen, not after.
+   */
+  { fg: brandLittlePearls.ink, bg: brandLittlePearls.shell, min: 4.5, label: 'body on shell' },
+  { fg: brandLittlePearls.ink, bg: brandLittlePearls.sand, min: 4.5, label: 'body on sand' },
+  { fg: brandLittlePearls.tealInk, bg: brandLittlePearls.shell, min: 4.5, label: 'teal ink on shell' },
+  { fg: brandLittlePearls.tealInk, bg: brandLittlePearls.sand, min: 4.5, label: 'teal ink on sand' },
+  { fg: brandLittlePearls.coralInk, bg: brandLittlePearls.shell, min: 4.5, label: 'coral ink on shell' },
+  { fg: brandLittlePearls.coralInk, bg: brandLittlePearls.sand, min: 4.5, label: 'coral ink on sand' },
+  { fg: '#1b1a18', bg: brandLittlePearls.shell, min: 4.5, label: 'heading on shell' },
+  { fg: '#1b1a18', bg: brandLittlePearls.sand, min: 4.5, label: 'heading on sand' },
 ];
 
 export const space = {

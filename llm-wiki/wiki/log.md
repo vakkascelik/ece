@@ -5,6 +5,44 @@ says so.*
 
 ---
 
+2026-08-07 — **The site got a design**, at the centre's request: like the first one in concept, not
+like other childcares, *unique, authentic and humble but good quality*. See [[public-website]].
+
+The honest starting point is that what was there was accurate, accessible and generic — it could have
+been an accountant's. The organising idea is **the pearl and the woven mat**, both already theirs: the
+name and tagline, and Te Whāriki's own metaphor, which is physically in their rooms as baskets, a
+canopy, rugs and thatched shade. The insight underneath it is that every other childcare site is loud
+and their pedagogy is not — Pikler and RIE are about calm, unhurried environments, so the way to be
+unique *and* authentic is to make the site as calm as the rooms, which nobody else in the market is
+doing. White ground → warm `shell`, a saturated teal masthead → the same paper as the page, one
+self-hosted display face, an arch on square photographs, and a woven swatch between sections drawn in
+CSS. Eight new contrast pairs, measured before the colours were chosen.
+
+**The typeface nearly shipped a spelling error.** Fraunces was chosen for its `SOFT` axis, which
+rounds terminals the way their logo does. It misplaces every macron: `Whānau` with the bar over the
+n, and `Māori` rendered as `Maōri`, which is a different word. Seven faces were rendered side by side
+to prove it was the font and not the pipeline. It does not throw, does not visibly fall back and does
+not fail a build — it renders a plausible wrong word on a site whose stated values include a
+commitment to te reo Māori. Nothing here would have caught it; it was caught by rendering the words
+and looking at them. Literata instead.
+
+**And the day-old `audit:site` was lying, twice.** It waited for `domcontentloaded`, so it sometimes
+measured an unstyled page — which fails target-size everywhere and passes contrast everywhere, making
+the rule it exists to enforce the one it could least see. Worse, on Windows `server.kill()` kills the
+`cmd.exe` shell and orphans Next: eleven orphaned servers accumulated, the audit bound to a port an
+older one held, and that stale build 400'd every `/_next/static/*` request. So the answers never
+changed no matter what the CSS said. A correct fix was tried, looked catastrophic, and was reverted —
+and *that* was a third bug, the counter counting its own log lines instead of failing nodes.
+
+Fixed by killing the process tree, counting nodes, and refusing to report at all when `body` has no
+background. The lesson worth keeping: **31 lines of CSS were written to fix failures that did not
+exist**, and came straight back out once the harness was honest. A broken measurement manufactures
+defects as well as hiding them.
+
+Three more photographs are up — the centre confirmed on 2026-08-07 that it holds the consents. The
+sleeping pair stays out, and that is now an **editorial** recommendation rather than a consent
+blocker, recorded as such in `photos.ts` and asserted by a test so nobody reads it as untouchable.
+
 2026-08-07 — **Their own logo and photography moved onto the new site**, and the four photographs that
 did not come with it. See [[public-website]].
 

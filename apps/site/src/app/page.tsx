@@ -28,9 +28,10 @@ export default function HomePage() {
       </p>
 
       {/*
-        The front door, cropped wide. A square hero would push the buttons below the fold on a phone,
-        so the crop is CSS on the square file rather than a second file cut to 16:9.
-        No caption: the paragraph above already says who and where.
+        The front door, arched. Two things already theirs meet here: the rounded badge of the logo,
+        and the ivy-trailed archway their quiet corner is photographed through. Cropped wide as well,
+        because a full square hero pushes the buttons below the fold on a phone.
+        No caption — the paragraph above already says who and where.
       */}
       <Photo photo={PHOTOS.entrance} className="photo-lead" showCaption={false} priority />
 
@@ -43,6 +44,10 @@ export default function HomePage() {
         </Link>
       </p>
 
+      {/* Te Whāriki is "the woven mat". The rule between sections is a weave — decorative, so it is
+          hidden from assistive technology; the heading already says a new section has begun. */}
+      <hr className="weave" aria-hidden="true" />
+
       <h2>Learning through play</h2>
       <p>
         We recognise the importance of play, using spontaneous and planned moments to build on a
@@ -50,15 +55,20 @@ export default function HomePage() {
         <strong>Te Whāriki</strong>, the New Zealand early childhood curriculum, and in our infant
         room by the Pikler and RIE approaches and the schema concept.
       </p>
+
+      {/* Arched, because these are square — the shape only works on a square or portrait box, and
+          it is the shape of their own ivy doorway and their own badge. */}
+      <div className="photo-row">
+        <Photo photo={PHOTOS.atTheTable} className="photo-arch" />
+        <Photo photo={PHOTOS.painting} className="photo-arch" />
+        <Photo photo={PHOTOS.writing} className="photo-arch" />
+      </div>
+
       <p>
         <Link href="/philosophy">Read our philosophy</Link>
       </p>
 
-      <div className="photo-row">
-        <Photo photo={PHOTOS.playground} />
-        <Photo photo={PHOTOS.sandpit} />
-        <Photo photo={PHOTOS.preschoolRoom} />
-      </div>
+      <hr className="weave" aria-hidden="true" />
 
       <h2>Food made on site</h2>
       <p>
@@ -67,12 +77,22 @@ export default function HomePage() {
         take part in the Heart Foundation reward programme and follow their advice.
       </p>
 
-      <h2>Whānau are part of it</h2>
-      <p>
-        Education is a partnership between whānau and the centre. We celebrate that through
-        parent-teacher meetings, family whānau days, dinners and seminars — and ngā hononga,
-        relationships, are the key to quality education.
-      </p>
+      {/* On the second ground. Ngā hononga is the centre's own emphasis, so it gets the one section
+          on this page that is visibly set apart. */}
+      <div className="band">
+        <h2>Whānau are part of it</h2>
+        <p>
+          Education is a partnership between whānau and the centre. We celebrate that through
+          parent-teacher meetings, family whānau days, dinners and seminars — and ngā hononga,
+          relationships, are the key to quality education.
+        </p>
+      </div>
+
+      <div className="photo-row">
+        <Photo photo={PHOTOS.playground} />
+        <Photo photo={PHOTOS.sandpit} />
+        <Photo photo={PHOTOS.preschoolRoom} />
+      </div>
 
       <h2>Where we are</h2>
       <div className="grid">

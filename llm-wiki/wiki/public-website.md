@@ -257,3 +257,90 @@ decorative, and no tool can know that a photograph of a playground is not. So th
 a data-contract test instead — every entry in `PHOTOS` has a description, it is longer than a label, and
 it does not begin "photo of". The one empty `alt` on the site is the masthead logo, where the name is
 already beside it in text.
+
+
+## The pearl and the woven mat
+
+2026-08-07, at the centre's request. Their words: like the first site in concept, not like other
+childcares, *unique, authentic and humble but good quality, reflecting our philosophy and vision*.
+
+The honest starting point is that the site as built was accurate, accessible and **generic**. It
+could have been an accountant's. The system stack and the deliberate absence of imagery — both
+defensible decisions on their own terms — added up to a page with no character at all, for a centre
+whose rooms are timber, woven baskets and daylight.
+
+### The idea, and why it is not decoration
+
+Every other childcare site in Auckland is primary colours, cartoon illustration, stock photographs of
+laughing children and a bubbly rounded font. **Their pedagogy is the opposite of that.** Pikler and
+RIE are about calm, unhurried, respectful environments; Te Whāriki means "the woven mat". So the way
+to be unique, authentic and humble at once is not to add anything — it is to make the site as calm as
+the rooms already are. Nobody else in the market is doing that, and it is true rather than borrowed.
+
+Two ideas already theirs carry it:
+
+- **The pearl** — their name and their tagline. Something precious that forms slowly, layer on layer.
+  The warm grounds and soft roundness come from this.
+- **The whāriki** — their curriculum's own metaphor, and physically present in their rooms as woven
+  baskets, a canopy over the quiet corner, rugs, thatched shade over the sandpit.
+
+### What actually changed
+
+| | |
+|---|---|
+| **Ground** | White → `shell` `#faf7f0`, with `sand` `#f0e9dd` for banded sections. White is not neutral, it is clinical, and it was the single biggest reason the site read cold. Eight new contrast pairs, measured **before** the hex values were chosen |
+| **Type** | One self-hosted face for headings; body stays on the system stack so the text a parent reads paints instantly |
+| **Masthead** | Was a full-width saturated teal band — the loudest thing on every page, and the opposite of what a centre practising RIE is saying. Now the same paper as the page, with a hairline. The teal returns where it means something |
+| **Shape** | An arch on square photographs, from their logo badge and the real ivy archway their quiet corner is shot through |
+| **Weave** | A small centred woven swatch between sections, drawn in CSS from two crossed gradients — warp and weft. Costs no request, tints from the tokens, and settles the Noun Project licence question by being unambiguously theirs |
+| **Photographs** | Three more, after the centre confirmed consent |
+
+### The typeface nearly shipped a spelling error
+
+Fraunces was chosen first, for a real reason: its `SOFT` axis rounds the terminals exactly as their
+logo does. It built, it looked warm, and it was wrong.
+
+**Fraunces misplaces every macron.** Rendered at 56px and looked at: `Whānau` came out with the bar
+over the **n**, and `Māori` came out as `Maōri` — a different word. Seven faces were then rendered
+side by side against the system stack to establish it was the font and not the pipeline: Literata,
+Newsreader, Source Serif 4, Lora and Bitter are all correct, Petrona floats the `Ō` bar high, only
+Fraunces shifts them.
+
+That is the worst shape a defect can have. It does not throw, it does not fall back to a visibly
+different font, and it does not fail a build — it renders a plausible word that is the wrong word, on
+a site whose stated values include a commitment to te reo Māori. **Nothing in this repo would have
+caught it. It was caught by rendering the words and looking at them.** Literata places its marks
+correctly and is warm without being cute.
+
+`latin-ext` is not optional for the same reason: every macron here is in Latin Extended-A, and
+without the subset the browser silently substitutes another face for exactly those characters.
+
+### `npm run audit:site` was testing an unstyled page, and then a stale build
+
+The audit added the day before turned out to have two defects, and between them they cost most of an
+afternoon and nearly lost a correct fix.
+
+**It waited for `domcontentloaded`**, so it sometimes measured the page before the stylesheet applied.
+An unstyled page fails `target-size` on every link and passes every **contrast** check trivially — so
+the rule the audit exists to enforce was the one it could least see, and it raced, passing clean
+whenever it happened to lose.
+
+**And on Windows `server.kill()` does not kill the server.** Spawning with `shell: true` — which Node
+requires for a `.cmd` — puts `cmd.exe` in between; `kill()` reaps the shell and orphans Next. Eleven
+orphaned servers accumulated across runs, the audit bound to a port an older one already held, and
+that server served a **stale build** whose asset hashes did not match the fresh HTML. Every
+`/_next/static/*` request returned 400, so there was no stylesheet at all.
+
+The consequence was not noise, it was confident wrong answers that did not change no matter what the
+CSS said. A correct fix was tried, appeared to make things dramatically worse, and was reverted —
+and the "worse" was a third bug, the failure counter counting its own newly-added log lines rather
+than failing nodes.
+
+Three fixes, all in `scripts/audit-site.ts`: kill the process tree, count nodes rather than output
+lines, and **refuse to report at all** if `body` has no background, because a transparent body proves
+the CSS never arrived. Throwing beats reporting: a failed run is obvious and a confidently wrong one
+is not.
+
+Worth keeping as the general lesson: **31 lines of CSS were written to fix failures that did not
+exist.** Once the harness was honest they were removed, and the audit stayed green without them. A
+broken measurement does not just hide defects; it manufactures them, and you fix the phantoms.

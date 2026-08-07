@@ -21,6 +21,8 @@
   --aqua-pale: #edf8fa;
   --coral: #ff6565;
   --pink: #ff9399;
+  --shell: #faf7f0;
+  --sand: #f0e9dd;
   --teal-ink: #416d6d;
   --coral-ink: #c12727;
   --ink: #595959;
@@ -85,4 +87,12 @@
  *   coral ink on white   5.85:1  passes AA (needs 4.5:1)
  *   coral ink on pale aqua 5.41:1  passes AA (needs 4.5:1)
  *   coral ink on aqua    4.57:1  passes AA (needs 4.5:1)
+ *   body on shell        6.55:1  passes AA (needs 4.5:1)
+ *   body on sand         5.81:1  passes AA (needs 4.5:1)
+ *   teal ink on shell    5.40:1  passes AA (needs 4.5:1)
+ *   teal ink on sand     4.79:1  passes AA (needs 4.5:1)
+ *   coral ink on shell   5.47:1  passes AA (needs 4.5:1)
+ *   coral ink on sand    4.85:1  passes AA (needs 4.5:1)
+ *   heading on shell     16.25:1  passes AA (needs 4.5:1)
+ *   heading on sand      14.41:1  passes AA (needs 4.5:1)
  */

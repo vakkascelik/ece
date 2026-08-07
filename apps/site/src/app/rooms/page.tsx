@@ -32,8 +32,11 @@ export default function RoomsPage() {
         Three age-group rooms, for children {CENTRE_FACTS.ages}, at both centres.
       </p>
 
-      {ROOMS.map((room) => (
+      {ROOMS.map((room, i) => (
         <section key={room.name}>
+          {/* Between rooms, not before the first — a mark that separates, not a decoration that
+              repeats. */}
+          {i > 0 && <hr className="weave" aria-hidden="true" />}
           <h2>{room.name}</h2>
           <dl className="facts">
             <dt>Ages</dt>

@@ -115,6 +115,18 @@ from its filename, and they split cleanly:
 Nobody's consent is engaged by a photograph of an empty room, so these needed no permission beyond the
 centre's own.
 
+> **2026-08-07 — the manager has confirmed the centre holds consents.** Relayed by the owner from
+> Taner Basar. Two things still worth pinning down before these go up, and neither is a reason to
+> stall: whether the consent covers **public/website** use specifically rather than photographs in
+> general, and whether it covers **these** photographs — they were taken around 2018, so the tamariki
+> in them are now school-aged and many will have left. Consent recorded on an enrolment form for "use
+> of images" is not always the same permission. The centre is the agency responsible for that call;
+> this note exists so the basis for it is on the record rather than in a chat.
+>
+> Separately, and as an editorial rather than legal point: the sleeping pair is the one to think
+> twice about. It is a lovely photograph and a picture of two sleeping toddlers on a public website
+> invites a different kind of attention than a picture of a sandpit.
+
 **Four are withheld**, listed in `src/lib/photos.ts` with what each shows: a group of five children at a
 table looking straight at the camera, a toddler covered in paint with their face filling the frame, a
 child drawing in profile, and two toddlers asleep on a rug.

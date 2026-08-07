@@ -19,33 +19,60 @@
 
 body {
   margin: 0;
-  background: var(--surface);
+  /*
+   * Shell, not white. White is not neutral, it is clinical — and it was the single largest reason
+   * a centre made of timber, woven baskets and daylight had a website that looked like an
+   * accountant's. Everything on this site is printed on warm paper; the cool brand colours are the
+   * objects sitting on it, which is the arrangement already in their rooms.
+   */
+  background: var(--shell);
   color: var(--ink);
   /*
-   * The system stack, which is also what their current site uses (Verdana/Arial). Not nostalgia:
-   * a webfont means a third-party request on a page read by parents, and the CSP forbids it for
-   * the same reason the app's does. The system stack also renders immediately, with no layout
-   * shift and no invisible-text flash.
+   * The system stack for body copy, still — and now for a narrower reason than before. It renders
+   * instantly with no layout shift, which is what the text a parent is actually reading needs. The
+   * character comes from the headings, which are set in Fraunces and self-hosted; see the note in
+   * layout.tsx for why "no webfont" and "no third-party request" turned out to be two different
+   * decisions.
    */
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
   font-size: var(--text-base);
-  line-height: 1.6;
+  line-height: 1.65;
+  /* Their photographs and grounds are warm; let the browser render type the same way. */
+  -webkit-font-smoothing: antialiased;
 }
 
 /* --- Type -------------------------------------------------------------------- */
 
+/*
+ * Headings carry the whole character, which is why there is one typeface and it is only here.
+ *
+ * Weight stays at 400 rather than 600: at display sizes a warm serif does not need bolding to be a
+ * heading, and bolding it is what makes a page shout. Literata's optical sizing does the rest, so a
+ * 48px h1 and a 20px h3 are drawn differently rather than scaled from one master.
+ */
 h1,
 h2,
 h3 {
+  font-family: var(--font-display), Georgia, 'Times New Roman', serif;
   color: #1b1a18;
-  line-height: 1.25;
-  margin: 0 0 var(--space-3);
+  font-weight: 400;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  margin: 0 0 var(--space-4);
+  /* Long Māori and English words in a large serif; break rather than overflow on a phone. */
+  overflow-wrap: break-word;
 }
-h1 { font-size: var(--text-3xl); font-weight: 600; }
-h2 { font-size: var(--text-xl); font-weight: 600; margin-top: var(--space-6); }
-h3 { font-size: var(--text-lg); font-weight: 600; margin-top: var(--space-5); }
+/* `clamp` rather than fixed steps: the h1 on a 390px phone and on a 1440px laptop are genuinely
+   different problems, and a single token cannot be right for both. */
+h1 { font-size: clamp(2rem, 6vw, 3rem); margin-bottom: var(--space-5); }
+h2 { font-size: clamp(1.5rem, 3.4vw, 2rem); margin-top: var(--space-7); }
+h3 { font-size: var(--text-lg); margin-top: var(--space-5); }
 
-p { margin: 0 0 var(--space-4); max-width: 68ch; }
+/*
+ * 66ch, and the line height above. The measure is the difference between a page somebody reads and
+ * a page somebody scans — and this audience is reading it one-handed at 9pm.
+ */
+p { margin: 0 0 var(--space-4); max-width: 66ch; }
 
 a { color: var(--teal-ink); }
 a:hover { color: var(--coral-ink); }
@@ -98,10 +125,20 @@ a:hover { color: var(--coral-ink); }
   padding: 0 var(--space-4);
 }
 
-/* Teal as a background with dark text on it — 8.72:1, measured. */
+/*
+ * The masthead sits on the same paper as the page, and that is the biggest single change.
+ *
+ * It was a full-width saturated teal band, which was the loudest thing on every page — the exact
+ * opposite of what a centre practising Pikler and RIE is trying to say. Their teal has not gone
+ * anywhere; it now appears where it means something (section grounds, the sandpit, the photographs)
+ * rather than as a permanent stripe across the top.
+ *
+ * A hairline instead of a border colour change, so the header separates from the content without
+ * announcing itself. Reverting is one declaration if they miss the band.
+ */
 .masthead {
-  background: var(--teal);
-  border-bottom: 1px solid var(--teal-ink);
+  background: var(--shell);
+  border-bottom: 1px solid var(--sand);
 }
 .masthead-inner {
   display: flex;
@@ -118,8 +155,20 @@ a:hover { color: var(--coral-ink); }
   text-decoration: none;
   color: #1b1a18;
 }
-.brand-name { font-size: var(--text-lg); font-weight: 600; line-height: 1.2; }
-.brand-tag { font-size: var(--text-sm); font-style: italic; }
+.brand-name {
+  font-family: var(--font-display), Georgia, serif;
+  font-size: var(--text-xl);
+  font-weight: 400;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
+/* The tagline is the centre's own sentence and the organising idea of the whole design, so it is
+   set as a quiet caption rather than an afterthought in italics. */
+.brand-tag {
+  font-size: var(--text-sm);
+  color: var(--teal-ink);
+  letter-spacing: 0.01em;
+}
 
 .nav {
   display: flex;
@@ -138,10 +187,10 @@ a:hover { color: var(--coral-ink); }
   padding: 0 var(--space-3);
   border-radius: var(--radius-sm);
 }
-.nav a:hover { background: var(--aqua-pale); }
+.nav a:hover { background: var(--sand); }
 /* Current page carried by aria-current, so what a screen reader announces and what the eye sees
    cannot drift apart. Weight as well as colour, never colour alone. */
-.nav a[aria-current='page'] { background: var(--surface); font-weight: 600; }
+.nav a[aria-current='page'] { background: var(--sand); font-weight: 600; }
 
 /*
  * One readable column, centred.
@@ -153,13 +202,13 @@ a:hover { color: var(--coral-ink); }
  * look deliberate. The masthead and footer keep the full width, because a navigation bar and a set
  * of addresses are not prose.
  */
-.main { padding: var(--space-6) 0 var(--space-8); }
-.main .wrap { max-width: 52rem; }
+.main { padding: var(--space-7) 0 var(--space-8); }
+.main .wrap { max-width: 50rem; }
 
 .foot {
-  background: var(--aqua-pale);
+  background: var(--sand);
   border-top: 1px solid var(--aqua);
-  padding: var(--space-6) 0;
+  padding: var(--space-7) 0;
   font-size: var(--text-base);
 }
 .foot-grid {
@@ -167,18 +216,34 @@ a:hover { color: var(--coral-ink); }
   grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
   gap: var(--space-5);
 }
-.foot h2 { font-size: var(--text-base); margin: 0 0 var(--space-2); }
+.foot h2 {
+  font-size: var(--text-base);
+  font-family: inherit;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--teal-ink);
+  margin: 0 0 var(--space-3);
+}
 .foot p { margin: 0 0 var(--space-1); }
 
 /* --- Blocks ------------------------------------------------------------------ */
 
-.lede { font-size: var(--text-lg); max-width: 60ch; }
+/* The opening paragraph, given room. Larger and looser than body copy, and not bold — a lede
+   earns attention by being the first thing, not by being heavy. */
+.lede {
+  font-size: var(--text-lg);
+  line-height: 1.55;
+  max-width: 54ch;
+  margin-bottom: var(--space-5);
+}
 
+/* White on shell reads as a sheet laid on paper — enough separation without a heavy border. */
 .card {
   background: var(--surface);
-  border: 1px solid var(--aqua);
-  border-radius: var(--radius-md);
-  padding: var(--space-4);
+  border: 1px solid var(--sand);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
 }
 
 .grid {
@@ -187,11 +252,12 @@ a:hover { color: var(--coral-ink); }
   gap: var(--space-4);
 }
 
-/* Coral as a background with dark text — 7.30:1, measured. Used once per page at most. */
+/* Coral as a background with dark text — 7.30:1, measured. Used once per page at most, which is
+   what keeps it meaning "this is the thing to do next" rather than being decoration. */
 .callout {
   background: var(--coral);
-  border-radius: var(--radius-md);
-  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
   color: #1b1a18;
 }
 .callout a { color: #1b1a18; font-weight: 600; }
@@ -226,8 +292,9 @@ a:hover { color: var(--coral-ink); }
 .gap {
   border-left: 3px solid var(--coral-ink);
   background: var(--aqua-pale);
-  padding: var(--space-3) var(--space-4);
-  margin: 0 0 var(--space-4);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  padding: var(--space-4) var(--space-5);
+  margin: 0 0 var(--space-5);
   font-size: var(--text-base);
 }
 .gap strong { color: var(--coral-ink); }
@@ -386,3 +453,103 @@ figure.photo-figure figcaption {
   aspect-ratio: 16 / 9;
   margin-bottom: var(--space-5);
 }
+
+/* --- The weave, and the arch ---------------------------------------------------- */
+
+/*
+ * Te Whāriki means "the woven mat" — a mat for all to stand on. That is the centre's own
+ * curriculum and their own metaphor, and it is already physically in their rooms: woven baskets, a
+ * woven canopy over the quiet corner, rugs, the thatched shade over the sandpit.
+ *
+ * So the divider between sections is a weave. Two repeating gradients crossing at right angles,
+ * which is literally warp and weft, drawn in CSS rather than shipped as an image: it costs no
+ * request, scales to any width, and takes its colour from the tokens — so it can never drift from
+ * the palette the way a fixed-colour PNG does.
+ *
+ * This also replaces what their old site used for decoration: Noun Project boats and fish, whose
+ * licence position could not be established from outside. A mark drawn here is unambiguously
+ * theirs. See CONTENT-GAPS.md gap 15.
+ *
+ * Decorative, so every use carries `aria-hidden` in the markup: a screen reader announcing "image"
+ * between every section would be noise, and the heading already says a new section has started.
+ */
+/*
+ * A SHORT CENTRED SWATCH, not a rule across the page — corrected after looking at it.
+ *
+ * The first version ran the full width at 10px tall on a 3-on-8 pitch, and at laptop width that is
+ * not fabric, it is a dotted line. It read as a border somebody had styled oddly.
+ *
+ * A small centred piece reads as what it is: a scrap of woven mat set between two sections. The
+ * pitch is tighter (2 on 5) so the threads cross often enough to look like cloth at reading
+ * distance, and the whole thing is 72px wide, which is small enough to be a mark rather than a
+ * divider.
+ */
+.weave {
+  width: 72px;
+  height: 12px;
+  margin: var(--space-7) auto;
+  border: 0;
+  border-radius: 2px;
+  background-image:
+    repeating-linear-gradient(90deg, var(--teal) 0 2px, transparent 2px 5px),
+    repeating-linear-gradient(0deg, var(--teal-mid) 0 2px, transparent 2px 5px);
+  opacity: 0.75;
+}
+
+/* Wider and quieter, for the one place a section genuinely needs separating rather than marking. */
+.weave-wide {
+  width: 100%;
+  height: 8px;
+  opacity: 0.35;
+  border-radius: 0;
+}
+
+/*
+ * The arch. Their quiet corner is photographed through an actual ivy-trailed archway, and the logo
+ * is a rounded badge — so an arched image is drawn from two things that already exist rather than
+ * imposed as a style.
+ *
+ * A radius rather than a `clip-path`: it degrades to a rectangle in anything that does not support
+ * it, where a bad clip-path can hide the image altogether.
+ */
+/*
+ * FOR SQUARE AND PORTRAIT IMAGES ONLY, which is a correction from looking at it rather than a rule
+ * from a book. Applied to the 16:9 lead it produced a wide shallow dome — a tombstone, not an arch,
+ * because a percentage radius scales with the box and a wide box makes a squat one.
+ *
+ * On a square photograph the same declaration gives the shape their own doorway has.
+ */
+.photo-arch {
+  border-radius: 50% 50% var(--radius-lg) var(--radius-lg) / 40% 40% var(--radius-lg) var(--radius-lg);
+}
+
+/* A pearl: the child, and the name. Circular, for the one image on a page that is about a person
+   rather than a place. */
+.photo-pearl {
+  border-radius: 50%;
+}
+
+/*
+ * A section on the warm second ground. Paper, then a band of sand, then paper — which is what gives
+ * a long page a rhythm without drawing a single line across it.
+ *
+ * IN THE COLUMN, NOT FULL-BLEED, and that is a correction rather than a preference. The first
+ * version broke out to the window edges with the usual `margin-left: calc(50% - 50vw)` trick, and
+ * carried a comment claiming it avoided the scrollbar problem — it did not: `100vw` includes the
+ * scrollbar on every desktop browser that reserves space for one, so the page gains a few pixels of
+ * horizontal scroll exactly where `npm run audit:site` asserts there is none. A comment describing
+ * a guard the code does not have is worse than no guard.
+ *
+ * Kept in the column and given a generous radius instead. On a phone, where the column already is
+ * the window, the two look identical anyway.
+ */
+.band {
+  background: var(--sand);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6) var(--space-5);
+  margin: var(--space-7) 0;
+}
+/* The heading that opens a band should not add its usual top margin on top of the padding. */
+.band > :first-child { margin-top: 0; }
+.band > :last-child { margin-bottom: 0; }
+

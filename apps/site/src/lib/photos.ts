@@ -9,16 +9,22 @@
  * - **Seven show the premises and nothing else** — the entrance, four rooms, the playground and the
  *   sandpit. Those are here. They are the centre's own photographs of the centre's own buildings, and
  *   nobody's consent is engaged by a picture of an empty room.
- * - **Four show identifiable children.** A group of five at a table looking straight at the camera, a
- *   toddler covered in paint, a child drawing, and two asleep on the floor. Those are **not** here and
- *   must not be added until the centre holds current written consent for **public** use, per
- *   `CONTENT-GAPS.md` gap 10.
+ * - **Four showed identifiable children**, and were withheld until consent was established. On
+ *   2026-08-07 the centre's manager confirmed the consents are held, so three are now in use: the
+ *   group at the table, the child painting, and the child writing. The fourth — two toddlers asleep
+ *   on a rug — is still out, and that is now an editorial judgement rather than a consent one. See
+ *   `WITHHELD_PHOTOGRAPHS` below.
  *
  * The distinction is not squeamishness, it is the same one the platform models in its schema:
  * `photo_internal` and `photo_public` are separate consent kinds precisely because families who agree
- * to a photo in their child's learning journal routinely refuse one on a website. Consent given in
- * 2018 to a site nobody has updated since is not consent for a new site in 2026, and the sleeping
- * pair would need particular care even with a signature.
+ * to a photo in their child's learning journal routinely refuse one on a website.
+ *
+ * Two things about that confirmation are worth keeping visible rather than treating as settled, and
+ * neither was a reason to stall: whether it covers **public/website** use specifically rather than
+ * photographs in general, and whether it covers **these** photographs, which are from around 2018 —
+ * the tamariki in them are school-aged now and most will have left. The centre is the agency
+ * responsible for that call and has made it; this note records the basis. `CONTENT-GAPS.md` gap 10
+ * carries the same detail.
  *
  * The originals were 274-415px, which is soft on a phone. These come from the `_2x` variants their
  * own site already served, resized to 720px square and converted to WebP — between a third and a half
@@ -68,6 +74,21 @@ export const PHOTOS = {
     alt: 'An outdoor play area with artificial grass, a timber archway, young trees and a climbing frame with a ramp and slide.',
     caption: 'Outside, with shade, a slope to climb and room to run.',
   },
+  atTheTable: {
+    src: '/at-the-table.webp',
+    alt: 'Five children sitting around a low table together, working on a picture card activity with a teacher’s materials spread out in front of them.',
+    caption: 'Working on something together, which is most of a morning.',
+  },
+  painting: {
+    src: '/painting.webp',
+    alt: 'A toddler in a painting smock, hands and face covered in blue paint, holding a brush over a pot of it and looking up.',
+    caption: 'Paint goes where paint goes.',
+  },
+  writing: {
+    src: '/writing.webp',
+    alt: 'A child lying on a wooden floor, drawing a grid of letters on a large sheet of paper with a marker, with another child’s hands at the edge of the picture.',
+    caption: 'Writing, at the age where the floor is the best desk in the room.',
+  },
   sandpit: {
     src: '/sandpit.webp',
     alt: 'A large decked sandpit shaded by two thatched umbrellas, beside a lawn with a white slide and a timber fence.',
@@ -76,16 +97,27 @@ export const PHOTOS = {
 } as const satisfies Record<string, Photo>;
 
 /**
- * The four held back, kept as a list rather than a sentence so the reason travels with the file.
+ * What is still held back, and why — kept as a list rather than a sentence so the reason travels
+ * with the file.
  *
- * Here on purpose: a note in a markdown file is easy to lose, and the next person to be asked "can we
- * put some photos of the children on the site?" should find the answer next to the photos that are
- * already there. The answer is yes, once the centre holds written consent for public use for each
- * child in each photograph — not consent in general, and not consent for the learning journal.
+ * Here on purpose: a note in a markdown file is easy to lose, and the next person asked "can we put
+ * some photos of the children on the site?" should find the answer beside the photographs that are
+ * already there.
+ *
+ * It is down to one, and the reason has changed. Consent is no longer the question — the centre
+ * confirmed on 2026-08-07 that it holds the consents. This one is an editorial call, and it is a
+ * recommendation rather than a veto: **it is the centre's photograph and the centre's decision.**
+ *
+ * The case for leaving it out: a photograph of two sleeping toddlers on a public website invites a
+ * different kind of attention than a photograph of a sandpit, and it is the one image here that
+ * shows children at their least able to have had a view about it. The centre gains little from it
+ * that the other nine do not already give — the rooms, the play, the faces, the work. If they want
+ * it up, it goes up in a line of code.
  */
 export const WITHHELD_PHOTOGRAPHS = [
-  { flickrId: '28574803438', shows: 'five children at a table, all faces towards the camera' },
-  { flickrId: '14524763511', shows: 'a toddler covered in blue paint, face filling the frame' },
-  { flickrId: '14318618804', shows: 'a child drawing on the floor, face in profile' },
-  { flickrId: '40443416845', shows: 'two toddlers asleep on a rug' },
+  {
+    flickrId: '40443416845',
+    shows: 'two toddlers asleep on a rug',
+    reason: 'editorial, not consent — see the note above. The centre may say the word at any time.',
+  },
 ] as const;

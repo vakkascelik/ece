@@ -59,7 +59,9 @@ export default function PhilosophyPage() {
 
       {/* Placed against "our environment", which is what it shows. No caption: the section that
           follows describes the room better than a line under a picture could. */}
-      <Photo photo={PHOTOS.quietCorner} showCaption={false} />
+      <hr className="weave" aria-hidden="true" />
+
+      <Photo photo={PHOTOS.quietCorner} className="photo-arch" showCaption={false} />
 
       <h2>Our environment</h2>
       <p>

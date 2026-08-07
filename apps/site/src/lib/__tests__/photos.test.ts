@@ -51,19 +51,31 @@ describe('every photograph is described', () => {
   });
 
   /**
-   * The four withheld photographs, asserted as a list rather than trusted to a comment.
+   * What is still held back, asserted as a list rather than trusted to a comment.
    *
-   * This is not busywork. The pressure to add a photograph of a smiling child to a childcare
-   * website is constant and entirely well-meant, and the answer is not "no" — it is "not until the
-   * centre holds current written consent for **public** use, for each child in the frame". A failing
-   * test is a better place to meet that question than a paragraph in a markdown file.
+   * This started as four, on consent grounds. The centre confirmed on 2026-08-07 that it holds the
+   * consents, so three went up and one remains — and the reason for that one is now **editorial,
+   * not legal**, which the assertion below states so nobody later reads the list as a consent
+   * blocker and treats it as untouchable. It is the centre's photograph and the centre's call.
+   *
+   * The list stays because the pressure to add a photograph of a smiling child to a childcare
+   * website is constant and entirely well-meant, and a failing test is a better place to meet that
+   * question than a paragraph in a markdown file.
    */
-  it('keeps the four child photographs out, with their reasons', () => {
-    expect(WITHHELD_PHOTOGRAPHS).toHaveLength(4);
+  it('keeps the sleeping pair out, and says the reason is editorial rather than consent', () => {
+    expect(WITHHELD_PHOTOGRAPHS).toHaveLength(1);
     for (const withheld of WITHHELD_PHOTOGRAPHS) {
       expect(withheld.shows.trim()).not.toBe('');
-      // None of them may appear in the published set.
+      // The distinction that must not get lost: this is a recommendation, not a prohibition.
+      expect(withheld.reason).toMatch(/editorial/i);
+      // And it still may not appear in the published set while it is on this list.
       expect(Object.values(PHOTOS).some((p) => p.src.includes(withheld.flickrId))).toBe(false);
+    }
+  });
+
+  it('now publishes the three the centre consented to', () => {
+    for (const key of ['atTheTable', 'painting', 'writing'] as const) {
+      expect(PHOTOS[key], `${key} is missing`).toBeTruthy();
     }
   });
 });
