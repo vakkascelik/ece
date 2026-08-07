@@ -16,6 +16,7 @@
 import {
   childFunding,
   summariseFunding,
+  todayInZone,
   type FundingPeriod,
   type FundingSummary,
   type HoursEvent,
@@ -412,7 +413,19 @@ export async function voidInvoice(db: Db, invoiceId: string, reason: string): Pr
   if (error) throw new Error(`voidInvoice: ${error.message}`);
 }
 
-/** Records money that arrived. Append-only: correcting one means recording the reversal. */
+/**
+ * Records money that arrived. Append-only: correcting one means recording the reversal.
+ *
+ * `paidOn` defaults through `todayInZone`, not `toISOString().slice(0, 10)`, which is what this
+ * did until 2026-08-07. UTC is twelve or thirteen hours behind New Zealand, so every payment
+ * reconciled before about 1pm Auckland time would have been dated **the previous day** — landing
+ * in the wrong month for anything reconciled on the 1st, and disagreeing with the bank statement
+ * it was keyed from. Nothing called this yet, so no payment was ever misdated; it was a trap
+ * rather than a bug, and it is the same trap 0006 fixed for `children.date_of_birth`.
+ *
+ * The default is the New Zealand zone rather than the centre's, matching `listCurrentEnrolments`.
+ * Callers holding a centre should pass `todayInZone(centre.timezone)`.
+ */
 export async function recordPayment(
   db: Db,
   input: { invoiceId: string; amountCents: number; paidOn?: string; method?: string | null; reference?: string | null },
@@ -421,7 +434,7 @@ export async function recordPayment(
   const { error } = await db.from('payments').insert({
     invoice_id: input.invoiceId,
     amount_cents: input.amountCents,
-    paid_on: input.paidOn ?? new Date().toISOString().slice(0, 10),
+    paid_on: input.paidOn ?? todayInZone(),
     method: input.method?.trim() || null,
     reference: input.reference?.trim() || null,
     recorded_by: auth.user?.id ?? null,

@@ -100,6 +100,16 @@ reasons:
 `payments` records money that arrived, entered by whoever reconciled it. Wiring Stripe later means
 adding a source column and a webhook, not restructuring anything.
 
+**`recordPayment` dated it in UTC until 2026-08-07.** The default for `paid_on` was
+`new Date().toISOString().slice(0, 10)` — forbidden by name in [[conventions]] and in AGENTS §4.3,
+and written anyway, in a file added four phases after the rule. For the whole New Zealand morning
+that is yesterday, so a payment reconciled at 9am on the 1st would have landed in the previous
+month and disagreed with the bank statement it was keyed from. It never produced a wrong figure,
+because nothing calls `recordPayment` yet — the invoice is built and the collection is not, per
+the section above. Fixed to `todayInZone()`, and the rule is now enforced by a source-scanning
+test rather than by remembering it. See [[conventions]] for the guard and for the three
+`default current_date` columns still outstanding in SQL, one of which is on a medication authority.
+
 ### Rejected: a stored invoice total
 
 `invoice_totals` is a view over the lines. A cached money figure drifts from its own detail the first

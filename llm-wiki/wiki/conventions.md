@@ -100,6 +100,38 @@ day-safe, and a fixture that is only wrong inside a narrow window is a fixture t
 wrong while somebody is debugging something else. `recentlyToday()` in
 `apps/web/e2e/fixtures/tenant.ts` clamps it.
 
+**Fourth time, 2026-08-07 — and this one is why the rule is now enforced rather than written
+down.** `recordPayment` in `packages/api/src/billing.ts` defaulted `paid_on` to
+`new Date().toISOString().slice(0, 10)`: the exact expression the bullet above forbids by name,
+in a file written after the bullet was written. Every payment reconciled before about 1pm
+Auckland would have been dated the previous day — and for anything reconciled on the 1st, into
+the previous *month*, disagreeing with the bank statement it was keyed from. Nothing called
+`recordPayment`, so no payment was ever misdated. It was a trap, not a bug, and it survived four
+phases of review because it is invisible to `typecheck`, to `lint`, and to any unit test written
+in the same wrong way as the code.
+
+So `packages/core/src/__tests__/localDates.test.ts` now reads the source of every shipping tree
+and fails on a calendar day taken from a UTC instant, in any of its spellings — `slice(0, 10)`,
+`substring(0, 10)`, `split('T')[0]`, and `toJSON()` as well as `toISOString()`. The design is
+lifted wholesale from `bounded-queries.test.ts` in `@ece/api`, including the part that matters:
+an exemption is a **named entry with the argument written out**, not a pattern in an ignore
+list. There is one, `dayWindow.ts`, and its argument is that `lastSevenDays` walks back from a
+date a caller already resolved, using explicit `Date.UTC` components at both ends, so the offset
+cancels and it never asks what day it is.
+
+The test asserts its own file count and mutation-tests its own regex inline, because a
+source-scanning test that matches nothing is a green test that checked nothing — which is the
+same class of failure one level up.
+
+**Still outstanding, in SQL.** Three `default current_date` columns remain:
+`medication_authorities.starts_on` (0004), and `fee_schedules.active_from` and `payments.paid_on`
+(0019). `children_due_for_purge` (0008) does date arithmetic against it too. 0006 fixed this
+class for `children.date_of_birth` and did not sweep the rest. The medication one is the one that
+bites: an authority to administer a prescription medicine becomes valid a day early. They are
+**not** allowlisted anywhere — the guard above scans TypeScript only, deliberately, because
+adding an exemption to make a known defect quiet is the move this repo has already recorded as
+worse than no check. Fixing them needs a migration, and a migration needs database access.
+
 ### PostgREST traps
 
 - **Bulk inserts do not apply column defaults.** One `INSERT` is built from the *union* of
