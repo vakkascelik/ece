@@ -2188,6 +2188,158 @@ values
    '0f222222-2222-4222-8222-222222222222');
 
 -- ===========================================================================
+-- CENTRE REGISTERS (0034)
+--
+-- Drills, hazards and safety checks. The boundary here is one line — staff at the
+-- centre — because none of these are about a child, so `caller_staff_centre_ids()`
+-- says everything. What still has to be asserted is that a *parent* is shut out
+-- despite being a member of the centre, which is the case a `caller_centre_ids()`
+-- policy would get wrong and nothing else would notice.
+-- ===========================================================================
+
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+
+insert into public.drills (id, centre_id, kind, held_at, adults_present, children_present, issues_found, recorded_by)
+values ('c1111111-1111-4111-8111-111111111111',
+        'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        'fire', now() - interval '2 hours', 3, 12,
+        'The side gate stuck. Oiled it.',
+        '55555555-5555-4555-8555-555555555555');
+
+insert into public.hazards (id, centre_id, description, area, risk, control, identified_by)
+values ('c2222222-2222-4222-8222-222222222222',
+        'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        'Loose paving stone by the sandpit.', 'Playground', 'medium',
+        'Coned off until replaced.',
+        '55555555-5555-4555-8555-555555555555');
+
+insert into public.safety_checks (centre_id, area, at, passed, checked_by, client_uuid)
+values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        'playground', now() - interval '3 hours', true,
+        '55555555-5555-4555-8555-555555555555',
+        '0a111111-1111-4111-8111-111111111111');
+
+select pg_temp.expect(
+  (select count(*) from public.drills where centre_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') = 1
+  and (select count(*) from public.hazards where centre_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') = 1
+  and (select count(*) from public.safety_checks where centre_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') = 1,
+  'an educator can record a drill, a hazard and a safety check'
+);
+
+-- A failed check that says nothing is the row the register exists to prevent.
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.safety_checks (centre_id, area, at, passed, checked_by, client_uuid)
+    values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'gates_and_fences', now(), false,
+            '55555555-5555-4555-8555-555555555555', gen_random_uuid());
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'a FAILED safety check with no note is refused — the note is the point of the row');
+end $$;
+
+-- Closing a hazard requires saying how. A date with no account of what changed is
+-- the same empty claim as a sighting with nobody attached.
+do $$
+declare ok boolean := false;
+begin
+  begin
+    update public.hazards set resolved_at = now()
+     where id = 'c2222222-2222-4222-8222-222222222222';
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'a hazard cannot be closed without a resolution');
+end $$;
+
+update public.hazards
+   set resolved_at = now(), resolution = 'Paving stone replaced by the contractor.'
+ where id = 'c2222222-2222-4222-8222-222222222222';
+select pg_temp.expect(
+  (select resolved_at is not null from public.hazards
+    where id = 'c2222222-2222-4222-8222-222222222222'),
+  'and it CAN be closed with one'
+);
+
+-- Append-only, enforced by the absent grant.
+do $$
+declare ok boolean := false;
+begin
+  begin
+    update public.safety_checks set passed = false
+     where client_uuid = '0a111111-1111-4111-8111-111111111111';
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'nobody can UPDATE a safety check — the verb is revoked');
+end $$;
+
+-- Nothing here may be tidied away. A drill that was held and a hazard that was found
+-- are evidence; a register somebody can delete from proves nothing.
+do $$
+declare ok boolean := false;
+begin
+  begin
+    delete from public.drills where id = 'c1111111-1111-4111-8111-111111111111';
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'nobody can DELETE a drill record');
+end $$;
+
+do $$
+declare ok boolean := false;
+begin
+  begin
+    delete from public.hazards where id = 'c2222222-2222-4222-8222-222222222222';
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'nor a hazard — it is closed with resolved_at, not removed');
+end $$;
+
+/*
+ * THE ASSERTION THIS SECTION EXISTS FOR.
+ *
+ * A parent is a member of centre A. A policy written with `caller_centre_ids()` —
+ * the obvious one, and the one used for `centres` itself — would hand them the
+ * hazard register and the drill log. `caller_staff_centre_ids()` excludes the parent
+ * role by construction, and nothing but this notices the difference.
+ */
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.drills) = 0
+  and (select count(*) from public.hazards) = 0
+  and (select count(*) from public.safety_checks) = 0,
+  'a PARENT at the same centre reads no drill, hazard or safety check'
+);
+
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.hazards (centre_id, description, risk)
+    values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Filed by a parent.', 'low');
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'and cannot file one');
+end $$;
+
+set local request.jwt.claims = '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.drills) = 0 and (select count(*) from public.hazards) = 0,
+  'and another centre reads nothing at all'
+);
+
+-- The interval is null until a centre states one, exactly as with sleep checks.
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+select pg_temp.expect(
+  (select drill_interval_days from public.centres
+    where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') is null,
+  'a centre has NO drill interval until it states one — none is assumed'
+);
+
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+
+-- ===========================================================================
 -- RETENTION AND PURGING
 --
 -- `purge_child` is the most destructive thing in the product and it is SECURITY
@@ -3235,7 +3387,8 @@ begin
      -- insert that can never be followed by an edit. Reasoning from 0005.
      and c.relname not in ('attendance_events', 'staff_count_events', 'consent_events',
                            'messages', 'payments', 'audit_events',
-                           'medication_administrations', 'sleep_checks')
+                           'medication_administrations', 'sleep_checks',
+                           'safety_checks')
      -- Reference data, and settings that belong to a person rather than a centre — the
      -- trigger could not attribute them to a tenant even if it fired.
      and c.relname not in ('criteria', 'criteria_sets', 'schema_migrations',

@@ -406,6 +406,19 @@ an interval the centre itself stated, attributed to them.
 The suite asserts the absence directly, so a default cannot be introduced without a test failing
 and somebody justifying it. See [[sleep-checks]].
 
+### 24. How often an emergency drill must be held
+
+Added 2026-08-08 with `drills` (0034). Every three months is the figure commonly quoted; it is
+not sourced here.
+
+Same shape as item 23, and the same refusal: `centres.drill_interval_days` is nullable, null
+means the centre has not stated one, and the product shows how long it has been without calling
+it late. The suite asserts the absence, so a default cannot be introduced without somebody
+justifying it.
+
+**To close it:** read the licensing criteria on emergency procedures. It changes the guidance
+the UI can offer, not the schema. See [[centre-registers]].
+
 ## See Also
 
 - [[attendance-and-ratios]] — where the ratio bands are used
