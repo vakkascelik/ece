@@ -23,14 +23,38 @@ export interface ChildOption {
 // Named `childOptions`, not `children`. In this domain that word means the tamariki at the
 // centre AND React's own slot prop, and a component whose `children` is a select list is a
 // trap for whoever edits it next.
+/**
+ * The report being replaced, when this form is opened as an amendment.
+ *
+ * A finalised report freezes — 0030's trigger refuses an edit — so a correction is a
+ * new row carrying `supersedes`. Reusing this form rather than building a second one
+ * is deliberate: an amendment is a full report, not a patch, and a cut-down "what
+ * changed" form would produce a document that only makes sense next to the original.
+ * The family reads the amendment on its own.
+ */
+export interface Amending {
+  id: string;
+  childId: string;
+  kind: string;
+  occurredWallClock: string;
+  description: string;
+  location: string | null;
+  firstAidGiven: string | null;
+  witnessName: string | null;
+}
+
 export function NewIncident({
   childOptions,
   defaultWallClock,
+  amending,
 }: {
   childOptions: ChildOption[];
   defaultWallClock: string;
+  amending?: Amending | null;
 }) {
-  const [open, setOpen] = useState(false);
+  // Opened already when amending: the person arrived here by pressing Amend, and
+  // making them press a second button to see the form they asked for is noise.
+  const [open, setOpen] = useState(Boolean(amending));
   const [state, action, pending] = useActionState<Result | null, FormData>(openDraft, null);
 
   // In an effect, not during render. Closing the form is a consequence of the action
@@ -53,7 +77,17 @@ export function NewIncident({
 
   return (
     <form action={action} className="card" style={{ marginBottom: '1rem' }}>
-      <h2 style={{ marginTop: 0 }}>Record an incident</h2>
+      <h2 style={{ marginTop: 0 }}>{amending ? 'Amend a report' : 'Record an incident'}</h2>
+      {amending && (
+        <>
+          <input type="hidden" name="supersedes" value={amending.id} />
+          <p className="sub">
+            This replaces a report that has already been finalised. The original stays on the
+            register and stays readable &mdash; that is what makes freezing it worth anything.
+            This one starts as a draft and has to be finalised and sent like any other.
+          </p>
+        </>
+      )}
 
       {state && 'error' in state && (
         <p className="error" role="alert">
@@ -63,7 +97,7 @@ export function NewIncident({
 
       <div className="field">
         <label htmlFor="childId">Child</label>
-        <select id="childId" name="childId" required defaultValue="">
+        <select id="childId" name="childId" required defaultValue={amending?.childId ?? ''}>
           <option value="" disabled>
             Choose a child
           </option>
@@ -77,7 +111,7 @@ export function NewIncident({
 
       <div className="field">
         <label htmlFor="kind">What kind</label>
-        <select id="kind" name="kind" required defaultValue="injury">
+        <select id="kind" name="kind" required defaultValue={amending?.kind ?? 'injury'}>
           {INCIDENT_KINDS.map((k) => (
             <option key={k} value={k}>
               {INCIDENT_KIND_LABELS[k]}
@@ -98,13 +132,13 @@ export function NewIncident({
           name="occurredAt"
           type="datetime-local"
           required
-          defaultValue={defaultWallClock}
+          defaultValue={amending?.occurredWallClock ?? defaultWallClock}
         />
       </div>
 
       <div className="field">
         <label htmlFor="description">What happened</label>
-        <textarea id="description" name="description" rows={4} required />
+        <textarea id="description" name="description" rows={4} required defaultValue={amending?.description ?? ''} />
         <p className="sub" style={{ fontSize: '0.8125rem' }}>
           Write it as the child&rsquo;s whānau will read it. Once this is final it cannot be
           edited — an amendment is a new report that replaces it.
@@ -113,17 +147,17 @@ export function NewIncident({
 
       <div className="field">
         <label htmlFor="location">Where (optional)</label>
-        <input id="location" name="location" type="text" />
+        <input id="location" name="location" type="text" defaultValue={amending?.location ?? ''} />
       </div>
 
       <div className="field">
         <label htmlFor="firstAidGiven">First aid given (optional)</label>
-        <input id="firstAidGiven" name="firstAidGiven" type="text" />
+        <input id="firstAidGiven" name="firstAidGiven" type="text" defaultValue={amending?.firstAidGiven ?? ''} />
       </div>
 
       <div className="field">
         <label htmlFor="witnessName">Witness (optional)</label>
-        <input id="witnessName" name="witnessName" type="text" />
+        <input id="witnessName" name="witnessName" type="text" defaultValue={amending?.witnessName ?? ''} />
         <p className="sub" style={{ fontSize: '0.8125rem' }}>
           A name, not an account — a witness is often a parent collecting another child.
         </p>
@@ -131,7 +165,7 @@ export function NewIncident({
 
       <div className="inline">
         <button type="submit" disabled={pending}>
-          {pending ? 'Saving…' : 'Save as draft'}
+          {pending ? 'Saving…' : amending ? 'Save amendment as draft' : 'Save as draft'}
         </button>
         <button className="secondary" type="button" onClick={() => setOpen(false)}>
           Cancel

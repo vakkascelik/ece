@@ -6,6 +6,7 @@ import {
   minutesBetween,
   sleepStatuses,
   summariseIncidents,
+  supersededIds,
   type Incident,
   type MedicationAdministration,
   type SleepCheck,
@@ -55,6 +56,40 @@ describe('summariseIncidents', () => {
     ]);
     expect(s.clear).toBe(true);
     expect(summariseIncidents([]).clear).toBe(true);
+  });
+
+  it('does not chase a superseded incident, but does chase its amendment', () => {
+    /*
+      The case: a final report that was never sent, then amended. Counting the
+      original leaves "1 whānau not told" outstanding forever against a document that
+      has been replaced — the amendment is the one to send.
+    */
+    const original = incident({
+      id: 'orig',
+      occurredAt: 'z',
+      parentNotifiedAt: null,
+      notifiedBy: null,
+      acknowledgedAt: null,
+      acknowledgedBy: null,
+    });
+    const amendment = incident({ id: 'amend', occurredAt: 'z', status: 'draft', supersedes: 'orig' });
+
+    const s = summariseIncidents([original, amendment]);
+    expect(s.awaitingNotification).toBe(0);
+    expect(s.drafts).toBe(1);
+  });
+
+  it('is clear once the amendment is finished, even though the original never was', () => {
+    const original = incident({
+      id: 'orig',
+      occurredAt: 'z',
+      parentNotifiedAt: null,
+      notifiedBy: null,
+      acknowledgedAt: null,
+      acknowledgedBy: null,
+    });
+    const amendment = incident({ id: 'amend', occurredAt: 'z', supersedes: 'orig' });
+    expect(summariseIncidents([original, amendment]).clear).toBe(true);
   });
 
   it('counts a draft as a draft even when it carries stale notification columns', () => {
@@ -210,5 +245,25 @@ describe('sleepStatuses', () => {
   it('returns one row per child asked about, in that order', () => {
     const rows = sleepStatuses(['k2', 'k1'], [check({ id: 1, at: now })], now, 10);
     expect(rows.map((r) => r.childId)).toEqual(['k2', 'k1']);
+  });
+});
+
+describe('supersededIds', () => {
+  it('names the incidents that a later one replaces, not the ones doing the replacing', () => {
+    const set = supersededIds([
+      incident({ id: 'orig', occurredAt: 'z' }),
+      incident({ id: 'amend', occurredAt: 'z', supersedes: 'orig' }),
+    ]);
+    expect(set.has('orig')).toBe(true);
+    expect(set.has('amend')).toBe(false);
+  });
+
+  it('handles a chain — an amendment that was itself amended', () => {
+    const set = supersededIds([
+      incident({ id: 'a', occurredAt: 'z' }),
+      incident({ id: 'b', occurredAt: 'z', supersedes: 'a' }),
+      incident({ id: 'c', occurredAt: 'z', supersedes: 'b' }),
+    ]);
+    expect([...set].sort()).toEqual(['a', 'b']);
   });
 });

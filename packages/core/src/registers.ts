@@ -73,6 +73,19 @@ export interface IncidentSummary {
 }
 
 /**
+ * The incidents that some later incident replaces.
+ *
+ * A finalised report freezes, so a correction is a new row carrying `supersedes`.
+ * Both rows stay: the register is a history, and deleting the version a family was
+ * shown would defeat the point of having frozen it.
+ */
+export function supersededIds(incidents: Incident[]): Set<string> {
+  const out = new Set<string>();
+  for (const i of incidents) if (i.supersedes !== null) out.add(i.supersedes);
+  return out;
+}
+
+/**
  * What still needs doing, which is not the same as how many incidents there were.
  *
  * `clear` ignores incidents that are finalised, notified and acknowledged, because
@@ -81,15 +94,24 @@ export interface IncidentSummary {
  * reads — the same argument `summarise().clean` makes in `compliance.ts` about
  * "due soon".
  *
- * A superseded incident is still counted if its own workflow is unfinished. It is
- * an amendment that was itself never sent, which is exactly the thing to chase.
+ * A **superseded** incident is not counted at all, whatever state it is in. Amending
+ * a final report that had not yet been sent leaves the original sitting in
+ * "whānau not told" forever, and chasing it would be chasing the wrong document —
+ * the amendment is the one to send. The amendment itself is counted normally, so an
+ * amendment nobody finalised still shows up, which is the case worth catching.
+ *
+ * Superseded rows are not *hidden* anywhere — the register shows them, marked. This
+ * is only about what is outstanding.
  */
 export function summariseIncidents(incidents: Incident[]): IncidentSummary {
   let drafts = 0;
   let awaitingNotification = 0;
   let awaitingAcknowledgement = 0;
 
+  const replaced = supersededIds(incidents);
+
   for (const i of incidents) {
+    if (replaced.has(i.id)) continue;
     if (i.status === 'draft') drafts += 1;
     else if (i.parentNotifiedAt === null) awaitingNotification += 1;
     else if (i.acknowledgedAt === null) awaitingAcknowledgement += 1;

@@ -1,11 +1,14 @@
 'use client';
 
+import Link from 'next/link';
 import { useActionState } from 'react';
 import { INCIDENT_KIND_LABELS, compareIncidentUrgency, type Incident } from '@ece/core';
 import { finalise, markNotified, type Result } from './actions';
 
 export interface IncidentRow {
   incident: Incident;
+  /** A later report replaces this one. It stays on the register, marked. */
+  superseded: boolean;
   childName: string;
   /** Wall clock in the centre's zone, formatted on the server. */
   occurredLabel: string;
@@ -79,6 +82,16 @@ function Row({ row }: { row: IncidentRow }) {
             Replaces an earlier report
           </div>
         )}
+        {/*
+          Shown, not hidden. The version a family was actually sent is the one a
+          review asks about, and removing it from the register would undo the point
+          of having frozen it in the first place.
+        */}
+        {row.superseded && (
+          <div className="sub" style={{ fontSize: '0.8125rem' }}>
+            Replaced by a later report
+          </div>
+        )}
         {error && (
           <div className="error" role="alert">
             {error}
@@ -128,6 +141,19 @@ function Row({ row }: { row: IncidentRow }) {
               {notifying ? 'Recording…' : 'Whānau told'}
             </button>
           </form>
+        )}
+        {/*
+          Amending is the only way to change a finalised report — the trigger in 0030
+          refuses an edit. Not offered on one that has already been replaced: amending
+          a superseded report produces two live corrections of the same original and
+          no way to tell which the family holds.
+        */}
+        {i.status === 'final' && !row.superseded && (
+          <p style={{ margin: '0.35rem 0 0' }}>
+            <Link href={`/incidents?amend=${i.id}`} className="small">
+              Amend
+            </Link>
+          </p>
         )}
       </td>
     </tr>

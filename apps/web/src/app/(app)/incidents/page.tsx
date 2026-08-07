@@ -1,10 +1,10 @@
 import { listChildren, listIncidents } from '@ece/api';
-import { summariseIncidents, todayInZone } from '@ece/core';
+import { summariseIncidents, supersededIds, todayInZone } from '@ece/core';
 import { requireCapability } from '@/lib/auth';
 import { dayWindow, shiftLocalDate } from '@/lib/dayWindow';
 import { serverDb } from '@/lib/supabase';
 import { IncidentList, type IncidentRow } from './IncidentList';
-import { NewIncident } from './NewIncident';
+import { NewIncident, type Amending } from './NewIncident';
 
 /**
  * The incident register.
@@ -24,12 +24,13 @@ const WINDOW_DAYS = 14;
 export default async function IncidentsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ days?: string }>;
+  searchParams: Promise<{ days?: string; amend?: string }>;
 }) {
   const ctx = await requireCapability('recordDailyPractice');
   const db = await serverDb();
 
-  const requested = Number((await searchParams).days);
+  const params = await searchParams;
+  const requested = Number(params.days);
   const days = Number.isFinite(requested) && requested > 0 && requested <= 365 ? requested : WINDOW_DAYS;
 
   const today = todayInZone(ctx.centre.timezone);
@@ -59,8 +60,11 @@ export default async function IncidentsPage({
     minute: '2-digit',
   });
 
+  const replaced = supersededIds(incidents);
+
   const rows: IncidentRow[] = incidents.map((incident) => ({
     incident,
+    superseded: replaced.has(incident.id),
     childName: nameOf.get(incident.childId) ?? 'A child no longer enrolled',
     occurredLabel: fmt.format(new Date(incident.occurredAt)),
     notifiedLabel: incident.parentNotifiedAt ? fmt.format(new Date(incident.parentNotifiedAt)) : null,
@@ -81,6 +85,54 @@ export default async function IncidentsPage({
   }).formatToParts(new Date());
   const part = (t: string) => nowParts.find((p) => p.type === t)?.value ?? '00';
   const defaultWallClock = `${part('year')}-${part('month')}-${part('day')}T${part('hour')}:${part('minute')}`;
+
+  /*
+    The report being amended, if `?amend=` names one.
+
+    Resolved from the rows already fetched rather than by id: an id that is not in
+    this window, or belongs to another centre, simply does not match and the form
+    opens as an ordinary new report. That is the safe direction, and it means the
+    query parameter cannot be used to confirm that an incident exists somewhere the
+    caller cannot see.
+
+    Refused for a report that is already superseded, or still a draft — a draft is
+    editable in place, so amending one would produce two rows where an edit was
+    meant.
+  */
+  const target = params.amend
+    ? incidents.find(
+        (i) => i.id === params.amend && i.status === 'final' && !replaced.has(i.id),
+      )
+    : undefined;
+
+  // The wall clock the amendment starts from is the original's time in the centre's
+  // zone — the incident happened when it happened, whatever the correction changes.
+  const wallClockOf = (instant: string) => {
+    const p = new Intl.DateTimeFormat('en-CA', {
+      timeZone: ctx.centre.timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).formatToParts(new Date(instant));
+    const g = (t: string) => p.find((x) => x.type === t)?.value ?? '00';
+    return `${g('year')}-${g('month')}-${g('day')}T${g('hour')}:${g('minute')}`;
+  };
+
+  const amending: Amending | null = target
+    ? {
+        id: target.id,
+        childId: target.childId,
+        kind: target.kind,
+        occurredWallClock: wallClockOf(target.occurredAt),
+        description: target.description,
+        location: target.location,
+        firstAidGiven: target.firstAidGiven,
+        witnessName: target.witnessName,
+      }
+    : null;
 
   return (
     <>
@@ -122,9 +174,21 @@ export default async function IncidentsPage({
         )}
       </div>
 
+      {/*
+        `key` forces a remount when the amendment target changes.
+
+        Navigating from `/incidents` to `/incidents?amend=…` is the same route with
+        different search params, so Next re-renders this client component rather than
+        replacing it — `useState(Boolean(amending))` keeps whatever it was initialised
+        with and the form stays collapsed while its props say otherwise. Every default
+        value inside it has the same problem, so an effect that only opened the form
+        would leave the fields showing the previous report.
+      */}
       <NewIncident
+        key={amending?.id ?? 'new'}
         childOptions={children.map((c) => ({ id: c.id, name: `${c.firstName} ${c.lastName}` }))}
         defaultWallClock={defaultWallClock}
+        amending={amending}
       />
 
       <IncidentList rows={rows} />

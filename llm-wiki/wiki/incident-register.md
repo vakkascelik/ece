@@ -170,6 +170,49 @@ capability for this. Acknowledging is the one act on a child's record that only 
 perform, and a capability gate would suggest the app decides. It does not — staff, including an
 owner, are refused by the trigger whatever the app thinks.
 
+### Amending, and what happens to the report a family already holds
+
+A finalised report freezes, so the only way to change one is a new row carrying `supersedes`.
+Until this existed the freeze was a dead end: correct in principle, and in practice worked
+around with a second unlinked report that nobody could tie to the first.
+
+**The original stays on the register, marked "Replaced by a later report".** Hiding or deleting
+it would undo the point of having frozen it — the version a family was actually sent is the one
+a review asks about.
+
+The amendment reuses the whole form rather than offering a "what changed" patch, because an
+amendment *is* a full report: the family reads it on its own, not side by side with the original.
+It starts as a draft and goes through finalise → notify → acknowledge like any other.
+
+Two refusals. A report that has already been superseded cannot be amended again — two live
+corrections of one original leaves nobody able to say which the family holds. And a draft cannot
+be amended, because a draft is editable in place; amending one would produce two rows where an
+edit was meant.
+
+`?amend=` is resolved against the incidents already fetched rather than by a lookup, so an id
+outside the window or belonging to another centre simply does not match and the form opens as an
+ordinary new report. That is the safe direction, and it means the query parameter cannot be used
+to confirm that an incident exists somewhere the caller cannot see.
+
+**`summariseIncidents` had to learn about supersession**, and this is the part that would have
+been missed. A final report that was never sent, then amended, sat in "whānau not told" forever —
+chasing a document that had been replaced. Superseded incidents are now excluded from the
+outstanding counts entirely, while the amendment is counted normally, so an amendment nobody
+finalised still surfaces. Mutation-tested: removing the exclusion fails two unit tests and the
+browser assertion.
+
+### The React trap this hit on the way
+
+Clicking **Amend** navigates to `/incidents?amend=…` — the same route with different search
+params. Next re-renders the client component rather than replacing it, so
+`useState(Boolean(amending))` kept its original `false` and the form stayed collapsed while its
+props said otherwise. Every `defaultValue` inside it has the same problem, so an effect that only
+opened the form would have left the fields showing the previous report.
+
+Fixed with `key={amending?.id ?? 'new'}`, which is the idiomatic answer: reset state when
+identity changes. Worth recording because the symptom — a link that visibly navigates and
+appears to do nothing — reads like a routing bug and is not one.
+
 ### The guard caught the new page, which is the point of having it
 
 `/incidents` needed "fourteen days before today" and wrote the arithmetic out inline —
