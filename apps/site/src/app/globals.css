@@ -324,6 +324,52 @@ a:hover { text-decoration-thickness: 2px; }
 .foot-centres li { margin: 0 0 var(--space-1); }
 .foot p { margin: 0; }
 
+/*
+ * The developer credit, quieter than everything above it and set off by a hairline.
+ *
+ * `--text-sm`, and the link keeps the footer's own colour rather than being played down further:
+ * a credit that has to be squinted at is worse than no credit, and 13px is already the smallest
+ * step in the scale.
+ */
+/*
+ * No rule above it. There was one, and it was wrong twice over: `p` caps at 66ch globally, so the
+ * border stopped mid-footer and read as an underline struck through the line above rather than as
+ * a separator. Space does the job a line was being asked to do.
+ */
+/* `.foot .foot-credit` and not `.foot-credit`: `.foot p { margin: 0 }` above is (0,1,1) and would
+   otherwise outrank a lone class and flatten this to nothing. It did — the credit sat jammed under
+   the hours line looking like a continuation of it. */
+.foot .foot-credit {
+  margin-top: var(--space-5);
+  font-size: var(--text-sm);
+}
+.foot-credit a {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  /* The whole phrase is the target, mark included, so it clears the 24px WCAG 2.5.8 floor
+     vertically without padding the line out. */
+  min-height: 24px;
+}
+/*
+ * THE TILE VARIANT, not the bare leaf, and that is a correction from looking at it rendered.
+ *
+ * `salix-mark-green.svg` is the default mark and it is the wrong file for this size. It is a fine
+ * line drawing — strokes of 0.9 to 1.6 units in a 100-unit viewBox — so at 26px the heaviest line
+ * lands at about 0.4 device pixels and the whole mark rendered as a faint scratch beside the text.
+ * Their own note that 16px is legible is written about `favicon.svg`, which is a different drawing:
+ * a solid green tile with the leaf reversed out of it.
+ *
+ * A solid shape survives being small, which is the same reason the Doorway mark next to it is a
+ * filled box rather than an outline. 28px rather than that one's 20px because the leaf inside is
+ * still hairline-thin and needs the room.
+ */
+.salix-mark {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+}
+
 /* --- Blocks ------------------------------------------------------------------ */
 
 /* The opening paragraph, given room. Larger and looser than body copy, and not bold — a lede

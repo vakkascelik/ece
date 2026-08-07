@@ -893,4 +893,17 @@ so there is no exposure today". The masthead of a real customer's public website
 name and the mark on every route, before the IPONZ search has been run. That is the entry's own
 warning arriving rather than being heeded, and it is written down as such.
 
+2026-08-07 — Added a "Developed by Salix" credit to the site footer, recorded in [[public-website]].
+Two things in a five-line change that a build could not have told anyone about, both found by
+screenshotting the footer at 3x and looking at it.
+
+Their **default** mark is the wrong file at footer size: it is a line drawing whose heaviest stroke
+is 1.6 units in a 100-unit viewBox, so at 28px it lands near 0.4 device pixels and renders as a
+scratch. Their own "16px is legible" note is about `favicon.svg`, which is a different drawing — a
+solid tile with the leaf reversed out. Solid shapes survive being small; outlines do not.
+
+And a CSS specificity bug of the shape that reads as a typo in the markup: `.foot p { margin: 0 }`
+is (0,1,1) and `.foot-credit` is (0,1,0), so the credit's top margin was silently discarded and the
+line sat welded to the one above it. **A rule that loses is invisible in a diff.**
+
 *Log last updated: 2026-08-07*

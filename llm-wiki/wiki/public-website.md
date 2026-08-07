@@ -516,3 +516,38 @@ routes at 390px and 1440px, no violations and no horizontal overflow. Then every
 `atTheTable` rendering twice on the homepage, and the masthead costing three rows on a phone with the
 sign-in link stranded alone on the third. The nav now declares its own line rather than being wrapped
 onto one, so the brand and the sign-in link share the top row at every width.
+
+## The developer credit, 2026-08-07
+
+"Developed by Salix", linking to `https://www.salixtech.co.nz`, in the footer of every route. Small
+change, three decisions in it worth keeping.
+
+**A file in `public/`, not an inlined `<svg>`** — the opposite of the call made for the Doorway mark
+in the same footer's masthead, and deliberately. Doorway's mark is three primitives copied out of a
+handoff this repo owns. This is a drawn mark belonging to somebody else, whose own guidelines say it
+may not be recoloured; keeping it as the byte-identical asset makes that hard to break by accident,
+where an inlined path is one `fill` attribute away from it. `img-src` is `'self' data:`, so a
+committed file is also the only shape the CSP allows — a hotlink to their site would be refused.
+
+**The tile variant, not the default mark**, and that is a correction from looking at it rendered
+rather than reading their README. `salix-mark-green.svg` is their default and it is a fine line
+drawing — strokes of 0.9 to 1.6 units in a 100-unit viewBox — so at 28px the heaviest line lands at
+roughly 0.4 device pixels and the mark rendered as a faint scratch beside the text. Their note that
+16px is legible is written about `favicon.svg`, which is a *different drawing*: a solid green tile
+with the leaf reversed out. A solid shape survives being small, which is the same reason the Doorway
+mark is a filled box rather than an outline.
+
+**Two logos are not two accents.** The one-accent rule from the design review governs what the site
+uses to *say* things — buttons, callouts, links. A third-party mark is identity, and the review
+already carved out the pink of Little Pearls' own logo on exactly that basis. Salix green `#1a5a4a`
+appears once, at 28px, in the footer.
+
+The bug found on the way is a specificity one and is the sort that looks like a typo in the markup.
+`.foot p { margin: 0 }` is (0,1,1); `.foot-credit { margin-top: … }` is (0,1,0), so the margin was
+being flattened and the credit sat jammed under the hours line looking like a continuation of it. It
+is `.foot .foot-credit` now. A rule that loses is invisible in a diff and obvious in a screenshot.
+
+An earlier attempt separated the credit with a `border-top`, which was wrong for a reason specific to
+this stylesheet: `p` caps at 66ch globally, so the border stopped mid-footer and read as an underline
+struck through the line above rather than as a divider. Space does the job the line was being asked
+to do — the same conclusion the weave reached, one section up.

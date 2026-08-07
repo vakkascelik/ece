@@ -270,6 +270,41 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               {CENTRE_FACTS.hours}. Children {CENTRE_FACTS.ages}.{' '}
               <a href="/contact">Contact us</a>
             </p>
+
+            {/*
+              The developer credit.
+
+              A file in `public/` rather than an inlined `<svg>`, which is the opposite of the call
+              made for the Doorway mark two elements up, and deliberately. Doorway's is three
+              primitives copied out of the handoff; this is a drawn mark belonging to someone else,
+              whose own guidelines say it may not be recoloured — keeping it as the byte-identical
+              asset makes that hard to violate by accident, where an inlined path is one `fill`
+              away from it. `img-src` is `'self' data:`, so a committed file is also the only
+              shape the policy allows.
+
+              It is their `favicon.svg` — the solid tile — and not `salix-mark-green.svg`, which is
+              their default. See the note in globals.css: the default is a line drawing that
+              disappears at this size.
+
+              `alt=""`, the second empty alt on this site and for the same reason as the first: the
+              words in the link already say Salix, so a screen reader announcing the image too
+              would say it twice.
+
+              No `target="_blank"`. Deciding for somebody that they wanted a new window is not a
+              courtesy, and a credit line is the least urgent link on the page.
+            */}
+            <p className="foot-credit">
+              <a href="https://www.salixtech.co.nz">
+                <img
+                  className="salix-mark"
+                  src="/salix-mark.svg"
+                  alt=""
+                  width={512}
+                  height={512}
+                />
+                Developed by Salix
+              </a>
+            </p>
           </div>
         </footer>
       </body>
