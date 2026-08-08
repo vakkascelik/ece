@@ -2741,6 +2741,113 @@ select pg_temp.expect(
 );
 
 -- ===========================================================================
+-- STAFF ATTENDANCE (0039)
+--
+-- The table that exists separately from `attendance_events` precisely so that no
+-- guardian branch can reach it. The assertion this section is for is the absence:
+-- a parent must read nothing here, and the merged-table design would have made that
+-- an OR of two unrelated boundaries.
+-- ===========================================================================
+
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+
+-- An educator signs themselves in, and signs in the reliever who has no account.
+-- The second is the case the whole `staff_members` design exists for.
+insert into public.staff_attendance_events (staff_member_id, kind, at, recorded_by, client_uuid)
+values ('d5555555-5555-4555-8555-555555555555', 'in', now() - interval '3 hours',
+        '55555555-5555-4555-8555-555555555555', '0b111111-1111-4111-8111-111111111111'),
+       ('d6666666-6666-4666-8666-666666666666', 'in', now() - interval '2 hours',
+        '55555555-5555-4555-8555-555555555555', '0b222222-2222-4222-8222-222222222222');
+
+select pg_temp.expect(
+  (select count(*) from public.staff_attendance_events) = 2,
+  'an educator can sign themselves in AND a reliever who has no account'
+);
+
+-- Attribution: an event is always traceable to whoever tapped, even about somebody
+-- else. Recording it as a colleague is refused.
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.staff_attendance_events (staff_member_id, kind, at, recorded_by, client_uuid)
+    values ('d5555555-5555-4555-8555-555555555555', 'out', now(),
+            '11111111-1111-4111-8111-111111111111', gen_random_uuid());
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'a staff event CANNOT be attributed to somebody else''s account');
+end $$;
+
+-- The outbox contract, third table to carry it.
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.staff_attendance_events (staff_member_id, kind, at, recorded_by, client_uuid)
+    values ('d5555555-5555-4555-8555-555555555555', 'in', now(),
+            '55555555-5555-4555-8555-555555555555', '0b111111-1111-4111-8111-111111111111');
+  exception when unique_violation then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'a replayed key is refused, so a flaky flush cannot double-count an adult');
+end $$;
+
+-- Append-only, enforced by the absent grant.
+do $$
+declare ok boolean := false;
+begin
+  begin
+    update public.staff_attendance_events set kind = 'out'
+     where client_uuid = '0b111111-1111-4111-8111-111111111111';
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'nobody can UPDATE a staff attendance event — the verb is revoked');
+end $$;
+
+do $$
+declare ok boolean := false;
+begin
+  begin
+    delete from public.staff_attendance_events
+     where client_uuid = '0b111111-1111-4111-8111-111111111111';
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'nor DELETE one — these become a payroll figure');
+end $$;
+
+/*
+ * THE ASSERTION THIS TABLE EXISTS FOR.
+ *
+ * A parent reads their own child's attendance through `attendance_events`, because
+ * `caller_may_see_child` includes guardians. Had staff hours shared that table, the
+ * policy would have been an OR of two unrelated boundaries and a parent would be one
+ * predicate away from reading when the manager arrived.
+ */
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.staff_attendance_events) = 0,
+  'a parent reads NO staff attendance — the separate table is what guarantees it'
+);
+
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.staff_attendance_events (staff_member_id, kind, at, client_uuid)
+    values ('d5555555-5555-4555-8555-555555555555', 'out', now(), gen_random_uuid());
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'and cannot sign a staff member out');
+end $$;
+
+set local request.jwt.claims = '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.staff_attendance_events) = 0,
+  'and another centre reads nothing at all'
+);
+
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+
+-- ===========================================================================
 -- RETENTION AND PURGING
 --
 -- `purge_child` is the most destructive thing in the product and it is SECURITY
@@ -3817,7 +3924,8 @@ begin
      and c.relname not in ('attendance_events', 'staff_count_events', 'consent_events',
                            'messages', 'payments', 'audit_events',
                            'medication_administrations', 'sleep_checks',
-                           'safety_checks', 'excursion_consents', 'excursion_headcounts')
+                           'safety_checks', 'excursion_consents', 'excursion_headcounts',
+                           'staff_attendance_events')
      -- Reference data, and settings that belong to a person rather than a centre — the
      -- trigger could not attribute them to a tenant even if it fired.
      and c.relname not in ('criteria', 'criteria_sets', 'schema_migrations',

@@ -76,12 +76,38 @@ A person who worked here appears in ratio history, on shifts, and against attend
 Removing the row leaves those pointing at nothing and rewrites what the binder can show.
 Departure is `finished_on`; tidying up is `archived_at`.
 
+### Per-person attendance (0039), and why it is a second table
+
+`staff_attendance_events` and `attendance_events` look identical — in, out, a time, a client key
+— and merging them is the obvious tidy-up. Two reasons not to, and the first is enough:
+
+1. **The RLS does not compose.** A guardian may sign their *own child* in, so
+   `attendance_events` is readable and writable by parents through `caller_may_see_child`. No
+   guardian may see staff hours. One table means one set of policies, and the merged predicate
+   would be an OR of two unrelated boundaries — which is how a parent ends up able to read when
+   the manager arrived.
+2. **One of them underpins a funding claim on the Crown**; the other is a payroll and compliance
+   record. Sharing a table invites a future query that sums the wrong rows into a claim.
+
+So it is a near-copy, deliberately. The duplication is the cheaper mistake, and the suite
+asserts the absence directly — *a parent reads NO staff attendance*. Mutation-tested with
+`using (true)`, which failed on exactly that line.
+
+**It keys on `staff_member_id`, not on a user.** A table keyed on `auth.users` could not sign in
+the person who covers Tuesdays — precisely the adult whose presence the ratio most needs to
+count. `recorded_by` is the account that tapped; the two are routinely different people, and any
+staff member may record for a colleague because a manager signs in the reliever and a door
+tablet signs in the team arriving together.
+
+`caller_is_staff_for_member` is a `SECURITY DEFINER` function rather than an inline
+`exists (select … from staff_members …)`, and that is the direct application of the lesson in
+[[conventions]]: a policy expression that reads another table inherits that table's RLS. Inline,
+it would be silently narrowed by `staff_members_select` — which happens to give the right answer
+today and would stop doing so the moment that policy changed, in a direction nobody would
+notice.
+
 ## Still to come in this phase
 
-- **`staff_attendance_events`** — a near-copy of 0009, deliberately not a shared table with
-  `attendance_events`: the two have different RLS (a guardian may sign their own child in; no
-  guardian may see staff hours) and merging them would put staff hours behind a predicate
-  written for children.
 - **The two ratio sources**, which must not blend. `centres.ratio_source` defaults to `declared`
   so no existing centre's history changes meaning on deploy, and `replayDay` must record which
   source produced each snapshot — otherwise every binder printed after a switch is ambiguous
