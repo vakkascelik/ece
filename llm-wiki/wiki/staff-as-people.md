@@ -9,8 +9,9 @@ The binder currently admits that adult counts are "figures entered by staff, not
 individual staff sign-in" ([[compliance-and-evidence]]). That admission is honest and it is also
 the gap. Closing it is the largest change in the roadmap, because it changes what a ratio *is*.
 
-0038 does only the identity part. The rest — per-person attendance, shifts, the derived ratio —
-waits on it, and shipping the identity question late is better than shipping it wrong quietly.
+0038 does only the identity part, and shipping the identity question late was better than shipping
+it wrong quietly. Everything after it hangs off that one table: per-person attendance (0039), the
+derived ratio (0040), and the planned roster (0041).
 
 ## Key Points
 
@@ -23,6 +24,9 @@ waits on it, and shipping the identity question late is better than shipping it 
 - **One account cannot have two person records.** That ambiguity would surface as a ratio wrong
   by one.
 - **Nobody can delete a staff member.** Departure is `finished_on`.
+- **One person cannot hold two overlapping shifts**, because a double-booked person is counted
+  twice in a forecast and the roster then reads adequately staffed when it is not.
+- **Leave is availability, not payroll.** No rates, no balances, no accrual.
 
 ## Details
 
@@ -202,13 +206,50 @@ A select beside each staff record, **nothing preselected**, with an explicit *No
 that also unlinks. A default of "the closest name" would be the same guess 0038 refuses to make,
 wearing a different hat.
 
-## Still to come in this phase `centres.ratio_source` defaults to `declared`
-  so no existing centre's history changes meaning on deploy, and `replayDay` must record which
-  source produced each snapshot — otherwise every binder printed after a switch is ambiguous
-  about every day before it.
-- **Shifts and leave**, and the forward ratio forecast that needs them.
-- **The certificated-teacher count**, stated as a fact and never as a funding consequence — see
-  [[unverified-claims]].
+### What is *planned* (0041), and the constraint that is really about the forecast
+
+Everything above records what happened. `shifts` and `staff_leave` record what is meant to
+happen, and they are the half that makes a forward ratio possible: `bookings` (0018) already holds
+the children expected on a day, and this holds the adults.
+
+**`on_date` + `from_time` + `to_time`, not a `timestamptz` range** — because `bookings` is shaped
+that way and the forecast has to line the two up. A roster is written as "Tuesday, 8 till 4" in
+the centre's own clock; storing instants would put a timezone conversion, and therefore a bug, in
+a different place on each side of the join.
+
+**The overlap constraint is the assertion the section exists for.** A double-booked person is
+counted twice in a forecast, and the error surfaces as a roster that reads adequately staffed and
+is not. `exclude using gist` refuses it, the same mechanism as `enrolments_no_overlap`. Two
+details that look like bugs and are not:
+
+- **`[)` bounds.** A shift ending at 16:00 does not collide with one starting at 16:00. That is a
+  handover, not a clash, and asserted as such.
+- **Cancelled shifts are excluded from the constraint.** A cancelled 8-till-4 must not block the
+  replacement 8-till-4, which is the entire point of cancelling one.
+
+**Leave deliberately has no overlap constraint.** Sick leave declared during booked annual leave is
+a real situation, and refusing it pushes the correction outside the system where nothing can see
+it. Only *approved* leave affects the forecast, and that is decided when the forecast is computed.
+
+**This is not payroll.** No rate, no entitlement balance, no accrual. Leave answers one question —
+is this person available that day — because that is what the ratio needs. Half a payroll system is
+worse than none.
+
+Read is any staff member (somebody who cannot see next week cannot plan around it); write is
+owner/manager through `caller_may_roster`, a definer function for the same reason
+`caller_is_staff_for_member` is one. Mutation-tested both ways: dropping the exclusion constraint
+failed the suite on *one person CANNOT be rostered twice*, and widening the insert policy to any
+staff failed it on *and CANNOT roster themselves*. Neither table has DELETE — a cancelled shift is
+a fact about what was planned, and a roster somebody can erase cannot show that Tuesday was short
+before anybody noticed.
+
+## Still to come in this phase
+
+- **The forward ratio forecast**, now that shifts and leave exist to feed it. It inherits
+  `RATIO_TABLES_VERIFIED = false` — a forecast against unverified bands is still unverified, and
+  saying so is the whole habit.
+- **Roster and leave screens.** The tables ship ahead of them, which is the pattern this repo has
+  now got wrong four times and records rather than hides.
 
 ## See Also
 

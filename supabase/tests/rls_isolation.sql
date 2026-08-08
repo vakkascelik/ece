@@ -2936,6 +2936,141 @@ select pg_temp.expect(
 );
 
 -- ===========================================================================
+-- SHIFTS AND LEAVE (0041)
+--
+-- What is PLANNED, as opposed to what happened. The assertion this section exists
+-- for is the overlap constraint: a double-booked person is counted twice in a
+-- forecast, so the roster reads adequately staffed when it is not.
+-- ===========================================================================
+
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+
+insert into public.shifts (id, staff_member_id, on_date, from_time, to_time, created_by)
+values ('e1111111-1111-4111-8111-111111111111',
+        'd5555555-5555-4555-8555-555555555555',
+        current_date + 3, '08:00', '16:00',
+        '11111111-1111-4111-8111-111111111111');
+
+select pg_temp.expect(
+  (select count(*) from public.shifts
+    where staff_member_id = 'd5555555-5555-4555-8555-555555555555') = 1,
+  'an owner can roster somebody'
+);
+
+-- THE ASSERTION THIS SECTION EXISTS FOR.
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.shifts (staff_member_id, on_date, from_time, to_time)
+    values ('d5555555-5555-4555-8555-555555555555', current_date + 3, '12:00', '18:00');
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(
+    ok,
+    'one person CANNOT be rostered twice over the same hours — a forecast would count them twice'
+  );
+end $$;
+
+-- Touching shifts are fine: `[)` means a shift ending at 16:00 does not collide with
+-- one starting at 16:00, which is a handover rather than a conflict.
+insert into public.shifts (staff_member_id, on_date, from_time, to_time)
+values ('d5555555-5555-4555-8555-555555555555', current_date + 3, '16:00', '18:00');
+select pg_temp.expect(
+  (select count(*) from public.shifts
+    where staff_member_id = 'd5555555-5555-4555-8555-555555555555') = 2,
+  'but a shift starting exactly when another ends is a handover, not a clash'
+);
+
+-- A cancelled shift must not block its own replacement.
+update public.shifts set status = 'cancelled'
+ where id = 'e1111111-1111-4111-8111-111111111111';
+insert into public.shifts (staff_member_id, on_date, from_time, to_time)
+values ('d5555555-5555-4555-8555-555555555555', current_date + 3, '09:00', '15:00');
+select pg_temp.expect(
+  (select count(*) from public.shifts
+    where staff_member_id = 'd5555555-5555-4555-8555-555555555555'
+      and status <> 'cancelled') = 2,
+  'and a cancelled shift does not block the replacement that replaces it'
+);
+
+-- Leave has no overlap constraint, on purpose: sick leave declared during booked
+-- annual leave is a real situation, and refusing it pushes the correction out of the
+-- system.
+insert into public.staff_leave (staff_member_id, from_date, to_date, kind, status)
+values ('d5555555-5555-4555-8555-555555555555', current_date + 10, current_date + 14, 'annual', 'approved'),
+       ('d5555555-5555-4555-8555-555555555555', current_date + 12, current_date + 12, 'sick', 'approved');
+select pg_temp.expect(
+  (select count(*) from public.staff_leave
+    where staff_member_id = 'd5555555-5555-4555-8555-555555555555') = 2,
+  'two leave records may cover the same day — sick leave during booked annual leave is real'
+);
+
+/*
+ * An educator reads the roster and cannot write it.
+ *
+ * Reading is the point of having a roster: somebody who cannot see next week cannot
+ * plan around it. Writing decides the forecast, which is a compliance figure, so it
+ * is owner and manager only.
+ */
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.shifts) >= 2
+  and (select count(*) from public.staff_leave) = 2,
+  'an educator CAN read the roster and the leave'
+);
+
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.shifts (staff_member_id, on_date, from_time, to_time)
+    values ('d5555555-5555-4555-8555-555555555555', current_date + 20, '08:00', '16:00');
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'and CANNOT roster themselves');
+end $$;
+
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.staff_leave (staff_member_id, from_date, to_date, kind, status)
+    values ('d5555555-5555-4555-8555-555555555555', current_date + 30, current_date + 31, 'annual', 'approved');
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'nor approve their own leave');
+end $$;
+
+-- Nothing here is deletable: a cancelled shift is a fact about what was planned, and
+-- a roster somebody can erase cannot show that Tuesday was short before anybody
+-- noticed.
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+do $$
+declare ok boolean := false;
+begin
+  begin
+    delete from public.shifts where id = 'e1111111-1111-4111-8111-111111111111';
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'nobody can DELETE a shift — cancelling is visible, deleting is not');
+end $$;
+
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.shifts) = 0 and (select count(*) from public.staff_leave) = 0,
+  'a parent reads no roster and no leave'
+);
+
+set local request.jwt.claims = '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.shifts) = 0,
+  'and another centre reads nothing at all'
+);
+
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+
+-- ===========================================================================
 -- RETENTION AND PURGING
 --
 -- `purge_child` is the most destructive thing in the product and it is SECURITY
