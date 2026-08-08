@@ -4690,6 +4690,183 @@ begin
   perform pg_temp.expect(ok, 'an owner CAN archive an educator''s post, which 0028 fixed');
 end $$;
 
+-- ---------------------------------------------------------------------------
+-- AI REQUESTS (0049) — the usage record for external model calls
+--
+-- The interesting properties are not who can read it, though that is asserted too. They
+-- are that it CANNOT BE EDITED and CANNOT BE DELETED by anybody, including
+-- `service_role`, because the month's spend cap is computed by summing this column. A
+-- usage record somebody can rewrite is not a cap, it is a suggestion.
+--
+-- Deliberately carries no audit trigger — the row is its own record — which is why
+-- `ai_requests` appears in the class assertion's exemption list further down. The
+-- exemption is named here as well so a reader of either finds the other.
+-- ---------------------------------------------------------------------------
+
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+
+insert into public.ai_requests
+  (id, centre_id, feature, model, requested_by, input_tokens, output_tokens, cents_estimate, outcome)
+values ('a1a1a1a1-aaaa-4aaa-8aaa-000000000001', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        'compliance-narrative', 'claude-opus-5', '11111111-1111-4111-8111-111111111111',
+        1200, 400, 3, 'ok');
+
+select pg_temp.expect(
+  (select cents_estimate from public.ai_requests
+    where id = 'a1a1a1a1-aaaa-4aaa-8aaa-000000000001') = 3,
+  'an owner records a model call and its estimated cost'
+);
+
+-- A refusal and a block are both recorded. The block is the one that matters: a centre
+-- whose feature was switched off finds that out from a run of zero-cost rows, and a
+-- table holding only successes could not answer why nothing had happened all week.
+insert into public.ai_requests
+  (centre_id, feature, model, requested_by, outcome)
+values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'accounts-narrative', 'claude-opus-5',
+        '11111111-1111-4111-8111-111111111111', 'blocked');
+
+select pg_temp.expect(
+  (select count(*) from public.ai_requests where outcome = 'blocked' and cents_estimate = 0) = 1,
+  'a call this product refused BEFORE sending anything is recorded, at zero cost'
+);
+
+-- An outcome outside the four is refused rather than stored. The column feeds a
+-- discriminated union in TypeScript; a fifth value would be a runtime surprise there.
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.ai_requests (centre_id, feature, model, outcome)
+    values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'compliance-narrative', 'claude-opus-5', 'timeout');
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'an unknown outcome is refused — the four are a closed set');
+end $$;
+
+-- An empty feature name would make the usage record unreadable at exactly the moment
+-- somebody needs it: "something called the model 400 times" is not an answer.
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.ai_requests (centre_id, feature, model, outcome)
+    values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '   ', 'claude-opus-5', 'ok');
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'a blank feature name is refused');
+end $$;
+
+-- Attribution, on the same terms as attendance: the row says who asked.
+do $$
+declare code text := 'none (the insert SUCCEEDED)';
+begin
+  begin
+    insert into public.ai_requests (centre_id, feature, model, requested_by, outcome)
+    values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'compliance-narrative', 'claude-opus-5',
+            '22222222-2222-4222-8222-222222222222', 'ok');
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '42501',
+    'an owner CANNOT attribute a call to somebody else, got ' || code);
+end $$;
+
+/*
+ * THE ASSERTIONS THIS TABLE EXISTS FOR.
+ *
+ * The verb is withheld by GRANT, not merely unmatched by a policy, so Postgres raises
+ * 42501 rather than filtering to zero rows. Asserted on the SQLSTATE for that reason:
+ * "the update changed nothing" would also be true of a policy that simply did not match,
+ * and the distinction is the whole design. A missing policy can be added by a later
+ * migration without anybody noticing; a revoked grant cannot be re-granted silently,
+ * because `review:security` reads the grants.
+ */
+do $$
+declare code text := 'none (the update SUCCEEDED)';
+begin
+  begin
+    update public.ai_requests set cents_estimate = 0
+     where id = 'a1a1a1a1-aaaa-4aaa-8aaa-000000000001';
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '42501',
+    'NOBODY can rewrite what a call cost — the spend cap sums this column, got ' || code);
+end $$;
+
+do $$
+declare code text := 'none (the delete SUCCEEDED)';
+begin
+  begin
+    delete from public.ai_requests
+     where id = 'a1a1a1a1-aaaa-4aaa-8aaa-000000000001';
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '42501',
+    'and nobody can delete one either, got ' || code);
+end $$;
+
+/*
+ * Including `service_role`, which is the branch that matters — the web app's server
+ * actions hold that key, so a bug or a compromised deployment reaches this table with
+ * it. Same treatment as `payments` and `attendance_events`.
+ */
+set local role service_role;
+do $$
+declare code text := 'none (the update SUCCEEDED)';
+begin
+  begin
+    update public.ai_requests set cents_estimate = 0;
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '42501',
+    'SERVICE_ROLE cannot rewrite a usage record either, got ' || code);
+end $$;
+set local role authenticated;
+
+-- Nobody below the office. An educator has no reason to see the centre's model spend,
+-- and a parent's answer to "what do you send" is the privacy statement, not a usage log.
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.ai_requests) = 0,
+  'an educator reads NO ai_requests'
+);
+
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.ai_requests) = 0,
+  'and a parent reads none either'
+);
+
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.ai_requests (centre_id, feature, model, outcome)
+    values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'forged', 'claude-opus-5', 'ok');
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'nor can a parent write one');
+end $$;
+
+set local request.jwt.claims = '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.ai_requests) = 0,
+  'and another centre''s owner sees no model spend of ours at all'
+);
+
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.ai_requests (centre_id, feature, model, outcome)
+    values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'compliance-narrative', 'claude-opus-5', 'ok');
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'nor can they charge a call to our centre');
+end $$;
+
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+
+
 /*
  * The class. Every `_write_delete` policy's USING must equal its `_write_insert` counterpart's
  * WITH CHECK, so a condition cannot be enforced on one verb and quietly not the other.
@@ -4751,7 +4928,9 @@ begin
                            'messages', 'payments', 'audit_events',
                            'medication_administrations', 'sleep_checks',
                            'safety_checks', 'excursion_consents', 'excursion_headcounts',
-                           'staff_attendance_events')
+                           'staff_attendance_events',
+                           -- 0049: a usage record, and the row is its own record.
+                           'ai_requests')
      -- Reference data, and settings that belong to a person rather than a centre — the
      -- trigger could not attribute them to a tenant even if it fired.
      and c.relname not in ('criteria', 'criteria_sets', 'schema_migrations',

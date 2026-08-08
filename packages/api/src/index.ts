@@ -228,3 +228,6 @@ export * from './staff';
 // Definer functions only — a kiosk holds no table grant, so there is nothing here to
 // select from and no query for a later reader to widen.
 export * from './kiosk';
+
+// Usage records for external model calls. Not the calls themselves — see @ece/ai.
+export * from './ai';

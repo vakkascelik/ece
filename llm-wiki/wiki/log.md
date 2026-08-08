@@ -5,6 +5,80 @@ says so.*
 
 ---
 
+2026-08-09 — **The caller, the cap and the usage record.** 0049, `packages/ai`,
+`packages/core/src/modelSpend.ts`, `packages/api/src/ai.ts`. New page: [[model-calls]].
+
+The far side of yesterday's boundary. Nothing here changes what may be sent — that was settled by
+`redactForModel` and is not revisited. What is new is the thing that sends it, the arithmetic that
+decides when to stop, and the table that records both.
+
+**`packages/ai` is deliberately two calls wide.** `ModelClient` is a hand-written structural
+interface rather than the SDK's own type, which does two jobs: it makes the surface this product
+depends on visible in one place, and it lets every test supply a fake. That matters more than usual
+here, because there is no key in this environment and never has been — the fake is not a convenience,
+it is the only way any of this runs at all.
+
+**The branch worth naming is the refusal check, and it is about how the failure would look.** A
+refusal comes back as an HTTP 200 with an empty `content` array. Code that reads `content[0].text`
+optimistically does not throw — it renders `undefined`. On a compliance screen that is a blank panel
+with no error anywhere and no way for a manager to find out why. Not theoretical: a childcare
+product's figures sit next to incidents and injuries, which is exactly the neighbourhood where a
+safety classifier declines. Mutation-tested — removing the guard fails the assertion named for it.
+
+**The provider's error message is dropped rather than shown.** An API error quotes the offending
+request back, and the request holds the centre's figures. `actionError.ts` exists because Postgres
+does the identical thing with the value that violated a constraint; the same reasoning applies to a
+second external system, and it applied without anybody having to rediscover it.
+
+**The spend cap checks the switch before the cap, and refuses *at* the line rather than past it.**
+Both mutation-tested, and the first is not pedantry: a centre that never enabled this must not be
+told it has exhausted an allowance it never asked for. `estimateCents` rounds **up**, which is the
+mirror of `toHours` flooring — the shared rule is that an estimate errs against the party doing the
+estimating, and here that means erring toward refusing a call rather than toward a surprise bill.
+Four mutations on this file and its caller, four killed by name.
+
+**A structural bound I could not defend, so I paged instead.** The tempting argument for reading a
+month of usage unbounded is that the NZ$20 cap bounds the row count — a few hundred rows, well under
+PostgREST's thousand. **That argument is false in the one direction that matters.** A `blocked` row
+costs zero cents: the cap refuses the call, records it, and the counter does not move. A client
+looping against a disabled feature therefore writes rows for free, without limit — and this read is
+the one the cap itself depends on. Truncated at a thousand it would return a spend *lower* than the
+truth and re-allow calls that should be refused. That is [[reading-every-row]]'s original bug wearing
+new clothes, so it goes through `fetchAll`.
+
+**0049 is append-only, and the assertion is on the SQLSTATE, not on the row count.** A withheld
+GRANT raises 42501; a missing policy silently filters. Both look identical from the client, and only
+one of them survives a later migration adding a policy. The mutation proved the difference rather
+than assuming it: granting UPDATE back made the statement **succeed with no exception**, and the
+suite failed with `got none (the update SUCCEEDED)`. Including `service_role`, which is the branch
+that matters — the web app's server actions hold that key.
+
+**The table records the shape of a call, never its content**, and the consequence is stated on the
+table itself: it cannot answer *what did we send*. That answer is structural instead —
+`redactForModel` cannot express a name. An audit log of payloads would be a weaker guarantee wearing
+a stronger one's clothes, and it would give the disclosure a second lifetime inside our own database
+under a different retention rule.
+
+**Two exemption lists, and the second one caught me.** `ai_requests` carries no audit trigger, and
+that has to be declared in `rls_isolation.sql` *and* in `scripts/security-review.ts`. I did the
+first and not the second: the RLS suite went green at 375/375 and `review:security` returned a
+`HIGH`. That is the good failure — but the underlying arrangement is two hand-maintained copies of
+one list in two languages, which is precisely what `tokens:check` exists to prevent elsewhere in
+this repo. Recorded in [[model-calls]] rather than unified, because unifying crosses a language
+boundary and is a bigger change than this one earned. If a third copy appears, unify all three.
+
+**[[unverified-claims]] §27 corrected rather than edited.** It said "the call does not [exist]",
+which stopped being true today. The call exists and has still never run, and finished-looking code
+is a better reason to keep that entry than an absence was. New §29 on the price list: `OPUS_5_PRICING`
+is a number typed from a web page, not from an invoice. The exposure is bounded — it feeds only the
+NZ$20 cap, so being wrong by a factor of two costs a centre NZ$40 — and everything derived from it
+is named an estimate in the column, the type and the screen.
+
+Nobody has read a generated narrative, because none has been generated. 375/375 RLS, 16/16 security
+review, 449 unit tests.
+
+---
+
 2026-08-09 — **The switch and the boundary, before there is anything behind them.** 0047 plus
 `redactForModel`. See `docs/claude-api-plan.md`.
 

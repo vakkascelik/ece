@@ -200,6 +200,7 @@ policy text alone.
 - [[tenancy-and-rls]] — the boundary these checks are checking
 - [[consent-gated-media]] — the Phase 4 leak that finding 4 generalises
 - [[production-readiness]] — the phase this review belongs to
+- [[model-calls]] — the audit exemption this review keeps a second copy of
 - [[unverified-claims]] — items 13 and 14 came from here
 
 *Last updated: 2026-08-04*

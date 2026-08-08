@@ -130,6 +130,7 @@ from it not existing.
 
 - [[compliance-and-evidence]] — IPP 6 and staff records
 - [[tenancy-and-rls]] — the audit trigger and what it records
+- [[model-calls]] — the fourth processor, and the cross-border disclosure the type system prevents
 - [[unverified-claims]]
 
 *Last updated: 2026-08-04*

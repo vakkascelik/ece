@@ -457,17 +457,27 @@ off. Changing either figure is a one-line change in 0044's function.
 
 ### 27. Nothing has ever been sent to Anthropic's API
 
-Added 2026-08-09 with 0047. The switch, the redaction boundary and the privacy wording exist; the
-call does not, and **no request has ever been made** — there is no `ANTHROPIC_API_KEY` in this
-environment and the `ant` CLI is not installed, so the live path is untested by construction.
+Added 2026-08-09 with 0047. **Updated the same day with `packages/ai`:** the earlier wording said
+"the call does not [exist]", which has stopped being true. The calling code now exists. It has
+still never run — there is no `ANTHROPIC_API_KEY` in this environment and the `ant` CLI is not
+installed, so the live path is untested *by construction*, and code that looks finished is a
+better reason to keep this entry than an absence was.
 
 What *is* tested: `redactForModel` refuses every shape it is meant to refuse, mutation-tested four
-ways; and the flag defaults false, mutation-tested by setting the column default to `true` and
-confirming the suite fails. What is **not** tested is that the request body a real call sends is
-the one the redactor approved — that gap closes with `drill:redaction`, which needs a key.
+ways; the flag defaults false, mutation-tested by setting the column default to `true` and
+confirming the suite fails; and six tests in `packages/ai` drive an injected `ModelClient` fake
+across the refusal branch, the empty-content branch, the network-error branch and the shape of the
+request body — including that no `budget_tokens` appears anywhere in it, since Opus 5 rejects that
+with a 400 rather than ignoring it.
+
+What is **not** tested, and cannot be from here: that the API accepts that body at all; that the
+usage numbers come back in the fields the code reads; and that the instruction's prohibition on
+claiming compliance or breach is actually obeyed. **Nobody has read a generated narrative, because
+none has been generated.**
 
 **To close it:** put a key in `.env.local`, run the drill, and record what the outgoing body
-actually contained. Until then this entry is the honest state: a boundary with nothing behind it.
+actually contained and what came back. Until then this is a boundary, a caller and a cap, with
+nothing on the far side.
 
 ### 28. Generated prose is a draft, and the product must never treat it as a finding
 
@@ -481,6 +491,26 @@ that decides *whether* something is a breach stays in `assessRatio`, `overdueChe
 
 **To close it:** it does not close. If a future change makes generated text load-bearing anywhere,
 that change is wrong.
+
+### 29. The model price list is a number typed from a web page, not from an invoice
+
+Added 2026-08-09 with `packages/core/src/modelSpend.ts`. `OPUS_5_PRICING` says US$5 per million
+input tokens and US$25 per million output. **Nobody here has reconciled that against a bill**, and
+it will be wrong the day Anthropic changes it — silently, because nothing fetches it.
+
+Two things follow, and both are already done rather than promised. Everything derived from it is
+named an *estimate*: the column is `cents_estimate`, not `cost_cents`, so a reader who reconciles it
+against a statement and finds a difference does not conclude the difference means something. And
+`estimateCents` takes the price list as an argument, so a correction is data rather than a code
+change.
+
+The exposure is bounded by design: this figure only feeds a NZ$20 monthly cap whose purpose is to
+catch a runaway loop. If the price list is wrong by a factor of two, the cap is wrong by a factor of
+two, and the worst case is NZ$40 of model spend at a centre that asked for NZ$20. It is not
+load-bearing on anything a centre is billed for.
+
+**To close it:** make one real call with a key, read the actual usage from the response and the
+actual charge from the console, and compare. That is the same drill as §27 and closes with it.
 
 ## See Also
 

@@ -68,6 +68,10 @@ async function run(sql: string): Promise<Record<string, unknown>[]> {
  * `attendance_events` and `payments` are claims about money. `consent_events` is the defence
  * if a consent decision is ever questioned. `messages` is a record of what was said to a
  * family. If any of these can be rewritten, the thing they exist to prove is unprovable.
+ *
+ * `ai_requests` is here for a reason the others are not: the month's spend cap is computed
+ * by summing one of its columns. An editable usage record does not merely lose evidence —
+ * it disables the control that reads it, and does so in the direction of spending money.
  */
 const APPEND_ONLY = [
   'audit_events',
@@ -76,6 +80,7 @@ const APPEND_ONLY = [
   'consent_events',
   'messages',
   'payments',
+  'ai_requests',
 ];
 
 async function main() {
@@ -521,6 +526,8 @@ async function main() {
                              'messages', 'payments', 'audit_events',
                              'medication_administrations', 'sleep_checks', 'safety_checks',
                              'excursion_consents', 'excursion_headcounts', 'staff_attendance_events',
+                             -- 0049: a usage record, and the row is its own record.
+                             'ai_requests',
                              'criteria', 'criteria_sets', 'schema_migrations',
                              'push_tokens', 'notification_preferences', 'notifications',
                              'invitations')

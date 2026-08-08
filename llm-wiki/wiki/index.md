@@ -66,6 +66,12 @@ and [`../schema.md`](../schema.md) for the page template.
 - [[privacy-and-retention]] — what the Privacy Act 2020 actually requires (and a correction to
   an earlier wrong claim), plus how purging coexists with append-only tables
 
+## Model calls
+
+- [[model-calls]] — what is sent to an external model and what the type system makes
+  unsendable, why deterministic code decides and a model only phrases, the refusal branch that
+  would otherwise render a blank panel, and the NZ$20 cap computed from a table nobody can edit
+
 ## Production readiness
 
 - [[production-readiness]] — the phase that found a centre could not be deleted, what an

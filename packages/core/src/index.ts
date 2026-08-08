@@ -245,6 +245,10 @@ export * from './csv';
 // The boundary between this product and an external model provider. An allowlist, not
 // a scrubber — see the file, and privacy-statement.md for the rule it implements.
 export * from './redaction';
+
+// What a model call costs and when to stop making them. Pure, so the cap is testable
+// without a key — see the note on the price list being unverified.
+export * from './modelSpend';
 export * from './funding';
 
 // Applications for employment. The one vocabulary shared with the public website, which

@@ -8,6 +8,7 @@ apps/web        Next.js 15 — admin and staff web
 apps/mobile     Expo 57 / React Native — whānau and educators
 packages/core   types, roles, capabilities. No Node, no Next, no React Native.
 packages/api    the only place either app talks to Supabase
+packages/ai     the only place anything talks to an external model. Server-only.
 supabase/       migrations. RLS is the tenant boundary.
 docs/           what a centre reads, plus the runbooks: privacy, retention, breach, deploy
 llm-wiki/       why decisions were made, and what is asserted but unverified
