@@ -2594,6 +2594,153 @@ select pg_temp.expect(
 set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
 
 -- ===========================================================================
+-- STAFF MEMBERS (0038)
+--
+-- The person-of-record Phase 10 hangs off. Two properties worth pinning: an
+-- educator may READ the staff list (they are rostered alongside it) but not change
+-- it, and a second person record cannot be attached to one account — the ambiguity
+-- that would surface as a ratio wrong by one.
+-- ===========================================================================
+
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+
+insert into public.staff_members (id, centre_id, full_name, user_id, role_note, started_on)
+values ('d5555555-5555-4555-8555-555555555555',
+        'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        'Ed Educator', '55555555-5555-4555-8555-555555555555',
+        'Head teacher, over-2s', current_date - 400),
+       -- A reliever: works here, appears on a roster, has no account. The row this
+       -- table exists to be able to hold.
+       ('d6666666-6666-4666-8666-666666666666',
+        'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        'Sam Reliever', null, 'Reliever, Tuesdays', null);
+
+select pg_temp.expect(
+  (select count(*) from public.staff_members
+    where centre_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') = 2,
+  'an owner can add staff, including a reliever with no account'
+);
+
+-- Several NULL user_ids do not collide, which is what lets a centre hold a dozen
+-- relievers. Postgres semantics, asserted rather than assumed.
+insert into public.staff_members (centre_id, full_name, user_id)
+values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Another Reliever', null);
+select pg_temp.expect(
+  (select count(*) from public.staff_members
+    where centre_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' and user_id is null) = 2,
+  'and two relievers with no account do not collide on the unique constraint'
+);
+
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.staff_members (centre_id, full_name, user_id)
+    values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Ed Again',
+            '55555555-5555-4555-8555-555555555555');
+  exception when unique_violation then ok := true;
+  end;
+  perform pg_temp.expect(
+    ok,
+    'but one account CANNOT have two person records — that ambiguity is a ratio wrong by one'
+  );
+end $$;
+
+-- An educator reads the list and cannot change it.
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.staff_members
+    where centre_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') = 3,
+  'an educator CAN read the staff list — they are rostered alongside it'
+);
+
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.staff_members (centre_id, full_name)
+    values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Self Appointed');
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'and CANNOT add to it');
+end $$;
+
+do $$
+declare ok boolean := false;
+begin
+  begin
+    update public.staff_members set role_note = 'Manager, actually'
+     where id = 'd5555555-5555-4555-8555-555555555555';
+    ok := (select role_note from public.staff_members
+            where id = 'd5555555-5555-4555-8555-555555555555') <> 'Manager, actually';
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'nor promote themselves on it');
+end $$;
+
+-- A parent reads nothing: the staff list is not theirs.
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.staff_members) = 0,
+  'a parent at the centre reads no staff record'
+);
+
+set local request.jwt.claims = '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.staff_members) = 0,
+  'and another centre reads nothing at all'
+);
+
+/*
+ * Nobody deletes a person who worked here.
+ *
+ * They appear in ratio history, on shifts, and against attendance events once 0039
+ * lands. Removing the row would leave those pointing at nothing and would rewrite
+ * what the evidence binder can show. Departure is `finished_on`.
+ */
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+do $$
+declare ok boolean := false;
+begin
+  begin
+    delete from public.staff_members where id = 'd6666666-6666-4666-8666-666666666666';
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'nobody can DELETE a staff member — departure is finished_on');
+end $$;
+
+/*
+ * The link from licensing evidence to the person, and what happens without it.
+ *
+ * 0038 adds `staff_records.staff_member_id` and leaves every row null on purpose:
+ * matching on `person_name` would merge two relievers sharing a first name, and a
+ * vetting result attached to the wrong person is the worst row this schema could
+ * hold. This asserts the column exists, is linkable, and that a staff record
+ * survives the person record being unlinked — which is why `person_name` is
+ * `not null` and the FK is `on delete set null`.
+ */
+insert into public.staff_records (id, centre_id, person_name, kind, expires_on)
+values ('d7777777-7777-4777-8777-777777777777',
+        'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        'Sam Reliever', 'police_vetting', current_date + 300);
+
+select pg_temp.expect(
+  (select staff_member_id from public.staff_records
+    where id = 'd7777777-7777-4777-8777-777777777777') is null,
+  'a staff record starts unlinked — no migration guesses which Sam this is'
+);
+
+update public.staff_records
+   set staff_member_id = 'd6666666-6666-4666-8666-666666666666'
+ where id = 'd7777777-7777-4777-8777-777777777777';
+select pg_temp.expect(
+  (select staff_member_id from public.staff_records
+    where id = 'd7777777-7777-4777-8777-777777777777')
+    = 'd6666666-6666-4666-8666-666666666666',
+  'and can be linked by hand once somebody knows'
+);
+
+-- ===========================================================================
 -- RETENTION AND PURGING
 --
 -- `purge_child` is the most destructive thing in the product and it is SECURITY
