@@ -29,10 +29,13 @@ child sitting next to them.
   records between families.** Guardianship needs its own predicates.
 - **Every access predicate joins to a live membership**, so revoking a parent closes their
   own child's record immediately.
+- **A new ROLE is a change to every policy that does not name roles.** `caller_centre_ids()`
+  trusts a membership row without asking in what capacity, so four policies had to be narrowed
+  in 0043 before `kiosk` could safely exist. Allowlist the roles; never denylist one.
 - **Column-level grants do work a policy cannot** — a policy restricts rows, only a grant
   restricts columns.
-- The isolation suite is the highest-value test in the repo: **119 assertions as at
-  2026-08-04**, and it found three real bugs the first time it was ever executed.
+- The isolation suite is the highest-value test in the repo: **321 assertions as at
+  2026-08-08**, and it found three real bugs the first time it was ever executed.
 
 ## Details
 
@@ -43,7 +46,8 @@ otherwise recurse.
 
 | Function | Answers |
 |---|---|
-| `caller_centre_ids()` | centres the caller belongs to, any role |
+| `caller_centre_ids()` | centres the caller belongs to, **any role** — read the warning below |
+| `caller_person_centre_ids()` | centres where the caller is a *person*: owner/manager/educator/parent |
 | `caller_staff_centre_ids()` | centres where the caller is owner/manager/educator |
 | `caller_ward_ids()` | children the caller is a guardian of |
 | `caller_guardian_ids()` | the caller's own guardian records |
@@ -53,6 +57,30 @@ otherwise recurse.
 The live-membership join in the last four is the part that reads as obviously handled and
 is not: guardianship is recorded on the guardian row and would outlive the access without
 it. Asserted directly in the suite.
+
+#### `caller_centre_ids()` trusts a membership row, not a person
+
+It asks *which centres does this caller belong to* and never asks in what capacity, so every
+policy reading it inherits whatever roles exist **at the time somebody reads it**, including
+ones added later. That is a latent hazard rather than a bug, and 0042 was the change that
+made it bite: adding a `kiosk` role to `member_role` would, on its own, have handed a door
+tablet published pānui, the photographs attached to them, the membership list, and the
+ability to open a message thread as the centre.
+
+Six policies read it. Four were narrowed to `caller_person_centre_ids()` in 0043 — `posts_
+select`, `media_select`, `memberships_select`, `message_threads_insert`. Two were kept and the
+keeping is written down in the migration: `centres_select`, because a kiosk has to render the
+centre's name, and `audit_insert`, because a device that acts and leaves no trace is worse
+than one that reads a name.
+
+**An allowlist, not `role <> 'kiosk'`.** A denylist is wrong the next time a role is added and
+wrong *silently* — the new role inherits everything and nothing fails. `caller_staff_centre_
+ids()` needed no change at all in 0043 precisely because it already names its three roles, so
+it was safe against a role that did not exist when it was written. That property is the one
+worth copying.
+
+Prefer `caller_person_centre_ids()` in anything new. Reach for `caller_centre_ids()` only when
+a device genuinely should be included, and say why in the migration.
 
 ### Rejected: filtering in the query layer
 
@@ -106,4 +134,4 @@ restored. A test that cannot fail is not a test — worth repeating for any new 
 - [[compliance-and-evidence]] — where an educator's own record is readable by them
 - [[unverified-claims]]
 
-*Last updated: 2026-08-04*
+*Last updated: 2026-08-08*

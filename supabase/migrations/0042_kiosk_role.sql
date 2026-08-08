@@ -1,0 +1,41 @@
+-- ---------------------------------------------------------------------------
+-- 0042 — the `kiosk` role, and nothing that uses it
+--
+-- A door tablet. Centres sign children in and out at a shared device in the
+-- entrance, and the alternative — every parent logging in as themselves on a
+-- communal screen — is a thing nobody will do, so it is not a design, it is a
+-- refusal to have the feature.
+--
+-- WHY THIS MIGRATION CONTAINS ONE STATEMENT
+--
+-- `alter type … add value` cannot be followed by a *use* of that value in the same
+-- transaction. Postgres raises `55P04 unsafe use of new value`, and the migration
+-- runner sends each file as a single query, which the Management API wraps in one
+-- transaction. Verified against this database rather than assumed — and the first
+-- probe was misleading, because a value added to an enum *created in the same
+-- transaction* is allowed. The rule only bites for a pre-existing type, which is
+-- exactly this case.
+--
+-- So: the value here, everything that mentions it in 0043.
+--
+-- WHAT A KIOSK IS NOT
+--
+-- It is not a person, and it holds no capability in `@ece/core`. `CAPABILITIES`
+-- lists roles per capability rather than capabilities per role, so a new role
+-- arrives with **none** of them and `can()` returns false for every question. That
+-- is the correct default and it is structural rather than remembered.
+--
+-- THE DANGER THIS VALUE CREATES, WHICH 0043 CLOSES BEFORE ANYTHING CAN USE IT
+--
+-- `caller_centre_ids()` returns every centre the caller has any non-revoked
+-- membership at, **regardless of role**. Six policies read it. Four of them would
+-- therefore hand a door tablet things it must never have — published pānui, the
+-- photographs attached to them, the membership list, and the ability to start a
+-- message thread as the centre. None of that is hypothetical: it follows the moment
+-- a kiosk membership row exists.
+--
+-- The doors are shut in 0043, before there is a key. Applying this file alone is
+-- safe precisely because nothing can yet hold the role.
+-- ---------------------------------------------------------------------------
+
+alter type public.member_role add value if not exists 'kiosk';

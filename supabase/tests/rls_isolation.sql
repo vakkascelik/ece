@@ -3071,6 +3071,124 @@ select pg_temp.expect(
 set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
 
 -- ===========================================================================
+-- THE KIOSK ROLE (0042) AND THE FOUR DOORS 0043 SHUT
+--
+-- `caller_centre_ids()` trusts a membership row without asking in what capacity, so
+-- every policy reading it would hand a door tablet whatever a parent gets. This
+-- section exists to prove that a kiosk membership is worth *nothing* beyond the
+-- centre's own name.
+--
+-- Every negative below is paired with the positive that makes it mean something. A
+-- narrowing that broke `caller_person_centre_ids()` outright — returning no rows to
+-- anybody — would satisfy all four refusals perfectly, and this suite has already
+-- been taught that lesson once by a view that threw 42501 for everyone.
+-- ===========================================================================
+
+set local role postgres;
+
+insert into auth.users (id, email, instance_id, aud, role, created_at, updated_at)
+values ('66666666-6666-4666-8666-666666666666', 'kiosk@rlstest.invalid',
+        '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', now(), now())
+on conflict (id) do nothing;
+
+-- A device at centre A. Not a person: it has no guardian link and no staff record.
+insert into public.memberships (centre_id, user_id, role) values
+  ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '66666666-6666-4666-8666-666666666666', 'kiosk')
+on conflict do nothing;
+
+/*
+ * A photograph on the published pānui, seeded here rather than reused from the media
+ * section above — everything there is either deleted by the "staff can still delete
+ * what they cannot read" test or hidden by the consent-withdrawal one, so an educator
+ * legitimately sees none of it and it makes a useless control.
+ *
+ * This one has no `media_children`, so no consent gate stands between the reader and
+ * the row. That isolates the thing under test: the pānui branch of `media_select`,
+ * which is the branch 0043 narrowed.
+ */
+insert into public.media (id, centre_id, post_id, kind, audience, storage_path, uploaded_by)
+values ('22222222-aaaa-4aaa-8aaa-0000000000aa', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        '11111111-aaaa-4aaa-8aaa-000000000002', 'photo', 'journal',
+        'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/kiosk-panui.jpg',
+        '55555555-5555-4555-8555-555555555555')
+on conflict (id) do nothing;
+
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"66666666-6666-4666-8666-666666666666","role":"authenticated"}';
+
+-- Kept deliberately. A kiosk renders the centre's name on the screen.
+select pg_temp.expect(
+  (select count(*) from public.centres
+    where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') = 1,
+  'a kiosk CAN read its own centre — it has to put the name on the screen'
+);
+
+select pg_temp.expect(
+  (select count(*) from public.posts
+    where id = '11111111-aaaa-4aaa-8aaa-000000000002') = 0,
+  'a kiosk CANNOT read a published pānui, which a parent at the same centre can'
+);
+
+-- THE ONE THAT MATTERS. Media on a published pānui is photographs of children, and
+-- the screen this role runs on faces the entrance.
+select pg_temp.expect(
+  (select count(*) from public.media
+    where id = '22222222-aaaa-4aaa-8aaa-0000000000aa') = 0,
+  'a kiosk CANNOT read the photograph on the pānui — the screen faces the entrance'
+);
+
+select pg_temp.expect(
+  (select count(*) from public.memberships
+    where centre_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') = 0,
+  'a kiosk CANNOT read the membership list'
+);
+
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.message_threads (centre_id, child_id, subject, started_by)
+    values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', null, 'From the door',
+            '66666666-6666-4666-8666-666666666666');
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'a kiosk CANNOT start a message thread as the centre');
+end $$;
+
+select pg_temp.expect(
+  (select count(*) from public.children
+    where centre_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') = 0,
+  'and reads no children at all — 0042 grants a name on a door, not a roll'
+);
+
+/*
+ * THE POSITIVE CONTROLS.
+ *
+ * Priya is a parent at the same centre. If any of these have gone dark, the four
+ * refusals above are worthless and the narrowing has broken the product rather than
+ * secured it.
+ */
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+
+select pg_temp.expect(
+  (select count(*) from public.posts
+    where id = '11111111-aaaa-4aaa-8aaa-000000000002') = 1,
+  'a parent STILL reads the published pānui after the narrowing'
+);
+
+select pg_temp.expect(
+  (select count(*) from public.memberships
+    where centre_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') > 0,
+  'and STILL reads the membership list'
+);
+
+select pg_temp.expect(
+  (select count(*) from public.media
+    where id = '22222222-aaaa-4aaa-8aaa-0000000000aa') = 1,
+  'and a parent STILL reads the photograph on that pānui — the branch 0043 narrowed'
+);
+
+-- ===========================================================================
 -- RETENTION AND PURGING
 --
 -- `purge_child` is the most destructive thing in the product and it is SECURITY

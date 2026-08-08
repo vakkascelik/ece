@@ -5,6 +5,54 @@ says so.*
 
 ---
 
+2026-08-08 — **A new role is a change to every policy that does not name roles.** 0042 adds
+`kiosk` to `member_role`; 0043 shuts the four doors it would have opened. See [[tenancy-and-rls]].
+
+The kiosk itself does not exist yet — no PINs, no attendance path, no screen. This is only the
+role value and the narrowing, and the order is the point: **the doors are shut before there is a
+key.** Applying 0042 alone is safe precisely because nothing can hold the role.
+
+The hazard was latent and is worth stating plainly. `caller_centre_ids()` asks *which centres does
+this caller belong to* and never asks in what capacity, so a `kiosk` membership row would have
+inherited whatever a parent gets. Audited against the live catalogue rather than by reading
+migrations: six policies read it, and four of them would have handed a door tablet published
+pānui, **the photographs attached to them**, the membership list, and the ability to open a
+message thread as the centre. The media one is the one that matters — that screen faces the
+entrance.
+
+Two were deliberately kept and the keeping is written into the migration: `centres_select`,
+because a kiosk renders the centre's name, and `audit_insert`, because a device that acts and
+leaves no trace is worse than one that reads a name.
+
+**An allowlist, not `role <> 'kiosk'`.** A denylist is wrong the next time somebody adds a role,
+and wrong silently. `caller_staff_centre_ids()` needed no change at all here because it already
+names its three roles — it was safe against a role that did not exist when it was written, which
+is the property worth copying.
+
+**Two things verified rather than assumed, and the first probe was wrong.** `alter type … add
+value` cannot be followed by a use of that value in the same transaction, so the enum needs its
+own migration. The first probe appeared to disprove that — because it created the type in the
+same transaction, which Postgres permits. Re-probed against a pre-existing type: `55P04 unsafe use
+of new value`. Second, `typecheck` passes silently when a role is added to `MEMBER_ROLES`, because
+`CAPABILITIES` lists roles per capability, so a new role arrives holding none. That is the right
+default and a bad way to learn it, so `capabilities.test.ts` now asserts the kiosk holds nothing
+— against an owner-holds-everything control, since a `can()` broken to return false for everybody
+would satisfy the assertion perfectly.
+
+The RLS suite gained the same pairing throughout: every refusal has the positive beside it,
+because a narrowing that broke `caller_person_centre_ids()` outright would satisfy all four
+refusals and break the product. Mutation-tested by widening the function back to role-agnostic —
+failed on *a kiosk CANNOT read a published pānui* — then restored and verified against `pg_proc`.
+321/321.
+
+**A wrong control, caught by it failing.** The first positive control asserted an educator could
+read their centre's media, and it failed — not because of the narrowing, but because every media
+row in the fixture is either deleted by the *staff can still delete what they cannot read* test or
+hidden by the consent-withdrawal one. The fix was to seed a photograph on the published pānui
+inside the new section, which tests the exact branch 0043 changed rather than a neighbouring one.
+
+---
+
 2026-08-08 — **The forward ratio forecast**, and the shifts and leave it needed. See
 [[staff-as-people]].
 

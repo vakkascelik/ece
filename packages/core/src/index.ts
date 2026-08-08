@@ -49,7 +49,20 @@ export interface Centre {
 export const RATIO_SOURCES = ['declared', 'derived'] as const;
 export type RatioSource = (typeof RATIO_SOURCES)[number];
 
-export const MEMBER_ROLES = ['owner', 'manager', 'educator', 'parent'] as const;
+/**
+ * `kiosk` is a device, not a person, and it is last on purpose.
+ *
+ * `CAPABILITIES` below lists roles per capability rather than capabilities per role,
+ * so a role added here arrives holding **none** of them and `can()` answers false to
+ * every question. That is the right default and it is structural rather than
+ * remembered — the compiler would not have complained either way.
+ *
+ * The database says the same thing twice: `caller_person_centre_ids()` (0043) names
+ * the four human roles as an allowlist, so a kiosk membership is worth nothing beyond
+ * the centre's own name. Adding a role to this array without adding it there grants
+ * nothing, which is the direction an omission should fail in.
+ */
+export const MEMBER_ROLES = ['owner', 'manager', 'educator', 'parent', 'kiosk'] as const;
 export type MemberRole = (typeof MEMBER_ROLES)[number];
 
 export interface Membership {
