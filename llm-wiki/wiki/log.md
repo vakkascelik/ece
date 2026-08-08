@@ -5,6 +5,57 @@ says so.*
 
 ---
 
+2026-08-08 — **The door tablet.** 0044: guardian PINs, attestation on attendance, and two bugs in
+my own migration that would have shipped looking like features. See [[kiosk-and-pins]].
+
+**The roadmap's own instruction was wrong and following it would have been a real weakness.** It
+said to hash PINs "the [[invitations]] precedent" — SHA-256. Correct there, because an invitation
+token is 256 bits of randomness. A four-digit PIN is ten thousand candidates: SHA-256 of it is a
+rainbow table somebody builds in a second, and unsalted, every PIN in a leaked table falls to the
+same one. bcrypt via pgcrypto, per-row salt, verified against the live database before being
+relied on. `guardian_pins` has RLS on and **not one policy** — the opposite of the convention,
+and the suite asserts an owner cannot read a hash, because "no policy" looks identical to "policy
+forgotten".
+
+**The verify function returns a status and never raises, and that is not a style preference.** A
+`raise exception` rolls back the failed-attempt counter incremented immediately before it, giving
+a brute-force limiter that counts to one forever. It is the obvious implementation. Demonstrated
+rather than argued: a probe that increments and then raises, called inside an exception handler,
+leaves the counter reading 0.
+
+**`can_collect` has existed since 0003 and was never enforced anywhere.** It was data staff read
+off a screen and applied with judgement. A door has no judgement, so 0044 is the first thing here
+to enforce it — on sign-out only, because bringing a child in is not taking one away. Asserted
+against Ana's two guardians: her mother, who may collect, and her grandmother, who is on the
+record and not on the collection list. Mutation-tested by deleting the gate; failed on exactly
+that line.
+
+**Two bugs in my own migration, both of which would have passed every check.**
+
+The audit trigger would have recorded *nothing*. `audit_trigger` attributes a row to a tenant
+through `centre_id`, `child_id` or `invoice_id` and gives up **silently** when it finds none.
+`guardian_pins` has none of the three. The trigger would have existed, the class-level assertion
+would have gone on passing — it checks the trigger *exists* — and no audit row would ever have
+been written. Caught by reading the function's body before trusting it, not by any check.
+
+Then a quieter version of the same thing: `guardian_pins` is keyed on the guardian and has no
+`id`, so `entity_id` would have been null. A permitted value, so nothing fails, and the audit
+reads *"a PIN changed at this centre"* without saying whose — worse than an error, because it
+looks like a record. Both fixed in the shared function, both safe against every existing table by
+inspection of the catalogue rather than by assumption.
+
+`attendance_insert` was **not** widened, which the roadmap was right to insist on. The kiosk
+writes through a definer function; staff writes are governed by exactly the rule they were
+governed by yesterday, and the suite asserts that rule is still intact. 343/343.
+
+Two entries added to [[unverified-claims]]: the kiosk cannot enforce a parenting order, because
+`custody_arrangements` is prose written for a person to read and there is no machine-readable
+form of it — so a centre that has left `can_collect` at its default for a guardian who must not
+collect has a kiosk that will let them. And the lockout numbers are a judgement with no standard
+behind them.
+
+---
+
 2026-08-08 — **A new role is a change to every policy that does not name roles.** 0042 adds
 `kiosk` to `member_role`; 0043 shuts the four doors it would have opened. See [[tenancy-and-rls]].
 

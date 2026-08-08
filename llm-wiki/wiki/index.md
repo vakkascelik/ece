@@ -21,6 +21,9 @@ and [`../schema.md`](../schema.md) for the page template.
   isolation suite found on its first run
 - [[invitations]] — a two-step handshake with only the token hash stored; why signups are
   disabled and what that makes an invitation
+- [[kiosk-and-pins]] — the door tablet as a role rather than a person: why a four-digit PIN is
+  bcrypt and not SHA-256, why the verify function returns a status instead of raising, and the
+  audit trigger that would have recorded nothing
 - [[password-recovery]] — self-serve reset and in-app change, and why the design documents'
   "no password reset, ask for a re-invitation" was a lockout mechanism, not a safety property
 

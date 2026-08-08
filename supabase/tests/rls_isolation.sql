@@ -3189,6 +3189,253 @@ select pg_temp.expect(
 );
 
 -- ===========================================================================
+-- THE DOOR TABLET (0044) — PINs, attestation, and what the kiosk still cannot do
+--
+-- The riskiest surface in the repo: an authentication factor, and a write into the
+-- table a funding claim rests on. Everything below runs as the kiosk from 0042.
+-- ===========================================================================
+
+set local role postgres;
+
+/*
+ * Ana has two guardians, and the difference between them is the point.
+ *
+ * Priya is her mother and may collect. `d3333333` is her grandmother, on the record
+ * with no app account — the ordinary case — and here she is NOT on the collection
+ * list. That pairing is the assertion this section exists for, and it is a real
+ * arrangement rather than a contrived one: a grandparent who may drop off but whom a
+ * parenting order does not permit to take the child away.
+ */
+update public.child_guardians set can_collect = true
+ where guardian_id = 'd1111111-1111-4111-8111-111111111111';
+update public.child_guardians set can_collect = false
+ where guardian_id = 'd3333333-3333-4333-8333-333333333333';
+
+set local role authenticated;
+
+-- A manager sets the PINs. The office is the only place a PIN is ever set.
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+select public.set_guardian_pin('d1111111-1111-4111-8111-111111111111', '4821');
+select public.set_guardian_pin('d3333333-3333-4333-8333-333333333333', '9134');
+
+select pg_temp.expect(
+  (select count(*) from public.audit_events
+    where entity = 'guardian_pins'
+      and entity_id = 'd1111111-1111-4111-8111-111111111111') >= 1,
+  'setting a PIN is AUDITED, and the audit names the guardian'
+);
+
+/*
+ * THE ASSERTION THAT ALMOST WAS NOT WRITTEN.
+ *
+ * The class-level check further down asserts every table CARRIES the audit trigger.
+ * `guardian_pins` carries no `centre_id`, `child_id` or `invoice_id`, and
+ * `audit_trigger` gives up silently when it cannot attribute a row to a tenant — so
+ * the trigger would have existed, the class check would have passed, and not one row
+ * would ever have been written. The positive above is what makes the class check
+ * mean anything here.
+ */
+
+-- Nobody reads a hash. Not staff, not the service role, not the kiosk.
+do $$
+declare ok boolean := false;
+begin
+  begin
+    perform pin_hash from public.guardian_pins limit 1;
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'an OWNER cannot read a PIN hash — the table has no policy at all');
+end $$;
+
+select pg_temp.expect(
+  (select has_pin from public.guardian_pin_status('d1111111-1111-4111-8111-111111111111')),
+  'but an owner CAN see that a PIN exists, which is the phone call the office takes'
+);
+
+-- ---------------------------------------------------------------------------
+-- Now as the door tablet.
+-- ---------------------------------------------------------------------------
+set local request.jwt.claims = '{"sub":"66666666-6666-4666-8666-666666666666","role":"authenticated"}';
+
+select pg_temp.expect(
+  (select count(*) from public.kiosk_roll()) > 0,
+  'a kiosk CAN read the roll through the function — three columns and no more'
+);
+
+select pg_temp.expect(
+  (select count(*) from public.children) = 0,
+  'while the children TABLE stays closed to it — the function is the only door'
+);
+
+select pg_temp.expect(
+  (select count(*) from public.kiosk_guardians('a1111111-1111-4111-8111-111111111111')) > 0,
+  'and CAN list the adults for a child it was asked about'
+);
+
+-- A wrong PIN is refused, and the refusal is COUNTED. This is the one that a
+-- `raise exception` would have broken: the increment would roll back with the error
+-- and the limiter would count to one forever.
+select pg_temp.expect(
+  public.kiosk_sign_child('a1111111-1111-4111-8111-111111111111', 'in', now(),
+                          gen_random_uuid(), 'd1111111-1111-4111-8111-111111111111', '0000')
+    = 'wrong_pin',
+  'a wrong PIN is refused'
+);
+
+set local role postgres;
+select pg_temp.expect(
+  (select failed_attempts from public.guardian_pins
+    where guardian_id = 'd1111111-1111-4111-8111-111111111111') = 1,
+  'and the attempt SURVIVED the refusal — a raise here would have rolled the counter back'
+);
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"66666666-6666-4666-8666-666666666666","role":"authenticated"}';
+
+-- The right PIN signs the child in, and the event names who attested it.
+do $$
+declare v_key uuid := gen_random_uuid();
+begin
+  perform pg_temp.expect(
+    public.kiosk_sign_child('a1111111-1111-4111-8111-111111111111', 'in', now(),
+                            v_key, 'd1111111-1111-4111-8111-111111111111', '4821') = 'recorded',
+    'the right PIN signs the child in'
+  );
+  -- Same key again: reported as success, and does NOT write a second event. A parent
+  -- told the write failed taps again.
+  perform pg_temp.expect(
+    public.kiosk_sign_child('a1111111-1111-4111-8111-111111111111', 'in', now(),
+                            v_key, 'd1111111-1111-4111-8111-111111111111', '4821') = 'duplicate',
+    'and repeating the same client key is a duplicate, not a second child in the room'
+  );
+end $$;
+
+set local role postgres;
+select pg_temp.expect(
+  (select count(*) from public.attendance_events
+    where child_id = 'a1111111-1111-4111-8111-111111111111'
+      and attested_by = 'd1111111-1111-4111-8111-111111111111') = 1,
+  'exactly one event, and it records WHICH GUARDIAN attested it'
+);
+select pg_temp.expect(
+  (select count(*) from public.guardian_pins
+    where guardian_id = 'd1111111-1111-4111-8111-111111111111'
+      and failed_attempts = 0) = 1,
+  'and a correct PIN clears the failed attempts'
+);
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"66666666-6666-4666-8666-666666666666","role":"authenticated"}';
+
+/*
+ * THE SAFETY ASSERTION.
+ *
+ * `can_collect` has been data staff read off a screen since 0003; this is the first
+ * thing in the repo to ENFORCE it, because a door has no human gatekeeper. Quinn may
+ * bring Beau in and may not take him away.
+ */
+select pg_temp.expect(
+  public.kiosk_sign_child('a1111111-1111-4111-8111-111111111111', 'in', now(),
+                          gen_random_uuid(), 'd3333333-3333-4333-8333-333333333333', '9134')
+    = 'recorded',
+  'the grandmother who may NOT collect can still sign Ana IN — bringing a child is not taking one'
+);
+
+select pg_temp.expect(
+  public.kiosk_sign_child('a1111111-1111-4111-8111-111111111111', 'out', now(),
+                          gen_random_uuid(), 'd3333333-3333-4333-8333-333333333333', '9134')
+    = 'not_permitted',
+  'but CANNOT sign her OUT — can_collect is enforced at the door, not merely displayed'
+);
+
+-- And the mother, who may collect, can.
+select pg_temp.expect(
+  public.kiosk_sign_child('a1111111-1111-4111-8111-111111111111', 'out', now(),
+                          gen_random_uuid(), 'd1111111-1111-4111-8111-111111111111', '4821')
+    = 'recorded',
+  'while the guardian who MAY collect signs her out — the refusal above is about the flag'
+);
+
+/*
+ * Quinn is Beau's father and nothing to do with Ana. Refused before the PIN is even
+ * looked at, which is why no PIN is set for Quinn anywhere in this suite.
+ */
+select pg_temp.expect(
+  public.kiosk_sign_child('a1111111-1111-4111-8111-111111111111', 'in', now(),
+                          gen_random_uuid(), 'd2222222-2222-4222-8222-222222222222', '4821')
+    = 'not_permitted',
+  'a guardian CANNOT attest for a child who is not theirs'
+);
+
+-- A guardian with no PIN is told so, rather than refused as though they were a stranger.
+select pg_temp.expect(
+  public.kiosk_sign_child('b2222222-2222-4222-8222-222222222222', 'in', now(),
+                          gen_random_uuid(), 'd2222222-2222-4222-8222-222222222222', '4821')
+    = 'no_pin',
+  'and a guardian who has never been given a PIN gets no_pin, not a refusal'
+);
+
+-- And the kiosk still cannot write attendance directly. The definer function is the
+-- only path; the policy was deliberately not widened.
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.attendance_events (child_id, kind, at, recorded_by, client_uuid)
+    values ('a1111111-1111-4111-8111-111111111111', 'in', now(),
+            '66666666-6666-4666-8666-666666666666', gen_random_uuid());
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(
+    ok,
+    'a kiosk CANNOT insert attendance directly — attendance_insert was never widened'
+  );
+end $$;
+
+-- The old attribution rule still holds for everybody else. 0044 must not have
+-- loosened the table it added a column to.
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.attendance_events (child_id, kind, at, recorded_by, client_uuid)
+    values ('a1111111-1111-4111-8111-111111111111', 'in', now(),
+            '11111111-1111-4111-8111-111111111111', gen_random_uuid());
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(
+    ok,
+    'and an educator STILL cannot attribute an event to somebody else — 0009''s rule is intact'
+  );
+end $$;
+
+-- A person is not a kiosk, whatever else they are.
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+select pg_temp.expect(
+  public.caller_kiosk_centre_id() is null and (select count(*) from public.kiosk_roll()) = 0,
+  'a parent is not a kiosk and the roll function tells them nothing'
+);
+
+select pg_temp.expect(
+  public.kiosk_sign_child('a1111111-1111-4111-8111-111111111111', 'in', now(),
+                          gen_random_uuid(), 'd1111111-1111-4111-8111-111111111111', '4821')
+    = 'not_permitted',
+  'and a parent CANNOT use the kiosk write path from their own phone'
+);
+
+-- Setting a PIN is the office's job, not a parent's.
+do $$
+declare ok boolean := false;
+begin
+  begin
+    perform public.set_guardian_pin('d1111111-1111-4111-8111-111111111111', '1111');
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'a parent CANNOT set their own PIN — the office does it');
+end $$;
+
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+
+-- ===========================================================================
 -- RETENTION AND PURGING
 --
 -- `purge_child` is the most destructive thing in the product and it is SECURITY

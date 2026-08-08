@@ -421,8 +421,43 @@ justifying it.
 **To close it:** read the licensing criteria on emergency procedures. It changes the guidance
 the UI can offer, not the schema. See [[centre-registers]].
 
+### 25. The kiosk cannot enforce a parenting order
+
+Added 2026-08-08 with `guardian_pins` (0044). Not a gap in research — a limit of what the schema
+can represent, recorded because it will otherwise be assumed away.
+
+`custody_arrangements` holds free text written for a person to read: *"collection by the father
+is not permitted without written agreement."* There is no machine-readable form of it, and
+inventing one would mean parsing a legal document into a boolean, which is the kind of confident
+wrongness this product exists to avoid.
+
+What the door tablet enforces is `child_guardians.can_collect`, and 0044 is the first thing in
+the repo to enforce it at all — before that it was data staff read and applied with judgement.
+**The consequence is the entry:** a centre that has left `can_collect` at its default for a
+guardian who must not collect has a kiosk that will let them take the child. A staffed door had a
+person in the way; this does not.
+
+**To close it:** nothing in code. It is a deployment obligation — a centre turning the kiosk on
+must review the collection list first — and it belongs in whatever onboarding material exists
+before a tablet is put in an entrance. See [[kiosk-and-pins]].
+
+### 26. Five attempts, then fifteen minutes
+
+Added 2026-08-08. The PIN lockout numbers in `kiosk_sign_child` are a judgement, not a citation,
+and there is no standard here to be right about.
+
+The reasoning, such as it is: a parent mistyping at a door with a queue behind them needs room to
+try again, and 10,000 candidates at five attempts per fifteen minutes is over a week of
+uninterrupted tapping in a staffed entrance. Both halves are guesses in what seems the safe
+direction.
+
+**To close it:** watch a centre use it. If parents lock themselves out routinely the number is
+wrong in the direction that matters, because the fix a centre reaches for is turning the feature
+off. Changing either figure is a one-line change in 0044's function.
+
 ## See Also
 
+- [[kiosk-and-pins]] — the door tablet, and what it can and cannot know
 - [[attendance-and-ratios]] — where the ratio bands are used
 - [[compliance-and-evidence]] — why criteria ship empty
 - [[privacy-and-retention]] — retention, and the Privacy Act correction
