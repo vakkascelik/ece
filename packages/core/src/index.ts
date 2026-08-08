@@ -37,8 +37,17 @@ export interface Centre {
    * declines to call anything late. unverified-claims 24.
    */
   drillIntervalDays: number | null;
+  /**
+   * Where the adult half of the ratio comes from. Defaults to `declared` so no
+   * existing centre's history changes meaning on deploy, and never blends with the
+   * other source — see 0040.
+   */
+  ratioSource: RatioSource;
   archivedAt: string | null;
 }
+
+export const RATIO_SOURCES = ['declared', 'derived'] as const;
+export type RatioSource = (typeof RATIO_SOURCES)[number];
 
 export const MEMBER_ROLES = ['owner', 'manager', 'educator', 'parent'] as const;
 export type MemberRole = (typeof MEMBER_ROLES)[number];

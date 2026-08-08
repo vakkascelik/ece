@@ -50,7 +50,15 @@ export default async function CompliancePage() {
   const replays = await Promise.all(
     days.map(async (date) => {
       const { fromUtc, toUtc } = dayWindow(date, ctx.centre.timezone);
-      return readDayRatio(db, { centreId: ctx.centre.id, date, fromUtc, toUtc });
+      return readDayRatio(db, {
+        centreId: ctx.centre.id,
+        date,
+        fromUtc,
+        toUtc,
+        // The centre's stated source. Required by readDayRatio so a switch cannot
+        // silently reinterpret a binder — see 0040.
+        adultSource: ctx.centre.ratioSource,
+      });
     }),
   );
 

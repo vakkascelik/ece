@@ -70,6 +70,20 @@ export interface BreachPeriod {
   adultsPresent: number;
 }
 
+/**
+ * Where the adult half of every ratio in this replay came from.
+ *
+ * `declared` — a number staff typed into `staff_count_events`.
+ * `derived`  — the people who signed in, per `staff_attendance_events`.
+ *
+ * Carried on the replay because a binder covering February and March may hold days
+ * from both, and a reader cannot be expected to know which. It is **required**, not
+ * defaulted: a centre that switches sources and forgets to say so produces a
+ * document asserting a provenance it does not have, which is worse than one that
+ * asserts none. See `staff-as-people.md` and 0040.
+ */
+export type AdultSource = 'declared' | 'derived';
+
 export interface DayReplay {
   date: string;
   snapshots: RatioSnapshot[];
@@ -78,6 +92,8 @@ export interface DayReplay {
   minutesInBreach: number | null;
   /** The worst state reached, for a one-line summary. */
   worst: RatioAssessment | null;
+  /** Where the adult numbers came from. Stated by the caller, never guessed. */
+  adultSource: AdultSource;
 }
 
 /**
@@ -91,6 +107,15 @@ export function replayDay(input: {
   date: string;
   attendance: ReplayAttendanceEvent[];
   adultCounts: ReplayAdultEvent[];
+  /**
+   * Where `adultCounts` came from. Required, and the compiler is the enforcement.
+   *
+   * A default would let a centre switch to derived and keep printing binders that
+   * say "figures entered by staff" over numbers nobody typed. Fifteen call sites had
+   * to be edited to add this, which is the cost of making the mistake impossible
+   * rather than unlikely.
+   */
+  adultSource: AdultSource;
   children: { id: string; dateOfBirth: string }[];
   /** Adults already present when the day's first event occurred. Usually 0. */
   openingAdults?: number;
@@ -164,8 +189,47 @@ export function replayDay(input: {
   return {
     date: input.date,
     snapshots,
+    adultSource: input.adultSource,
     ...collectBreaches(snapshots),
   };
+}
+
+/**
+ * Staff sign-in and sign-out events into the running adult count `replayDay` wants.
+ *
+ * The bridge between 0039's per-person events and a shape that already works. It
+ * emits one `ReplayAdultEvent` per change, so the replay sees the adult count move
+ * at the moment somebody actually arrived or left rather than at a figure typed at
+ * 9am and never revisited — which is the entire argument for deriving it.
+ *
+ * Superseded events are dropped first, and transitively. A correction may carry an
+ * EARLIER timestamp than the row it fixes — somebody signed in at 8:05 and corrects
+ * it to 7:50 — so sorting by time without resolving corrections first would replay
+ * the state in the wrong order. Same rule as `adults_present_now` in 0040, deliberately
+ * duplicated rather than shared: one answers about now in SQL, this replays a past
+ * day in TypeScript, and a shared implementation would have to live in one of the two
+ * places where the other cannot reach it.
+ */
+export function deriveAdultCounts(
+  events: { id: number; staffMemberId: string; kind: 'in' | 'out'; at: string; corrects: number | null }[],
+): ReplayAdultEvent[] {
+  const corrected = new Set<number>();
+  for (const e of events) if (e.corrects !== null) corrected.add(e.corrects);
+
+  const live = events
+    .filter((e) => !corrected.has(e.id))
+    .sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : a.id - b.id));
+
+  const present = new Set<string>();
+  const out: ReplayAdultEvent[] = [];
+
+  for (const e of live) {
+    if (e.kind === 'in') present.add(e.staffMemberId);
+    else present.delete(e.staffMemberId);
+    out.push({ adults: present.size, at: e.at });
+  }
+
+  return out;
 }
 
 function collectBreaches(snapshots: RatioSnapshot[]): {

@@ -2848,6 +2848,94 @@ select pg_temp.expect(
 set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
 
 -- ===========================================================================
+-- THE TWO RATIO SOURCES (0040)
+--
+-- The rule is that they never blend and never fall back. Both halves are asserted,
+-- and the second is the one that would be "fixed" by a well-meaning later change:
+-- a derived centre with nobody signed in reports ZERO, not yesterday's typed count.
+-- ===========================================================================
+
+-- Two staff signed in above, and a typed count that disagrees with them.
+insert into public.staff_count_events (centre_id, adults, at, recorded_by, client_uuid)
+values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 7, now() - interval '1 hour',
+        '55555555-5555-4555-8555-555555555555', gen_random_uuid());
+
+select pg_temp.expect(
+  public.adults_present_now('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') = 7,
+  'a centre defaults to declared, so the typed count is the answer'
+);
+
+set local role postgres;
+update public.centres set ratio_source = 'derived'
+ where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+
+select pg_temp.expect(
+  public.adults_present_now('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') = 2,
+  'switched to derived, it counts the people who signed in and IGNORES the typed 7'
+);
+
+-- Signing one out drops the count. The typed 7 is still sitting there and still
+-- irrelevant, which is the no-blend rule doing its work.
+insert into public.staff_attendance_events (staff_member_id, kind, at, recorded_by, client_uuid)
+values ('d6666666-6666-4666-8666-666666666666', 'out', now() - interval '10 minutes',
+        '55555555-5555-4555-8555-555555555555', gen_random_uuid());
+
+select pg_temp.expect(
+  public.adults_present_now('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') = 1,
+  'and signing somebody out drops it — no blending with the typed count'
+);
+
+/*
+ * A correction may carry an EARLIER timestamp than the row it fixes — somebody
+ * signed in at 8:05 and corrects it to 7:50. Ordering by time alone would pick the
+ * original and answer with the wrong state, so superseded rows are excluded first.
+ *
+ * Here: correct the sign-OUT back to a sign-IN, timestamped before it.
+ */
+insert into public.staff_attendance_events (staff_member_id, kind, at, recorded_by, client_uuid, corrects, note)
+values ('d6666666-6666-4666-8666-666666666666', 'in', now() - interval '20 minutes',
+        '55555555-5555-4555-8555-555555555555', gen_random_uuid(),
+        (select id from public.staff_attendance_events
+          where staff_member_id = 'd6666666-6666-4666-8666-666666666666'
+            and kind = 'out' order by id desc limit 1),
+        'Signed out by mistake — they were still here.');
+
+select pg_temp.expect(
+  public.adults_present_now('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') = 2,
+  'a correction timestamped BEFORE the row it fixes still wins — superseded rows are excluded, not out-sorted'
+);
+
+/*
+ * THE ASSERTION MOST LIKELY TO BE "FIXED" LATER.
+ *
+ * A derived centre where nobody has signed in reports zero. It looks like a bug and
+ * it is the entire point: falling back to the typed count would paper over exactly
+ * the failure that switching to derived was meant to expose.
+ */
+set local role postgres;
+delete from public.staff_attendance_events;
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+
+select pg_temp.expect(
+  public.adults_present_now('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') = 0,
+  'a DERIVED centre with nobody signed in reports ZERO — it does not fall back to the typed count'
+);
+
+set local role postgres;
+update public.centres set ratio_source = 'declared'
+ where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+
+select pg_temp.expect(
+  public.adults_present_now('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') = 7,
+  'and switching back restores the typed count, unchanged'
+);
+
+-- ===========================================================================
 -- RETENTION AND PURGING
 --
 -- `purge_child` is the most destructive thing in the product and it is SECURITY

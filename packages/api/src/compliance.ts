@@ -14,7 +14,14 @@
  * figure that drifts from the events reports itself as compliant.
  */
 
-import { replayDay, type DayReplay, type StaffRecord, type StaffRecordKind } from '@ece/core';
+import {
+  deriveAdultCounts,
+  replayDay,
+  type AdultSource,
+  type DayReplay,
+  type StaffRecord,
+  type StaffRecordKind,
+} from '@ece/core';
 import { fetchAll } from './paging';
 import type { Db } from './index';
 
@@ -384,9 +391,25 @@ export async function archiveEvidence(db: Db, evidenceId: string): Promise<void>
  */
 export async function readDayRatio(
   db: Db,
-  input: { centreId: string; date: string; fromUtc: string; toUtc: string },
+  input: {
+    centreId: string;
+    date: string;
+    fromUtc: string;
+    toUtc: string;
+    /**
+     * Which source this centre's adult numbers come from — `centres.ratio_source`.
+     *
+     * Passed in rather than read here, and required rather than defaulted, because
+     * the caller already holds the centre and because the compiler is the only thing
+     * that can stop a future reader silently printing a binder that says "figures
+     * entered by staff" over numbers nobody typed. See 0040.
+     */
+    adultSource: AdultSource;
+  },
 ): Promise<DayReplay> {
-  const [attendance, adults, children] = await Promise.all([
+  const derived = input.adultSource === 'derived';
+
+  const [attendance, adults, children, staffAttendance] = await Promise.all([
     db
       .from('attendance_events')
       // `id, corrects` are load-bearing: without them the replay cannot tell a superseded event
@@ -408,11 +431,30 @@ export async function readDayRatio(
     // Archived children included: a report about February must count a child who left
     // in March, or the historical roll shrinks every time somebody leaves.
     db.from('children').select('id, date_of_birth').eq('centre_id', input.centreId),
+    /*
+      Only fetched for a derived centre, and that is not an optimisation.
+      `staff_attendance_events` is joined to its centre through `staff_members`, so a
+      declared centre would be issuing a query whose result it must then ignore — and
+      the temptation to "use it if it happens to be there" is exactly the blending
+      0040 forbids. Not fetching it makes the rule structural.
+    */
+    derived
+      ? db
+          .from('staff_attendance_events')
+          .select('id, staff_member_id, kind, at, corrects, staff_members!inner(centre_id)')
+          .eq('staff_members.centre_id', input.centreId)
+          .gte('at', input.fromUtc)
+          .lt('at', input.toUtc)
+          .order('at')
+      : Promise.resolve({ data: [], error: null }),
   ]);
 
   if (attendance.error) throw new Error(`readDayRatio (attendance): ${attendance.error.message}`);
   if (adults.error) throw new Error(`readDayRatio (adults): ${adults.error.message}`);
   if (children.error) throw new Error(`readDayRatio (children): ${children.error.message}`);
+  if (staffAttendance.error) {
+    throw new Error(`readDayRatio (staff attendance): ${staffAttendance.error.message}`);
+  }
 
   /**
    * The adult count in force when the day began.
@@ -447,10 +489,35 @@ export async function readDayRatio(
       at: r.at,
       corrects: r.corrects,
     })),
-    adultCounts: (adults.data as { adults: number; at: string }[]).map((r) => ({
-      adults: r.adults,
-      at: r.at,
-    })),
+    /*
+      One source or the other, chosen by the centre — never both, and never a
+      fallback from one to the other. A derived centre with nobody signed in replays
+      zero adults and shows a breach, which is the point of switching: it makes the
+      missing sign-ins visible instead of papering over them with a typed number.
+    */
+    adultCounts: derived
+      ? deriveAdultCounts(
+          (
+            staffAttendance.data as {
+              id: number;
+              staff_member_id: string;
+              kind: 'in' | 'out';
+              at: string;
+              corrects: number | null;
+            }[]
+          ).map((r) => ({
+            id: r.id,
+            staffMemberId: r.staff_member_id,
+            kind: r.kind,
+            at: r.at,
+            corrects: r.corrects,
+          })),
+        )
+      : (adults.data as { adults: number; at: string }[]).map((r) => ({
+          adults: r.adults,
+          at: r.at,
+        })),
+    adultSource: input.adultSource,
     children: (children.data as { id: string; date_of_birth: string }[]).map((r) => ({
       id: r.id,
       dateOfBirth: r.date_of_birth,

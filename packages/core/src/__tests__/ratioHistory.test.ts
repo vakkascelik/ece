@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { replayDay, summariseDay } from '../ratioHistory';
+import { deriveAdultCounts, replayDay, summariseDay } from '../ratioHistory';
 
 /**
  * Replaying a day into ratio history.
@@ -22,6 +22,7 @@ const T = (hhmm: string) => `2026-08-04T${hhmm}:00.000Z`;
 describe('replayDay', () => {
   it('produces one snapshot per event, not a sample', () => {
     const day = replayDay({
+      adultSource: 'declared',
       date: '2026-08-04',
       attendance: [
         { id: 1, corrects: null, childId: 'kid1', kind: 'in', at: T('20:00') },
@@ -36,6 +37,7 @@ describe('replayDay', () => {
 
   it('interleaves attendance and adult counts by time', () => {
     const day = replayDay({
+      adultSource: 'declared',
       date: '2026-08-04',
       attendance: [{ id: 3, corrects: null, childId: 'kid1', kind: 'in', at: T('20:10') }],
       adultCounts: [
@@ -56,6 +58,7 @@ describe('replayDay', () => {
       dateOfBirth: '2021-01-01',
     }));
     const day = replayDay({
+      adultSource: 'declared',
       date: '2026-08-04',
       attendance: many.map((c, i) => ({
         id: 100 + i,
@@ -84,6 +87,7 @@ describe('replayDay', () => {
       dateOfBirth: '2021-01-01',
     }));
     const day = replayDay({
+      adultSource: 'declared',
       date: '2026-08-04',
       attendance: many.map((c, i) => ({
         id: 200 + i,
@@ -103,6 +107,7 @@ describe('replayDay', () => {
 
   it('leaves a breach open when the day ends in one, rather than inventing an end', () => {
     const day = replayDay({
+      adultSource: 'declared',
       date: '2026-08-04',
       attendance: [{ id: 4, corrects: null, childId: 'baby', kind: 'in', at: T('20:00') }],
       adultCounts: [],
@@ -121,12 +126,14 @@ describe('replayDay', () => {
     // February in the centre's favour.
     const turningTwo = [{ id: 'birthday', dateOfBirth: '2024-03-15' }];
     const before = replayDay({
+      adultSource: 'declared',
       date: '2026-03-01',
       attendance: [{ id: 5, corrects: null, childId: 'birthday', kind: 'in', at: '2026-03-01T20:00:00.000Z' }],
       adultCounts: [{ adults: 1, at: '2026-03-01T19:55:00.000Z' }],
       children: turningTwo,
     });
     const after = replayDay({
+      adultSource: 'declared',
       date: '2026-03-20',
       attendance: [{ id: 6, corrects: null, childId: 'birthday', kind: 'in', at: '2026-03-20T20:00:00.000Z' }],
       adultCounts: [{ adults: 1, at: '2026-03-20T19:55:00.000Z' }],
@@ -142,6 +149,7 @@ describe('replayDay', () => {
     // flatter the ratio, so they are counted — in the weaker band, which is the honest
     // direction for an assumption.
     const day = replayDay({
+      adultSource: 'declared',
       date: '2026-08-04',
       attendance: [{ id: 7, corrects: null, childId: 'unknown-child', kind: 'in', at: T('20:00') }],
       adultCounts: [{ adults: 1, at: T('19:55') }],
@@ -155,6 +163,7 @@ describe('replayDay', () => {
 
   it('handles sign-outs, and does not double-count a repeated sign-in', () => {
     const day = replayDay({
+      adultSource: 'declared',
       date: '2026-08-04',
       attendance: [
         { id: 8, corrects: null, childId: 'kid1', kind: 'in', at: T('20:00') },
@@ -173,6 +182,7 @@ describe('replayDay', () => {
 
   it('reports an empty day plainly', () => {
     const day = replayDay({
+      adultSource: 'declared',
       date: '2026-08-04',
       attendance: [],
       adultCounts: [],
@@ -188,6 +198,7 @@ describe('replayDay', () => {
     // The events only record what was signed in. A child who was present and never
     // signed in is invisible here, so the report must not claim more than it knows.
     const day = replayDay({
+      adultSource: 'declared',
       date: '2026-08-04',
       attendance: [{ id: 11, corrects: null, childId: 'kid1', kind: 'in', at: T('20:00') }],
       adultCounts: [{ adults: 1, at: T('19:55') }],
@@ -223,6 +234,7 @@ describe('replayDay and corrections', () => {
     // Three over-twos in, one adult. The mistaken 15:00 sign-out for 'a' is superseded by a
     // correction at 16:30, so 'a' must still be present at 16:00.
     const day = replayDay({
+      adultSource: 'declared',
       date: '2026-08-04',
       attendance: [
         { id: 1, corrects: null, childId: 'a', kind: 'in', at: T('20:00') },
@@ -258,6 +270,7 @@ describe('replayDay and corrections', () => {
     }));
 
     const day = replayDay({
+      adultSource: 'declared',
       date: '2026-08-04',
       attendance: [
         ...seven.map((c, i) => ({
@@ -293,6 +306,7 @@ describe('replayDay and corrections', () => {
     // Corrected twice: 21:00 -> 22:00 -> 22:45 UTC. Only the last is live. A single-step resolution
     // would leave 16:00 applied as well and sign the child out twice.
     const day = replayDay({
+      adultSource: 'declared',
       date: '2026-08-04',
       attendance: [
         { id: 1, corrects: null, childId: 'a', kind: 'in', at: T('20:00') },
@@ -307,5 +321,79 @@ describe('replayDay and corrections', () => {
     const signOuts = day.snapshots.filter((s) => s.cause === 'sign-out');
     expect(signOuts).toHaveLength(1);
     expect(signOuts[0]?.at).toBe(T('22:45'));
+  });
+});
+
+describe('deriveAdultCounts', () => {
+  const ev = (
+    id: number,
+    staffMemberId: string,
+    kind: 'in' | 'out',
+    at: string,
+    corrects: number | null = null,
+  ) => ({ id, staffMemberId, kind, at, corrects });
+
+  it('emits the running count at the moment each person arrives or leaves', () => {
+    // The whole argument for deriving: the number moves when somebody actually
+    // walked in, not at a figure typed at 9am and never revisited.
+    const counts = deriveAdultCounts([
+      ev(1, 'a', 'in', '2026-08-10T07:30:00.000Z'),
+      ev(2, 'b', 'in', '2026-08-10T08:00:00.000Z'),
+      ev(3, 'a', 'out', '2026-08-10T15:00:00.000Z'),
+    ]);
+    expect(counts).toEqual([
+      { adults: 1, at: '2026-08-10T07:30:00.000Z' },
+      { adults: 2, at: '2026-08-10T08:00:00.000Z' },
+      { adults: 1, at: '2026-08-10T15:00:00.000Z' },
+    ]);
+  });
+
+  it('counts people, not events — a double sign-in does not make two adults', () => {
+    const counts = deriveAdultCounts([
+      ev(1, 'a', 'in', '2026-08-10T07:30:00.000Z'),
+      ev(2, 'a', 'in', '2026-08-10T07:31:00.000Z'),
+    ]);
+    expect(counts.map((c) => c.adults)).toEqual([1, 1]);
+  });
+
+  it('drops a superseded event even when its correction is timestamped EARLIER', () => {
+    /*
+      The case `adults_present_now` handles in SQL and this must handle in TypeScript:
+      somebody signed out by mistake, and the correction says they were here all
+      along — timestamped before the row it fixes. Sorting by time without resolving
+      corrections first would replay the sign-out and report one adult too few.
+    */
+    const counts = deriveAdultCounts([
+      ev(1, 'a', 'in', '2026-08-10T07:30:00.000Z'),
+      ev(2, 'a', 'out', '2026-08-10T12:00:00.000Z'),
+      ev(3, 'a', 'in', '2026-08-10T11:50:00.000Z', 2),
+    ]);
+    expect(counts.map((c) => c.adults)).toEqual([1, 1]);
+    expect(counts.some((c) => c.adults === 0)).toBe(false);
+  });
+
+  it('is transitive — a correction of a correction removes the middle one too', () => {
+    const counts = deriveAdultCounts([
+      ev(1, 'a', 'in', '2026-08-10T07:00:00.000Z'),
+      ev(2, 'a', 'out', '2026-08-10T08:00:00.000Z'),
+      ev(3, 'a', 'out', '2026-08-10T09:00:00.000Z', 2),
+      ev(4, 'a', 'in', '2026-08-10T09:30:00.000Z', 3),
+    ]);
+    // Only 1 and 4 survive: in, then in again. Never zero.
+    expect(counts.map((c) => c.adults)).toEqual([1, 1]);
+  });
+
+  it('breaks a tie on identical timestamps by insertion order', () => {
+    const counts = deriveAdultCounts([
+      ev(2, 'b', 'in', '2026-08-10T08:00:00.000Z'),
+      ev(1, 'a', 'in', '2026-08-10T08:00:00.000Z'),
+    ]);
+    expect(counts.map((c) => c.adults)).toEqual([1, 2]);
+  });
+
+  it('is empty when nobody signed in — which replays as zero adults, not as unknown', () => {
+    // The no-fallback rule, at the TypeScript end. A derived centre with no sign-ins
+    // shows a breach rather than borrowing the typed count.
+    expect(deriveAdultCounts([])).toEqual([]);
   });
 });

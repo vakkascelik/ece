@@ -57,7 +57,15 @@ export default async function BinderPage() {
   const replays = await Promise.all(
     days.map(async (date) => {
       const { fromUtc, toUtc } = dayWindow(date, ctx.centre.timezone);
-      return readDayRatio(db, { centreId: ctx.centre.id, date, fromUtc, toUtc });
+      return readDayRatio(db, {
+        centreId: ctx.centre.id,
+        date,
+        fromUtc,
+        toUtc,
+        // The centre's stated source. Required by readDayRatio so a switch cannot
+        // silently reinterpret a binder — see 0040.
+        adultSource: ctx.centre.ratioSource,
+      });
     }),
   );
 
@@ -101,10 +109,38 @@ export default async function BinderPage() {
             counts. A child who was present but never signed in does not appear, so
             &ldquo;no breach recorded&rdquo; is not a guarantee that ratios were kept.
           </li>
-          <li>
-            The adult counts are figures entered by staff, not derived from individual staff
-            sign-in. Individual staff attendance is not recorded by this system.
-          </li>
+          {/*
+            The sentence that had to stop being a constant.
+
+            Until 0040 there was one source and this could safely be hardcoded. Now a
+            centre may switch, and a binder covering both sides of that switch would
+            otherwise assert a provenance it does not have — which is worse than
+            asserting none. `DayReplay.adultSource` carries the answer per day, and
+            `replayDay` requires its caller to state it precisely so this line cannot
+            drift from the numbers above it.
+          */}
+          {ctx.centre.ratioSource === 'derived' ? (
+            <li>
+              The adult counts are derived from individual staff sign-in and sign-out. An
+              adult who was present but never signed in does not appear, so the same caution
+              applies to them as to the tamariki above.
+            </li>
+          ) : (
+            <li>
+              The adult counts are figures entered by staff, not derived from individual staff
+              sign-in. Individual staff attendance is not used for the figures in this
+              document.
+            </li>
+          )}
+          {replays.some((r) => r.adultSource !== ctx.centre.ratioSource) && (
+            <li>
+              <strong>
+                Some days in this period used a different source for the adult count from the
+                one in force now.
+              </strong>{' '}
+              Those days are marked in the ratio history below.
+            </li>
+          )}
           <li>
             Where a certificate is listed as sighted, a named person has recorded that they
             saw the original document. Where it is not, only the details have been entered.

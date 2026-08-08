@@ -14,7 +14,7 @@
  */
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import type { Centre, Membership, Session } from '@ece/core';
+import type { Centre, Membership, RatioSource, Session } from '@ece/core';
 
 export type Db = SupabaseClient;
 
@@ -80,6 +80,7 @@ interface CentreRow {
   medication_requires_witness: boolean;
   sleep_check_minutes: number | null;
   drill_interval_days: number | null;
+  ratio_source: RatioSource;
   archived_at: string | null;
 }
 
@@ -104,6 +105,7 @@ const toCentre = (r: CentreRow): Centre => ({
   // Null is meaningful here too: none stated, which the screen renders differently
   // from any number.
   drillIntervalDays: r.drill_interval_days,
+  ratioSource: r.ratio_source,
   archivedAt: r.archived_at,
 });
 
@@ -119,7 +121,7 @@ const toMembership = (r: MembershipRow): Membership => ({
 export async function listMyCentres(db: Db): Promise<Centre[]> {
   const { data, error } = await db
     .from('centres')
-    .select('id, name, moe_service_number, slug, timezone, medication_requires_witness, sleep_check_minutes, drill_interval_days, archived_at')
+    .select('id, name, moe_service_number, slug, timezone, medication_requires_witness, sleep_check_minutes, drill_interval_days, ratio_source, archived_at')
     .is('archived_at', null)
     .order('name');
   if (error) throw new Error(`listMyCentres: ${error.message}`);
@@ -170,7 +172,7 @@ export async function createCentre(
       slug: input.slug,
       moe_service_number: input.moeServiceNumber ?? null,
     })
-    .select('id, name, moe_service_number, slug, timezone, medication_requires_witness, sleep_check_minutes, drill_interval_days, archived_at')
+    .select('id, name, moe_service_number, slug, timezone, medication_requires_witness, sleep_check_minutes, drill_interval_days, ratio_source, archived_at')
     .single();
   if (error) throw new Error(`createCentre: ${error.message}`);
 
