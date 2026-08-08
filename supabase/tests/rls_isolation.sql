@@ -238,6 +238,22 @@ begin
   perform pg_temp.expect(changed = 0, 'alice CANNOT UPDATE centre B');
 end $$;
 
+/*
+ * SENDING ANYTHING TO AN EXTERNAL MODEL IS OFF UNTIL SOMEBODY TURNS IT ON (0047).
+ *
+ * The load-bearing property of the whole column, and the one a future migration could
+ * quietly undo by adding a default or a backfill. Every centre in this fixture was
+ * created without mentioning `ai_features`, exactly as every real centre was.
+ */
+set local role postgres;
+select pg_temp.expect(
+  (select count(*) from public.centres where ai_features) = 0,
+  'no centre permits sending data to an external model unless somebody turned it on'
+);
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+
+
 -- Creating a tenant is an onboarding action, not something an authenticated
 -- client may do — there is deliberately no INSERT policy on centres.
 do $$
@@ -324,6 +340,34 @@ select pg_temp.expect(
     order by id desc limit 1),
   'and named the column that changed'
 );
+
+/*
+ * AND AN OWNER CAN ACTUALLY TURN THE MODEL FLAG ON (0048).
+ *
+ * `centres` carries a COLUMN-level update grant, not a table-wide one. 0047 added the
+ * column and not the grant, so Postgres refused the statement before any policy ran —
+ * and because `updateCentre` builds one UPDATE from every changed field, that broke the
+ * entire settings form: the sleep interval, the ratio source, the centre's name. A
+ * feature nobody had enabled broke three that already worked.
+ *
+ * Asserted as a positive for the reason this suite keeps relearning: the "nobody has it
+ * on" assertion above passes just as happily when the column is unwritable by anybody.
+ *
+ * It sits *here*, below the audit assertions, rather than beside that negative — those
+ * read the most recent `centres` update, and two writes from this block would make the
+ * latest row name `ai_features` instead of the rename they are about. Found by running
+ * it in the obvious place first.
+ */
+do $$
+declare n integer;
+begin
+  update public.centres set ai_features = true
+   where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  get diagnostics n = row_count;
+  perform pg_temp.expect(n = 1, 'an owner CAN turn the model flag on — the column grant exists');
+  update public.centres set ai_features = false
+   where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+end $$;
 
 -- The constraint from 0003: audit rows outlive the record they describe, so they
 -- carry column names and never values. A generic trigger logging to_jsonb(NEW)

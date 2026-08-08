@@ -143,6 +143,28 @@ inside an error message are removed. That scrubbing has its own tests, because a
 it does not produce a wrong screen — it sends a child's medical information to a third
 party.
 
+### Written summaries, if your centre turns them on
+
+**This is off unless somebody at your centre has switched it on**, in Settings. While it is
+off, nothing described here happens and nothing leaves for this purpose.
+
+With it on, this product can send **totals and dates** to **Anthropic**, a company outside
+New Zealand, and get back a paragraph you can put in a report — how many breaches there
+were in a month, how much is overdue and for how long, which days next week are short.
+
+What is sent is numbers and dates that this product calculated. **No child's name, date of
+birth, National Student Number or health information is ever sent, and neither is any staff
+member's or family member's.** That is not a promise about care taken: the code that builds
+what gets sent can only carry numbers, and it refuses to run rather than send anything else.
+Like the error-report scrubbing above, it has its own tests, and those tests are checked by
+deliberately breaking the rule and confirming they notice.
+
+Anything written this way is a **draft for a person to check**. It is never a finding about
+your centre's compliance, and nothing in the evidence binder comes from it unless somebody
+has read it and put it there.
+
+If your centre would rather not use it, leave it off. Nothing else in the product changes.
+
 ## Who can see what
 
 Separation is enforced by the database, not by the application. Every table carries

@@ -1,0 +1,36 @@
+-- ---------------------------------------------------------------------------
+-- 0048 — the grant 0047 forgot
+--
+-- `centres` does not carry a table-wide UPDATE grant. It carries a **column-level**
+-- one, naming each column an owner or manager may change:
+--
+--   name, moe_service_number, timezone, medication_requires_witness,
+--   sleep_check_minutes, drill_interval_days, ratio_source
+--
+-- 0047 added `ai_features` and did not add it here. The column existed, the policy
+-- allowed the row, and Postgres refused the statement — because it checks the column
+-- privilege before it ever evaluates a policy. `tenancy-and-rls.md` says exactly this:
+-- *"Column-level grants do work a policy cannot — a policy restricts rows, only a grant
+-- restricts columns."* It is the second time this repo has been bitten by the ordering
+-- and the first time by the column form.
+--
+-- WHAT IT ACTUALLY BROKE, WHICH IS MORE THAN THE NEW FIELD
+--
+-- `updateCentre` builds one UPDATE from every changed field. One ungranted column in
+-- that statement fails the whole statement, so **the entire settings form stopped
+-- saving** — the sleep-check interval, the ratio source, the centre's name. A feature
+-- nobody had turned on broke three that were already working.
+--
+-- Not caught by typecheck, lint, the unit suites, or `review:security`. Caught by
+-- `settings.spec.ts`, which asserts `.error` is absent *before* reloading — an
+-- assertion added earlier for an unrelated reason, and the only thing in the repo that
+-- could tell "refused" from "did not persist".
+--
+-- WHY THIS IS A NEW FILE AND NOT AN EDIT TO 0047
+--
+-- 0047 is applied. Editing it changes its checksum, and the runner then refuses to
+-- continue because the repo and the database disagree about the schema — correctly.
+-- An applied migration is a record of what ran; a correction is the next one.
+-- ---------------------------------------------------------------------------
+
+grant update (ai_features) on public.centres to authenticated, service_role;

@@ -15,6 +15,7 @@ export default async function SettingsPage() {
         sleepCheckMinutes={ctx.centre.sleepCheckMinutes}
         drillIntervalDays={ctx.centre.drillIntervalDays}
         ratioSource={ctx.centre.ratioSource}
+        aiFeatures={ctx.centre.aiFeatures}
       />
     </>
   );

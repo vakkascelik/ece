@@ -455,6 +455,33 @@ direction.
 wrong in the direction that matters, because the fix a centre reaches for is turning the feature
 off. Changing either figure is a one-line change in 0044's function.
 
+### 27. Nothing has ever been sent to Anthropic's API
+
+Added 2026-08-09 with 0047. The switch, the redaction boundary and the privacy wording exist; the
+call does not, and **no request has ever been made** — there is no `ANTHROPIC_API_KEY` in this
+environment and the `ant` CLI is not installed, so the live path is untested by construction.
+
+What *is* tested: `redactForModel` refuses every shape it is meant to refuse, mutation-tested four
+ways; and the flag defaults false, mutation-tested by setting the column default to `true` and
+confirming the suite fails. What is **not** tested is that the request body a real call sends is
+the one the redactor approved — that gap closes with `drill:redaction`, which needs a key.
+
+**To close it:** put a key in `.env.local`, run the drill, and record what the outgoing body
+actually contained. Until then this entry is the honest state: a boundary with nothing behind it.
+
+### 28. Generated prose is a draft, and the product must never treat it as a finding
+
+Added 2026-08-09. Standing rather than closeable — the entry exists so nobody quietly promotes it.
+
+Anything a model writes is a draft for a person to check. It is not evidence, not a compliance
+finding, and must not reach the binder without a human having read and accepted it. The arithmetic
+that decides *whether* something is a breach stays in `assessRatio`, `overdueChecks` and
+`summariseArrears`; a model may only phrase an explanation of a decision already made. See
+`docs/claude-api-plan.md` §2 for why the reverse — an LLM deciding when to alert — is refused.
+
+**To close it:** it does not close. If a future change makes generated text load-bearing anywhere,
+that change is wrong.
+
 ## See Also
 
 - [[kiosk-and-pins]] — the door tablet, and what it can and cannot know

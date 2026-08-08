@@ -72,6 +72,7 @@ export async function saveCentre(_prev: unknown, form: FormData) {
       sleepCheckMinutes,
       drillIntervalDays,
       ratioSource,
+      aiFeatures: form.get('aiFeatures') === 'on',
     });
   } catch (err) {
     const message = (err as Error).message;

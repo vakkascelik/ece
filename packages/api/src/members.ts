@@ -106,6 +106,11 @@ export async function updateCentre(
     drillIntervalDays?: number | null;
     /** Never blended and never guessed — see 0040. */
     ratioSource?: RatioSource;
+    /**
+     * Whether this centre permits data being sent to an external model provider.
+     * Off until somebody turns it on — see 0047 and `docs/claude-api-plan.md`.
+     */
+    aiFeatures?: boolean;
   },
 ): Promise<void> {
   const row: Record<string, unknown> = {};
@@ -117,6 +122,7 @@ export async function updateCentre(
   if (patch.sleepCheckMinutes !== undefined) row.sleep_check_minutes = patch.sleepCheckMinutes;
   if (patch.drillIntervalDays !== undefined) row.drill_interval_days = patch.drillIntervalDays;
   if (patch.ratioSource !== undefined) row.ratio_source = patch.ratioSource;
+  if (patch.aiFeatures !== undefined) row.ai_features = patch.aiFeatures;
   if (Object.keys(row).length === 0) return;
 
   /*

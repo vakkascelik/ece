@@ -43,6 +43,17 @@ export interface Centre {
    * other source — see 0040.
    */
   ratioSource: RatioSource;
+  /**
+   * Whether this centre permits data being sent to an external model provider.
+   *
+   * Defaults to false and stays there until somebody at the centre turns it on — the
+   * same contract as `ratioSource`, for a sharper reason: a feature that enables itself
+   * for a childcare centre is one that gets discovered by a parent.
+   *
+   * Necessary for every model-backed feature and sufficient for none that send text a
+   * person typed — those need a recorded consent as well. See `docs/claude-api-plan.md`.
+   */
+  aiFeatures: boolean;
   archivedAt: string | null;
 }
 
@@ -230,6 +241,10 @@ export * from './arrears';
 // CSV for people who will open it in Excel: a BOM so macrons survive, and a guard
 // against a cell that begins with '='.
 export * from './csv';
+
+// The boundary between this product and an external model provider. An allowlist, not
+// a scrubber — see the file, and privacy-statement.md for the rule it implements.
+export * from './redaction';
 export * from './funding';
 
 // Applications for employment. The one vocabulary shared with the public website, which

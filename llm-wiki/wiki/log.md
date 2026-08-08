@@ -5,6 +5,74 @@ says so.*
 
 ---
 
+2026-08-09 — **The switch and the boundary, before there is anything behind them.** 0047 plus
+`redactForModel`. See `docs/claude-api-plan.md`.
+
+The ask was to use a Claude API key in the product — alerts, generated reports. **Most of that ask
+is refused, and the refusal is the plan's first section.** This repo already computes ratio
+breaches, overdue checks, arrears ages and roster shortfalls exactly, in pure functions with
+mutation-tested assertions. An LLM in that path is a model that is right 99% of the time replacing
+code that is always right, and the 1% lands on a ratio breach. It also breaks the rule the product
+is built on: a generated compliance alert is an assertion nobody checked, wearing the interface of
+one that was — over bands where `RATIO_TABLES_VERIFIED` is still `false`. Arithmetic decides
+*whether* to alert; a model may only phrase the explanation afterwards.
+
+The second constraint was already written down here too: the roadmap refuses auto-translation
+because *"sending a post about a named child to an overseas API is a cross-border disclosure of
+personal information (IPP 12)"*. That applies to every idea in the ask, so the plan is tiered by
+what data crosses the border, not by what is easy.
+
+**The boundary is an allowlist, and that is the whole design.** The obvious version takes a rich
+object and strips the dangerous fields — a denylist, wrong the moment somebody adds a field,
+silently, in the direction of disclosure. So a payload is `number | boolean | null` only: there is
+no string field to leak through, and a caller who wants to send a child's name cannot express it in
+the type. It **throws rather than sanitising**, because a function that quietly dropped the
+offending value would send a subtly wrong figure and teach nobody anything.
+
+**The phone regex was wrong and the test caught it.** `(\+?64|0)[\s-]?\d[\s-]?\d{2,4}…` matched
+separators positionally, so `021 555 1234` walked straight through. People write a phone number
+every way there is; the fix strips separators first and then asks a simple question. That is the
+entire argument for testing a redactor — one that silently stops redacting looks exactly like one
+that works.
+
+Four mutations, each caught by the test named for it: sanitising instead of throwing, dropping the
+freeze, trusting declared labels, removing the phone check. Plus one against the database — setting
+the column default to `true` failed the suite on *no centre permits sending data to an external
+model unless somebody turned it on*. 361/361.
+
+**Two entries added to [[unverified-claims]]**, and the first matters: **nothing has ever been sent
+to Anthropic's API.** There is no key in this environment, so the live path is untested by
+construction. The redactor is proven; that the request body a real call sends is the one the
+redactor approved is not, and closing that needs a key and a drill. The second entry is standing
+rather than closeable: generated prose is a draft, never a finding.
+
+`privacy-statement.md` gained the fourth processor **in the same commit as the switch**, because
+that document currently names three and is accurate — it must not become inaccurate in the commit
+that adds a fourth. The settings toggle shipped in the same commit too, to avoid a fifth setting
+landing ahead of its field.
+
+**And 0047 broke the settings form, which 0048 fixes.** `centres` does not carry a table-wide
+UPDATE grant — it carries a **column-level** one naming each column an owner may change. Adding
+`ai_features` without adding it there meant Postgres refused the statement before any policy ran,
+and because `updateCentre` builds one UPDATE from every changed field, **the whole form stopped
+saving**: the sleep interval, the ratio source, the centre's name. A feature nobody had enabled
+broke three that already worked.
+
+Typecheck, lint, every unit suite and `review:security` were green. It was caught by
+`settings.spec.ts`, which asserts `.error` is absent *before* reloading — written earlier for an
+unrelated reason, and the only thing in the repo that can tell "refused" from "did not persist".
+Now in [[conventions]], because the new-table checklist says *policy and grant* and says nothing
+about adding a column to a table whose grant is per-column.
+
+Two smaller things. The new assertion first went in beside the "nobody has it on" negative and
+broke a later audit assertion — that one reads the most recent `centres` update, and two writes
+from mine made the latest row name `ai_features` instead of the rename it was about; moved below
+it. And a missing **grant** raises `42501` where a missing **policy** filters silently, so the
+mutation aborts the transaction rather than failing the named assertion — the suite still goes red,
+but for a visibly different reason.
+
+---
+
 2026-08-09 — **CSV downloads across the product, and PDF gets a button.** See [[exports]].
 
 There was no download anywhere in this repo: one route handler (`api/health`), no

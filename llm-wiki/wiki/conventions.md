@@ -256,6 +256,37 @@ and the server was not.
 A mutation test has four steps and the fourth is the one that gets dropped: **mutate, build, run,
 restore *and build again*.** If a failure survives a restore, rebuild before believing it.
 
+### Adding a column to a table with COLUMN-level grants
+
+The new-table checklist says *policy and grant*. There is a second form of it that the checklist
+does not cover and that bites on an **existing** table: `centres` does not carry a table-wide
+UPDATE grant, it carries a **column-level** one naming each column an owner or manager may change.
+
+Add a column without adding it to that grant and Postgres refuses the statement — before any
+policy runs, because it checks the column privilege first. The error is `42501 permission denied
+for table centres`, which names the *table* and not the column, so it reads like a policy problem.
+
+**It breaks more than the new field.** `updateCentre` builds one UPDATE from every changed field,
+and one ungranted column fails the whole statement. Adding `ai_features` in 0047 without its grant
+stopped the settings form saving **anything** — the sleep-check interval, the ratio source, the
+centre's name. A feature nobody had enabled broke three that already worked.
+
+Nothing static caught it: typecheck, lint, every unit suite and `review:security` were green. It
+was caught by `settings.spec.ts`, which asserts `.error` is absent *before* reloading — an
+assertion added earlier for an unrelated reason, and the only thing in the repo able to tell
+"refused" from "did not persist".
+
+Before adding a column to an existing table, check for column-level grants:
+
+```sql
+select privilege_type, column_name from information_schema.column_privileges
+ where table_name = '<table>' and grantee = 'authenticated';
+```
+
+And assert the positive in the suite. A negative assertion ("nobody has this on") passes just as
+happily when the column is unwritable by everybody — note that a missing **grant** raises `42501`
+where a missing **policy** filters silently, so the two failures look nothing alike.
+
 ### An applied migration is a record of what ran, including its comments
 
 The runner stores a checksum per file and refuses to continue when one changes after being
