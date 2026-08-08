@@ -61,6 +61,10 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
               stays a spiral notebook. */}
           {can(ctx.role, 'recordDailyPractice') && <NavLink href="/visitors">Visitors</NavLink>}
           {can(ctx.role, 'recordDailyPractice') && <NavLink href="/excursions">Excursions</NavLink>}
+          {/* Beside People because both are about who works here, and distinct from it:
+              People is who has a LOGIN, Staff is who works here — a reliever is on one
+              list and not the other, which is the whole point of 0038. */}
+          {can(ctx.role, 'recordDailyPractice') && <NavLink href="/staff">Staff</NavLink>}
           {can(ctx.role, 'manageMembers') && <NavLink href="/members">People</NavLink>}
           {/* Next to People because both are about who works here — but a separate capability, for
               the reason recorded on `manageRecruitment` in @ece/core. */}

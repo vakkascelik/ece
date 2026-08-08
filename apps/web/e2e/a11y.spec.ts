@@ -284,6 +284,13 @@ test.describe('staff screens', () => {
     await auditPage(page, '/excursions');
   });
 
+  test('staff roster, with the add form open', async ({ page }) => {
+    await visit(page, '/staff');
+    await expect(page.getByRole('heading', { name: 'Staff' })).toBeVisible();
+    await page.getByRole('button', { name: 'Add somebody' }).click();
+    await auditPage(page, '/staff');
+  });
+
   test('posts', async ({ page }) => {
     await visit(page, '/posts');
     await expect(page.getByText('Audit pānui')).toBeVisible();

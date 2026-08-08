@@ -6,6 +6,7 @@ import {
   addStaffRecord,
   archiveEvidence,
   archiveStaffRecord,
+  linkStaffRecord,
   markSighted,
   EVIDENCE_KINDS,
   type EvidenceKind,
@@ -142,5 +143,36 @@ export async function retireEvidence(_prev: unknown, form: FormData): Promise<Re
     return actionError(e, 'compliance.retireEvidence');
   }
   revalidatePath('/compliance');
+  return { ok: true };
+}
+
+/**
+ * Link a staff record to the person on the roster it is about.
+ *
+ * The act 0038 refuses to perform in a migration. Two relievers sharing a first name
+ * would be merged by a name match, and a police vetting result attached to the wrong
+ * person is the worst row this schema could hold — it would look entirely normal, and
+ * nothing downstream would notice.
+ *
+ * An empty value unlinks, which is the escape hatch for having linked the wrong
+ * person. It is a real choice rather than a missing one, so it is not refused.
+ */
+export async function linkRecordToPerson(_prev: unknown, form: FormData): Promise<Result> {
+  await requireCapability('manageCentre');
+  const db = await serverDb();
+
+  const recordId = str(form, 'recordId');
+  const staffMemberId = str(form, 'staffMemberId');
+  if (!recordId) return { error: 'Missing record.' };
+
+  try {
+    await linkStaffRecord(db, recordId, staffMemberId || null);
+  } catch (e) {
+    return actionError(e, 'compliance.linkRecordToPerson');
+  }
+
+  revalidatePath('/compliance');
+  // The certificated count on /staff reads these links.
+  revalidatePath('/staff');
   return { ok: true };
 }

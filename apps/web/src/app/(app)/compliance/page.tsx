@@ -3,10 +3,11 @@ import {
   currentCriteriaSet,
   listCriteria,
   listEvidence,
+  listStaffMembers,
   listStaffRecords,
   readDayRatio,
 } from '@ece/api';
-import { assessAll, summarise, summariseDay, todayInZone } from '@ece/core';
+import { assessAll, currentStaff, summarise, summariseDay, todayInZone } from '@ece/core';
 import { requireCapability } from '@/lib/auth';
 import { serverDb } from '@/lib/supabase';
 import { dayWindow, lastSevenDays } from '@/lib/dayWindow';
@@ -32,10 +33,13 @@ export default async function CompliancePage() {
   const db = await serverDb();
   const today = todayInZone(ctx.centre.timezone);
 
-  const [staffRecords, evidence, criteriaSet] = await Promise.all([
+  const [staffRecords, evidence, criteriaSet, staffMembers] = await Promise.all([
     listStaffRecords(db, ctx.centre.id),
     listEvidence(db, ctx.centre.id),
     currentCriteriaSet(db),
+    // For the link control: a record is attached to a person by hand, one at a time,
+    // because 0038 refuses to guess from a name.
+    listStaffMembers(db, ctx.centre.id),
   ]);
 
   const criteria = criteriaSet ? await listCriteria(db, criteriaSet.id) : [];
@@ -123,7 +127,10 @@ export default async function CompliancePage() {
 
       <div className="section">
         <h2>Staff records — {summary.total}</h2>
-        <StaffRecords assessed={assessed} />
+        <StaffRecords
+          assessed={assessed}
+          people={currentStaff(staffMembers, today).map((m) => ({ id: m.id, name: m.fullName }))}
+        />
       </div>
 
       <div className="section">

@@ -8,6 +8,7 @@ import {
   type AssessedRecord,
 } from '@ece/core';
 import { recordStaffDocument, retireStaffRecord, sight, type Result } from './actions';
+import { LinkPerson, type PersonOption } from './LinkPerson';
 
 /**
  * Certificates, vetting and training, worst first.
@@ -17,7 +18,14 @@ import { recordStaffDocument, retireStaffRecord, sight, type Result } from './ac
  * verified, and collapsing them into a single status loses the distinction that matters
  * in a review.
  */
-export function StaffRecords({ assessed }: { assessed: AssessedRecord[] }) {
+export function StaffRecords({
+  assessed,
+  people,
+}: {
+  assessed: AssessedRecord[];
+  /** The roster, for linking a record to the person it is about. */
+  people: PersonOption[];
+}) {
   const [adding, setAdding] = useState(false);
 
   return (
@@ -29,6 +37,7 @@ export function StaffRecords({ assessed }: { assessed: AssessedRecord[] }) {
           <thead>
             <tr>
               <th>Person</th>
+              <th>On the roster</th>
               <th>Record</th>
               <th>Expires</th>
               <th>Status</th>
@@ -39,7 +48,7 @@ export function StaffRecords({ assessed }: { assessed: AssessedRecord[] }) {
           </thead>
           <tbody>
             {assessed.map((a) => (
-              <Row key={a.record.id} assessed={a} />
+              <Row key={a.record.id} assessed={a} people={people} />
             ))}
           </tbody>
         </table>
@@ -57,7 +66,7 @@ export function StaffRecords({ assessed }: { assessed: AssessedRecord[] }) {
   );
 }
 
-function Row({ assessed }: { assessed: AssessedRecord }) {
+function Row({ assessed, people }: { assessed: AssessedRecord; people: PersonOption[] }) {
   const { record, expiry } = assessed;
   const [sightState, sightAction, sighting] = useActionState<Result | null, FormData>(sight, null);
   const [retireState, retireAction, retiring] = useActionState<Result | null, FormData>(
@@ -78,6 +87,20 @@ function Row({ assessed }: { assessed: AssessedRecord }) {
             {error}
           </div>
         )}
+      </td>
+      <td>
+        {/*
+          Unlinked is the state every record starts in, and it is not a failure —
+          0038 refuses to guess which person a name belongs to. It is shown as an
+          unanswered question rather than a warning, because the answer is a minute
+          of somebody's attention and not a compliance problem.
+        */}
+        <LinkPerson
+          recordId={record.id}
+          personName={record.personName}
+          linkedTo={record.staffMemberId}
+          people={people}
+        />
       </td>
       <td>
         {STAFF_RECORD_LABELS[record.kind]}

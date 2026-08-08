@@ -157,6 +157,51 @@ record *means* — everything else there adds a rule going forward. An invalid v
 rather than coerced to `declared`, because a silent fallback on a typo is a quiet version of the
 blending the whole migration forbids.
 
+### The screens
+
+`/staff` — the roster, present first. Present first because the list is read at two moments that
+want the same order: signing somebody out at the end of a shift, and counting the room against
+the ratio. Alphabetical serves neither.
+
+It sits **beside `/members`, not inside it**, and the distinction is the point of 0038:
+`/members` is who has a *login*; `/staff` is who *works here*. A reliever appears on one and not
+the other.
+
+Reading and signing in are open to any staff member (a manager signs in the reliever; a door
+tablet signs in the team arriving together). Adding somebody and recording a last day are
+owner/manager, because both change the denominator of the ratio.
+
+**A person with no login says so on the row.** Blank would read as a broken record, and this is
+the common case — relievers, contractors, the cook.
+
+**Linking an account is deliberately not on the add form.** `unique (centre_id, user_id)` means
+getting it wrong makes "who is signed in" ambiguous, so it does not belong in a form somebody
+fills in at speed.
+
+The page states which source the ratio actually uses, and says the surprising half out loud when
+it is `derived`: *if nobody signs in, it reads zero adults and shows a breach.* When it is
+`declared`, it says signing in here records who was present but does not feed the ratio yet.
+
+#### The count that says what it cannot see
+
+`/staff` shows *"N of M hold a current practising certificate"* — and, when any exist, *"K
+practising certificates not linked to anybody"*.
+
+The second line is what makes the first honest. 0038 leaves every link null on purpose, so an
+unlinked centre reads as **zero certificated staff while holding a folder of certificates**.
+Without the warning that is a lie by omission, and a manager would go chasing documents already
+in the drawer.
+
+Mutation-tested: hiding the warning failed the spec on exactly that line. No percentage and no
+funding band appear anywhere, and the e2e asserts their absence — rates step at
+certificated-teacher thresholds and this repo has not read the handbook.
+
+#### Linking, on `/compliance`
+
+A select beside each staff record, **nothing preselected**, with an explicit *Not linked* option
+that also unlinks. A default of "the closest name" would be the same guess 0038 refuses to make,
+wearing a different hat.
+
 ## Still to come in this phase `centres.ratio_source` defaults to `declared`
   so no existing centre's history changes meaning on deploy, and `replayDay` must record which
   source produced each snapshot — otherwise every binder printed after a switch is ambiguous
