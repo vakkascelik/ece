@@ -242,6 +242,76 @@ for (const role of ['manager', 'educator', 'parent'] as const) {
   });
 }
 
+/**
+ * The door tablet, which is not a role in the matrix above because it is not a person.
+ *
+ * This exists because of a defect the matrix could never have caught. 0043 narrowed
+ * `memberships_select` to the four human roles — correct, and it meant a kiosk reads *zero*
+ * membership rows while still reading its one centre. `requireCtx` therefore found a session
+ * with a centre and no role and sent it to `/select-centre`, which rendered, offered its single
+ * centre under the heading "You have access to more than one", and bounced straight back on
+ * every press. A loop, not a refusal, and invisible to the RLS suite: every policy was correct.
+ *
+ * So the assertion is about *landing*, and it is the only kind of test that can see this.
+ */
+test.describe('kiosk', () => {
+  async function signInAsKiosk(browser: Browser): Promise<Page> {
+    const t = tenant();
+    const ctx = await browser.newContext();
+    const page = await ctx.newPage();
+    await page.goto('/login');
+    await page.getByLabel('Email').fill(t.kioskEmail);
+    await page.getByLabel('Password').fill(t.password);
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    // The assertion, really: a kiosk lands on its own screen rather than looping.
+    await page.waitForURL('/kiosk');
+    return page;
+  }
+
+  test('lands on /kiosk and is sent back there from every other route', async ({ browser }) => {
+    const page = await signInAsKiosk(browser);
+
+    for (const row of MATRIX) {
+      await page.goto(row.path, { waitUntil: 'networkidle' });
+      expect(
+        new URL(page.url()).pathname,
+        `kiosk → ${row.path}: a device belongs on /kiosk and nowhere else`,
+      ).toBe('/kiosk');
+    }
+
+    // The page that used to trap it. Redirecting rather than rendering is the fix.
+    await page.goto('/select-centre', { waitUntil: 'networkidle' });
+    expect(new URL(page.url()).pathname).toBe('/kiosk');
+
+    await page.context().close();
+  });
+
+  test('gets no navigation and no way to sign itself out', async ({ browser }) => {
+    const page = await signInAsKiosk(browser);
+
+    // Outside the (app) group entirely, so there is no rail to filter — the strongest
+    // version of "a kiosk sees no office screens".
+    await expect(page.locator('aside.side')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /sign out/i })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'Compliance' })).toHaveCount(0);
+
+    // It does show the roll it is allowed: the fixture's child, by preferred name.
+    await expect(page.getByRole('heading', { name: 'Sign in and out' })).toBeVisible();
+    await expect(page.getByRole('button', { name: new RegExp(tenant().childName) })).toBeVisible();
+
+    await page.context().close();
+  });
+
+  test('cannot be reached by a person', async ({ browser }) => {
+    const t = tenant();
+    const page = await signIn(browser, t.parentEmail, t.password);
+    await page.goto('/kiosk', { waitUntil: 'networkidle' });
+    // `requireKiosk` is the mirror of `requireCtx`, and each sends the other's caller away.
+    expect(new URL(page.url()).pathname).toBe('/');
+    await page.context().close();
+  });
+});
+
 test('owner reaches every route, having chosen a centre', async ({ page }) => {
   // Uses the stored owner session, which already has the centre cookie. Separate from the
   // loop above because a two-centre user is redirected to /select-centre until they pick,

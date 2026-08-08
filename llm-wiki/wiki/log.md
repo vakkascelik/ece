@@ -5,6 +5,53 @@ says so.*
 
 ---
 
+2026-08-09 — **The kiosk becomes reachable**, and the redirect loop 0043 had already shipped. See
+[[kiosk-and-pins]].
+
+**A defect of my own, in `main` since yesterday.** Narrowing `memberships_select` was right; its
+consequence in the application was not traced. A kiosk reads zero membership rows and one centre,
+so `requireCtx` found a centre with no role and sent it to `/select-centre` — which rendered, told
+a door tablet *"You have access to more than one"* above a list of one, and bounced back on the
+only button it had. A two-step loop, invisible to the RLS suite because every policy was correct.
+Unreachable in production only because no kiosk membership existed yet.
+
+**The mutation test lied the first time, and that is the part worth keeping.** Removing the guard
+from `requireCtx` left the new e2e passing — `/select-centre` carries the same guard, so the
+tablet still *arrived* at `/kiosk`, one hop later. The assertion is about the destination and
+there were two roads to it. Only mutating both produced the `waitForURL` timeout that proves the
+test can fail at all. Defence in depth is right here and it makes single-point mutation testing
+misleading; the fix is to mutate the property, not the line.
+
+A second, smaller trap on the way: deleting the guard outright left `isKiosk` imported and unused,
+which fails the build's lint, so the `&&` chain short-circuited and the suite never ran — a green
+terminal that had tested nothing. Mutations need a **runtime-false** condition, which is the third
+time this repo has learned that and the second time in two days.
+
+`/kiosk` is a sibling of `(app)`, not a route inside it. `?wall=1` was the closest precedent and
+is only a precedent for sizing: it still renders the rail, including a sign-out control, which on
+an unattended screen means anybody walking past can log the tablet out and the centre finds out at
+the end of the day with no roll.
+
+Two absences, both on the screen: **no offline queue** (nowhere to put a guardian or a PIN, and a
+PIN in `localStorage` defeats 0044 entirely — also §21, never drilled) and **no ratio**
+(`kiosk_roll()` returns no date of birth, so the bands cannot be computed). The roadmap promised
+name *and photo*; the function returns no photo and that stands — a photograph of a child on a
+screen facing the street is a decision nobody has made.
+
+**`check:bundle` failed, and it was right to.** The kiosk styles pushed `first-load-css` from 4.0
+to 4.4 kB. The check offers to have the number raised "deliberately, with a reason", and the
+reason would have been a bad one: a door tablet's stylesheet was being downloaded by every parent
+opening the app on a phone. Moved to a route-scoped `kiosk.css` — the first stylesheet in this app
+that is not `globals.css` — and `first-load-css` is now **3.9 kB**, under where it started. Met by
+shipping less, not by moving the line.
+
+**A test that asserted the state of the world rather than the behaviour.** The first end-to-end
+version clicked "Sign in" and hung for sixty seconds, because the fixture had already signed that
+child in and the tablet correctly offered "Sign out". It would have passed or failed depending on
+which specs ran before it. Direction is now read off the button.
+
+---
+
 2026-08-08 — **The door tablet.** 0044: guardian PINs, attestation on attendance, and two bugs in
 my own migration that would have shipped looking like features. See [[kiosk-and-pins]].
 
@@ -1130,4 +1177,4 @@ local stand-in serving a real PNG, and the cache measured at two upstream calls 
 requests. Recorded as gap 16 in `apps/site/CONTENT-GAPS.md` that **nobody has read Google's terms on
 how long their content may be cached** — the TTLs are a guess in the safe direction, not a finding.
 
-*Log last updated: 2026-08-08*
+*Log last updated: 2026-08-09*

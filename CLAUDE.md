@@ -90,6 +90,8 @@ LLM coding mistakes). They bias toward caution over speed; for trivial tasks, us
   page, correct that page first — a wiki that is wrong is worse than no wiki, and there is now a
   precedent: `offline-outbox.md` spent a day telling readers that every check violation was a
   permanent failure, which was the opposite of the fix that had just been made.
-- **Do not use the Agent tool** unless asked.
+- **The Agent tool is available.** Use subagents whenever they help — parallel exploration of a
+  large surface, or a search whose result matters more than its transcript. Standing permission
+  from the owner, 2026-08-08; this replaces an earlier rule that forbade them unless asked.
 
 *Last updated: 2026-08-05*

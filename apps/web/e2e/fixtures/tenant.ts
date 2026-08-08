@@ -52,6 +52,9 @@ export interface AuditTenant {
   managerId: string;
   educatorId: string;
   parentId: string;
+  /** A door tablet. Holds the kiosk role, which grants no capability and reads no membership. */
+  kioskEmail: string;
+  kioskId: string;
   centreId: string;
   otherCentreId: string;
   childId: string;
@@ -153,6 +156,7 @@ export async function seedAuditTenant(): Promise<AuditTenant> {
   const managerEmail = `audit.manager.${tag}@ece.invalid`;
   const educatorEmail = `audit.educator.${tag}@ece.invalid`;
   const parentEmail = `audit.parent.${tag}@ece.invalid`;
+  const kioskEmail = `audit.kiosk.${tag}@ece.invalid`;
 
   // All four roles, because a capability matrix with four rows tested at two of them is
   // a matrix nobody has checked. `educator` is the interesting one: it is the only role
@@ -168,6 +172,9 @@ export async function seedAuditTenant(): Promise<AuditTenant> {
   const managerId = await makeUser(managerEmail);
   const educatorId = await makeUser(educatorEmail);
   const parentId = await makeUser(parentEmail);
+  // A device, not a person. 0043 hides its membership row from memberships_select, which
+  // is exactly why the app needs a branch for it — see requireKiosk.
+  const kioskId = await makeUser(kioskEmail);
 
   const centres = must(
     'centres',
@@ -225,6 +232,7 @@ export async function seedAuditTenant(): Promise<AuditTenant> {
         { centre_id: centreId, user_id: managerId, role: 'manager' },
         { centre_id: centreId, user_id: educatorId, role: 'educator' },
         { centre_id: centreId, user_id: parentId, role: 'parent' },
+        { centre_id: centreId, user_id: kioskId, role: 'kiosk' },
       ])
       .select('id'),
   );
@@ -604,11 +612,13 @@ export async function seedAuditTenant(): Promise<AuditTenant> {
     managerEmail,
     educatorEmail,
     parentEmail,
+    kioskEmail,
     password,
     ownerId,
     managerId,
     educatorId,
     parentId,
+    kioskId,
     centreId,
     otherCentreId,
     childId,

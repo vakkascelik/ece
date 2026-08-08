@@ -140,6 +140,24 @@ export async function loadSession(db: Db): Promise<Session | null> {
   if (error) throw new Error(`loadSession: ${error.message}`);
 
   const memberships = (data as MembershipRow[]).map(toMembership);
+
+  /*
+    Only asked when the membership list is empty, which is the only way a kiosk can
+    look — 0043 hides kiosk rows from `memberships_select`, so a device reads none of
+    its own. Every human therefore pays nothing for this: one extra round trip on the
+    one session shape that would otherwise be uninterpretable.
+
+    An account holding both a human membership and a kiosk one is a misconfiguration,
+    and this resolves it toward the person. The narrower reading — a device that is
+    also somebody's login — is the one that should not silently work.
+  */
+  let kioskCentreId: string | null = null;
+  if (memberships.length === 0) {
+    const { data: centre, error: kioskError } = await db.rpc('caller_kiosk_centre_id');
+    if (kioskError) throw new Error(`loadSession (kiosk): ${kioskError.message}`);
+    kioskCentreId = typeof centre === 'string' ? centre : null;
+  }
+
   return {
     userId: auth.user.id,
     memberships,
@@ -147,6 +165,7 @@ export async function loadSession(db: Db): Promise<Session | null> {
     // the wrong one and posts a notice has done real damage that is awkward to
     // undo, so with more than one membership the app must ask.
     activeCentreId: memberships.length === 1 ? memberships[0].centreId : null,
+    kioskCentreId,
   };
 }
 
@@ -204,3 +223,6 @@ export * from './recruitment';
 export * from './registers';
 export * from './facilities';
 export * from './staff';
+// Definer functions only — a kiosk holds no table grant, so there is nothing here to
+// select from and no query for a later reader to widen.
+export * from './kiosk';

@@ -17,7 +17,9 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import {
   acknowledgeIncident,
+  clearGuardianPin,
   addCustodyArrangement,
+  setGuardianPin,
   addHealthCondition,
   addMedicationAuthority,
   archiveChild,
@@ -649,6 +651,58 @@ export async function saveImmunisation(_prev: unknown, form: FormData): Promise<
     });
   } catch (e) {
     return actionError(e, 'saveImmunisation');
+  }
+
+  revalidatePath(`/children/${childId}`);
+  return { ok: true };
+}
+
+/**
+ * Give a guardian a PIN for the door tablet, or take it away.
+ *
+ * `manageChildren` here and owner/manager in Postgres (`set_guardian_pin` calls
+ * `caller_has_role` itself), which is the usual arrangement: the capability decides
+ * whether a button is drawn, the function decides whether it works.
+ *
+ * The PIN is sent once and never read back. There is no action that returns one,
+ * because there is no query that could — 0044 stores a bcrypt hash and grants nobody
+ * SELECT on the table it lives in.
+ */
+export async function setPin(_prev: unknown, form: FormData): Promise<Result> {
+  await requireCapability('manageChildren');
+  const db = await serverDb();
+
+  const guardianId = str(form, 'guardianId');
+  const childId = str(form, 'childId');
+  const pin = str(form, 'pin');
+
+  if (!guardianId) return { error: 'Which person?' };
+  // Checked here so the message is a sentence, and again in Postgres because this is
+  // reachable over RPC and a form is not a boundary.
+  if (!/^[0-9]{4,8}$/.test(pin)) return { error: 'A PIN is 4 to 8 digits, and digits only.' };
+
+  try {
+    await setGuardianPin(db, guardianId, pin);
+  } catch (e) {
+    return actionError(e, 'children.setPin');
+  }
+
+  revalidatePath(`/children/${childId}`);
+  return { ok: true };
+}
+
+export async function clearPin(_prev: unknown, form: FormData): Promise<Result> {
+  await requireCapability('manageChildren');
+  const db = await serverDb();
+
+  const guardianId = str(form, 'guardianId');
+  const childId = str(form, 'childId');
+  if (!guardianId) return { error: 'Which person?' };
+
+  try {
+    await clearGuardianPin(db, guardianId);
+  } catch (e) {
+    return actionError(e, 'children.clearPin');
   }
 
   revalidatePath(`/children/${childId}`);

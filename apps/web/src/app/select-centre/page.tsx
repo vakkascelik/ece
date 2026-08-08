@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { listMyCentres, loadSession } from '@ece/api';
+import { isKiosk } from '@ece/core';
 import { serverDb } from '@/lib/supabase';
 import { chooseCentre } from './actions';
 
@@ -14,6 +15,10 @@ export default async function SelectCentrePage() {
   const db = await serverDb();
   const session = await loadSession(db);
   if (!session) redirect('/login');
+
+  // A kiosk used to land here and be told it had access to more than one centre,
+  // above a list of exactly one. This page is for people choosing between sites.
+  if (isKiosk(session)) redirect('/kiosk');
 
   const centres = await listMyCentres(db);
   if (centres.length === 0) redirect('/no-access');

@@ -9,6 +9,7 @@ import {
   listConsents,
   listCustodyArrangements,
   listEnrolments,
+  guardianPinStatus,
   listGuardiansOfChild,
   listHealthConditions,
   listImmunisation,
@@ -117,6 +118,27 @@ export default async function ChildPage({ params }: { params: Promise<{ id: stri
   // send it; if they are not linked as a guardian, the panel says so rather than
   // failing on submit.
   const ownGuardianId = whanau.find((g) => g.guardian.userId === ctx.userId)?.guardian.id ?? null;
+
+  /*
+    Door-tablet PIN state, one call per guardian and only for the office.
+
+    N calls rather than one, because 0044 exposes `guardian_pin_status` per guardian
+    and a list version would be a second definer function returning more than any
+    screen needs. A child has a handful of guardians, and this is the read that stops
+    the office guessing why a parent cannot sign in at the door.
+
+    Not fetched at all for a parent or an educator: the function refuses them anyway,
+    so asking would be a round trip whose only possible answer is nothing.
+  */
+  const pinStatuses = canManage
+    ? Object.fromEntries(
+        await Promise.all(
+          whanau.map(
+            async (g) => [g.guardian.id, await guardianPinStatus(db, g.guardian.id)] as const,
+          ),
+        ),
+      )
+    : {};
 
   const enrolledOn = enrolments.length > 0 ? enrolments[0].startDate : null;
 
@@ -304,7 +326,13 @@ export default async function ChildPage({ params }: { params: Promise<{ id: stri
 
       <div className="section">
         <h2>Whānau</h2>
-        <WhanauPanel childId={child.id} whanau={whanau} canEdit={canManage} isParent={ctx.role === 'parent'} />
+        <WhanauPanel
+          childId={child.id}
+          whanau={whanau}
+          canEdit={canManage}
+          isParent={ctx.role === 'parent'}
+          pinStatuses={pinStatuses}
+        />
       </div>
 
       <div className="section">

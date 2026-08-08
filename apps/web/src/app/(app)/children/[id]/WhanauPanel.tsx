@@ -1,8 +1,8 @@
 'use client';
 
 import { useActionState, useEffect, useState } from 'react';
-import type { GuardianOfChild } from '@ece/api';
-import { addGuardian, editGuardian, unlinkGuardian, type Result } from '../actions';
+import type { GuardianOfChild, GuardianPinStatus } from '@ece/api';
+import { addGuardian, clearPin, editGuardian, setPin, unlinkGuardian, type Result } from '../actions';
 
 /**
  * The child's whānau, and the collection list.
@@ -21,11 +21,14 @@ export function WhanauPanel({
   whanau,
   canEdit,
   isParent,
+  pinStatuses,
 }: {
   childId: string;
   whanau: GuardianOfChild[];
   canEdit: boolean;
   isParent: boolean;
+  /** Door-tablet PIN state per guardian. Empty for anybody who is not the office. */
+  pinStatuses: Record<string, GuardianPinStatus>;
 }) {
   const [adding, setAdding] = useState(false);
 
@@ -48,7 +51,13 @@ export function WhanauPanel({
           </thead>
           <tbody>
             {whanau.map((g) => (
-              <GuardianRow key={g.id} childId={childId} entry={g} canEdit={canEdit} />
+              <GuardianRow
+                key={g.id}
+                childId={childId}
+                entry={g}
+                canEdit={canEdit}
+                pin={pinStatuses[g.guardian.id] ?? null}
+              />
             ))}
           </tbody>
         </table>
@@ -77,10 +86,12 @@ function GuardianRow({
   childId,
   entry,
   canEdit,
+  pin,
 }: {
   childId: string;
   entry: GuardianOfChild;
   canEdit: boolean;
+  pin: GuardianPinStatus | null;
 }) {
   const [state, action, pending] = useActionState<Result | null, FormData>(unlinkGuardian, null);
   const [editing, setEditing] = useState(false);
@@ -129,6 +140,7 @@ function GuardianRow({
             <span className="flag flag-critical">✗ must NOT collect</span>
           )}
         </span>
+        {canEdit && <DoorPin childId={childId} entry={entry} pin={pin} />}
       </td>
       {canEdit && (
         <td>
@@ -311,5 +323,117 @@ function GuardianForm({ childId, onDone }: { childId: string; onDone: () => void
         </div>
       </div>
     </form>
+  );
+}
+
+/**
+ * The door tablet's PIN, from the office.
+ *
+ * It sits under the collection permissions because those two facts are read together:
+ * `can_collect` decides whether the kiosk will let this person sign the child *out*,
+ * and the PIN decides whether it will let them do anything at all. A centre turning
+ * the tablet on wants both on one line.
+ *
+ * **A PIN is never shown back.** There is no code path that could — 0044 stores a
+ * bcrypt hash and grants nobody SELECT on the table. Forgetting one is replacing it,
+ * which is also why setting a PIN clears any lockout: a parent locked out at the door
+ * rings the office, and this is what the office does about it.
+ */
+function DoorPin({
+  childId,
+  entry,
+  pin,
+}: {
+  childId: string;
+  entry: GuardianOfChild;
+  pin: GuardianPinStatus | null;
+}) {
+  const [open, setOpen] = useState(false);
+  const [setState, setAction, setting] = useActionState<Result | null, FormData>(setPin, null);
+  const [clearState, clearAction, clearing] = useActionState<Result | null, FormData>(
+    clearPin,
+    null,
+  );
+
+  useEffect(() => {
+    if (setState && 'ok' in setState) setOpen(false);
+  }, [setState]);
+
+  const error =
+    (setState && 'error' in setState ? setState.error : null) ??
+    (clearState && 'error' in clearState ? clearState.error : null);
+
+  // Locked out *now*, not merely at some point. A stale lockout reads as a live one
+  // and sends the office chasing a problem that expired.
+  const lockedNow = pin?.lockedUntil != null && new Date(pin.lockedUntil) > new Date();
+
+  return (
+    <div style={{ marginTop: '0.35rem' }}>
+      <span className="inline">
+        {pin?.hasPin ? (
+          <span className={`flag ${lockedNow ? 'flag-warn' : 'flag-quiet'}`}>
+            {lockedNow ? '● door PIN locked' : 'door PIN set'}
+          </span>
+        ) : (
+          <span className="empty">no door PIN</span>
+        )}
+
+        {!open && (
+          <button className="secondary small" type="button" onClick={() => setOpen(true)}>
+            {pin?.hasPin ? 'Replace PIN' : 'Set PIN'}
+          </button>
+        )}
+
+        {pin?.hasPin && (
+          <form action={clearAction}>
+            <input type="hidden" name="guardianId" value={entry.guardian.id} />
+            <input type="hidden" name="childId" value={childId} />
+            <button className="danger small" type="submit" disabled={clearing}>
+              {clearing ? 'Removing…' : 'Remove PIN'}
+            </button>
+          </form>
+        )}
+      </span>
+
+      {error && (
+        <div className="error" role="alert">
+          {error}
+        </div>
+      )}
+
+      {open && (
+        <form action={setAction} style={{ marginTop: '0.5rem' }}>
+          <input type="hidden" name="guardianId" value={entry.guardian.id} />
+          <input type="hidden" name="childId" value={childId} />
+          <div className="field">
+            <label htmlFor={`pin-${entry.id}`}>New PIN for {entry.guardian.fullName}</label>
+            <input
+              id={`pin-${entry.id}`}
+              name="pin"
+              // `type="text"` with a numeric mode, not `type="number"` — a number input
+              // strips a leading zero, and "0421" is a PIN somebody will choose.
+              type="text"
+              inputMode="numeric"
+              autoComplete="off"
+              pattern="[0-9]{4,8}"
+              required
+            />
+            <p className="sub" style={{ fontSize: '0.8125rem' }}>
+              Four to eight digits. Tell them in person &mdash; nobody can read it back, here or
+              anywhere else, and replacing it is the only way to recover a forgotten one.
+              {lockedNow && ' Setting a new PIN also clears the lockout.'}
+            </p>
+          </div>
+          <div className="inline">
+            <button type="submit" disabled={setting}>
+              {setting ? 'Saving…' : 'Save PIN'}
+            </button>
+            <button className="secondary" type="button" onClick={() => setOpen(false)}>
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
+    </div>
   );
 }

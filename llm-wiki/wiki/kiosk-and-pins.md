@@ -122,6 +122,104 @@ What is recorded is the column *name* that changed, never its value, so a rotate
 `{"changed": ["pin_hash", "set_at"]}`. The DELETE matters most: clearing a PIN otherwise leaves
 no trace at all, because the evidence goes with the row.
 
+### The redirect loop that shipped with 0043
+
+Narrowing `memberships_select` was correct. Its consequence in the application was not traced,
+and the result was a **two-step loop** that no policy test could see, because every policy was
+right:
+
+1. `loadSession` selects from `memberships` → a kiosk reads **zero** rows, so it has no role.
+2. `listMyCentres` reads `centres`, which 0043 deliberately left open → exactly one centre.
+3. `requireCtx` finds a centre and no role and redirects to `/select-centre`.
+4. That page renders, tells a door tablet *"You have access to more than one"* above a list of
+   one, and bounces back to `/` on the only button it offers.
+
+The fix is a `kioskCentreId` on `Session`, resolved from `caller_kiosk_centre_id()` and **only
+when the membership list is empty** — which is the only shape a kiosk can have, so no human pays
+for the extra round trip. `requireCtx` then redirects a device to `/kiosk`, and `requireKiosk`
+does the opposite for a person.
+
+**`requireKiosk` is deliberately not built on `requireCtx`.** They are mirrors, and each sends the
+other's caller away; reusing one inside the other is the loop again under different names.
+
+**The mutation test was misleading the first time, which is the lesson worth keeping.** Removing
+the guard from `requireCtx` alone left the e2e passing — because `/select-centre` carries the same
+guard, and a kiosk still *arrived* at `/kiosk`, one hop later. The assertion is about the
+destination, and there were two roads to it. Only mutating both produced the timeout that proves
+the test can fail. Defence in depth is right here, and it makes single-point mutation testing lie.
+
+### The application layer
+
+`/kiosk` is a sibling of `(app)`, like `/login` — so it inherits the root layout and its
+per-request CSP nonce and **nothing else**. `?wall=1` on `/attendance` was the closest precedent
+and is only a precedent for *sizing*: it lives inside `(app)` and still renders the whole rail,
+including a sign-out control. On an unattended screen that is the problem, not the chrome —
+anybody walking past could log the tablet out and the centre would find out at the end of the day
+with no roll.
+
+`packages/api/src/kiosk.ts` is definer functions only. There is no table for it to select from, so
+there is no query for a later reader to widen.
+
+**The sign result is a discriminated union, not a string.** A wrong PIN arrives as a *resolved*
+call, so a caller treating "the promise resolved" as success would sign a child in on a wrong PIN.
+An unrecognised status is treated as a refusal, because the direction that fails in is otherwise
+"a child was signed in".
+
+Three steps — child, adult, PIN — rather than one form, because a single form puts a PIN field on
+screen before anybody has said who they are, which is how a parent types their PIN against the
+wrong child's row. The roll is **alphabetical, not present-first**: the queue at 8am is arriving
+and the queue at 3pm is leaving, and sorting by state would reorder the grid under a finger
+between those two moments.
+
+Two absences, both stated on the screen itself:
+
+- **No offline queue.** The outbox holds attendance only and has nowhere to put a guardian or a
+  PIN — and a PIN in `localStorage` on an unattended tablet defeats the entire point of 0044. It
+  is also [[unverified-claims]] §21, never drilled. A tap needs a connection and the screen says
+  so rather than accepting one it cannot deliver.
+- **No ratio.** `kiosk_roll()` returns no date of birth, so the age bands cannot be computed. A
+  tablet showing a ratio would have to know every child's age, which is the reading 0044 refused.
+
+The roadmap promised name **and photo**; `kiosk_roll()` returns no photo, and that stands — a
+photograph of a child on a screen facing the street is a decision nobody has made.
+
+### The first route-scoped stylesheet, and why the budget was right
+
+The kiosk styles went into `globals.css` and pushed `first-load-css` from 4.0 to 4.4 kB, over its
+4 kB budget. The check invites raising the number "deliberately, with a reason", and the reason
+would have been bad: **a door tablet's styles were being downloaded by every parent opening the
+app on a phone**, to render a screen they will never see.
+
+So `apps/web/src/app/kiosk/kiosk.css` is imported by the kiosk page and Next scopes it to that
+route's chunk. `first-load-css` is now **3.9 kB** — under where it started. The budget was met by
+shipping less rather than by moving the line, which is the only reading of a budget worth having.
+
+This is the first stylesheet in the web app that is not `globals.css`, and the pattern is worth
+copying only for a screen with a genuinely different visual language. Two of these is a design
+system; five is the CSS framework the budget exists to catch.
+
+### Testing it
+
+Three layers, and each catches something the others cannot:
+
+| | |
+|---|---|
+| `rls_isolation.sql` | the function refuses a wrong PIN, a stranger, a guardian who may not collect |
+| `roles.spec.ts` | a device lands on `/kiosk` and is sent back there from every other route |
+| `kiosk.spec.ts` | a PIN issued in the office **works at the door** — the only test that crosses the boundary 0044 built |
+
+A PIN nobody can issue is a lock with no key, and neither of the first two would have noticed.
+
+The screen is axe-audited at all three steps, because they are three different pages wearing one
+URL — a grid, a list and a keypad — and it is the one screen here used by people who did not
+choose to use it and cannot ask anybody for help.
+
+**Two mutations the compiler refused**, which is worth knowing before trying to write a third.
+`if (true || …)` is rejected by `no-constant-condition`, and comparing an outcome to a string that
+is not in the union is a TS2367 — so the obvious ways to write "treat every result as success"
+will not build. The realistic bug is `result.outcome !== 'not_permitted'`, which typechecks, ships
+a wrong PIN as a success, and fails the e2e on exactly that line.
+
 ## See Also
 
 - [[tenancy-and-rls]] — `caller_centre_ids()` and the four narrowed policies
@@ -129,4 +227,4 @@ no trace at all, because the evidence goes with the row.
 - [[unverified-claims]] — the lockout numbers, and what custody arrangements cannot do
 - [[conventions]] — the table convention this one deliberately breaks
 
-*Last updated: 2026-08-08*
+*Last updated: 2026-08-09*

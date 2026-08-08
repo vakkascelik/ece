@@ -1,0 +1,155 @@
+/* ---------------------------------------------------------------------------
+ * The door tablet (/kiosk)
+ *
+ * A different screen from every other one here: an unattended tablet at arm's
+ * length, used by people who do not work at the centre and are holding a child,
+ * a bag and a coffee. So the targets are `--target-primary` (64px) rather than
+ * the 32px compromise the desk screens make, and the type is a step up from the
+ * app's base — but nowhere near the wall panel's 88px, which is sized for three
+ * metres and would fit four names on a tablet.
+ *
+ * It does not use `.card`, `.btn` or any of the app's chrome, because none of
+ * that belongs on a screen with no navigation.
+ * ------------------------------------------------------------------------- */
+
+.kiosk {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding: var(--space-6);
+  background: var(--bg);
+}
+
+.kiosk-head h1 { font-size: var(--text-3xl); margin: 0; }
+.kiosk-sub { color: var(--ink-muted); font-size: var(--text-xl); margin: 0 0 var(--space-5); }
+.kiosk-empty { font-size: var(--text-xl); color: var(--ink-muted); }
+
+.kiosk-offline,
+.kiosk-problem {
+  margin: var(--space-4) 0 0;
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: var(--text-xl);
+  background: var(--warn-soft);
+  border: 1px solid var(--warn-border);
+  color: var(--warn);
+}
+.kiosk-problem { background: var(--breach-soft); border-color: var(--breach-border); color: var(--breach); }
+
+/* Auto-fit rather than a fixed column count: a centre with nine children and one
+   with sixty get the same rules, and the tile never falls below a thumb. */
+.kiosk-grid,
+.kiosk-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  flex: 1;
+  align-content: start;
+}
+.kiosk-list { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); flex: none; }
+
+.kiosk-grid button,
+.kiosk-list button {
+  width: 100%;
+  min-height: var(--target-primary);
+  padding: var(--space-5) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.kiosk-grid button:hover,
+.kiosk-list button:hover { border-color: var(--accent); }
+.kiosk-grid button:disabled,
+.kiosk-list button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.kiosk-name { font-size: var(--text-2xl); font-weight: 600; }
+.kiosk-state {
+  font-size: var(--text-base);
+  color: var(--ink-muted);
+  background: var(--surface-sunken);
+  border-radius: var(--radius-pill);
+  padding: var(--space-1) var(--space-3);
+}
+/* The tick carries the same meaning as the word beside it, so colour is never
+   the only signal — the same rule the state chips follow elsewhere. */
+.kiosk-state.is-here { background: var(--ok-soft); color: var(--ok); }
+.kiosk-state.is-here::before { content: '✓ '; }
+
+.kiosk-note { font-size: var(--text-base); color: var(--ink-muted); }
+
+.kiosk-panel h2 { font-size: var(--text-2xl); margin: 0 0 var(--space-2); }
+
+.kiosk-dots {
+  font-size: var(--text-3xl);
+  letter-spacing: 0.25em;
+  min-height: 3rem;
+  margin: 0 0 var(--space-4);
+  color: var(--ink);
+}
+
+.kiosk-pad {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+  max-width: 22rem;
+}
+.kiosk-pad button {
+  min-height: var(--target-primary);
+  font-size: var(--text-2xl);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  color: var(--ink);
+  cursor: pointer;
+}
+.kiosk-pad button:hover { border-color: var(--accent); }
+
+.kiosk-actions { display: flex; gap: var(--space-3); margin-top: var(--space-5); }
+.kiosk-actions button[type='submit'] {
+  min-height: var(--target-primary);
+  padding: 0 var(--space-6);
+  font-size: var(--text-xl);
+  background: var(--accent);
+  color: var(--ink-inverse);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+.kiosk-actions button[type='submit']:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.kiosk-back {
+  min-height: var(--target-primary);
+  padding: 0 var(--space-5);
+  font-size: var(--text-xl);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.kiosk-done p { font-size: var(--text-3xl); margin: 0 0 var(--space-5); }
+.kiosk-done button {
+  min-height: var(--target-primary);
+  padding: 0 var(--space-6);
+  font-size: var(--text-xl);
+  background: var(--accent);
+  color: var(--ink-inverse);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.kiosk-foot { color: var(--ink-muted); font-size: var(--text-lg); }

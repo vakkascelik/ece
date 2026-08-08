@@ -144,6 +144,26 @@ export interface Session {
   userId: string;
   memberships: Membership[];
   activeCentreId: string | null;
+  /**
+   * The centre this session is a door tablet for, or null for every person.
+   *
+   * Separate from `memberships` and not derivable from it, because 0043 narrowed
+   * `memberships_select` to the four human roles — so a kiosk reads **zero**
+   * membership rows and cannot be recognised by looking at that list. It is resolved
+   * from `caller_kiosk_centre_id()` instead.
+   *
+   * That narrowing was right and its consequence was missed: without this field the
+   * app saw an account with a session, one readable centre and no role, which
+   * `requireCtx` answered by redirecting to `/select-centre` — a page that then
+   * rendered "You have access to more than one" above a list of one, and bounced
+   * back on every choice. See `kiosk-and-pins.md`.
+   */
+  kioskCentreId: string | null;
+}
+
+/** A device, not a person. Holds no capability and belongs on no `(app)` page. */
+export function isKiosk(session: Session): boolean {
+  return session.kioskCentreId !== null;
 }
 
 export function activeRole(session: Session): MemberRole | null {
