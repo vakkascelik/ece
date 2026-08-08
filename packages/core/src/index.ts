@@ -31,6 +31,12 @@ export interface Centre {
    * `sleep-checks.md` and unverified-claims 23.
    */
   sleepCheckMinutes: number | null;
+  /**
+   * Days between emergency drills, as stated by the centre. Null means none stated,
+   * with the same contract as `sleepCheckMinutes` — the screen shows elapsed time and
+   * declines to call anything late. unverified-claims 24.
+   */
+  drillIntervalDays: number | null;
   archivedAt: string | null;
 }
 

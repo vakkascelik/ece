@@ -79,6 +79,7 @@ interface CentreRow {
   timezone: string;
   medication_requires_witness: boolean;
   sleep_check_minutes: number | null;
+  drill_interval_days: number | null;
   archived_at: string | null;
 }
 
@@ -100,6 +101,9 @@ const toCentre = (r: CentreRow): Centre => ({
   // Null is meaningful and must survive the trip: it means the centre has stated no
   // interval, which the UI renders differently from any number. Do not `?? 0`.
   sleepCheckMinutes: r.sleep_check_minutes,
+  // Null is meaningful here too: none stated, which the screen renders differently
+  // from any number.
+  drillIntervalDays: r.drill_interval_days,
   archivedAt: r.archived_at,
 });
 
@@ -115,7 +119,7 @@ const toMembership = (r: MembershipRow): Membership => ({
 export async function listMyCentres(db: Db): Promise<Centre[]> {
   const { data, error } = await db
     .from('centres')
-    .select('id, name, moe_service_number, slug, timezone, medication_requires_witness, sleep_check_minutes, archived_at')
+    .select('id, name, moe_service_number, slug, timezone, medication_requires_witness, sleep_check_minutes, drill_interval_days, archived_at')
     .is('archived_at', null)
     .order('name');
   if (error) throw new Error(`listMyCentres: ${error.message}`);
@@ -166,7 +170,7 @@ export async function createCentre(
       slug: input.slug,
       moe_service_number: input.moeServiceNumber ?? null,
     })
-    .select('id, name, moe_service_number, slug, timezone, medication_requires_witness, sleep_check_minutes, archived_at')
+    .select('id, name, moe_service_number, slug, timezone, medication_requires_witness, sleep_check_minutes, drill_interval_days, archived_at')
     .single();
   if (error) throw new Error(`createCentre: ${error.message}`);
 

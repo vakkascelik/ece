@@ -102,6 +102,8 @@ export async function updateCentre(
      * `sleep-checks.md`.
      */
     sleepCheckMinutes?: number | null;
+    /** Same null-means-none-stated contract as the sleep interval. */
+    drillIntervalDays?: number | null;
   },
 ): Promise<void> {
   const row: Record<string, unknown> = {};
@@ -111,6 +113,7 @@ export async function updateCentre(
     row.medication_requires_witness = patch.medicationRequiresWitness;
   }
   if (patch.sleepCheckMinutes !== undefined) row.sleep_check_minutes = patch.sleepCheckMinutes;
+  if (patch.drillIntervalDays !== undefined) row.drill_interval_days = patch.drillIntervalDays;
   if (Object.keys(row).length === 0) return;
 
   /*

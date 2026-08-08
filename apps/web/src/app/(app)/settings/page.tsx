@@ -13,6 +13,7 @@ export default async function SettingsPage() {
         moeServiceNumber={ctx.centre.moeServiceNumber}
         medicationRequiresWitness={ctx.centre.medicationRequiresWitness}
         sleepCheckMinutes={ctx.centre.sleepCheckMinutes}
+        drillIntervalDays={ctx.centre.drillIntervalDays}
       />
     </>
   );

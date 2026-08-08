@@ -260,6 +260,17 @@ test.describe('staff screens', () => {
     await auditPage(page, '/sleep');
   });
 
+  test('site safety, with a hazard form open', async ({ page }) => {
+    await visit(page, '/facilities');
+    await expect(page.getByRole('heading', { name: 'Site safety' })).toBeVisible();
+    // Audited with a form expanded. The radio group in the safety-check row and the
+    // select in the hazard form are the parts most likely to fail, and neither exists
+    // until something is opened — auditing the collapsed page reports a pass on
+    // markup that is not on screen.
+    await page.getByRole('button', { name: 'Record a hazard' }).click();
+    await auditPage(page, '/facilities');
+  });
+
   test('posts', async ({ page }) => {
     await visit(page, '/posts');
     await expect(page.getByText('Audit pānui')).toBeVisible();

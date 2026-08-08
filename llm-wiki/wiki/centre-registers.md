@@ -195,6 +195,36 @@ The general lesson is in [[conventions]]: a green suite after a deliberate weake
 the weakening did nothing, and the `caller_*` predicates are `SECURITY DEFINER` precisely so
 they are not silently narrowed by the tables they consult.
 
+### The screen
+
+`/facilities` — hazards, drills and daily checks on one page, because they answer one question:
+is the building safe to open. Staff only, educators included, since the person who spots a loose
+paving stone is the person walking on it and a hazard register only the office can write to is
+one nobody writes to.
+
+**The visitor book is deliberately not on it.** That is used dozens of times a day at the door,
+and burying it under a page somebody opens weekly would guarantee it stays a spiral notebook.
+
+Three decisions worth keeping:
+
+- **Every drill kind gets a row, held or not.** A log of drills that happened cannot show the one
+  that never did, so *"never recorded"* is a row on screen rather than an absence somebody has to
+  notice — and it is the row most worth seeing. Same for safety-check areas: the sandpit nobody
+  looked at this morning only appears because every area is listed.
+- **Closed hazards stay on the list.** A register that hides what was fixed cannot show a
+  reviewer that anything ever gets fixed, which is most of what a hazard register is evidence of.
+- **The summary counts *uncontrolled* separately from *high risk*.** A high-risk hazard with a
+  control written is a managed risk; one nobody has acted on is a job. Merging them makes the
+  number useless.
+
+The drill log renders `overdue: null` as a plain elapsed time in the quiet style — not the tick
+used for `false`. Fourth screen to carry that distinction, and for the reason
+[[sleep-checks]] sets out.
+
+`drill_interval_days` is settable on `/settings` beside the sleep interval. Both were columns the
+product could read and nobody could write for a commit or two; that gap is closed, and it is the
+second time this session that a setting shipped ahead of the field to set it.
+
 ## See Also
 
 - [[incident-register]] — the harder boundary, and where the append-only reasoning is written out

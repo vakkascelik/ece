@@ -10,12 +10,15 @@ export function SettingsForm({
   moeServiceNumber,
   medicationRequiresWitness,
   sleepCheckMinutes,
+  drillIntervalDays,
 }: {
   name: string;
   moeServiceNumber: string | null;
   medicationRequiresWitness: boolean;
   /** `null` means the centre has stated no interval. Rendered as blank, not as 0. */
   sleepCheckMinutes: number | null;
+  /** `null` means the centre has stated none. Rendered blank, not as 0. */
+  drillIntervalDays: number | null;
 }) {
   const [state, action, busy] = useActionState(saveCentre, null as Result);
 
@@ -79,6 +82,25 @@ export function SettingsForm({
           Leave blank and the sleep register shows how long ago each child was checked without
           calling anything overdue. This product does not know what the required interval is and
           will not guess one &mdash; state your own and the register measures against it.
+        </p>
+      </div>
+
+      <div style={{ marginBottom: '1.25rem' }}>
+        <label htmlFor="drill">Days between emergency drills</label>
+        <input
+          id="drill"
+          name="drillIntervalDays"
+          type="number"
+          min={1}
+          max={730}
+          inputMode="numeric"
+          defaultValue={drillIntervalDays ?? ''}
+          placeholder="not set"
+        />
+        <p className="sub" style={{ fontSize: '0.8125rem', margin: '0.25rem 0 0' }}>
+          Leave blank and the drill log shows how long it has been without calling it late. Same
+          as the sleep interval: this product does not know the required frequency and will not
+          guess one.
         </p>
       </div>
 

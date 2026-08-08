@@ -39,6 +39,18 @@ export async function saveCentre(_prev: unknown, form: FormData) {
     sleepCheckMinutes = n;
   }
 
+  // Same shape as the sleep interval: blank is NULL, not zero, and 0034's CHECK
+  // refuses anything outside 1–730 anyway.
+  const drillRaw = String(form.get('drillIntervalDays') ?? '').trim();
+  let drillIntervalDays: number | null = null;
+  if (drillRaw) {
+    const n = Number(drillRaw);
+    if (!Number.isInteger(n) || n < 1 || n > 730) {
+      return { error: 'A drill interval is a whole number of days between 1 and 730.' };
+    }
+    drillIntervalDays = n;
+  }
+
   const db = await serverDb();
   try {
     await updateCentre(db, ctx.centre.id, {
@@ -46,6 +58,7 @@ export async function saveCentre(_prev: unknown, form: FormData) {
       moeServiceNumber: raw || null,
       medicationRequiresWitness: witness,
       sleepCheckMinutes,
+      drillIntervalDays,
     });
   } catch (err) {
     const message = (err as Error).message;

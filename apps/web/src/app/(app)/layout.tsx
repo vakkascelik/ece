@@ -53,6 +53,9 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
               these; a parent reads their own child's through the child record. */}
           {can(ctx.role, 'recordDailyPractice') && <NavLink href="/incidents">Incidents</NavLink>}
           {can(ctx.role, 'recordDailyPractice') && <NavLink href="/sleep">Sleep checks</NavLink>}
+          {/* The building rather than the children. Educators included: the person who
+              spots a loose paving stone is the person walking on it. */}
+          {can(ctx.role, 'recordDailyPractice') && <NavLink href="/facilities">Site safety</NavLink>}
           {can(ctx.role, 'manageMembers') && <NavLink href="/members">People</NavLink>}
           {/* Next to People because both are about who works here — but a separate capability, for
               the reason recorded on `manageRecruitment` in @ece/core. */}
