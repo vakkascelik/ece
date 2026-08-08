@@ -196,3 +196,4 @@ export * from './engagement';
 export * from './billing';
 export * from './recruitment';
 export * from './registers';
+export * from './facilities';

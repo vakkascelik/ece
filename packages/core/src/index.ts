@@ -180,6 +180,11 @@ export * from './recruitment';
 // a clock: `now` is a parameter, because both things it decides are time-relative.
 export * from './registers';
 
+// The Phase 9 registers — drills, hazards, safety checks, visitors, excursions and
+// immunisation. Grouped by phase rather than by table: the boundary that matters is
+// in the policies, not in the arithmetic.
+export * from './facilities';
+
 // ---------------------------------------------------------------------------
 // Design tokens
 // ---------------------------------------------------------------------------
