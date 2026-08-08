@@ -70,6 +70,29 @@ test('a sleep-check interval saves, and clearing it stores nothing rather than z
   ).not.toBeChecked();
 });
 
+test('the ratio source can be switched, and the change is stated as consequential', async ({
+  page,
+}) => {
+  await visit(page, '/settings');
+
+  const source = page.getByLabel('Where the adult count comes from');
+  // Defaults to declared so no existing centre's history changes meaning on deploy.
+  await expect(source).toHaveValue('declared');
+  // The one setting here that changes what an existing record MEANS, and the screen
+  // has to say so — including the part that looks like a bug and is not.
+  await expect(page.getByText(/reads zero adults and shows a breach/)).toBeVisible();
+
+  await source.selectOption('derived');
+  await save(page);
+  await page.reload({ waitUntil: 'networkidle' });
+  await expect(page.getByLabel('Where the adult count comes from')).toHaveValue('derived');
+
+  await page.getByLabel('Where the adult count comes from').selectOption('declared');
+  await save(page);
+  await page.reload({ waitUntil: 'networkidle' });
+  await expect(page.getByLabel('Where the adult count comes from')).toHaveValue('declared');
+});
+
 test('a nonsensical interval never reaches the database', async ({ page }) => {
   await visit(page, '/settings');
 

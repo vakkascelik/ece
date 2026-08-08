@@ -1,6 +1,7 @@
 'use client';
 
 import { useActionState } from 'react';
+import { RATIO_SOURCES, type RatioSource } from '@ece/core';
 import { saveCentre } from './actions';
 
 type Result = { error?: string; ok?: boolean } | null;
@@ -11,6 +12,7 @@ export function SettingsForm({
   medicationRequiresWitness,
   sleepCheckMinutes,
   drillIntervalDays,
+  ratioSource,
 }: {
   name: string;
   moeServiceNumber: string | null;
@@ -19,6 +21,7 @@ export function SettingsForm({
   sleepCheckMinutes: number | null;
   /** `null` means the centre has stated none. Rendered blank, not as 0. */
   drillIntervalDays: number | null;
+  ratioSource: RatioSource;
 }) {
   const [state, action, busy] = useActionState(saveCentre, null as Result);
 
@@ -82,6 +85,33 @@ export function SettingsForm({
           Leave blank and the sleep register shows how long ago each child was checked without
           calling anything overdue. This product does not know what the required interval is and
           will not guess one &mdash; state your own and the register measures against it.
+        </p>
+      </div>
+
+      {/*
+        The one setting on this page that changes what an existing record MEANS.
+
+        Everything else here adds a rule going forward. This changes where the adult
+        half of every ratio comes from — including, on screens that replay history,
+        days already recorded. The wording says so, and the binder marks days whose
+        source differs from the one in force. See 0040.
+      */}
+      <div style={{ marginBottom: '1.25rem' }}>
+        <label htmlFor="ratioSource">Where the adult count comes from</label>
+        <select id="ratioSource" name="ratioSource" defaultValue={ratioSource}>
+          {RATIO_SOURCES.map((s) => (
+            <option key={s} value={s}>
+              {s === 'declared'
+                ? 'A number staff enter on the attendance screen'
+                : 'The staff who have signed themselves in'}
+            </option>
+          ))}
+        </select>
+        <p className="sub" style={{ fontSize: '0.8125rem', margin: '0.25rem 0 0' }}>
+          These never mix. If you choose staff sign-in and nobody signs in, the ratio reads zero
+          adults and shows a breach &mdash; that is deliberate, and it is the point of choosing
+          it. Changing this also changes how days already recorded are read back, so the evidence
+          binder marks any day that used the other source.
         </p>
       </div>
 

@@ -7,7 +7,7 @@
  * than expected, the answer is a missing membership, not a missing filter.
  */
 
-import type { MemberRole } from '@ece/core';
+import type { MemberRole, RatioSource } from '@ece/core';
 import type { Db } from './index';
 
 export interface MemberWithUser {
@@ -104,6 +104,8 @@ export async function updateCentre(
     sleepCheckMinutes?: number | null;
     /** Same null-means-none-stated contract as the sleep interval. */
     drillIntervalDays?: number | null;
+    /** Never blended and never guessed — see 0040. */
+    ratioSource?: RatioSource;
   },
 ): Promise<void> {
   const row: Record<string, unknown> = {};
@@ -114,6 +116,7 @@ export async function updateCentre(
   }
   if (patch.sleepCheckMinutes !== undefined) row.sleep_check_minutes = patch.sleepCheckMinutes;
   if (patch.drillIntervalDays !== undefined) row.drill_interval_days = patch.drillIntervalDays;
+  if (patch.ratioSource !== undefined) row.ratio_source = patch.ratioSource;
   if (Object.keys(row).length === 0) return;
 
   /*

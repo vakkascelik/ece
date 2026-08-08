@@ -217,6 +217,18 @@ Two consequences worth carrying:
   in a policy does not have that property, which makes it unpredictable in both directions —
   accidentally safe here, accidentally *restrictive* somewhere it matters. Use the predicates.
 
+### Two `test:e2e` runs at once produce a false failure
+
+The suite seeds one audit tenant, and `reuseExistingServer` is on locally — so a second run
+started while the first is going **shares the webserver and the tenant**, and the second run's
+teardown drops the tenant out from under the first. The first then reports a partial pass with
+the rest unrun.
+
+Recorded because the output looks exactly like a real regression, and 2026-08-08 was spent
+briefly believing it was one. A full run started in the background is not a thing to work
+alongside; either wait for it, or accept that its result is worthless. The tell is a pass count
+well short of the total with no failure detail — an interrupted run, not a failing one.
+
 ### PostgREST traps
 
 - **Bulk inserts do not apply column defaults.** One `INSERT` is built from the *union* of

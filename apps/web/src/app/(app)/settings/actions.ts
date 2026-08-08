@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { updateCentre } from '@ece/api';
+import { RATIO_SOURCES, type RatioSource } from '@ece/core';
 import { requireCapability } from '@/lib/auth';
 import { serverDb } from '@/lib/supabase';
 
@@ -51,6 +52,17 @@ export async function saveCentre(_prev: unknown, form: FormData) {
     drillIntervalDays = n;
   }
 
+  /*
+    The ratio source. Validated against the enum rather than trusted, and a value
+    outside it is refused rather than coerced — 0040 forbids blending, and silently
+    falling back to `declared` on a typo is a quiet version of exactly that.
+  */
+  const sourceRaw = String(form.get('ratioSource') ?? '').trim();
+  const ratioSource = (RATIO_SOURCES as readonly string[]).includes(sourceRaw)
+    ? (sourceRaw as RatioSource)
+    : null;
+  if (!ratioSource) return { error: 'Choose where the adult count comes from.' };
+
   const db = await serverDb();
   try {
     await updateCentre(db, ctx.centre.id, {
@@ -59,6 +71,7 @@ export async function saveCentre(_prev: unknown, form: FormData) {
       medicationRequiresWitness: witness,
       sleepCheckMinutes,
       drillIntervalDays,
+      ratioSource,
     });
   } catch (err) {
     const message = (err as Error).message;

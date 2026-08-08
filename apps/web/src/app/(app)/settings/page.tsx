@@ -14,6 +14,7 @@ export default async function SettingsPage() {
         medicationRequiresWitness={ctx.centre.medicationRequiresWitness}
         sleepCheckMinutes={ctx.centre.sleepCheckMinutes}
         drillIntervalDays={ctx.centre.drillIntervalDays}
+        ratioSource={ctx.centre.ratioSource}
       />
     </>
   );

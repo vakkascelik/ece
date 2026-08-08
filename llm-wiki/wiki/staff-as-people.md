@@ -106,9 +106,58 @@ it would be silently narrowed by `staff_members_select` — which happens to giv
 today and would stop doing so the moment that policy changed, in a direction nobody would
 notice.
 
-## Still to come in this phase
+### Two sources for one number (0040), and the rule that they never blend
 
-- **The two ratio sources**, which must not blend. `centres.ratio_source` defaults to `declared`
+Three rules, in order of how badly breaking them would end.
+
+**Never blend.** Not an average, not a maximum, not *derived if any staff have signed in,
+otherwise declared*. A blended figure is unattributable: nobody reading a binder could say where
+the number came from, and the binder's whole value is that its provenance is stateable.
+
+**Never fall back.** A derived centre where nobody signed in reports **zero adults** — a visible,
+alarming, correct statement that nobody recorded their presence. Falling back to the typed count
+would paper over exactly the failure that switching to derived was meant to expose. The suite
+asserts it and the comment beside it says so, because it looks like a bug and the next person
+will want to fix it.
+
+**Default to `declared`.** Every existing centre keeps the meaning its history already has. A
+default of `derived` would silently reinterpret every ratio snapshot ever recorded, which is the
+one thing a compliance record must never do on a deploy.
+
+#### The compiler is the enforcement
+
+`replayDay` **requires** `adultSource`. A default would let a centre switch and keep printing
+binders that say "figures entered by staff" over numbers nobody typed. That cost fourteen test
+call sites and walked the change to three production ones that would otherwise have been missed
+— `readDayRatio`, `/compliance` and `/compliance/binder`. The type error is what found them.
+
+**The binder's disclaimer had to stop being a constant.** It states which source the numbers came
+from, and if any day in the period used a *different* source from the one in force, it says that
+too — a binder spanning a switch would otherwise assert a provenance it does not have.
+
+`readDayRatio` does not fetch staff attendance at all for a declared centre. Not an optimisation:
+fetching data it must then ignore invites "use it if it happens to be there", which is the
+blending 0040 forbids. Not fetching makes the rule structural.
+
+#### The correction that bites in two languages
+
+A staff correction can carry an **earlier** timestamp than the row it fixes — signed in at 8:05,
+corrected to 7:50. Sorting by time without resolving corrections first replays the wrong state and
+reports one adult too few.
+
+Handled in `adults_present_now` (SQL, about now) and `deriveAdultCounts` (TypeScript, replaying a
+past day), **deliberately duplicated rather than shared**: one answers in Postgres and the other in
+the browser, and a shared implementation would have to live in one of the two places the other
+cannot reach. Both are transitive, and both are asserted.
+
+#### The setting
+
+`/settings` carries it, worded as the one control on that page that changes what an existing
+record *means* — everything else there adds a rule going forward. An invalid value is refused
+rather than coerced to `declared`, because a silent fallback on a typo is a quiet version of the
+blending the whole migration forbids.
+
+## Still to come in this phase `centres.ratio_source` defaults to `declared`
   so no existing centre's history changes meaning on deploy, and `replayDay` must record which
   source produced each snapshot — otherwise every binder printed after a switch is ambiguous
   about every day before it.
