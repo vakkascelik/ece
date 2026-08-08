@@ -203,3 +203,4 @@ export * from './billing';
 export * from './recruitment';
 export * from './registers';
 export * from './facilities';
+export * from './staff';

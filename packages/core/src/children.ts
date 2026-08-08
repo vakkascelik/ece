@@ -255,6 +255,26 @@ export function missingConsents(states: ConsentState[]): ConsentKind[] {
 export const NZ_TIMEZONE = 'Pacific/Auckland';
 
 /**
+ * Move an already-resolved local date by a number of days.
+ *
+ * The input is a calendar date somebody else resolved with `todayInZone`, and the
+ * output is another calendar date. `Date.UTC` at both ends means the offset cancels
+ * and no zone is consulted — this never asks what day it is, which is what keeps it
+ * out of the trap `localDates.test.ts` guards.
+ *
+ * It lives here rather than in the web app because it now has callers in two
+ * packages. It began as an inline copy in `/incidents`, moved to
+ * `apps/web/src/lib/dayWindow.ts` when the guard caught that duplication, and moved
+ * again when `staff.ts` needed it and core cannot import from an app. Both moves
+ * were the guard refusing a second allowlist entry, which is the guard working.
+ */
+export function shiftLocalDate(date: string, deltaDays: number): string {
+  const [y, m, d] = date.split('-').map(Number);
+  if (!y || !m || !d) throw new Error(`Not an ISO date: ${date}`);
+  return new Date(Date.UTC(y, m - 1, d + deltaDays)).toISOString().slice(0, 10);
+}
+
+/**
  * Today as `YYYY-MM-DD` in a named timezone.
  *
  * Neither UTC nor "local" is correct here, and both were wrong in the first cut of

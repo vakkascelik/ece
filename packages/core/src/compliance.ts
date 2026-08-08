@@ -41,6 +41,14 @@ export interface StaffRecord {
   sightedBy: string | null;
   sightedAt: string | null;
   note: string | null;
+  /**
+   * The person this evidence is about, once somebody has linked it.
+   *
+   * Null until a human does, on purpose - 0038 refuses to guess from `personName`,
+   * because two relievers sharing a first name would be merged and a vetting result
+   * would end up attached to the wrong person. `personName` stays the fact.
+   */
+  staffMemberId: string | null;
   archivedAt: string | null;
 }
 

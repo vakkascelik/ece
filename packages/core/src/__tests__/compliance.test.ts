@@ -15,6 +15,7 @@ const record = (over: Partial<StaffRecord> = {}): StaffRecord => ({
   centreId: 'c',
   userId: null,
   personName: 'Alex Kaiako',
+  staffMemberId: null,
   roleNote: null,
   kind: 'first_aid',
   reference: null,

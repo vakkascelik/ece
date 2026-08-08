@@ -200,6 +200,10 @@ export * from './registers';
 // in the policies, not in the arithmetic.
 export * from './facilities';
 
+// Staff as people: the roster, who is signed in, and the certificate count that
+// states a fact and never a funding consequence.
+export * from './staff';
+
 // ---------------------------------------------------------------------------
 // Design tokens
 // ---------------------------------------------------------------------------

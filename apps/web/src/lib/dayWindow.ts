@@ -114,24 +114,18 @@ export function zonedWallClockToUtc(wallClock: string, timeZone: string): string
   return (actual === guess ? first : new Date(naive - actual * 60_000)).toISOString();
 }
 
-/**
- * Move an already-resolved local date by a number of days.
+/*
+ * `shiftLocalDate` used to live here and now lives in `@ece/core`.
  *
- * The input is a calendar date somebody else resolved with `todayInZone`, and the
- * output is another calendar date. `Date.UTC` at both ends means the offset cancels
- * and no zone is consulted — this never asks what day it is, which is what keeps it
- * out of the trap `localDates.test.ts` guards.
- *
- * It exists because two callers wanted the same arithmetic and the second one
- * (`/incidents`) wrote it out again. The guard caught the copy, which is a better
- * outcome than the guard gaining a second allowlist entry: one exemption with one
- * argument beats two of each.
+ * It moved when `packages/core/src/staff.ts` needed it and core cannot import from
+ * an app. Re-exported rather than relocated at every call site, because the import
+ * path is not the interesting part — and both moves happened because
+ * `localDates.test.ts` refused a second allowlist entry for a duplicated copy, which
+ * is the guard working rather than being appeased.
  */
-export function shiftLocalDate(date: string, deltaDays: number): string {
-  const [y, m, d] = date.split('-').map(Number);
-  if (!y || !m || !d) throw new Error(`Not an ISO date: ${date}`);
-  return new Date(Date.UTC(y, m - 1, d + deltaDays)).toISOString().slice(0, 10);
-}
+import { shiftLocalDate } from '@ece/core';
+
+export { shiftLocalDate };
 
 /** Today and the six days before it, oldest first. */
 export function lastSevenDays(today: string): string[] {

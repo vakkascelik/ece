@@ -61,10 +61,18 @@ const UTC_DATE_PART =
  * "probably fine".
  */
 const RESOLVED_ELSEWHERE: Record<string, string> = {
-  // `lastSevenDays` is handed a `today` that a caller already resolved with `todayInZone`, and
-  // walks back from it with `Date.UTC(y, m - 1, d - back)`. Both ends are UTC, so the offset
-  // cancels: this is arithmetic on a calendar date, and it never asks what day it is.
-  'apps/web/src/lib/dayWindow.ts': 'arithmetic on an already-resolved date, via explicit Date.UTC components',
+  /*
+    `shiftLocalDate` walks a date a caller already resolved with `todayInZone`, using
+    explicit `Date.UTC` components at both ends — so the offset cancels and it never
+    asks what day it is.
+
+    There is still exactly one entry here, and it has now moved twice: from an inline
+    copy in `/incidents`, to `apps/web/src/lib/dayWindow.ts`, to core when
+    `staff.ts` needed it and core cannot import from an app. Each time the guard
+    refused a second exemption and the function moved instead, which is the whole
+    argument for keeping the list short enough to notice.
+  */
+  'packages/core/src/children.ts': 'arithmetic on an already-resolved date, via explicit Date.UTC components',
 };
 
 function walk(dir: string, out: string[] = []): string[] {

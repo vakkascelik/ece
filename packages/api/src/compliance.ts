@@ -30,7 +30,7 @@ import type { Db } from './index';
 // ---------------------------------------------------------------------------
 
 const STAFF_COLUMNS =
-  'id, centre_id, user_id, person_name, role_note, kind, reference, issued_on, expires_on, sighted_by, sighted_at, note, archived_at';
+  'id, centre_id, user_id, person_name, role_note, kind, reference, issued_on, expires_on, sighted_by, sighted_at, note, staff_member_id, archived_at';
 
 interface StaffRow {
   id: string;
@@ -45,6 +45,7 @@ interface StaffRow {
   sighted_by: string | null;
   sighted_at: string | null;
   note: string | null;
+  staff_member_id: string | null;
   archived_at: string | null;
 }
 
@@ -61,6 +62,7 @@ const toStaffRecord = (r: StaffRow): StaffRecord => ({
   sightedBy: r.sighted_by,
   sightedAt: r.sighted_at,
   note: r.note,
+  staffMemberId: r.staff_member_id,
   archivedAt: r.archived_at,
 });
 
