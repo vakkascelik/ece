@@ -56,6 +56,11 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           {/* The building rather than the children. Educators included: the person who
               spots a loose paving stone is the person walking on it. */}
           {can(ctx.role, 'recordDailyPractice') && <NavLink href="/facilities">Site safety</NavLink>}
+          {/* Its own link, not a section of Site safety: used dozens of times a day at
+              the door, and burying the frequent thing under the weekly one is how it
+              stays a spiral notebook. */}
+          {can(ctx.role, 'recordDailyPractice') && <NavLink href="/visitors">Visitors</NavLink>}
+          {can(ctx.role, 'recordDailyPractice') && <NavLink href="/excursions">Excursions</NavLink>}
           {can(ctx.role, 'manageMembers') && <NavLink href="/members">People</NavLink>}
           {/* Next to People because both are about who works here — but a separate capability, for
               the reason recorded on `manageRecruitment` in @ece/core. */}

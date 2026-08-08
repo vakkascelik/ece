@@ -225,6 +225,64 @@ used for `false`. Fourth screen to carry that distinction, and for the reason
 product could read and nobody could write for a commit or two; that gap is closed, and it is the
 second time this session that a setting shipped ahead of the field to set it.
 
+### The visitor book's screen
+
+`/visitors`, its own nav link — the frequent thing must not live under the weekly one. Two
+lists: **in the building** (oldest arrival first, because it is read at the assembly point and
+the person who arrived three hours ago is the one nobody has thought about since) and **earlier
+today**. Signing out moves a visit from the first to the second; nothing removes it, because
+0035 withholds `DELETE` from everybody.
+
+The sign-in form sits open rather than behind a button — unlike every other register, the
+common visit to this page *is* a write: somebody is standing at the door. The form clears by
+remounting on success, so the next visitor does not have to delete the previous one's name.
+Times are taken server-side at the click, never from a field: the record is when somebody
+arrived, not when a manager got round to writing the book up.
+
+The window reaches back seven days so that "in the building" has no horizon: a contractor
+signed in on Friday and never signed out is still at the top of the list on Monday, as a
+question — did they stay, or did nobody sign them out? A today-scoped read would resolve that
+question by hiding it.
+
+**A test-writing trap recorded for next time:** the first version of the spec located the
+in-building list as `getByRole('table').first()`. When that list empties, its card renders an
+empty-state paragraph instead of a table — so the locator silently became the *day log*, and
+"the visitor is off the first table" failed against the table that was supposed to contain
+them. It read exactly like a product bug and was not one; the diagnosis of "a revalidation
+race" was also wrong before the page snapshot settled it. Positional locators shift meaning
+when conditional rendering changes the population; scope by the adjacent heading instead.
+
+### The excursion screens
+
+A list at `/excursions` and a detail page per outing, because the work — chasing consent,
+departing, counting — is per-outing work done with a phone open at the gate.
+
+**"Off site right now" sits above everything else on the list.** During an emergency at the
+centre, the first question about outings is who is not in the building.
+
+**The roster shows three consent states, and the wording keeps them apart.** *Not answered —
+chase* is a phone call. *Declined — comes off the list* is an answer. A single "no consent"
+label would send somebody to phone a family who has already said no. Unanswered sorts to the
+top, because the list is a to-do and that is the to-do.
+
+**The guardian selector offers only that child's guardians.** 0037's staff transcription path
+does not re-check the link, so a centre-wide list would invite recording a decision against the
+wrong family.
+
+**Depart is never disabled by the consent gaps.** Disabling it hides the refusal — the person
+taps, nothing happens, and the reason lives in a tooltip nobody reads. Tapping it produces the
+server's sentence naming what is missing, at the moment it is wanted.
+
+That sentence is the one thing here worth a browser test. The trigger reports a *count* on
+purpose (an exception string can reach a log, an error reporter, or a screen with parents in the
+room). The action, which knows it is talking to a screen, recomputes the gaps and splits them —
+so the person at the gate is told which of two very different problems they have. Mutation-tested:
+disabling the split made the suite fail on exactly the "phone call" wording.
+
+**A short count is shouted, not refused**, and both counts stay in the log. `expected` is
+prefilled from the roster and editable, because two children collected early by a parent is an
+expected of N−2 rather than a short count.
+
 ## See Also
 
 - [[incident-register]] — the harder boundary, and where the append-only reasoning is written out

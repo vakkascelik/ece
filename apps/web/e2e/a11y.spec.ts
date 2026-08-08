@@ -271,6 +271,19 @@ test.describe('staff screens', () => {
     await auditPage(page, '/facilities');
   });
 
+  test('visitors — the form is always open, so no expansion step', async ({ page }) => {
+    await visit(page, '/visitors');
+    await expect(page.getByRole('heading', { name: 'Sign a visitor in' })).toBeVisible();
+    await auditPage(page, '/visitors');
+  });
+
+  test('excursions, with the planning form open', async ({ page }) => {
+    await visit(page, '/excursions');
+    await expect(page.getByRole('heading', { name: 'Excursions' })).toBeVisible();
+    await page.getByRole('button', { name: 'Plan an outing' }).click();
+    await auditPage(page, '/excursions');
+  });
+
   test('posts', async ({ page }) => {
     await visit(page, '/posts');
     await expect(page.getByText('Audit pānui')).toBeVisible();
