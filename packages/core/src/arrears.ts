@@ -163,3 +163,26 @@ export function summariseArrears(invoices: OutstandingInvoice[], on: string): Ar
       .sort((a, b) => (b.daysOverdue ?? -1) - (a.daysOverdue ?? -1) || b.outstandingCents - a.outstandingCents),
   };
 }
+
+/**
+ * Cents to a New Zealand dollar string.
+ *
+ * The first money this product has ever rendered — `packages/api` has had invoices
+ * since Phase 5 and no screen has imported them, so no cents value has reached a
+ * display until now.
+ *
+ * **It neither rounds nor floors.** `toHours` in `hours.ts` floors deliberately,
+ * because the direction of a rounding error in a Crown claim should never favour the
+ * claimant. Cents are exact and there is nothing to round: an invoice is a sum of
+ * integers, and a formatter that adjusted one would be disagreeing with the invoice the
+ * family is holding.
+ *
+ * Negative is rendered with a leading minus rather than parentheses. Accounting
+ * brackets are a convention for people who read ledgers; this is read by a manager and
+ * sometimes by a parent, and `-$45.00` is unambiguous to both.
+ */
+export function formatCents(cents: number): string {
+  const sign = cents < 0 ? '-' : '';
+  const abs = Math.abs(Math.trunc(cents));
+  return `${sign}$${Math.floor(abs / 100).toLocaleString('en-NZ')}.${String(abs % 100).padStart(2, '0')}`;
+}

@@ -606,6 +606,71 @@ export async function seedAuditTenant(): Promise<AuditTenant> {
       .select('id'),
   );
 
+  /*
+    An issued invoice, part paid, overdue.
+
+    Seeded because the accounts screen is the first thing in this product to render
+    money, and an empty-state audit would prove only that the page loads. The numbers
+    are chosen so a wiring mistake is visible rather than plausible: $455.00 billed,
+    $200.00 paid, $255.00 owing — three different figures, so passing `paidCents` where
+    `totalCents` belongs cannot coincidentally look right.
+
+    Due 40 days ago, which lands it in the 31–60 column and gives the ageing something
+    to be wrong about.
+  */
+  const invoice = must(
+    'invoice',
+    await db
+      .from('invoices')
+      .insert({
+        centre_id: centreId,
+        guardian_id: guardian.id,
+        reference: `INV-${tag}`,
+        status: 'issued',
+        period_from: nzDate(-70),
+        period_to: nzDate(-40),
+        issued_at: new Date().toISOString(),
+        due_on: nzDate(-40),
+        created_by: ownerId,
+      })
+      .select('id')
+      .single(),
+  );
+
+  must(
+    'invoice line',
+    await db
+      .from('invoice_lines')
+      .insert({
+        invoice_id: invoice.id,
+        child_id: childId,
+        description: 'Full days',
+        quantity: 7,
+        unit_cents: 6500,
+      })
+      .select('id'),
+  );
+
+  /*
+    NO PAYMENT IS SEEDED, AND THAT IS THE SCHEMA WORKING RATHER THAN A GAP.
+
+    `payments.invoice_id` is `on delete restrict` (0019), so a payment pins its invoice;
+    and DELETE on `payments` is withheld from **`service_role` as well as
+    `authenticated`**, because money that arrived is append-only. Together those mean a
+    fixture that seeds a payment cannot be torn down by the only credential this suite
+    has: the cascade from `centres` stops at `invoices`, and deleting the payments first
+    is `permission denied`.
+
+    Discovered by trying it. The alternative was to reach for the Management API in the
+    teardown — which would run as `postgres` and work — but that hands the e2e suite a
+    credential it deliberately does not have, and CI would need a project-wide access
+    token to clean up after itself. Paying that for one test figure is the wrong trade.
+
+    So part payment is covered where it can be: `summariseArrears` in unit tests, and the
+    `invoice_arrears` view in the RLS suite, which inserts a payment inside a transaction
+    it rolls back and therefore never has to delete.
+  */
+
   return {
     tag,
     ownerEmail,
@@ -643,6 +708,23 @@ export async function seedAuditTenant(): Promise<AuditTenant> {
 export async function destroyAuditTenant(tenant: AuditTenant): Promise<void> {
   const db = admin();
 
+  /*
+    THE CASCADE HAS ONE STOPPING POINT, AND IT CANNOT BE CLEARED FROM HERE.
+
+    `payments.invoice_id` is `on delete restrict` (0019), so a payment pins its invoice
+    and the cascade from `centres` would fail. Deleting the payments first is not
+    available either: DELETE on `payments` is withheld from `service_role` as well as
+    `authenticated`, because money that arrived is append-only.
+
+    Both were verified the hard way — seeding one payment produced a foreign-key
+    violation, and deleting it first produced `permission denied for table payments`.
+    Which is the guarantee working. The fixture therefore seeds invoices and never a
+    payment, and the note there explains what covers part payment instead.
+
+    If a future fixture genuinely needs one, the teardown will need the Management API
+    and CI will need a project-wide token — a real cost, and the reason this comment
+    exists rather than a quiet `try/catch`.
+  */
   const del = await db.from('centres').delete().in('id', [tenant.centreId, tenant.otherCentreId]);
   if (del.error) throw new Error(`drop centres: ${del.error.message}`);
 
@@ -687,10 +769,12 @@ export async function sweepStaleAuditTenants(): Promise<number> {
   if (error) throw new Error(`sweep: ${error.message}`);
   if (!data || data.length === 0) return 0;
 
-  const { error: delError } = await db
-    .from('centres')
-    .delete()
-    .in('id', data.map((c) => c.id));
+  const ids = data.map((c) => c.id as string);
+
+  // Same stopping point as `destroyAuditTenant`, and it matters more here: this is what
+  // reclaims a run that died before its own teardown, which is exactly when nobody is
+  // watching. A seeded payment would strand every centre this sweeps.
+  const { error: delError } = await db.from('centres').delete().in('id', ids);
   if (delError) throw new Error(`sweep: ${delError.message}`);
   return data.length;
 }

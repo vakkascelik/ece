@@ -237,6 +237,42 @@ The buckets are 30/60/90 and there is no `ARREARS_VERIFIED` flag, deliberately: 
 convention, no rule asserted, no consequence claimed. That is the difference between this and the
 ratio bands.
 
+### The accounts screen, and the first money this product has rendered
+
+`/billing`, behind `manageCentre`. It exists before any screen that *creates* an invoice, because
+a centre reconciling payments in its own accounting system still needs to know who is behind, and
+that is answerable from what the schema already holds.
+
+**Read-only, deliberately.** Nothing here issues, edits or voids. Those are guarded by a transition
+trigger and a policy that freezes an issued invoice, and putting a button on this page would mean
+reproducing that reasoning in a form. A screen that only reports cannot break the ledger.
+
+`formatCents` in `@ece/core` is the first money formatter in the repo — `packages/api` has had
+invoices since Phase 5 and no page imported them, so no cents value had ever reached a display. It
+**neither rounds nor floors**: `toHours` floors on purpose because the direction of a rounding error
+in a Crown claim should never favour the claimant, but cents are exact and a formatter that adjusted
+one would disagree with the invoice the family is holding.
+
+### An e2e fixture cannot seed a payment, and that is the guarantee working
+
+Seeding a part-paid invoice for the accounts screen broke the **teardown**, twice, in two different
+ways:
+
+1. `payments.invoice_id` is `on delete restrict`, so a payment pins its invoice and the cascade from
+   `centres` dies with a foreign-key violation.
+2. Deleting the payments first is `permission denied for table payments` — DELETE is withheld from
+   **`service_role` as well as `authenticated`**, because money that arrived is append-only.
+
+Every prior run had invoices with nothing paid against them, so neither had ever been reached. A
+failing teardown is worse than a failing test: it strands accounts and centres in a live project,
+which is how fifty-six users once accumulated.
+
+The fix was to stop seeding the payment, not to route around the restriction. The alternative —
+reaching for the Management API in the teardown, which runs as `postgres` and would work — hands the
+e2e suite a credential it deliberately does not have, and would make CI need a project-wide token to
+clean up after itself. Part payment is covered where it costs nothing: in unit tests, and in the RLS
+suite, which inserts a payment inside a transaction it rolls back and therefore never has to delete.
+
 ### The view mutation that changed nothing, and the class check it produced
 
 Turning `security_invoker = off` on `invoice_arrears` and running the **entire** isolation suite

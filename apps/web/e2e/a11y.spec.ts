@@ -301,6 +301,12 @@ test.describe('staff screens', () => {
     await auditPage(page, '/roster');
   });
 
+  test('accounts — the first screen in the product that renders money', async ({ page }) => {
+    await visit(page, '/billing');
+    await expect(page.getByRole('heading', { name: 'Accounts' })).toBeVisible();
+    await auditPage(page, '/billing');
+  });
+
   test('posts', async ({ page }) => {
     await visit(page, '/posts');
     await expect(page.getByText('Audit pānui')).toBeVisible();

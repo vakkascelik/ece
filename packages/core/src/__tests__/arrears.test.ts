@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ageInvoice, summariseArrears, BUCKETS, type OutstandingInvoice } from '../arrears';
+import { ageInvoice, formatCents, summariseArrears, BUCKETS, type OutstandingInvoice } from '../arrears';
 
 const ON = '2026-08-09';
 
@@ -133,5 +133,33 @@ describe('summariseArrears', () => {
     expect(s.overdueCents).toBe(0);
     expect(s.invoices).toEqual([]);
     expect(s.byBucket['90+']).toBe(0);
+  });
+});
+
+describe('formatCents', () => {
+  it('renders whole and part dollars', () => {
+    expect(formatCents(0)).toBe('$0.00');
+    expect(formatCents(500)).toBe('$5.00');
+    expect(formatCents(45_500)).toBe('$455.00');
+    expect(formatCents(7)).toBe('$0.07');
+    expect(formatCents(70)).toBe('$0.70');
+  });
+
+  it('groups thousands, because a four-figure debt is the one being read', () => {
+    expect(formatCents(123_456_789)).toBe('$1,234,567.89');
+    expect(formatCents(100_000)).toBe('$1,000.00');
+  });
+
+  it('signs a negative rather than bracketing it', () => {
+    // Accounting brackets are for people who read ledgers. A parent reads this too.
+    expect(formatCents(-4_500)).toBe('-$45.00');
+    expect(formatCents(-7)).toBe('-$0.07');
+  });
+
+  it('does not round, because cents are exact', () => {
+    // A formatter that adjusted a figure would disagree with the invoice the family
+    // is holding. `toHours` floors on purpose; this must not.
+    expect(formatCents(199)).toBe('$1.99');
+    expect(formatCents(201)).toBe('$2.01');
   });
 });

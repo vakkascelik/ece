@@ -39,6 +39,28 @@ assertion was relabelled to claim only what it proves. 351/351.
 **The general lesson, now in [[conventions]]:** when a nested object can satisfy your assertion for
 you, assert the property directly rather than its consequence.
 
+**And then the accounts screen**, because a reader with nothing rendering it is the same "ships
+ahead of its screen" pattern I had criticised in the roster work three commits earlier.
+`packages/api` had held invoices since Phase 5 with no page importing them, so `formatCents` is the
+first money this product has ever displayed. Read-only on purpose: an issued invoice is frozen by a
+trigger and a policy, and a button here would mean reproducing that reasoning in a form.
+
+**Seeding a part-paid invoice broke the teardown twice, in two different ways**, and both are the
+schema working rather than gaps. `payments.invoice_id` is `on delete restrict`, so the payment
+pinned its invoice and the cascade from `centres` died on a foreign key. Deleting the payments first
+was `permission denied` — DELETE on `payments` is withheld from `service_role` as well as
+`authenticated`. Every prior run had invoices with nothing paid against them, so neither had ever
+been reached.
+
+I stopped seeding the payment rather than routing around it. The Management API would have worked
+in the teardown, and would have handed the e2e suite a credential it deliberately does not have,
+making CI need a project-wide token to clean up after itself. Not worth one test figure. The
+sweeper had the identical hole and it mattered more there — it is what reclaims a run that died
+before its own teardown, which is exactly when nobody is watching.
+
+A smaller one on the way: I wrote an `nzDaysAgo` helper the fixture already had as `nzDate(-40)`,
+and its doc comment silently orphaned `recentlyToday`'s. Deleted.
+
 ---
 
 2026-08-09 — **The kiosk becomes reachable**, and the redirect loop 0043 had already shipped. See

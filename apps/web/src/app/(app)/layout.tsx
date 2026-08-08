@@ -77,6 +77,9 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           )}
           {can(ctx.role, 'manageCentre') && <NavLink href="/compliance">Compliance</NavLink>}
           {can(ctx.role, 'manageCentre') && <NavLink href="/funding">Funding</NavLink>}
+          {/* Beside Funding because both are money, and distinct from it: Funding is what
+              the Crown owes this centre, Accounts is what families do. */}
+          {can(ctx.role, 'manageCentre') && <NavLink href="/billing">Accounts</NavLink>}
           {can(ctx.role, 'manageCentre') && <NavLink href="/settings">Settings</NavLink>}
           {/* Everyone: this is the user's own account, not the centre's. */}
           <NavLink href="/account">Account</NavLink>
