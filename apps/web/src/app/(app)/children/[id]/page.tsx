@@ -11,6 +11,7 @@ import {
   listEnrolments,
   listGuardiansOfChild,
   listHealthConditions,
+  listImmunisation,
   listMembers,
   listMedications,
 } from '@ece/api';
@@ -35,6 +36,7 @@ import { DetailsForm } from './DetailsForm';
 import { EnrolmentPanel } from './EnrolmentPanel';
 import { HealthPanel, type DosesToday } from './HealthPanel';
 import type { WitnessOption } from './GiveMedicine';
+import { ImmunisationPanel, type ImmunisationRow } from './ImmunisationPanel';
 import { IncidentsPanel, type ChildIncident } from './IncidentsPanel';
 import { WhanauPanel } from './WhanauPanel';
 
@@ -77,6 +79,7 @@ export default async function ChildPage({ params }: { params: Promise<{ id: stri
     incidents,
     doses,
     members,
+    immunisation,
   ] = await Promise.all([
     listHealthConditions(db, id),
     listMedications(db, id),
@@ -97,6 +100,9 @@ export default async function ChildPage({ params }: { params: Promise<{ id: stri
     ctx.centre.medicationRequiresWitness && can(ctx.role, 'recordDailyPractice')
       ? listMembers(db, ctx.centre.id)
       : Promise.resolve([]),
+    // Unconditional: a family is entitled to see what the centre recorded about their
+    // own child, and 0036's policy is what decides who that is.
+    listImmunisation(db, id),
   ]);
 
   const state = attendance.find((s) => s.childId === id);
@@ -153,6 +159,12 @@ export default async function ChildPage({ params }: { params: Promise<{ id: stri
   const witnesses: WitnessOption[] = members
     .filter((m) => m.role !== 'parent')
     .map((m) => ({ userId: m.userId, label: m.email ?? m.userId }));
+
+  const immunisationRows: ImmunisationRow[] = immunisation.map((record) => ({
+    record,
+    recordedLabel: when.format(new Date(record.recordedAt)),
+    sightedLabel: record.sightedAt ? when.format(new Date(record.sightedAt)) : null,
+  }));
 
   const incidentRows: ChildIncident[] = incidents.map((incident) => ({
     incident,
@@ -268,6 +280,19 @@ export default async function ChildPage({ params }: { params: Promise<{ id: stri
         two things on this page a family writes. A parent's query returns no drafts —
         0030's policy sees to that, not this page.
       */}
+      {/*
+        After Health and before Consent: it is health information, and it belongs next
+        to the allergies rather than filed with the office paperwork.
+      */}
+      <div className="section">
+        <ImmunisationPanel
+          childId={child.id}
+          rows={immunisationRows}
+          canRecord={can(ctx.role, 'recordHealth')}
+          isParent={ctx.role === 'parent'}
+        />
+      </div>
+
       <div className="section">
         <IncidentsPanel
           childId={child.id}

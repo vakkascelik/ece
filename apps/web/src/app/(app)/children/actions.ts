@@ -27,6 +27,7 @@ import {
   linkGuardian,
   recordAdministration,
   recordConsent,
+  recordImmunisation,
   resolveHealthCondition,
   revokeGuardianLink,
   supersedeCustodyArrangement,
@@ -40,11 +41,13 @@ import {
   GENDERS,
   HEALTH_KINDS,
   HEALTH_SEVERITIES,
+  IMMUNISATION_STATUSES,
   todayInZone,
   type ConsentKind,
   type Gender,
   type HealthKind,
   type HealthSeverity,
+  type ImmunisationStatus,
 } from '@ece/core';
 import { actionError } from '@/lib/actionError';
 import { requireCapability, requireCtx } from '@/lib/auth';
@@ -598,6 +601,54 @@ export async function giveMedicine(_prev: unknown, form: FormData): Promise<Resu
     }
   } catch (e) {
     return actionError(e, 'giveMedicine');
+  }
+
+  revalidatePath(`/children/${childId}`);
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Immunisation
+// ---------------------------------------------------------------------------
+
+/**
+ * Record what the centre was shown about a child's immunisation.
+ *
+ * `recordHealth` rather than `manageChildren`, matching health conditions and for
+ * the same reason: a Well Child book handed over at the door at 8am has to be
+ * recordable by the person who was handed it, not queued for whoever has office
+ * access.
+ *
+ * Nothing here computes a due date. `nextDueOn` is whatever is printed on the
+ * document in front of the person typing — this product holds no immunisation
+ * schedule, deliberately, and 0036 says why at length.
+ */
+export async function saveImmunisation(_prev: unknown, form: FormData): Promise<Result> {
+  await requireCapability('recordHealth');
+  const db = await serverDb();
+
+  const childId = str(form, 'childId');
+  const status = oneOf<ImmunisationStatus>(str(form, 'status'), IMMUNISATION_STATUSES);
+  const nextDueOn = str(form, 'nextDueOn');
+
+  if (!childId) return { error: 'Missing child.' };
+  if (!status) return { error: 'Record what you were shown.' };
+  if (nextDueOn && !ISO_DATE.test(nextDueOn)) return { error: 'That next-due date is not a date.' };
+
+  try {
+    await recordImmunisation(db, {
+      childId,
+      status,
+      // Two different claims, kept apart: "the family told us" and "somebody looked
+      // at the certificate". Only the second survives a review.
+      sighted: bool(form, 'sighted'),
+      reference: str(form, 'reference') || null,
+      nextDueOn: nextDueOn || null,
+      note: str(form, 'note') || null,
+      at: new Date().toISOString(),
+    });
+  } catch (e) {
+    return actionError(e, 'saveImmunisation');
   }
 
   revalidatePath(`/children/${childId}`);

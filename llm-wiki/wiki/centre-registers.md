@@ -283,6 +283,34 @@ disabling the split made the suite fail on exactly the "phone call" wording.
 prefilled from the roster and editable, because two children collected early by a parent is an
 expected of N−2 rather than a short count.
 
+### The immunisation panel, and the styling it refuses
+
+On the child record, after Health and before Consent — it is health information, and it belongs
+beside the allergies rather than filed with the office paperwork. Readable by staff and the
+child's own family; writable by staff, because letting a parent write it would make
+`sighted_by` meaningless.
+
+**Every status gets the same quiet chip.** The temptation to red-flag *Not up to date* is exactly
+the assertion 0036 refuses to make: nothing is blocked, nothing is non-compliant, because what
+follows from any status is a regulatory question nobody here has answered. A screen that colours
+one status as a problem has quietly made the claim the schema declined to.
+
+**Sighting is stated separately from status**, because "the family told us" and "somebody looked
+at the certificate" are different claims and only the second survives a review. The checkbox is
+worded as *I looked at the document myself*, and left unticked the panel says so.
+
+`next_due_on` renders with the words *as printed on the document. This product does not work out
+due dates.* That sentence is doing real work — without it a date on screen reads as computed,
+and computed is precisely what it is not.
+
+**Superseded records are shown, not hidden.** *Earlier records* is the whole reason for
+supersession: "were they up to date at enrolment" is a different question from "are they now",
+and an update in place answers only the second. Mutation-tested — making the supersede step match
+nothing (so two records go live) failed the spec.
+
+Written with `recordHealth` rather than `manageChildren`, matching health conditions: a Well
+Child book handed over at the door at 8am has to be recordable by the person who was handed it.
+
 ## See Also
 
 - [[incident-register]] — the harder boundary, and where the append-only reasoning is written out
