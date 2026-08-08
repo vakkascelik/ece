@@ -29,6 +29,9 @@ drift in a ratio does not report itself as broken — it reports itself as compl
   attendance record underpinning a funding claim carries a parent's signature.
 - **The adult count is an append-only event, not a setting** — see below.
 - **The ratio bands are unverified.** See [[unverified-claims]].
+- **There is now a third tense.** This page and the replay both answer what is or was; the
+  roster forecast answers what *will be*, from bookings and shifts rather than events. It
+  shares `assessRatio` and nothing else — see [[staff-as-people]].
 
 ## Details
 
@@ -107,10 +110,11 @@ cascades from the children.
 
 - [[offline-outbox]] — the queue that feeds this
 - [[compliance-and-evidence]] — where the history becomes evidence
+- [[staff-as-people]] — the same arithmetic run forwards, over the planned roster
 - [[unverified-claims]] — the ratio bands
 - [[tenancy-and-rls]]
 
-*Last updated: 2026-08-04*
+*Last updated: 2026-08-08*
 
 
 > ### CORRECTED 2026-08-07: two of three readers ignored `corrects`

@@ -19,6 +19,8 @@ something broke.
 - **Never compute "today" as UTC.** Use `todayInZone(centre.timezone)`.
 - **PostgREST bulk inserts do not apply column defaults.**
 - **Design tokens have one source**, and CI fails on drift.
+- **Nothing else touches the tree while an e2e run is going** — not a second run, and not a
+  build. Both produce failures that look like regressions and are not.
 
 ## Details
 
@@ -229,6 +231,22 @@ briefly believing it was one. A full run started in the background is not a thin
 alongside; either wait for it, or accept that its result is worthless. The tell is a pass count
 well short of the total with no failure detail — an interrupted run, not a failing one.
 
+### Nor does anything else touch the tree while a run is going
+
+The sibling of the trap above, found the same day and with a **different tell**, which is why it
+needs its own entry.
+
+`next start` serves `.next` from disk. Running `npm run build` while a suite is in flight replaces
+the application under the running server, mid-run. The result is not a truncated run — it is **one
+ordinary-looking failure in an otherwise complete run**, in whichever spec happened to be executing
+when the build landed. That reads exactly like a real regression in unrelated code, and on
+2026-08-08 it was briefly believed to be one: `sleep.spec.ts` failed as test 72 of 85, having
+nothing to do with the change under test, and passed in isolation straight afterwards.
+
+Worse, **the isolated re-run destroys the evidence**: Playwright clears `test-results` when a run
+starts, so the trace and error context from the failure are gone before anybody reads them. Read the
+artefacts before re-running, not after.
+
 ### PostgREST traps
 
 - **Bulk inserts do not apply column defaults.** One `INSERT` is built from the *union* of
@@ -338,4 +356,4 @@ The only exception is a commit that touches nothing but `llm-wiki/`.
 - [[unverified-claims]]
 - [[offline-outbox]]
 
-*Last updated: 2026-08-05*
+*Last updated: 2026-08-08*

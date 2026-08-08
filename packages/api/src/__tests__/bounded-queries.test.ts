@@ -58,6 +58,11 @@ const BOUNDED_BY_REASON: Record<string, string> = {
   'compliance.ts:staff_count_events': 'one day at a time; a handful of adult counts',
   'compliance.ts:children': 'per centre; a licence caps the roll',
 
+  // The forecast's children read is the same one `compliance.ts` makes, for the same reason.
+  // Its bookings read is NOT here: a week is the roll times seven and a fortnight at a large
+  // service crosses the cap, so it is paged.
+  'staff.ts:children': 'per centre; a licence caps the roll',
+
   // A published licensing criteria set is a few hundred rows at most, and it is reference
   // data that changes when the Ministry republishes it rather than as a centre operates.
   'compliance.ts:criteria': 'a published criteria set is a few hundred rows',

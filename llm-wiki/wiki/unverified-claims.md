@@ -20,8 +20,10 @@ Nothing here is a bug. They are known gaps with known closures.
 ## Key Points
 
 - **The adult-to-child ratio bands are unverified.** `RATIO_TABLES_VERIFIED` is `false` in
-  `packages/core/src/ratios.ts`, and both the web ratio banner and the mobile ratio bar
-  render a notice while it is. This is the highest-priority item in the repo.
+  `packages/core/src/ratios.ts`, and the web ratio banner, the mobile ratio bar and the
+  **roster forecast** all render a notice while it is. This is the highest-priority item in
+  the repo, and the forecast raised its cost: a live banner is read by somebody already in
+  the room, while a forecast is acted on a week early by *not* calling a reliever.
 - **No licensing criteria are loaded, and none are seeded.** The criteria-gap feature
   cannot function until somebody imports a checked set. Deliberate — see
   [[compliance-and-evidence]].

@@ -106,6 +106,14 @@ const MATRIX: Array<{ path: string; guard: string; allowed: Record<Role, boolean
     allowed: { owner: true, manager: true, educator: true, parent: false },
   },
   {
+    // Educators read the roster and cannot write it, which is 0041's policy split and
+    // not this route's job — somebody who cannot see next week cannot plan around it.
+    // A parent sees no roster at all.
+    path: '/roster',
+    guard: 'recordDailyPractice',
+    allowed: { owner: true, manager: true, educator: true, parent: false },
+  },
+  {
     path: '/posts',
     guard: 'requireCtx',
     allowed: { owner: true, manager: true, educator: true, parent: true },

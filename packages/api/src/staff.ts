@@ -8,7 +8,14 @@
  * inline join for the reason `conventions.md` records.
  */
 
-import type { StaffAttendanceEvent, StaffMember } from '@ece/core';
+import {
+  forecastDay,
+  type DayForecast,
+  type ForecastBooking,
+  type RatioTable,
+  type StaffAttendanceEvent,
+  type StaffMember,
+} from '@ece/core';
 import { fetchAll } from './paging';
 import type { RecordOutcome } from './registers';
 import type { Db } from './index';
@@ -221,4 +228,323 @@ export async function recordStaffAttendance(
     .select('id');
   if (error) throw new Error(`recordStaffAttendance: ${error.message}`);
   return { outcome: (data ?? []).length === 0 ? 'duplicate' : 'recorded' };
+}
+
+// ---------------------------------------------------------------------------
+// The planned roster (0041)
+// ---------------------------------------------------------------------------
+
+export type ShiftStatus = 'planned' | 'confirmed' | 'cancelled';
+
+export interface Shift {
+  id: string;
+  staffMemberId: string;
+  onDate: string;
+  fromTime: string;
+  toTime: string;
+  roleNote: string | null;
+  status: ShiftStatus;
+}
+
+const SHIFT_COLUMNS = 'id, staff_member_id, on_date, from_time, to_time, role_note, status';
+
+interface ShiftRow {
+  id: string;
+  staff_member_id: string;
+  on_date: string;
+  from_time: string;
+  to_time: string;
+  role_note: string | null;
+  status: ShiftStatus;
+}
+
+const toShift = (r: ShiftRow): Shift => ({
+  id: r.id,
+  staffMemberId: r.staff_member_id,
+  onDate: r.on_date,
+  fromTime: r.from_time,
+  toTime: r.to_time,
+  roleNote: r.role_note,
+  status: r.status,
+});
+
+/**
+ * Shifts in a date range.
+ *
+ * Same join shape as `listStaffAttendance`, and for the same reason: `shifts` has no
+ * `centre_id`, because a person belongs to a centre and their shifts belong to the
+ * person.
+ *
+ * Cancelled shifts are returned. A roster that hides them cannot show that Tuesday's
+ * cover was withdrawn, which is the state somebody most needs to see; `forecastDay`
+ * drops them from the arithmetic.
+ */
+export async function listShifts(
+  db: Db,
+  centreId: string,
+  from: string,
+  to: string,
+): Promise<Shift[]> {
+  const rows = await fetchAll<ShiftRow>('listShifts', (a, b) =>
+    db
+      .from('shifts')
+      .select(`${SHIFT_COLUMNS}, staff_members!inner(centre_id)`)
+      .eq('staff_members.centre_id', centreId)
+      .gte('on_date', from)
+      .lte('on_date', to)
+      .order('on_date')
+      .order('from_time')
+      // `id` joins the ordering because two shifts share a date and a start time by
+      // definition — the lesson `listBookings` records, where paging over a non-unique
+      // order repeated one row and skipped another.
+      .order('id')
+      .range(a, b),
+  );
+  return rows.map(toShift);
+}
+
+export async function createShift(
+  db: Db,
+  input: {
+    staffMemberId: string;
+    onDate: string;
+    fromTime: string;
+    toTime: string;
+    roleNote?: string | null;
+    status?: ShiftStatus;
+  },
+): Promise<Shift> {
+  const { data: auth } = await db.auth.getUser();
+  const { data, error } = await db
+    .from('shifts')
+    .insert({
+      staff_member_id: input.staffMemberId,
+      on_date: input.onDate,
+      from_time: input.fromTime,
+      to_time: input.toTime,
+      role_note: input.roleNote?.trim() || null,
+      status: input.status ?? 'planned',
+      created_by: auth.user?.id ?? null,
+    })
+    .select(SHIFT_COLUMNS)
+    .single();
+  if (error) throw new Error(`createShift: ${error.message}`);
+  return toShift(data as ShiftRow);
+}
+
+/**
+ * Change a shift's status. There is no delete, by design — see 0041.
+ *
+ * Cancelling is the operation that looks like deleting and is not: the row stays, so
+ * the roster can show that cover was withdrawn, and the exclusion constraint stops
+ * counting it so the replacement can be booked.
+ */
+export async function setShiftStatus(db: Db, id: string, status: ShiftStatus): Promise<void> {
+  const { data, error } = await db.from('shifts').update({ status }).eq('id', id).select('id');
+  if (error) throw new Error(`setShiftStatus: ${error.message}`);
+  if (!data || data.length === 0) {
+    throw new Error('setShiftStatus: no shift was updated. Either the id is wrong or the policy refused it.');
+  }
+}
+
+export type LeaveKind = 'annual' | 'sick' | 'unpaid' | 'other';
+export type LeaveStatus = 'requested' | 'approved' | 'declined';
+
+export interface StaffLeave {
+  id: string;
+  staffMemberId: string;
+  fromDate: string;
+  toDate: string;
+  kind: LeaveKind;
+  status: LeaveStatus;
+  note: string | null;
+}
+
+const LEAVE_COLUMNS = 'id, staff_member_id, from_date, to_date, kind, status, note';
+
+interface LeaveRow {
+  id: string;
+  staff_member_id: string;
+  from_date: string;
+  to_date: string;
+  kind: LeaveKind;
+  status: LeaveStatus;
+  note: string | null;
+}
+
+const toLeave = (r: LeaveRow): StaffLeave => ({
+  id: r.id,
+  staffMemberId: r.staff_member_id,
+  fromDate: r.from_date,
+  toDate: r.to_date,
+  kind: r.kind,
+  status: r.status,
+  note: r.note,
+});
+
+/**
+ * Leave overlapping a window.
+ *
+ * Overlap, not containment: leave running from the week before to the week after
+ * covers every day in between, and a `gte(from_date)` filter would miss it entirely —
+ * which would put an adult on the forecast who is in another country.
+ */
+export async function listLeave(
+  db: Db,
+  centreId: string,
+  from: string,
+  to: string,
+): Promise<StaffLeave[]> {
+  const rows = await fetchAll<LeaveRow>('listLeave', (a, b) =>
+    db
+      .from('staff_leave')
+      .select(`${LEAVE_COLUMNS}, staff_members!inner(centre_id)`)
+      .eq('staff_members.centre_id', centreId)
+      .lte('from_date', to)
+      .gte('to_date', from)
+      .order('from_date')
+      .order('id')
+      .range(a, b),
+  );
+  return rows.map(toLeave);
+}
+
+export async function recordLeave(
+  db: Db,
+  input: {
+    staffMemberId: string;
+    fromDate: string;
+    toDate: string;
+    kind: LeaveKind;
+    status?: LeaveStatus;
+    note?: string | null;
+  },
+): Promise<StaffLeave> {
+  const { data: auth } = await db.auth.getUser();
+  const { data, error } = await db
+    .from('staff_leave')
+    .insert({
+      staff_member_id: input.staffMemberId,
+      from_date: input.fromDate,
+      to_date: input.toDate,
+      kind: input.kind,
+      status: input.status ?? 'requested',
+      note: input.note?.trim() || null,
+      recorded_by: auth.user?.id ?? null,
+    })
+    .select(LEAVE_COLUMNS)
+    .single();
+  if (error) throw new Error(`recordLeave: ${error.message}`);
+  return toLeave(data as LeaveRow);
+}
+
+export async function setLeaveStatus(db: Db, id: string, status: LeaveStatus): Promise<void> {
+  const { data, error } = await db.from('staff_leave').update({ status }).eq('id', id).select('id');
+  if (error) throw new Error(`setLeaveStatus: ${error.message}`);
+  if (!data || data.length === 0) {
+    throw new Error('setLeaveStatus: no leave was updated. Either the id is wrong or the policy refused it.');
+  }
+}
+
+// ---------------------------------------------------------------------------
+// The forecast
+// ---------------------------------------------------------------------------
+
+/**
+ * The planned ratio for each of a run of days.
+ *
+ * A range and not a single day, because the screen shows a week and the per-day version
+ * of this made **thirty-one** queries to answer what four answer: one set of bookings,
+ * shifts, leave and children covers the whole period, and `forecastDay` is pure, so the
+ * split is a filter rather than a fetch.
+ *
+ * Every judgement — which bookings count, which leave removes an adult, how a day is cut
+ * into segments — is in `@ece/core` and tested there. This fetches four things.
+ *
+ * **It does not read attendance, and must not.** A forecast is about days that have not
+ * happened. Mixing in what actually occurred would produce a figure whose provenance
+ * nobody could state, which is the same mistake 0040 forbids for the adult count.
+ */
+export async function readForecast(
+  db: Db,
+  input: {
+    centreId: string;
+    dates: string[];
+    underTwoTable?: RatioTable;
+    twoAndOverTable?: RatioTable;
+  },
+): Promise<DayForecast[]> {
+  if (input.dates.length === 0) return [];
+  const sorted = [...input.dates].sort();
+  const from = sorted[0] as string;
+  const to = sorted[sorted.length - 1] as string;
+
+  interface BookingRow {
+    child_id: string;
+    on_date: string;
+    status: 'booked' | 'absent' | 'cancelled' | 'closed';
+    from_time: string | null;
+    to_time: string | null;
+  }
+
+  const [bookings, shifts, leave, children] = await Promise.all([
+    /*
+      Paged, unlike the day-scoped reads in `compliance.ts`. A week of bookings is the
+      roll times seven, and a 150-child service crosses PostgREST's 1000-row cap in a
+      fortnight — at which point the forecast would silently lose the last days of the
+      period and report them as quiet.
+    */
+    fetchAll<BookingRow>('readForecast', (a, b) =>
+      db
+        .from('bookings')
+        .select('child_id, on_date, status, from_time, to_time')
+        .eq('centre_id', input.centreId)
+        .gte('on_date', from)
+        .lte('on_date', to)
+        .order('on_date')
+        .order('child_id')
+        .range(a, b),
+    ),
+    listShifts(db, input.centreId, from, to),
+    listLeave(db, input.centreId, from, to),
+    // Archived children included, as in `readDayRatio`. A child archived this morning
+    // may still hold a booking for Thursday, and dropping them would understate the
+    // roll — which is the direction that flatters the forecast.
+    db.from('children').select('id, date_of_birth').eq('centre_id', input.centreId),
+  ]);
+
+  if (children.error) throw new Error(`readForecast (children): ${children.error.message}`);
+
+  const roll = (children.data ?? []).map((c) => ({
+    id: c.id as string,
+    dateOfBirth: c.date_of_birth as string,
+  }));
+
+  const bookingsByDate = new Map<string, ForecastBooking[]>();
+  for (const b of bookings) {
+    const day = bookingsByDate.get(b.on_date) ?? [];
+    day.push({
+      childId: b.child_id,
+      status: b.status,
+      fromTime: b.from_time,
+      toTime: b.to_time,
+    });
+    bookingsByDate.set(b.on_date, day);
+  }
+
+  return input.dates.map((date) =>
+    forecastDay({
+      date,
+      bookings: bookingsByDate.get(date) ?? [],
+      // Shifts have to be split here because a `ForecastShift` carries no date — the
+      // module works in one day's local clock and nothing else. Leave is passed whole:
+      // `forecastDay` already decides which leave covers the date, and doing it twice
+      // would be the same rule in two places, disagreeing eventually.
+      shifts: shifts.filter((s) => s.onDate === date),
+      leave,
+      children: roll,
+      ...(input.underTwoTable ? { underTwoTable: input.underTwoTable } : {}),
+      ...(input.twoAndOverTable ? { twoAndOverTable: input.twoAndOverTable } : {}),
+    }),
+  );
 }

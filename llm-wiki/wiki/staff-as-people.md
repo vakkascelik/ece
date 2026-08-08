@@ -243,13 +243,59 @@ staff failed it on *and CANNOT roster themselves*. Neither table has DELETE — 
 a fact about what was planned, and a roster somebody can erase cannot show that Tuesday was short
 before anybody noticed.
 
+### The forward forecast, which is the only answer anybody can act on
+
+`forecastDay` joins the two halves: bookings for the children, shifts minus approved leave for
+the adults. Everything else in this product answers *what is the ratio now* or *what was it at
+10:40 last Tuesday*, and both are late — a breach you learn about at 10:41 has already happened.
+
+**It never touches a timezone**, and that is the payoff for 0041's column shape. Both sides are a
+local date plus local times, so the comparison is a string comparison between two things already
+in the same frame. Converting to instants would put a conversion, and a different bug, on each
+side of the join.
+
+**Segments, not a verdict.** Same argument as `replayDay`: the planned ratio is a step function
+that changes only where a booking or a shift begins or ends. *"Tuesday is short"* is not
+actionable; *"Tuesday 15:00–16:00 you are one adult short, Alice is already covering"* names the
+hour and the person.
+
+Four judgements it makes, each of which could reasonably have gone the other way:
+
+| | |
+|---|---|
+| **Only approved leave** removes an adult | Forecasting against an undecided request shows a manager a shortfall they can dismiss by declining it — a forecast arguing for its own conclusion |
+| **Untimed bookings count all day**, and the screen says how many | The safe direction, and it can invent a 7am shortfall for a child who arrives at noon. A number quietly inflated by a data-entry gap teaches people to distrust it, so the inflation is stated |
+| **`[)` on both sides** | The same bound the exclusion constraint uses. A shift ending at 16:00 does not staff the segment starting at 16:00, and treating a handover as an overlap invents an adult |
+| **Age banded on the forecast date** | The mirror of `replayDay`'s rule, running forwards. A child who turns two next Tuesday is in the over-2 band next Tuesday |
+
+**It does not read attendance, and must not.** A forecast is about a day that has not happened;
+mixing in what actually occurred produces a figure whose provenance nobody can state — the same
+mistake 0040 forbids for the adult count, one level up.
+
+Mutation-tested five ways, each caught by the test named for it: approved-only leave, the
+half-open bound, the age date, untimed bookings, and the leave filter itself. And twice more
+through the browser — dropping the translated overlap message, and hiding an on-leave shift
+instead of badging it.
+
+### The screen
+
+`/roster`, directly under Staff, because it is the same list read forwards. Seven days: the
+horizon a reliever can be booked within. A month view answers a different question — a manager
+looking a month out is planning, one looking a week out is covering.
+
+**A shift for somebody on leave stays on the roster, marked *not counted*.** Hiding it would be
+tidier and wrong: that shift is precisely what needs covering, and a roster that silently drops it
+contradicts the forecast printed above it.
+
+**The overlap refusal is translated.** Postgres says `violates exclusion constraint
+"shifts_no_overlap"`, which is true and useless. Rostering the same person twice is an ordinary
+slip rather than an attack, so it is the error a manager will actually hit.
+
 ## Still to come in this phase
 
-- **The forward ratio forecast**, now that shifts and leave exist to feed it. It inherits
-  `RATIO_TABLES_VERIFIED = false` — a forecast against unverified bands is still unverified, and
-  saying so is the whole habit.
-- **Roster and leave screens.** The tables ship ahead of them, which is the pattern this repo has
-  now got wrong four times and records rather than hides.
+Nothing. 0038 through 0041 close the gap the binder used to admit to — with the standing
+exception that the bands those numbers rest on are still unverified, and the forecast made that
+worse rather than better. See [[unverified-claims]].
 
 ## See Also
 

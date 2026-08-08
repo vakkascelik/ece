@@ -180,6 +180,10 @@ export * from './roll';
 export * from './compliance';
 export * from './ratioHistory';
 
+// The same arithmetic run forwards, over bookings and shifts instead of events. It
+// inherits RATIO_TABLES_VERIFIED from `ratios` and says so.
+export * from './ratioForecast';
+
 // Quiet hours and the te reo vocabulary whanau read.
 export * from './notifications';
 

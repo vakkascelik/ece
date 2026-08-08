@@ -291,6 +291,16 @@ test.describe('staff screens', () => {
     await auditPage(page, '/staff');
   });
 
+  test('the roster week, with both forms open', async ({ page }) => {
+    await visit(page, '/roster');
+    await expect(page.getByRole('heading', { name: 'Roster' })).toBeVisible();
+    // Both forms, because they are the two on the page with a `select` in them and a
+    // label association that only fails once it is rendered.
+    await page.locator('section.card').first().getByRole('button', { name: 'Roster somebody' }).click();
+    await page.getByRole('button', { name: 'Record leave' }).click();
+    await auditPage(page, '/roster');
+  });
+
   test('posts', async ({ page }) => {
     await visit(page, '/posts');
     await expect(page.getByText('Audit pānui')).toBeVisible();

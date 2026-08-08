@@ -5,6 +5,74 @@ says so.*
 
 ---
 
+2026-08-08 — **The forward ratio forecast**, and the shifts and leave it needed. See
+[[staff-as-people]].
+
+`0041` records what is *planned*, as opposed to everything else in Phase 10, which records what
+happened. The migration's one interesting object is an exclusion constraint: a double-booked person
+is counted twice in a forecast, so the roster reads adequately staffed when it is not. Two details
+on it look like bugs and are not — `[)` bounds, so a shift ending at 16:00 does not collide with one
+starting at 16:00; and cancelled shifts are excluded, so a cancelled 8-till-4 does not block the
+replacement 8-till-4. Leave has **no** overlap constraint on purpose: sick leave declared during
+booked annual leave is real, and refusing it pushes the correction outside the system.
+
+`forecastDay` is the join — bookings for the children, shifts minus approved leave for the adults —
+and it is the first screen here that answers a question somebody can still act on. It never touches
+a timezone, which is the payoff for 0041's column shape rather than a happy accident.
+
+**Twelve tests passed on the first run, which the house rule says to distrust.** Five mutations
+followed and each was caught by exactly the test named for it: widening approved-only leave,
+closing the half-open bound, taking the age band on a fixed today, dropping untimed bookings, and
+removing the leave filter. Two more through the browser — deleting the translated overlap message,
+and hiding an on-leave shift instead of badging it. Both failed, both only in the right place.
+
+The RLS suite gained the class of assertion that section exists for and the constraint was
+mutation-tested against the live database in both directions, restored and verified byte-identical
+against `pg_constraint` and `pg_policies`. 312/312.
+
+**Four things I got wrong in the first draft**, none caught by typecheck, lint or build.
+
+The worst was a date heading, and what makes it worth writing down is that **the comment beside it
+claimed the bug had been avoided**. `new Date(Date.UTC(…))` formatted by an `Intl.DateTimeFormat`
+with no `timeZone` renders in the *runtime's* zone, so 2026-09-15 reads as "Monday, 14 Sept" in New
+York and Honolulu — measured, in four zones, rather than reasoned about. Two failures at once: a
+wrong heading, and a hydration mismatch, because the component renders on a server that is on UTC
+and again in a browser that is not. New Zealand is east of UTC so nobody local would ever have seen
+it, which is exactly the kind of bug that ships. `timeZone: 'UTC'` on the formatter; the dates were
+already the centre's local days before they got there.
+
+The page used a `.button` class and a `ul.plain` class, and **neither exists in the stylesheet** —
+the week navigation would have rendered as unstyled links and the shift list with bullets. Invented
+class names fail silently in exactly the way a missing import does not. `.button` was also the wrong
+idea: those links change the URL, so they must be shareable and openable in a new tab.
+
+And the first reader was per-day, so a seven-day page made **thirty-one queries to answer what four
+answer**. `forecastDay` is pure, so a week of rows splits with a filter rather than a fetch. The
+range version also had to be *paged* where the per-day one did not: a week of bookings is the roll
+times seven, and a fortnight at a 150-child service crosses PostgREST's 1000-row cap — at which
+point the forecast loses the last days of the period and reports them as quiet. `bounded-queries`
+would have accepted the unpaged version with a plausible-sounding reason; the reason would have been
+wrong.
+
+**A failure I first wrote down as unexplained, and then explained.** A full run came back 84/85 with
+`sleep.spec.ts` failing — a spec this change does not touch — and it passed in isolation
+immediately afterwards. The cause was mine: I ran `npm run build` *while that suite was still
+running*. `next start` serves `.next` from disk, so a rebuild replaces the application under the
+running server mid-suite. The failing spec was #72 of 85, which is where the 72-second build landed.
+
+It is a near neighbour of the two-concurrent-runs trap already recorded above and needed its own
+entry, because the tell is different: that one shows a truncated run with no failure detail, this one
+shows **one ordinary-looking failure in an otherwise complete run** — which reads exactly like a real
+regression in unrelated code. Playwright also clears `test-results` at the start of each run, so the
+isolated re-run destroyed the artefacts before they were read. Diagnose first, re-run second.
+
+**And `unverified-claims` needed correcting, not just extending.** The ratio-bands entry said the
+banner and the mobile bar carry the notice. A forecast is worse than either: a live banner is read
+by somebody already standing in the room, while a forecast is acted on a week early by *not* calling
+a reliever. Same unverified tables, higher cost.
+
+---
+
 2026-08-07 — **The site got a design**, at the centre's request: like the first one in concept, not
 like other childcares, *unique, authentic and humble but good quality*. See [[public-website]].
 
@@ -921,4 +989,46 @@ Also a second specificity bug in the same footer, hours after the first: `.foot 
 shorthand — which zeroes `margin-top` and silently undoes the rule meant to override it. Written in
 the right order only because the first bug had just been paid for.
 
-*Log last updated: 2026-08-07*
+2026-08-07 — Maps on `/contact` and both centre pages, and **the Content Security Policy did not
+change**. Recorded in [[public-website]] under *The map that is not an embed*.
+
+This page's Rejected list said "a Google Maps embed — an iframe is a third party on a page read by
+parents of three-month-olds, and `frame-src 'none'` stays", and `securityHeaders.ts` said the same.
+The reasoning was right about iframes and was being applied to the wrong noun. What an embed costs a
+reader is Google's JavaScript in the page, Google's cookies in their browser and their IP address
+handed over for looking up a childcare centre — **none of which is a property of a map**. The
+container fetches a PNG from the Maps Static API and serves it from `/api/map/<centre>`, so
+`img-src 'self' data:` and `frame-src 'none'` are byte-identical, verified by curling the running
+build rather than by reading the source. **Third time on this site that a request which appeared to
+need a wider directive was answered by building it differently instead** — the webfont, the
+photographs, now this. The pattern is worth more than any of the three.
+
+The corollary nobody expects: a `<img src="https://maps.googleapis.com/...&key=">` puts the API key
+on every reader's screen, restrictable only by a referrer header anybody can forge. Proxying is the
+*more* private option **and** the one that keeps the key.
+
+Two defects in my own first draft, one of them the interesting kind. `CentreMap` returned `null`
+when there was no image — which silently took the "open in maps" link off both pages, so a missing
+environment variable would have removed a working way to find the place. **The enhancement was
+deleting the content.** Only the `<img>` is conditional now.
+
+Coordinates are geocoded once and committed to `centres.ts` (`ROOFTOP`, no `partial_match`,
+`formatted_address` matching what the file already said) rather than resolved per request. Handing
+Google the address string works and was rejected: it moves "which building is this centre in" from a
+reviewable value in a diff to a service call nobody sees, and the failure mode is a parent outside a
+stranger's house with a three-month-old. A test asserts the request carries the coordinates and
+**not** the street name.
+
+Mutation-tested three guards rather than trusting a first-run pass — the content-type check, the
+keep-the-stale-image branch, and the coordinate assertion. All three mutations failed exactly one
+assertion each and nothing else.
+
+**Maps are not live yet.** The Maps Static API is a separate product to enable in the Google Cloud
+console from the Geocoding API the coordinates came from, and it is off — every request returns 403
+with a plain-text body. The site is showing the fallback, which is the page it was yesterday plus a
+"Get directions" button. Verified against the real endpoint; the success path was verified against a
+local stand-in serving a real PNG, and the cache measured at two upstream calls across nine
+requests. Recorded as gap 16 in `apps/site/CONTENT-GAPS.md` that **nobody has read Google's terms on
+how long their content may be cached** — the TTLs are a guess in the safe direction, not a finding.
+
+*Log last updated: 2026-08-08*
