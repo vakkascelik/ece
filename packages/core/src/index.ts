@@ -222,6 +222,10 @@ export * from './notifications';
 
 // Attendance to hours to funded hours. Nothing here estimates — see the files.
 export * from './hours';
+
+// Ageing what is owed. The money is a view; the calendar arithmetic is here, where it
+// can be tested — the same split `ratios.ts` makes.
+export * from './arrears';
 export * from './funding';
 
 // Applications for employment. The one vocabulary shared with the public website, which

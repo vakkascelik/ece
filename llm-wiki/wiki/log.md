@@ -5,6 +5,42 @@ says so.*
 
 ---
 
+2026-08-09 — **Arrears (0045), and a mutation that changed nothing.** See [[funding-and-billing]].
+
+A view, not a table, under the same rule as `invoice_totals`: a stored balance drifts from its own
+detail, and this one moves every time money arrives. **It trusts the payments rather than
+`invoices.status`** — a `paid` invoice whose payments do not cover it still shows its balance,
+because status is a label somebody set and the payments are the fact. Mutation-tested by narrowing
+the filter to `status = 'issued'`, which fails on exactly that line.
+
+The ageing is in `@ece/core` and not in SQL, the same split `ratios.ts` makes. Four mutations, each
+caught by the test named for it. Three judgements worth keeping: an invoice with **no due date**
+gets `no-due-date` rather than being folded into "current"; **credits are never netted** against
+somebody else's debt; and nothing owed is not in arrears whatever the date says.
+
+**Then the mutation that changed nothing.** Turning `security_invoker = off` on `invoice_arrears`
+and running the entire suite gave 350/350 — including an assertion I had labelled *"security\_
+invoker carries the boundary"*. It does not. The view joins `invoice_totals`, which is itself an
+invoker view, and the nested one kept enforcing the boundary. My assertion was passing for a reason
+other than the one it claimed, and would have gone on passing until somebody rewrote the join to
+read `invoice_lines` directly — at which point the boundary would have rested entirely on a setting
+nothing was checking.
+
+I nearly recorded that as "the assertions don't pin it" and moved on. Verified instead, on both
+sides: `pg_class.reloptions` confirmed the setting really was off, and a throwaway probe view over
+`centres` with `security_invoker = off` returned **5 rows to a caller with a random `sub` who is a
+member of nothing**. So the mechanism is real and the test was blind to it.
+
+The fix is a class-level assertion over `pg_class.reloptions`: every view in `public` must declare
+`security_invoker = on`. It names the offender when it fails, cannot be satisfied by accident, and
+covers every view added after it — the first view-level invariant in the suite. The behavioural
+assertion was relabelled to claim only what it proves. 351/351.
+
+**The general lesson, now in [[conventions]]:** when a nested object can satisfy your assertion for
+you, assert the property directly rather than its consequence.
+
+---
+
 2026-08-09 — **The kiosk becomes reachable**, and the redirect loop 0043 had already shipped. See
 [[kiosk-and-pins]].
 

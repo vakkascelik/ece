@@ -1625,6 +1625,89 @@ select pg_temp.expect(
   'a guardian CANNOT read the fee schedule'
 );
 
+-- ---------------------------------------------------------------------------
+-- ARREARS (0045)
+--
+-- A view over the same rows, so the interesting question is not what it computes —
+-- `@ece/core` does the ageing and is tested there — but whether `security_invoker`
+-- carries the invoice boundary across it. A view that ran as its owner would hand
+-- every centre's debts to anybody who could select from it.
+-- ---------------------------------------------------------------------------
+
+select pg_temp.expect(
+  (select count(*) from public.invoice_arrears) = 1,
+  'a guardian sees their own issued invoice in arrears'
+);
+
+select pg_temp.expect(
+  (select paid_cents from public.invoice_arrears
+    where invoice_id = '44444444-aaaa-4aaa-8aaa-000000000001') = 0
+  and (select total_cents from public.invoice_arrears
+    where invoice_id = '44444444-aaaa-4aaa-8aaa-000000000001') = 45500,
+  'owing the full $455.00, because nothing has been paid against it'
+);
+
+select pg_temp.expect(
+  (select count(*) from public.invoice_arrears
+    where invoice_id = '44444444-aaaa-4aaa-8aaa-000000000002') = 0,
+  'and the DRAFT is absent — nothing is owed on an invoice nobody has issued'
+);
+
+-- Part payment moves the balance, and the view reads the payments rather than a stored
+-- figure that would have to be kept in step with them.
+set local role postgres;
+insert into public.payments (invoice_id, amount_cents, paid_on, recorded_by)
+values ('44444444-aaaa-4aaa-8aaa-000000000001', 20000,
+        (now() at time zone 'Pacific/Auckland')::date,
+        '11111111-1111-4111-8111-111111111111');
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+
+select pg_temp.expect(
+  (select paid_cents from public.invoice_arrears
+    where invoice_id = '44444444-aaaa-4aaa-8aaa-000000000001') = 20000,
+  'a part payment shows against the invoice without any stored balance to keep in step'
+);
+
+/*
+ * THE ASSERTION THIS VIEW EXISTS FOR.
+ *
+ * `status` is a label somebody set; the payments are the fact. Marking an invoice paid
+ * without the money arriving must NOT make the balance disappear — that is precisely
+ * the row a centre needs to see, and a view filtering on the label could never show it.
+ */
+set local role postgres;
+update public.invoices set status = 'paid'
+ where id = '44444444-aaaa-4aaa-8aaa-000000000001';
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+
+select pg_temp.expect(
+  (select total_cents - paid_cents from public.invoice_arrears
+    where invoice_id = '44444444-aaaa-4aaa-8aaa-000000000001') = 25500,
+  'an invoice MARKED PAID that is not paid still shows its balance — the view trusts the money'
+);
+
+set local role postgres;
+update public.invoices set status = 'issued'
+ where id = '44444444-aaaa-4aaa-8aaa-000000000001';
+set local role authenticated;
+
+-- Another family, and another centre.
+set local request.jwt.claims = '{"sub":"44444444-4444-4444-8444-444444444444","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.invoice_arrears) = 0,
+  'another guardian at the same centre sees no arrears of theirs'
+);
+
+set local request.jwt.claims = '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.invoice_arrears) = 0,
+  'and another centre sees none at all'
+);
+
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+
 -- Another family's invoice.
 set local request.jwt.claims = '{"sub":"44444444-4444-4444-8444-444444444444","role":"authenticated"}';
 select pg_temp.expect(
@@ -4530,6 +4613,41 @@ begin
     missing is null,
     'every table that should carry the audit trigger has it'
       || coalesce(' — MISSING: ' || array_to_string(missing, ', '), '')
+  );
+end $$;
+
+/*
+ * EVERY VIEW RUNS AS ITS CALLER.
+ *
+ * A Postgres view runs as its OWNER unless declared `security_invoker`, and the owner
+ * here is the migration runner, which bypasses RLS. One view declared without it hands
+ * every centre's rows to anybody who can select from it.
+ *
+ * This is a class-level assertion because the behavioural version cannot be trusted.
+ * Turning `security_invoker` OFF on `invoice_arrears` and running the whole suite
+ * changed nothing: it joins `invoice_totals`, which is itself an invoker view, and the
+ * nested view kept enforcing the boundary. The per-view assertion was therefore
+ * passing for a reason other than the one its label claimed — and would have gone on
+ * passing if somebody rewrote the join to read `invoice_lines` directly, at which point
+ * the boundary would rest solely on the setting nothing was checking.
+ *
+ * So this reads the catalogue rather than the behaviour. It cannot be satisfied by
+ * accident, and it covers every view that will ever be added.
+ */
+do $$
+declare offenders text;
+begin
+  select string_agg(c.relname, ', ' order by c.relname) into offenders
+    from pg_class c
+    join pg_namespace n on n.oid = c.relnamespace
+   where n.nspname = 'public'
+     and c.relkind = 'v'
+     and coalesce(array_to_string(c.reloptions, ','), '') not like '%security_invoker=on%';
+
+  perform pg_temp.expect(
+    offenders is null,
+    'every view declares security_invoker = on'
+      || coalesce(' — RUNNING AS OWNER: ' || offenders, '')
   );
 end $$;
 

@@ -247,6 +247,27 @@ Worse, **the isolated re-run destroys the evidence**: Playwright clears `test-re
 starts, so the trace and error context from the failure are gone before anybody reads them. Read the
 artefacts before re-running, not after.
 
+### A view runs as its owner, and a behavioural test cannot always tell you
+
+Every view here declares `security_invoker = on`. Without it a view runs as the migration
+runner, which bypasses RLS — measured rather than assumed: a probe view over `centres` with the
+setting off returned **5 rows to a caller who is a member of nothing**.
+
+The trap is that a *behavioural* test for this can pass for the wrong reason. Turning it off on
+`invoice_arrears` changed nothing across the whole suite, because that view joins
+`invoice_totals`, which is itself an invoker view and went on enforcing the boundary by itself.
+The assertion was labelled *"security_invoker carries the boundary"* and did not test that at
+all — and would have kept passing until somebody rewrote the join to read `invoice_lines`
+directly.
+
+So the suite asserts it from `pg_class.reloptions` as a class-level check over every view in
+`public`, and the behavioural assertion was relabelled to claim only what it proves.
+
+**The general rule: when a nested object can satisfy your assertion for you, assert the property
+directly rather than its consequence.** The same shape as the audit-trigger check, which asserts
+the trigger exists because asserting that rows appear would pass for tables the trigger silently
+skips.
+
 ### PostgREST traps
 
 - **Bulk inserts do not apply column defaults.** One `INSERT` is built from the *union* of
@@ -356,4 +377,4 @@ The only exception is a commit that touches nothing but `llm-wiki/`.
 - [[unverified-claims]]
 - [[offline-outbox]]
 
-*Last updated: 2026-08-08*
+*Last updated: 2026-08-09*

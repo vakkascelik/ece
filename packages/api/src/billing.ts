@@ -20,6 +20,7 @@ import {
   type FundingPeriod,
   type FundingSummary,
   type HoursEvent,
+  type OutstandingInvoice,
 } from '@ece/core';
 import type { Db } from './index';
 import { fetchAll } from './paging';
@@ -557,4 +558,62 @@ export async function readFundingPeriod(
     .filter((c) => c.attendedHours > 0 || c.unresolvedDates.length > 0);
 
   return summariseFunding(input.period, results);
+}
+
+// ---------------------------------------------------------------------------
+// Arrears
+// ---------------------------------------------------------------------------
+
+/**
+ * Issued invoices with what they total and what has been paid.
+ *
+ * Reads `invoice_arrears` (0045), which is a view for the same reason `invoice_totals`
+ * is: a stored balance drifts from its own detail, and this one moves every time money
+ * arrives.
+ *
+ * **No ageing here.** The view returns integers and a date; `summariseArrears` in
+ * `@ece/core` decides what is late, against a date the caller resolves with
+ * `todayInZone(centre.timezone)`. Computing "today" at this layer would read the
+ * server's clock, which is UTC and therefore yesterday for the whole New Zealand
+ * morning.
+ *
+ * Paged, and the reason is the same one `listInvoices` records: a centre invoicing 65
+ * families fortnightly passes a thousand invoices inside a year, and this view has a
+ * row per issued invoice. Truncating silently would report a centre as owed less than
+ * it is.
+ */
+export async function listOutstandingInvoices(
+  db: Db,
+  centreId: string,
+): Promise<OutstandingInvoice[]> {
+  const rows = await fetchAll<{
+    invoice_id: string;
+    guardian_id: string;
+    reference: string;
+    due_on: string | null;
+    total_cents: number | string;
+    paid_cents: number | string;
+  }>('listOutstandingInvoices', (from, to) =>
+    db
+      .from('invoice_arrears')
+      .select('invoice_id, guardian_id, reference, due_on, total_cents, paid_cents')
+      .eq('centre_id', centreId)
+      // `due_on` first so the oldest debt pages first, and `invoice_id` to break the
+      // tie — two invoices share a due date by definition, and paging a non-unique
+      // order repeats one row and skips another.
+      .order('due_on', { nullsFirst: false })
+      .order('invoice_id')
+      .range(from, to),
+  );
+
+  return rows.map((r) => ({
+    invoiceId: r.invoice_id,
+    guardianId: r.guardian_id,
+    reference: r.reference,
+    dueOn: r.due_on,
+    // bigint arrives from PostgREST as a string once it is large enough, and a centre
+    // billing in cents reaches that sooner than it looks.
+    totalCents: Number(r.total_cents),
+    paidCents: Number(r.paid_cents),
+  }));
 }

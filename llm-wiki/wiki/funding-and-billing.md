@@ -204,10 +204,63 @@ and got 4, because other demo children carried unpaired events from earlier prob
 be cleaned up. The fix was to assert on the child under test, not to loosen the schema — and it
 incidentally demonstrated the calculation working on genuinely messy data.
 
+### Arrears (0045): derived, and it trusts the money rather than the label
+
+A view, under the same rule as the section above — a stored balance drifts from its own detail,
+and this one moves every time a payment arrives.
+
+**`invoices.status` may say `paid`. That is a label somebody set; the payments are the fact.** So
+`paid` invoices are *included* in the view rather than filtered out, and if the payments do not
+cover the total, the balance shows up regardless of what the status claims. An invoice marked paid
+that is not paid is precisely the row a centre needs to see, and a view that filtered on the label
+could never show it. Asserted directly, and mutation-tested by narrowing the filter to
+`status = 'issued'` — which fails on exactly that line.
+
+`draft` and `void` are excluded: nothing issued, or withdrawn.
+
+**No ageing in SQL.** The view returns two integers and a date; `summariseArrears` in `@ece/core`
+decides what is late, against a date the caller resolves with `todayInZone(centre.timezone)`. Every
+date bug in this repo has come from computing a calendar day in the wrong zone, and this is the
+same split `ratios.ts` makes between the maths and the numbers.
+
+Three judgements in that module, each tested by name:
+
+- **An invoice with no due date cannot be aged**, and gets `no-due-date` rather than being folded
+  into "current". A centre that never sets due dates would otherwise read a clean report and
+  conclude nobody is late — the same failure shape as an unstated sleep-check interval.
+- **Credits are never netted against arrears.** One family $200 in credit does not make another
+  family's $200 debt disappear, and a single "net owing" figure would say exactly that.
+- **Nothing owed is not in arrears**, whatever the date says. A settled invoice three months past
+  its due date is not a debt, and listing it as one is how a report stops being read.
+
+The buckets are 30/60/90 and there is no `ARREARS_VERIFIED` flag, deliberately: ordinary accounting
+convention, no rule asserted, no consequence claimed. That is the difference between this and the
+ratio bands.
+
+### The view mutation that changed nothing, and the class check it produced
+
+Turning `security_invoker = off` on `invoice_arrears` and running the **entire** isolation suite
+changed nothing — 350/350, including an assertion labelled *"security\_invoker carries the
+boundary"*.
+
+It does not. `invoice_arrears` joins `invoice_totals`, which is itself an invoker view, and the
+nested one kept enforcing the boundary. The assertion was passing for a reason other than the one
+its label claimed, and would have gone on passing until somebody rewrote the join to read
+`invoice_lines` directly — at which point the boundary would have rested entirely on a setting
+nothing was checking.
+
+Verified rather than assumed, on both sides: a probe view with `security_invoker = off` over
+`centres` returns **5 rows to a caller with a random `sub`** who is a member of nothing.
+
+The fix is a class-level assertion reading `pg_class.reloptions`: **every view in `public` must
+declare `security_invoker = on`.** It cannot be satisfied by accident, it names the offender when
+it fails, and it covers every view added after it. The behavioural assertion was relabelled to
+claim only what it actually proves.
+
 ## See Also
 
 - [[attendance-and-ratios]] — where the events come from
 - [[unverified-claims]] — the caps, and the absence of rates
 - [[compliance-and-evidence]] — the other thing attendance is evidence for
 
-*Last updated: 2026-08-04*
+*Last updated: 2026-08-09*
