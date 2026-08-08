@@ -20,6 +20,7 @@ import {
   type FundingPeriod,
   type FundingSummary,
   type HoursEvent,
+  type FundingReceipt,
   type OutstandingInvoice,
 } from '@ece/core';
 import type { Db } from './index';
@@ -616,4 +617,77 @@ export async function listOutstandingInvoices(
     totalCents: Number(r.total_cents),
     paidCents: Number(r.paid_cents),
   }));
+}
+
+// ---------------------------------------------------------------------------
+// Funding receipts (0046)
+// ---------------------------------------------------------------------------
+
+/**
+ * What the centre claimed and what the Ministry paid, per period.
+ *
+ * Both figures are entered by the centre. **Nothing here computes a claim** — this
+ * product holds no funding rates, so multiplying the funded hours on `/funding` by one
+ * would put a dollar sign on a number nobody has checked. `summariseVariance` in
+ * `@ece/core` does the subtraction and nothing else.
+ *
+ * Unpaged, and the reason is structural rather than optimistic: one row per funding
+ * period per centre, enforced by `funding_receipts_one_per_period`. Periods are
+ * measured in months, so a centre reaches a thousand rows somewhere past its
+ * eightieth year.
+ */
+export async function listFundingReceipts(db: Db, centreId: string): Promise<FundingReceipt[]> {
+  const { data, error } = await db
+    .from('funding_receipts')
+    .select('id, period_label, period_from, period_to, claimed_cents, received_cents, received_on')
+    .eq('centre_id', centreId)
+    .order('period_from', { ascending: false });
+  if (error) throw new Error(`listFundingReceipts: ${error.message}`);
+
+  return (data ?? []).map((r) => ({
+    id: r.id as string,
+    periodLabel: r.period_label as string,
+    periodFrom: r.period_from as string,
+    periodTo: r.period_to as string,
+    claimedCents: r.claimed_cents === null ? null : Number(r.claimed_cents),
+    receivedCents: Number(r.received_cents),
+    receivedOn: r.received_on as string | null,
+  }));
+}
+
+/**
+ * Record or update a period. Upsert on `(centre_id, period_label)`, because a wash-up
+ * is a correction to a running total rather than a second row — see 0046.
+ */
+export async function recordFundingReceipt(
+  db: Db,
+  input: {
+    centreId: string;
+    periodLabel: string;
+    periodFrom: string;
+    periodTo: string;
+    claimedCents?: number | null;
+    receivedCents: number;
+    receivedOn: string | null;
+    reference?: string | null;
+    note?: string | null;
+  },
+): Promise<void> {
+  const { data: auth } = await db.auth.getUser();
+  const { error } = await db.from('funding_receipts').upsert(
+    {
+      centre_id: input.centreId,
+      period_label: input.periodLabel.trim(),
+      period_from: input.periodFrom,
+      period_to: input.periodTo,
+      claimed_cents: input.claimedCents ?? null,
+      received_cents: input.receivedCents,
+      received_on: input.receivedOn,
+      reference: input.reference?.trim() || null,
+      note: input.note?.trim() || null,
+      recorded_by: auth.user?.id ?? null,
+    },
+    { onConflict: 'centre_id,period_label' },
+  );
+  if (error) throw new Error(`recordFundingReceipt: ${error.message}`);
 }

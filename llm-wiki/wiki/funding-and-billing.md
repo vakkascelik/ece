@@ -237,6 +237,41 @@ The buckets are 30/60/90 and there is no `ARREARS_VERIFIED` flag, deliberately: 
 convention, no rule asserted, no consequence claimed. That is the difference between this and the
 ratio bands.
 
+### Claimed against received (0046), and the figure this product refuses to compute
+
+`reconcile:funding` reconciles the **calculation** against arithmetic worked out by hand in its own
+comments. It has never compared a claim to money, and could not: there is no Ministry figure
+anywhere in this repo.
+
+`funding_receipts` is the other half. The reason it is worth building is one sentence — *a centre
+that finds an under-claim renews without a conversation.*
+
+**Both figures are entered by the centre, and neither is computed.** The obvious design takes the
+funded hours this product already calculates, multiplies by a rate, and compares. **There are no
+rates here**, deliberately, and publishing one nobody has checked would make every variance on the
+screen a fiction with a dollar sign on it. So the centre enters what it keyed into ELI Web and what
+its bank shows, and the product does the subtraction and nothing else. A smaller feature than it
+first appears, and the only version that is true.
+
+Three judgements, each asserted:
+
+- **A null claim is "not stated", not zero.** Zero would make every unfilled period look like a
+  total overpayment and bury the real ones. The screen says *cannot compare*.
+- **Shortfall and overpayment are never netted.** They are two different phone calls, and a single
+  figure hides one behind the other.
+- **Money with no date is refused** by a CHECK constraint — a receipt that cannot be matched to a
+  bank statement is not a reconciliation.
+
+**One row per period, and what that costs.** ECE funding is paid in instalments with a wash-up, so a
+period can be paid more than once. This holds a running total and the individual payments are *not*
+itemised — stated rather than hidden. What survives is the audit trail: the table carries the audit
+trigger, and the suite asserts a wash-up produces an `update` row naming the period. If itemising
+turns out to matter it is a child table, not a rewrite.
+
+The variance sits at the foot of `/funding` rather than on its own page, because the figures above it
+are what this product calculated and these are what the Ministry actually paid. Reading them apart
+is how an under-claim goes unnoticed for a year.
+
 ### The accounts screen, and the first money this product has rendered
 
 `/billing`, behind `manageCentre`. It exists before any screen that *creates* an invoice, because

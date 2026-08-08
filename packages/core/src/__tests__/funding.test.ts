@@ -5,6 +5,7 @@ import {
   exportDisclaimer,
   FUNDING_RULES_VERIFIED,
   summariseFunding,
+  summariseVariance,
   type FundingPeriod,
 } from '../funding';
 import type { HoursEvent } from '../hours';
@@ -193,5 +194,41 @@ describe('summariseFunding and the disclaimer', () => {
   it('warns that the caps are unchecked while the flag is false', () => {
     const text = exportDisclaimer(summariseFunding(period, []));
     expect(text).toContain('not been checked against the ECE Funding Handbook');
+  });
+});
+
+describe('summariseVariance', () => {
+  const receipts = [
+    { id: 'a', periodLabel: 'Feb-Mar', periodFrom: '2026-02-01', periodTo: '2026-03-31', claimedCents: 1_200_000, receivedCents: 1_150_000, receivedOn: '2026-04-10' },
+    { id: 'b', periodLabel: 'Apr-May', periodFrom: '2026-04-01', periodTo: '2026-05-31', claimedCents: 900_000, receivedCents: 950_000, receivedOn: '2026-06-10' },
+    { id: 'c', periodLabel: 'Jun-Jul', periodFrom: '2026-06-01', periodTo: '2026-07-31', claimedCents: null, receivedCents: 800_000, receivedOn: '2026-08-10' },
+  ];
+
+  it('reports a shortfall and an overpayment separately', () => {
+    const v = summariseVariance(receipts);
+    // Netting them would hide a $500 under-claim behind a $500 overpayment, and they
+    // are two different phone calls.
+    expect(v.shortfallCents).toBe(50_000);
+    expect(v.overpaidCents).toBe(50_000);
+  });
+
+  it('does NOT treat an unstated claim as a claim of zero', () => {
+    const v = summariseVariance(receipts);
+    // Zero would make every unstated period look like a total overpayment and bury the
+    // real ones.
+    expect(v.rows.find((r) => r.id === 'c')?.varianceCents).toBeNull();
+    expect(v.unstated).toBe(1);
+    expect(v.overpaidCents).toBe(50_000);
+  });
+
+  it('puts the worst shortfall first and the unstated periods last', () => {
+    expect(summariseVariance(receipts).rows.map((r) => r.id)).toEqual(['a', 'b', 'c']);
+  });
+
+  it('is empty rather than wrong with nothing recorded', () => {
+    const v = summariseVariance([]);
+    expect(v.rows).toEqual([]);
+    expect(v.shortfallCents).toBe(0);
+    expect(v.unstated).toBe(0);
   });
 });

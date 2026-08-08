@@ -52,23 +52,12 @@ comment on view public.invoice_arrears is
   'Issued invoices with what they total and what has been paid. Trusts the payments rather than invoices.status, so an invoice mislabelled paid still shows its balance. Ageing happens in @ece/core, not here.';
 
 /*
- * `security_invoker = on`, the house rule for every view in this schema: a guardian
- * reading this sees exactly the invoices `invoices_select` already allows them, and
- * staff see their centre's. Without it the view runs as its owner — the migration
- * runner, which bypasses RLS — and hands every centre's debts to anybody who can
- * select from it.
+ * `security_invoker = on`, the house rule for every view in this schema.
  *
- * AND IT IS NOW ASSERTED FROM THE CATALOGUE, BECAUSE BEHAVIOUR COULD NOT SEE IT.
- *
- * Turning this OFF and running the entire isolation suite changed nothing. This view
- * joins `invoice_totals`, which is itself an invoker view, and the nested one kept
- * enforcing the boundary — so the per-view assertions passed for a reason other than
- * the one their labels claimed, and would have gone on passing right up until somebody
- * rewrote the join to read `invoice_lines` directly.
- *
- * The suite now carries a class-level check that every view in `public` declares
- * `security_invoker = on`, read from `pg_class.reloptions`. It cannot be satisfied by
- * accident and it covers every view added after this one.
+ * It matters more than usual here: it means a guardian reading this sees exactly the
+ * invoices `invoices_select` already allows them — their own, and only once issued —
+ * and staff see their centre's. Without it the view would run as its owner and hand
+ * every centre's debts to anybody who could select from it.
  */
 
 -- Revoked from `anon` as well as granted, which is the pair every table in this schema

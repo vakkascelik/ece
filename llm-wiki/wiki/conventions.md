@@ -247,6 +247,23 @@ Worse, **the isolated re-run destroys the evidence**: Playwright clears `test-re
 starts, so the trace and error context from the failure are gone before anybody reads them. Read the
 artefacts before re-running, not after.
 
+### An applied migration is a record of what ran, including its comments
+
+The runner stores a checksum per file and refuses to continue when one changes after being
+applied — *"this database and this repo now disagree about the schema… refusing to guess."*
+That fires on a **comment-only** edit too, which is correct and is easy to meet with
+irritation rather than agreement.
+
+It happened on 0045: the file was applied, then its comment was improved, then the next
+migration would not run. The right fix is not to update the ledger by hand. It is to restore
+the file to exactly what ran and put the new understanding **in the next migration or in the
+wiki** — both of which are for what you now know, while an applied migration is for what
+happened.
+
+Re-applying by hand and updating the checksum is available and is a last resort: it means
+editing the one table that records whether the schema is trustworthy, and it should be a
+deliberate decision by a person rather than a step in a workflow.
+
 ### A view runs as its owner, and a behavioural test cannot always tell you
 
 Every view here declares `security_invoker = on`. Without it a view runs as the migration

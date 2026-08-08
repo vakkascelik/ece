@@ -212,3 +212,71 @@ export function exportDisclaimer(summary: FundingSummary): string {
   }
   return parts.join(' ');
 }
+
+// ---------------------------------------------------------------------------
+// Claimed against received (0046)
+// ---------------------------------------------------------------------------
+
+export interface FundingReceipt {
+  id: string;
+  periodLabel: string;
+  periodFrom: string;
+  periodTo: string;
+  /** Null means the centre has not stated one. Not zero. */
+  claimedCents: number | null;
+  receivedCents: number;
+  receivedOn: string | null;
+}
+
+export interface FundingVariance extends FundingReceipt {
+  /**
+   * Claimed minus received, in cents. **Null when no claim was stated** — the whole
+   * point of the distinction.
+   *
+   * Positive means the Ministry paid less than the centre claimed, which is the case
+   * worth a phone call. Negative means it paid more, which is worth one too: an
+   * overpayment that nobody notices is a debt nobody has budgeted for.
+   */
+  varianceCents: number | null;
+}
+
+/**
+ * Compare what a centre says it claimed against what arrived.
+ *
+ * **Nothing here computes a claim.** This product holds no funding rates — none are in
+ * the repo, deliberately — so both figures are entered by the centre and this does the
+ * subtraction. Multiplying the funded hours on `/funding` by a rate would put a dollar
+ * sign on a number nobody has checked, which is the one thing this feature must not do.
+ *
+ * A period with no stated claim is **not** treated as a claim of zero. Zero would make
+ * every unstated period look like a total overpayment and bury the real ones.
+ */
+export function summariseVariance(receipts: FundingReceipt[]): {
+  rows: FundingVariance[];
+  /** Total shortfall across periods where a claim WAS stated. */
+  shortfallCents: number;
+  /** Total overpayment, kept separate — it is a different conversation. */
+  overpaidCents: number;
+  /** How many periods cannot be compared at all. */
+  unstated: number;
+} {
+  const rows = receipts.map((r) => ({
+    ...r,
+    varianceCents: r.claimedCents === null ? null : r.claimedCents - r.receivedCents,
+  }));
+
+  let shortfallCents = 0;
+  let overpaidCents = 0;
+  let unstated = 0;
+  for (const row of rows) {
+    if (row.varianceCents === null) unstated += 1;
+    else if (row.varianceCents > 0) shortfallCents += row.varianceCents;
+    else overpaidCents += -row.varianceCents;
+  }
+
+  // Worst shortfall first; unstated periods last, because they are a data problem
+  // rather than a money one.
+  rows.sort((a, b) => (b.varianceCents ?? -Infinity) - (a.varianceCents ?? -Infinity));
+
+  return { rows, shortfallCents, overpaidCents, unstated };
+}

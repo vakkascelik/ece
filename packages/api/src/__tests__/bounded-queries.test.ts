@@ -63,6 +63,11 @@ const BOUNDED_BY_REASON: Record<string, string> = {
   // service crosses the cap, so it is paged.
   'staff.ts:children': 'per centre; a licence caps the roll',
 
+  // One row per funding period per centre, enforced by `funding_receipts_one_per_period`.
+  // Periods are measured in months, so a centre reaches a thousand rows somewhere past its
+  // eightieth year.
+  'billing.ts:funding_receipts': 'unique per (centre_id, period_label); periods are months',
+
   // A published licensing criteria set is a few hundred rows at most, and it is reference
   // data that changes when the Ministry republishes it rather than as a centre operates.
   'compliance.ts:criteria': 'a published criteria set is a few hundred rows',

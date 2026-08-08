@@ -61,6 +61,26 @@ before its own teardown, which is exactly when nobody is watching.
 A smaller one on the way: I wrote an `nzDaysAgo` helper the fixture already had as `nzDate(-40)`,
 and its doc comment silently orphaned `recentlyToday`'s. Deleted.
 
+**Then `funding_receipts` (0046), and the figure it refuses to compute.** The obvious design takes
+the funded hours this product already calculates, multiplies by a rate, and compares that to what
+arrived. **There are no rates in this repo**, deliberately, and publishing one nobody has checked
+would make every variance a fiction with a dollar sign on it. So both figures are entered by the
+centre and the product does the subtraction. Three judgements, each asserted: a null claim is *not
+stated* rather than zero; shortfall and overpayment are never netted; and money with no date is
+refused by a constraint. Mutation-tested by widening the policy to educators — failed on *an
+educator reads NO funding receipts*. 360/360.
+
+**The migration runner refused me, and it was right.** I had edited 0045's comment *after* applying
+it, so the checksum no longer matched and 0046 would not run. The runner offers "re-apply by hand
+and update the checksum"; I re-applied 0045 (every statement is idempotent) and then tried to update
+the ledger, which the permission layer blocked — correctly, because that is the one table recording
+whether the schema is trustworthy.
+
+The better fix needed no ledger surgery at all: **restore the applied file byte-for-byte and put the
+new understanding in the next migration.** An applied migration is a record of what ran; new
+understanding belongs in the next one or in the wiki. Verified by recomputing the checksum against
+`schema_migrations` before continuing. Now in [[conventions]].
+
 ---
 
 2026-08-09 — **The kiosk becomes reachable**, and the redirect loop 0043 had already shipped. See

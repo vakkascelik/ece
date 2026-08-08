@@ -1626,6 +1626,117 @@ select pg_temp.expect(
 );
 
 -- ---------------------------------------------------------------------------
+-- FUNDING RECEIPTS (0046) — what the Ministry actually paid
+--
+-- The centre's money against the Crown's. No guardian branch at all, unlike `invoices`,
+-- which is why one `FOR ALL` policy covers reads and writes: there is no reader here who
+-- is not also a writer.
+-- ---------------------------------------------------------------------------
+
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+
+insert into public.funding_receipts
+  (id, centre_id, period_label, period_from, period_to, claimed_cents, received_cents, received_on, recorded_by)
+values ('55555555-aaaa-4aaa-8aaa-000000000001', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        'Feb-Mar 2026', current_date - 60, current_date - 30, 1200000, 1150000,
+        current_date - 20, '11111111-1111-4111-8111-111111111111');
+
+select pg_temp.expect(
+  (select claimed_cents - received_cents from public.funding_receipts
+    where id = '55555555-aaaa-4aaa-8aaa-000000000001') = 50000,
+  'an owner records a claim and a receipt, and the variance is $500.00 short'
+);
+
+-- Null is the useful state, not an unfinished one: a centre often knows what arrived
+-- before it can find what it claimed.
+insert into public.funding_receipts
+  (centre_id, period_label, period_from, period_to, received_cents, received_on)
+values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Apr-May 2026',
+        current_date - 30, current_date, 900000, current_date - 5);
+
+select pg_temp.expect(
+  (select count(*) from public.funding_receipts where claimed_cents is null) = 1,
+  'and a receipt with no stated claim is accepted rather than refused'
+);
+
+-- Money without a date cannot be matched to a bank statement.
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.funding_receipts
+      (centre_id, period_label, period_from, period_to, received_cents, received_on)
+    values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Undated',
+            current_date - 10, current_date, 500000, null);
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'money received with no date is refused — it cannot be reconciled');
+end $$;
+
+-- One row per period. A wash-up updates the running total; a second row would double it.
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.funding_receipts
+      (centre_id, period_label, period_from, period_to, received_cents, received_on)
+    values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Feb-Mar 2026',
+            current_date - 60, current_date - 30, 50000, current_date);
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'a second row for the same period is refused — the wash-up updates the first');
+end $$;
+
+-- The wash-up itself, and the audit trail that stands in for the itemisation this table
+-- deliberately does not keep.
+update public.funding_receipts
+   set received_cents = 1200000, received_on = current_date
+ where id = '55555555-aaaa-4aaa-8aaa-000000000001';
+
+select pg_temp.expect(
+  (select count(*) from public.audit_events
+    where entity = 'funding_receipts'
+      and entity_id = '55555555-aaaa-4aaa-8aaa-000000000001'
+      and action = 'update') = 1,
+  'a wash-up is AUDITED — the itemisation this table does not keep lives in the audit log'
+);
+
+-- Nobody below the office. An educator has no reason to see the centre's funding
+-- position, and a parent still less.
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.funding_receipts) = 0,
+  'an educator reads NO funding receipts'
+);
+
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.funding_receipts) = 0,
+  'and a parent reads none either'
+);
+
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.funding_receipts
+      (centre_id, period_label, period_from, period_to, received_cents, received_on)
+    values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Forged',
+            current_date - 10, current_date, 1, current_date);
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'nor can a parent record one');
+end $$;
+
+set local request.jwt.claims = '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.funding_receipts) = 0,
+  'and another centre''s owner sees nothing at all'
+);
+
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+
+-- ---------------------------------------------------------------------------
 -- ARREARS (0045)
 --
 -- A view over the same rows, so the interesting question is not what it computes —

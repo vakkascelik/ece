@@ -1,6 +1,13 @@
 import Link from 'next/link';
-import { listChildren, readFundingPeriod } from '@ece/api';
-import { displayName, exportDisclaimer, todayInZone, type FundingPeriod } from '@ece/core';
+import { listChildren, listFundingReceipts, readFundingPeriod } from '@ece/api';
+import {
+  displayName,
+  exportDisclaimer,
+  formatCents,
+  summariseVariance,
+  todayInZone,
+  type FundingPeriod,
+} from '@ece/core';
 import { requireCapability } from '@/lib/auth';
 import { dayWindow } from '@/lib/dayWindow';
 import { serverDb } from '@/lib/supabase';
@@ -39,7 +46,7 @@ export default async function FundingPage({
   const start = dayWindow(from, ctx.centre.timezone);
   const end = dayWindow(to, ctx.centre.timezone);
 
-  const [summary, children] = await Promise.all([
+  const [summary, children, receipts] = await Promise.all([
     readFundingPeriod(db, {
       centreId: ctx.centre.id,
       period,
@@ -49,9 +56,11 @@ export default async function FundingPage({
       toUtc: end.toUtc,
     }),
     listChildren(db, ctx.centre.id, { includeArchived: true }),
+    listFundingReceipts(db, ctx.centre.id),
   ]);
 
   const nameOf = new Map(children.map((c) => [c.id, displayName(c)]));
+  const variance = summariseVariance(receipts);
 
   return (
     <div className="binder">
@@ -224,6 +233,107 @@ export default async function FundingPage({
             starting point, not an authority.
           </li>
         </ul>
+      </section>
+
+      {/*
+        Claimed against received, and it sits at the bottom of THIS page on purpose: the
+        figures above are what this product calculated, and these are what the Ministry
+        actually paid. Reading them apart is how an under-claim goes unnoticed for a year.
+
+        Both numbers are entered by the centre. Nothing on this page multiplies the hours
+        above by a rate, because no rate in this repo has been checked — see
+        unverified-claims.
+      */}
+      <section>
+        <h2>What was claimed, and what arrived</h2>
+        {variance.rows.length === 0 ? (
+          <p className="empty">
+            No funding payments recorded yet. Add what you claimed and what the Ministry paid, and
+            this will show the difference.
+          </p>
+        ) : (
+          <>
+            <p className="inline">
+              {variance.shortfallCents > 0 && (
+                <span className="flag flag-warn">
+                  {'●'} {formatCents(variance.shortfallCents)} less than claimed
+                </span>
+              )}
+              {variance.overpaidCents > 0 && (
+                // Kept separate from the shortfall, never netted: an under-claim and an
+                // overpayment are two different phone calls, and a single figure would
+                // hide one behind the other.
+                <span className="flag flag-quiet">
+                  {formatCents(variance.overpaidCents)} more than claimed
+                </span>
+              )}
+              {variance.shortfallCents === 0 && variance.overpaidCents === 0 && (
+                <span className="flag flag-ok">{'✓'} Every stated claim was paid in full</span>
+              )}
+            </p>
+
+            <table>
+              <thead>
+                <tr>
+                  <th>Period</th>
+                  <th>Claimed</th>
+                  <th>Received</th>
+                  <th>Difference</th>
+                </tr>
+              </thead>
+              <tbody>
+                {variance.rows.map((r) => (
+                  <tr key={r.id}>
+                    <td>
+                      <strong>{r.periodLabel}</strong>
+                      <div className="sub" style={{ fontSize: '0.8125rem' }}>
+                        {r.periodFrom} to {r.periodTo}
+                      </div>
+                    </td>
+                    <td>
+                      {r.claimedCents === null ? (
+                        // Not zero. Zero would make this look like a total overpayment
+                        // and bury the real ones.
+                        <span className="empty">not stated</span>
+                      ) : (
+                        formatCents(r.claimedCents)
+                      )}
+                    </td>
+                    <td>
+                      {formatCents(r.receivedCents)}
+                      {r.receivedOn && (
+                        <div className="sub" style={{ fontSize: '0.8125rem' }}>{r.receivedOn}</div>
+                      )}
+                    </td>
+                    <td>
+                      {r.varianceCents === null ? (
+                        <span className="empty">cannot compare</span>
+                      ) : r.varianceCents > 0 ? (
+                        <span className="flag flag-warn">
+                          {'●'} {formatCents(r.varianceCents)} short
+                        </span>
+                      ) : r.varianceCents < 0 ? (
+                        <span className="flag flag-quiet">
+                          {formatCents(-r.varianceCents)} over
+                        </span>
+                      ) : (
+                        <span className="flag flag-ok">{'✓'} matched</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            {variance.unstated > 0 && (
+              <p className="sub">
+                {variance.unstated} {variance.unstated === 1 ? 'period has' : 'periods have'} no
+                stated claim, so {variance.unstated === 1 ? 'it cannot' : 'they cannot'} be compared.
+                Add what you keyed into ELI Web to see the difference.
+              </p>
+            )}
+          </>
+        )}
       </section>
 
       <footer>
