@@ -47,6 +47,9 @@ and [`../schema.md`](../schema.md) for the page template.
   already existed and none that fit, and the backfill migration that must not be written
 - [[consent-gated-media]] — a photograph that cannot exist without a recorded consent decision,
   and the RLS trap that made the first version leak to staff
+- [[exports]] — CSV and PDF: why a byte-order mark is a product decision in a te reo Māori
+  product, why a cell beginning `=` is an attack, and why two exports are stricter than the
+  pages they sit on
 - [[funding-and-billing]] — attendance into money: why a broken record is excluded rather than
   estimated, why bookings and attendance are separate, and what this product cannot submit
 
@@ -115,4 +118,4 @@ and [`../schema.md`](../schema.md) for the page template.
   app is ready to deploy. Its Stage 0 (ten conversations, zero code) was never run — recorded in
   [[unverified-claims]], and still the weakest evidence under any pricing decision.
 
-*Index last updated: 2026-08-05*
+*Index last updated: 2026-08-09*

@@ -2,6 +2,7 @@ import { listGuardians, listOutstandingInvoices } from '@ece/api';
 import { BUCKETS, formatCents, summariseArrears, todayInZone } from '@ece/core';
 import { requireCapability } from '@/lib/auth';
 import { serverDb } from '@/lib/supabase';
+import { PageActions } from '../PageActions';
 
 /**
  * Who owes what, and for how long.
@@ -44,6 +45,10 @@ export default async function BillingPage() {
         <p className="sub">
           What families still owe on invoices this centre has issued, as at {today}.
         </p>
+        <PageActions
+          csvHref="/billing/export.csv"
+          hint="The spreadsheet has the same figures as plain numbers, so a column can be summed."
+        />
       </div>
 
       <div className="card" style={{ marginBottom: '1rem' }}>

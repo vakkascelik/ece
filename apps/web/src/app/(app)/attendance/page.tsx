@@ -83,6 +83,9 @@ export default async function AttendancePage({
           <Link className="btn secondary" href="/attendance?wall=1">
             Wall display
           </Link>
+          <a className="btn" href="/attendance/export.csv">
+            Download roll
+          </a>
         </div>
       </div>
 

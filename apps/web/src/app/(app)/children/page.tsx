@@ -61,9 +61,17 @@ export default async function ChildrenPage() {
           </p>
         </div>
         {can(ctx.role, 'manageChildren') && (
-          <Link href="/children/new">
-            <button type="button">Enrol a child</button>
-          </Link>
+          <div className="page-actions">
+            {/* Owner and manager only, which is stricter than this page: an educator and a
+                parent both READ it, and the policy decides how many rows each gets. A file
+                is different — it leaves the product and sits in a downloads folder. */}
+            <a className="btn" href="/children/export.csv">
+              Download list
+            </a>
+            <Link href="/children/new">
+              <button type="button">Enrol a child</button>
+            </Link>
+          </div>
         )}
       </div>
 

@@ -5,6 +5,51 @@ says so.*
 
 ---
 
+2026-08-09 — **CSV downloads across the product, and PDF gets a button.** See [[exports]].
+
+There was no download anywhere in this repo: one route handler (`api/health`), no
+`Content-Disposition`, no CSV. The existing export is a print stylesheet with a sentence telling
+the reader to choose *Save as PDF* — still the right call for PDF, and now behind a `window.print()`
+button, because an instruction only helps somebody who already knows they want it.
+
+**A byte-order mark is a product decision here, not a detail.** Excel on Windows reads a BOM-less
+CSV in the system codepage, so every macron becomes mojibake — `Tāne` as `TÄne`. This is a product
+whose stated values include a commitment to te reo Māori, and the first thing a centre does with an
+export is open it in Excel and send it to somebody. Asserted in the e2e against the fixture child,
+who is called Tāne. The *filename* strips macrons, and that is the one place they are deliberately
+removed: a filename crosses shells, mail clients and Explorer.
+
+**A cell beginning `=` is executed by Excel**, and every field here is typed by somebody — a name,
+an incident note, a payment reference. Guarded with an apostrophe prefix, which alters the value on
+purpose. **The first implementation guarded numbers too**, so every credit and every negative
+variance became `'-4500` — text, in a column an accountant is about to sum. The test caught it
+before the bug was suspected. A value that arrives as a number was computed by the product, not
+typed by a person, so there is nothing to inject.
+
+**An export is a read path, not a formatting concern.** A route handler sits outside the `(app)`
+layout, so nothing checks a capability for it; each one re-checks its own. Two are deliberately
+*stricter than their own page*: `/children` is readable by a parent (who sees one child) and
+`/staff` by an educator, but a **file** leaves the product and sits in a downloads folder.
+
+`exports.spec.ts` uses `page.request` rather than `page.goto`, because **a download never
+navigates** — `Content-Disposition: attachment` makes `goto` abort and the URL stays put, so a
+download added to the roles matrix would pass while testing nothing. Mutation-tested by widening
+the children export to `viewOwnChildren`; the educator and parent rows both failed.
+
+**Then the full suite failed on two export rows and the code was fine.** I had restored the mutated
+guard and not rebuilt, so `next start` was serving the mutated `.next` against restored source —
+and `git diff` was clean, which is exactly what makes it convincing. It is the mirror image of the
+trap recorded a day earlier: that one is a build during a run, this one is *no* build after a
+restore. A mutation test has four steps and the fourth gets dropped — mutate, build, run, restore
+**and build again**. 102/102 once rebuilt.
+
+Two smaller ones: I invented a `button-link` class that does not exist — the same silent failure as
+the kiosk's `.button` — when `.page-actions .btn` already existed and its comment in `globals.css`
+made the same argument I was about to write. And the shell ate a backtick out of an index entry
+for the second time this session; `Edit` rather than `node -e`, which CLAUDE.md already says.
+
+---
+
 2026-08-09 — **Arrears (0045), and a mutation that changed nothing.** See [[funding-and-billing]].
 
 A view, not a table, under the same rule as `invoice_totals`: a stored balance drifts from its own

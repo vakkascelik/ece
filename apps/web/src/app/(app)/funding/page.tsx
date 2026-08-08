@@ -11,6 +11,7 @@ import {
 import { requireCapability } from '@/lib/auth';
 import { dayWindow } from '@/lib/dayWindow';
 import { serverDb } from '@/lib/supabase';
+import { PageActions } from '../PageActions';
 
 /**
  * RS7 preparation.
@@ -96,6 +97,11 @@ export default async function FundingPage({
             know the Ministry&rsquo;s period boundaries and does not guess them.
           </p>
         </form>
+
+        <PageActions
+          csvHref={`/funding/export.csv?from=${from}&to=${to}`}
+          hint="The spreadsheet covers the dates above, and names the unresolved days on each row — a file loses the banner it came with."
+        />
       </div>
 
       {/*

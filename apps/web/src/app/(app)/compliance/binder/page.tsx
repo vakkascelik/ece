@@ -16,6 +16,7 @@ import {
 import { requireCapability } from '@/lib/auth';
 import { serverDb } from '@/lib/supabase';
 import { dayWindow, lastSevenDays } from '@/lib/dayWindow';
+import { PageActions } from '../../PageActions';
 
 /**
  * The evidence binder: one dated document to hand to a reviewer.
@@ -80,8 +81,8 @@ export default async function BinderPage() {
       {/* Not printed. */}
       <div className="no-print inline" style={{ marginBottom: '1.5rem' }}>
         <Link href="/compliance">Back to compliance</Link>
-        <span className="sub">Use your browser&rsquo;s print dialogue and choose &ldquo;Save as PDF&rdquo;.</span>
       </div>
+      <PageActions hint="Choose &ldquo;Save as PDF&rdquo; as the destination in the print dialogue." />
 
       <header>
         <h1>Licensing evidence</h1>

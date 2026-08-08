@@ -247,6 +247,15 @@ Worse, **the isolated re-run destroys the evidence**: Playwright clears `test-re
 starts, so the trace and error context from the failure are gone before anybody reads them. Read the
 artefacts before re-running, not after.
 
+**And the mirror image, which is easier to fall into: restoring a mutation without rebuilding.**
+`next start` serves what is on disk, so `cp` -ing a file back and re-running the suite tests the
+*mutated* build against *restored* source — and `git diff` is clean, which is exactly what makes it
+convincing. This produced two genuine-looking export failures on 2026-08-09; the source was correct
+and the server was not.
+
+A mutation test has four steps and the fourth is the one that gets dropped: **mutate, build, run,
+restore *and build again*.** If a failure survives a restore, rebuild before believing it.
+
 ### An applied migration is a record of what ran, including its comments
 
 The runner stores a checksum per file and refuses to continue when one changes after being

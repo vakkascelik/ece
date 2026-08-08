@@ -226,6 +226,10 @@ export * from './hours';
 // Ageing what is owed. The money is a view; the calendar arithmetic is here, where it
 // can be tested — the same split `ratios.ts` makes.
 export * from './arrears';
+
+// CSV for people who will open it in Excel: a BOM so macrons survive, and a guard
+// against a cell that begins with '='.
+export * from './csv';
 export * from './funding';
 
 // Applications for employment. The one vocabulary shared with the public website, which
