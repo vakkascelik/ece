@@ -2454,6 +2454,146 @@ select pg_temp.expect(
 set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
 
 -- ===========================================================================
+-- EXCURSIONS (0037)
+--
+-- The gate this migration exists for: an outing cannot depart while a child on the
+-- list has no consent recorded FOR THAT OUTING. The standing `excursion` consent in
+-- `consent_events` is a precondition and explicitly not a substitute — treating it
+-- as one would take a child to a beach on a form signed two years earlier.
+-- ===========================================================================
+
+insert into public.excursions (id, centre_id, destination, departs_at, returns_at, recorded_by)
+values ('c5555555-5555-4555-8555-555555555555',
+        'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        'Western Springs playground', now() + interval '1 day', now() + interval '1 day 3 hours',
+        '55555555-5555-4555-8555-555555555555');
+
+insert into public.excursion_children (excursion_id, child_id) values
+  ('c5555555-5555-4555-8555-555555555555', 'a1111111-1111-4111-8111-111111111111'),
+  ('c5555555-5555-4555-8555-555555555555', 'b2222222-2222-4222-8222-222222222222');
+
+-- Ana has a STANDING excursion consent from 0004's fixtures. It must not be enough.
+do $$
+declare ok boolean := false;
+begin
+  begin
+    update public.excursions set status = 'departed', departed_at = now()
+     where id = 'c5555555-5555-4555-8555-555555555555';
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(
+    ok,
+    'an outing CANNOT depart while a child on it has no consent for THAT outing'
+  );
+end $$;
+
+-- Consent for this outing, for both children. Ana's from her mother, Beau's
+-- transcribed by staff from a paper form — both paths are legitimate.
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+insert into public.excursion_consents (excursion_id, child_id, granted, given_by, recorded_by)
+values ('c5555555-5555-4555-8555-555555555555',
+        'a1111111-1111-4111-8111-111111111111', true,
+        'd1111111-1111-4111-8111-111111111111',
+        '33333333-3333-4333-8333-333333333333');
+
+-- A parent may record their own decision and nobody else's.
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.excursion_consents (excursion_id, child_id, granted, given_by)
+    values ('c5555555-5555-4555-8555-555555555555',
+            'a1111111-1111-4111-8111-111111111111', true,
+            'd2222222-2222-4222-8222-222222222222');
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'a parent CANNOT give excursion consent as a different guardian');
+end $$;
+
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+insert into public.excursion_consents (excursion_id, child_id, granted, given_by, recorded_by, note)
+values ('c5555555-5555-4555-8555-555555555555',
+        'b2222222-2222-4222-8222-222222222222', true,
+        'd2222222-2222-4222-8222-222222222222',
+        '55555555-5555-4555-8555-555555555555',
+        'Paper form returned Tuesday.');
+
+update public.excursions set status = 'departed', departed_at = now()
+ where id = 'c5555555-5555-4555-8555-555555555555';
+select pg_temp.expect(
+  (select status from public.excursions where id = 'c5555555-5555-4555-8555-555555555555') = 'departed',
+  'and CAN depart once every child on it has one'
+);
+
+/*
+ * Withdrawal is a new row, and the latest decision is the one that counts.
+ *
+ * Asserted by putting the outing back to planned, withdrawing Ana's consent, and
+ * confirming it can no longer leave — which is the sequence that happens when a
+ * family phones on the morning.
+ */
+update public.excursions set status = 'planned', departed_at = null
+ where id = 'c5555555-5555-4555-8555-555555555555';
+insert into public.excursion_consents (excursion_id, child_id, granted, given_by, recorded_by, note)
+values ('c5555555-5555-4555-8555-555555555555',
+        'a1111111-1111-4111-8111-111111111111', false,
+        'd1111111-1111-4111-8111-111111111111',
+        '55555555-5555-4555-8555-555555555555',
+        'Mother phoned this morning.');
+
+do $$
+declare ok boolean := false;
+begin
+  begin
+    update public.excursions set status = 'departed', departed_at = now()
+     where id = 'c5555555-5555-4555-8555-555555555555';
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'a withdrawal is a new row, and the latest decision stops the outing');
+end $$;
+
+-- A headcount that does not match is RECORDED, not refused. Refusing it would
+-- destroy the evidence that a child was briefly unaccounted for.
+insert into public.excursion_headcounts (excursion_id, at, counted, expected, counted_by, client_uuid, note)
+values ('c5555555-5555-4555-8555-555555555555', now(), 11, 12,
+        '55555555-5555-4555-8555-555555555555', gen_random_uuid(),
+        'One child in the toilets. Recounted at 11:05 and all present.');
+
+select pg_temp.expect(
+  (select count(*) from public.excursion_headcounts
+    where excursion_id = 'c5555555-5555-4555-8555-555555555555' and counted <> expected) = 1,
+  'a headcount that does not match is accepted — it is the record that matters'
+);
+
+do $$
+declare ok boolean := false;
+begin
+  begin
+    update public.excursion_headcounts set counted = 12
+     where excursion_id = 'c5555555-5555-4555-8555-555555555555';
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'and cannot be rewritten afterwards — the verb is revoked');
+end $$;
+
+-- Guardianship again: Quinn is Beau's father and no relation to Ana.
+set local request.jwt.claims = '{"sub":"44444444-4444-4444-8444-444444444444","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.excursion_children
+    where child_id = 'a1111111-1111-4111-8111-111111111111') = 0
+  and (select count(*) from public.excursion_children
+    where child_id = 'b2222222-2222-4222-8222-222222222222') = 1,
+  'a parent sees their own child on the outing list and not another family''s'
+);
+
+select pg_temp.expect(
+  (select count(*) from public.excursion_headcounts) = 0,
+  'and reads no headcount — those are about the outing, not about a child'
+);
+
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+
+-- ===========================================================================
 -- RETENTION AND PURGING
 --
 -- `purge_child` is the most destructive thing in the product and it is SECURITY
@@ -2604,6 +2744,28 @@ select pg_temp.expect(
   (select count(*) from public.immunisation_records
     where child_id = 'a1111111-1111-4111-8111-111111111111') = 0,
   'and what the centre was shown about their immunisation'
+);
+
+-- 0037's two child-linked tables. `excursion_consents` is append-only with DELETE
+-- revoked from every role, so this is the second place proving a cascade reaches a
+-- table nobody holds the verb for.
+select pg_temp.expect(
+  (select count(*) from public.excursion_children
+    where child_id = 'a1111111-1111-4111-8111-111111111111') = 0
+  and (select count(*) from public.excursion_consents
+    where child_id = 'a1111111-1111-4111-8111-111111111111') = 0,
+  'and their place on an outing, and the consents given for it'
+);
+
+-- The outing itself survives: it is a record about the centre, and the other child
+-- on it still has a place. A cascade that took the excursion with the child would
+-- delete another family's record.
+select pg_temp.expect(
+  (select count(*) from public.excursions
+    where id = 'c5555555-5555-4555-8555-555555555555') = 1
+  and (select count(*) from public.excursion_children
+    where child_id = 'b2222222-2222-4222-8222-222222222222') = 1,
+  'while the outing itself and the other child''s place on it are untouched'
 );
 
 -- The other child's records are untouched. Without this the three assertions above
@@ -3508,7 +3670,7 @@ begin
      and c.relname not in ('attendance_events', 'staff_count_events', 'consent_events',
                            'messages', 'payments', 'audit_events',
                            'medication_administrations', 'sleep_checks',
-                           'safety_checks')
+                           'safety_checks', 'excursion_consents', 'excursion_headcounts')
      -- Reference data, and settings that belong to a person rather than a centre — the
      -- trigger could not attribute them to a tenant even if it fired.
      and c.relname not in ('criteria', 'criteria_sets', 'schema_migrations',

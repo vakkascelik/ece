@@ -140,6 +140,49 @@ now". An update in place answers only the second and destroys the first.
 Read is staff plus the child's own guardians; write is staff only. Letting a parent write it
 would make `sighted_by` meaningless.
 
+### Excursions (0037), and the consent that must not be reused
+
+Four tables, and the reason is one design trap.
+
+`consent_kind` already has `'excursion'`. It is a **standing** consent — *we are happy for our
+child to go on outings* — recorded once at enrolment in `consent_events`. Reusing it as the
+consent for a *specific* outing is the mistake this migration exists to make impossible: it
+would let a centre take a child to a beach in 2028 on a form a family signed in 2026, having
+never been told where their child was going.
+
+So a specific outing gets `excursion_consents`, per child, append-only, and the standing consent
+stays a **precondition rather than a substitute**. Both are shown; neither stands in for the
+other.
+
+**The gate is on the transition, not on the list.** An outing cannot move to `departed` while a
+child on it has no consent for *that* outing. It is not on `excursion_children`, because a child
+is routinely added to the plan before their family has answered — refusing that would push staff
+into keeping the real list somewhere else, which is how paper registers come back.
+
+Withdrawal is a new row, and the latest decision counts. Asserted by the sequence that actually
+happens: consent given, outing ready, family phones on the morning, outing can no longer leave.
+
+**The exception message carries a count, not names.** An exception string can reach a log, an
+error reporter, or a screen in a room with parents in it. Same rule as `audit_events.detail`
+holding column names and never values — the screen has the roll already and can say who.
+
+**A headcount that does not match is recorded, not refused.** Refusing it would destroy the
+evidence that a child was briefly unaccounted for, which is the exact record that matters
+afterwards and the reason to count at all. There is deliberately no constraint requiring
+`counted = expected`. `expected` is stored rather than derived at read time, so the count stays
+readable after a child is added to or removed from the plan — a record whose denominator moves
+afterwards cannot be read back honestly.
+
+`excursion_children` carries **the only `DELETE` granted in Phase 9**. Removing a child from a
+plan is not destroying evidence: the outing has not happened, and a stale list is worse than a
+corrected one. Same reasoning as [[recruitment]] granting it on `job_applications` and
+withholding it on `waitlist`.
+
+The purge assertions gained a case worth having: when a child is purged, their place on an
+outing and the consents given for it go, **and the outing itself survives** along with the other
+child's place on it. A cascade that took the excursion with the child would delete another
+family's record.
+
 ### A mutation test that failed to mutate
 
 Worth recording because it briefly looked like a hole. The attempted weakening of

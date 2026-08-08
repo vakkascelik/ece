@@ -520,6 +520,7 @@ async function main() {
        and c.relname not in ('attendance_events', 'staff_count_events', 'consent_events',
                              'messages', 'payments', 'audit_events',
                              'medication_administrations', 'sleep_checks', 'safety_checks',
+                             'excursion_consents', 'excursion_headcounts',
                              'criteria', 'criteria_sets', 'schema_migrations',
                              'push_tokens', 'notification_preferences', 'notifications',
                              'invitations')
