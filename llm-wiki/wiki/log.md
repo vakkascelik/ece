@@ -5,6 +5,42 @@ says so.*
 
 ---
 
+2026-08-09 — **A setup step that had never once worked.** `sleep.spec.ts`. See
+[[offline-outbox]].
+
+Two failures in the e2e suite, on a spec that has nothing to do with anything shipped today. The
+sleep register rendered perfectly and said *"Nobody is signed in, so there is nobody to check."*
+
+Four lines of setup, two independent defects, and they had been cancelling each other out:
+
+1. It clicked `getByRole('button', { name: /Sign in/ }).first()` — **whichever child happens to be
+   away**. Three children are on the roll by then, including one `journey.spec.ts` enrols fresh
+   each run. The reproduction signed in "Aroha Journey-…" and the spec then looked for Tāne.
+2. It navigated away immediately. The roll is **optimistic on purpose** — `toggle` enqueues to
+   the outbox and calls `void send()`, unawaited — so the row moves in the same tick while the
+   write is still in flight. The trace shows `POST /rest/v1/attendance_events` with **status -1,
+   aborted by the navigation**.
+
+The spec passed for eight runs because an earlier file happened to leave the child signed in, so
+the broken step never mattered. Its own comment claimed it removed exactly that dependency.
+
+**The product is not at fault, and I thought it was twice.** The aborted POST loses nothing: the
+entry stays queued and the next roll visit retries it, which is what the outbox is for. What was
+wrong was a test asserting server state one navigation after an optimistic local write.
+
+**Two theories died on the way**, both worth recording because each was plausible and each was
+wrong. A hydration race — killed by the spec passing standalone against a fresh tenant. A
+sort-order bug — killed by reading `children.ts`, which orders by `last_name`, putting Tāne
+first. Neither survived evidence, and the trace settled it in the end rather than any amount of
+reading.
+
+Verified by re-running the exact four-file sequence that failed twice: 17/17. Also: the two
+`roles.spec.ts` route-sweep timeouts in the same run were **load, not logic** — they passed on an
+idle machine. But those sweeps now take ~47s against a 60s budget, up from ~26s, which is worth
+watching on its own.
+
+---
+
 2026-08-09 — **When a family last said their details are right.** 0055, `detail_confirmations`,
 `ConfirmPanel`. See [[parent-self-service]]. §3.3.
 
@@ -48,7 +84,9 @@ note saying why.
 CLAUDE.md explicitly warns about and which has now broken three times. The correction is the same
 every time: use Write/Edit for anything long.
 
-424/424 RLS, 16/16 security review.
+424/424 RLS, 16/16 security review, and the e2e's own test green in a full run
+(`absence.spec.ts:73`). The suite finished 107/109 — the two failures were `sleep.spec.ts` and
+had nothing to do with this table — a setup step in it had never worked. See the entry above.
 
 ---
 

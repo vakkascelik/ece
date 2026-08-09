@@ -269,6 +269,41 @@ depending on the thing that depends on it.
 The outbox itself needs `expo-sqlite` and stays in `apps/mobile`. That is also why the drill
 below cannot cover it.
 
+### The roll is optimistic, so "the row moved" is not "the server has it"
+
+`toggle` in `RollClient.tsx` enqueues, re-renders from the local queue, and calls `void
+send()` — **unawaited, on purpose**. The row moves in the same tick because a spinner on a
+foyer tablet with no signal is theatre, and the SyncChip carries the "not sent yet" fact
+instead.
+
+The consequence is easy to forget one page later: **anything server-rendered will not show
+that sign-in until the queue drains.** Navigating immediately after a tap cancels the POST
+in flight. Nothing is lost — the entry stays queued and the next visit to the roll retries
+it, which is the entire point of the outbox — but the write has not happened yet.
+
+This cost a long diagnosis on 2026-08-09. `sleep.spec.ts` signed a child in on `/attendance`
+and went straight to `/sleep`, which reads the server; the trace showed `POST
+/rest/v1/attendance_events` with **status -1, aborted by the navigation**. Standalone the
+POST won the race and the spec passed; behind a longer suite the database was slower and it
+lost, and the failure surfaced on the sleep register — a page with nothing wrong with it.
+
+So a test that signs a child in and then asserts anything server-side must **wait for the
+write**, not for the row:
+
+```ts
+const landed = page.waitForResponse(
+  (r) => r.url().includes('/rest/v1/attendance_events') && r.request().method() === 'POST',
+);
+await page.getByRole('button', { name: new RegExp(`^Sign in ${t.childName}`) }).click();
+await expect(arrived).toBeVisible();   // the local queue took it
+expect((await landed).ok()).toBe(true); // and so did the server
+```
+
+There is a product question left open rather than answered: the unsent-work strip lives on
+the roll only, so an educator who signs a child in and walks to the sleep register sees no
+indication that the write is still queued. Small, and not worth a cross-page banner until
+somebody hits it — recorded so the next person does not rediscover it as a bug.
+
 ### What the drill covers, and what it does not
 
 `npm run drill:offline` replays exactly what the outbox does — keys fixed up front, reused on
@@ -290,4 +325,4 @@ it. An educator tapping during a flush must not see a lock.
 - [[unverified-claims]] — the missing device drill
 - [[conventions]]
 
-*Last updated: 2026-08-05*
+*Last updated: 2026-08-09*
