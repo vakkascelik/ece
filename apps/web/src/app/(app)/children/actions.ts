@@ -23,6 +23,7 @@ import {
   addHealthCondition,
   addMedicationAuthority,
   archiveChild,
+  reportAbsence,
   createChild,
   createEnrolment,
   createGuardian,
@@ -707,4 +708,49 @@ export async function clearPin(_prev: unknown, form: FormData): Promise<Result> 
 
   revalidatePath(`/children/${childId}`);
   return { ok: true };
+}
+
+/**
+ * A guardian tells the centre their child is not coming.
+ *
+ * `requireCtx`, not `requireCapability`: this is the one action here a **parent** is
+ * meant to perform, and every capability in this file is office work. The enforcement is
+ * `report_absence` in 0051, which checks guardianship itself and refuses a child that is
+ * not the caller's — the gate here only ensures somebody is signed in.
+ *
+ * Returns a sentence rather than a status code. Every outcome is an ordinary thing that
+ * can happen to a parent on a phone, so none of them is an error, and the wording of each
+ * is the feature: a family must never come away believing they have changed what they owe.
+ */
+export async function reportChildAbsence(
+  childId: string,
+  onDate: string,
+): Promise<{ message: string }> {
+  await requireCtx();
+  const db = await serverDb();
+
+  try {
+    const outcome = await reportAbsence(db, { childId, onDate });
+    revalidatePath(`/children/${childId}`);
+
+    switch (outcome) {
+      case 'recorded':
+        return { message: `Thank you — the centre knows your child is away on ${onDate}.` };
+      case 'already_absent':
+        return { message: `You have already told the centre about ${onDate}.` };
+      case 'no_booking':
+        return { message: `Your child is not booked in on ${onDate}, so there is nothing to tell us.` };
+      case 'past':
+        return { message: 'That day has already been. Please talk to the centre about it.' };
+      case 'not_bookable':
+        return { message: 'That day is not one you can change here. Please talk to the centre.' };
+      // Includes any status this version of the app does not recognise, which
+      // `reportAbsence` deliberately collapses into a refusal.
+      case 'not_permitted':
+      default:
+        return { message: 'You cannot change that day.' };
+    }
+  } catch (e) {
+    return { message: actionError(e, 'children.reportAbsence').error };
+  }
 }

@@ -43,6 +43,20 @@ create temporary table results (
 grant insert on results to authenticated, anon, service_role;
 grant usage  on sequence results_seq_seq to authenticated, anon, service_role;
 
+/**
+ * A function body with its SQL comments removed.
+ *
+ * Used by the UTC-date scan below, which reads `prosrc` and would otherwise flag a
+ * function for describing the mistake it is avoiding. Both comment forms: `--` to end of
+ * line, and block comments, which Postgres regex handles because `.` matches a newline
+ * by default.
+ */
+create or replace function pg_temp.sql_code(src text) returns text language sql immutable as $fn$
+  select regexp_replace(
+           regexp_replace(src, '--[^' || chr(10) || ']*', '', 'g'),
+           '/\*.*?\*/', '', 'g')
+$fn$;
+
 create or replace function pg_temp.expect(condition boolean, label text)
 returns void language plpgsql as $$
 begin
@@ -1651,6 +1665,178 @@ select pg_temp.expect(
     where child_id = 'b2222222-2222-4222-8222-222222222222') = 0,
   'a parent sees no booking for another family''s child'
 );
+
+-- ---------------------------------------------------------------------------
+-- PARENT-REPORTED ABSENCE (0051)
+--
+-- The first write a guardian may perform on the centre's own records, so the assertions
+-- come in two halves and both matter:
+--
+--   1. the function does what it says, and
+--   2. the TABLE IS STILL CLOSED to that guardian.
+--
+-- The second is the one that would be easy to lose. A future migration adding a
+-- guardian-friendly policy to `bookings` would make every test in the first half keep
+-- passing while opening a write path nobody designed. So the direct-UPDATE refusal is
+-- asserted here rather than assumed from 0018.
+--
+-- Dates are `current_date ± 7` deliberately. The function reckons "today" in the CENTRE's
+-- timezone and the session is UTC, so a booking on `current_date` is on the wrong side of
+-- midnight for part of every day — a test written against it would pass in the morning
+-- and fail in the evening. A week either side is unambiguous in both zones.
+-- ---------------------------------------------------------------------------
+
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+
+insert into public.bookings (centre_id, child_id, on_date, status, note)
+values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'b2222222-2222-4222-8222-222222222222',
+        current_date + 7, 'booked', 'Office note, not the parent''s to edit');
+
+-- Beau's father. Guardian `d2222222`, app account `44444444`.
+set local request.jwt.claims = '{"sub":"44444444-4444-4444-8444-444444444444","role":"authenticated"}';
+
+select pg_temp.expect(
+  public.report_absence('b2222222-2222-4222-8222-222222222222', current_date + 7) = 'recorded',
+  'a guardian marks their own child''s booked day as absent'
+);
+
+select pg_temp.expect(
+  (select status from public.bookings
+    where child_id = 'b2222222-2222-4222-8222-222222222222' and on_date = current_date + 7)
+    = 'absent',
+  'and the booking is now absent'
+);
+
+/*
+ * THE COLUMN THE FUNCTION EXISTS TO PROTECT.
+ *
+ * A policy permissive enough to allow the status change would also have allowed this
+ * note to be rewritten — WITH CHECK sees only the NEW row and cannot say "nothing else
+ * changed". Asserting the note survived is asserting that the definer function, and not
+ * a policy, is the write path.
+ */
+select pg_temp.expect(
+  (select note from public.bookings
+    where child_id = 'b2222222-2222-4222-8222-222222222222' and on_date = current_date + 7)
+    = 'Office note, not the parent''s to edit',
+  'and the office''s note on that booking is untouched'
+);
+
+-- A double tap is neither a success nor an error. Reporting it as success would hide it;
+-- reporting it as failure would alarm somebody who did exactly the right thing.
+select pg_temp.expect(
+  public.report_absence('b2222222-2222-4222-8222-222222222222', current_date + 7) = 'already_absent',
+  'reporting it twice says so, rather than lying either way'
+);
+
+-- The past is refused. Not about money — `absent` still charges — but about the integrity
+-- of a record of a day that has already happened.
+select pg_temp.expect(
+  public.report_absence('b2222222-2222-4222-8222-222222222222', current_date - 7) = 'past',
+  'a guardian CANNOT rewrite a day that has already been'
+);
+
+select pg_temp.expect(
+  public.report_absence('b2222222-2222-4222-8222-222222222222', current_date + 30) = 'no_booking',
+  'and a day the child is not booked has nothing to mark'
+);
+
+-- Another family's child, which is the boundary INSIDE the centre — both callers are
+-- parents at the same service.
+select pg_temp.expect(
+  public.report_absence('a1111111-1111-4111-8111-111111111111', current_date + 7) = 'not_permitted',
+  'a guardian CANNOT report an absence for a child who is not theirs'
+);
+
+/*
+ * AND THE TABLE IS STILL CLOSED.
+ *
+ * `bookings_write` is owner and manager only, so this UPDATE matches no rows and reports
+ * no error — a policy filters rather than raises. Asserted on the surviving value, since
+ * "no exception" is what a refusal looks like from the client.
+ */
+do $$
+declare v_status public.booking_status;
+begin
+  begin
+    update public.bookings set status = 'cancelled', note = 'parent edited this'
+     where child_id = 'b2222222-2222-4222-8222-222222222222' and on_date = current_date + 7;
+  exception when others then null;
+  end;
+  select status into v_status from public.bookings
+   where child_id = 'b2222222-2222-4222-8222-222222222222' and on_date = current_date + 7;
+  perform pg_temp.expect(
+    v_status = 'absent',
+    'a guardian CANNOT update a booking directly — the function is the whole write path, got '
+      || coalesce(v_status::text, 'no row')
+  );
+end $$;
+
+-- Nor insert one. Booking is office work because a booking carries a fee and the centre
+-- has a licence capacity to respect.
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.bookings (centre_id, child_id, on_date, status)
+    values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'b2222222-2222-4222-8222-222222222222',
+            current_date + 14, 'booked');
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'nor can a guardian book a day — that is still office work');
+end $$;
+
+/*
+ * `cancelled` IS NOT REACHABLE, AND IT IS THE ONE THAT MOVES MONEY.
+ *
+ * 0018: absent = did not attend, usually still charged; cancelled = withdrawn in time.
+ * The function writes the literal `'absent'` and nothing else, which is what makes it
+ * safe to hand to a guardian at all. A cancelled booking is also not something they may
+ * re-mark.
+ */
+set local role postgres;
+insert into public.bookings (centre_id, child_id, on_date, status)
+values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'b2222222-2222-4222-8222-222222222222',
+        current_date + 21, 'cancelled');
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"44444444-4444-4444-8444-444444444444","role":"authenticated"}';
+
+select pg_temp.expect(
+  public.report_absence('b2222222-2222-4222-8222-222222222222', current_date + 21) = 'not_bookable',
+  'a CANCELLED booking is not a guardian''s to re-mark — that is the status that moves money'
+);
+
+/*
+ * The write is audited without the function asking, because `bookings` carries the shared
+ * trigger. A parent-made change to the centre's own records that left no trace would be
+ * the worst version of this feature.
+ *
+ * CHECKED AS THE OWNER, AND THE FIRST VERSION OF THIS WAS WRONG BECAUSE IT WAS NOT.
+ *
+ * Written first as a count run by the parent, it failed — and the obvious reading was
+ * "the trigger did not fire". It had fired. A parent cannot SELECT `audit_events` at all,
+ * so the count was zero because of the policy on the reader, not because of a missing
+ * row. An assertion whose subject cannot see its own evidence reports the wrong failure,
+ * and it would have sent somebody looking for a bug in the trigger.
+ */
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.audit_events
+    where entity = 'bookings' and action = 'update'
+      and actor_id = '44444444-4444-4444-8444-444444444444') >= 1,
+  'a parent-reported absence is AUDITED, and attributed to the PARENT rather than the office'
+);
+
+-- And the parent cannot read that record of their own action, which is the correct
+-- asymmetry: the audit log holds every family's activity, not just theirs.
+set local request.jwt.claims = '{"sub":"44444444-4444-4444-8444-444444444444","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.audit_events) = 0,
+  'and the parent cannot read the audit log, not even the entry they caused'
+);
+
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+
 
 -- ---------------------------------------------------------------------------
 -- Invoices
@@ -5170,8 +5356,23 @@ begin
     join pg_namespace n on n.oid = p.pronamespace
    where n.nspname = 'public'
      and p.prokind = 'f'
-     and (p.prosrc ilike '%current_date%'
-          or (p.prosrc ilike '%::date%' and p.prosrc not ilike '%at time zone%'));
+     /*
+       COMMENTS STRIPPED BEFORE SCANNING, ADDED 2026-08-09.
+
+       The scan reads `prosrc`, which includes the function's own comments — so a body
+       that EXPLAINS the hazard trips the guard for saying the words. `report_absence`
+       did exactly that: its comment reads "never current_date, which is the session's",
+       and the suite reported it as UTC-dated.
+
+       That is a false positive with a bad failure mode. It names a real function, so a
+       reader goes looking for a bug that is not there, and the obvious repair is an
+       allowlist entry — which permanently exempts a function from the check that matters.
+       Stripping comments keeps the guard blunt where it counts and truthful about what
+       it found. Mutation-tested afterwards to confirm it still catches the real thing.
+     */
+     and (pg_temp.sql_code(p.prosrc) ilike '%current_date%'
+          or (pg_temp.sql_code(p.prosrc) ilike '%::date%'
+              and pg_temp.sql_code(p.prosrc) not ilike '%at time zone%'));
 
   perform pg_temp.expect(
     offenders is null,

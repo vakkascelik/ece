@@ -124,6 +124,99 @@ export async function setBooking(
   if (error) throw new Error(`setBooking: ${error.message}`);
 }
 
+/**
+ * One child's booked days in a window.
+ *
+ * Separate from `listBookings`, which reads a whole centre. A family screen showing one
+ * child has no business pulling every other child's roll and filtering in the browser —
+ * RLS would hide the rows, but the query would still be the centre's and the paging cost
+ * would be real. `bookings_child_idx` in 0018 is on `(child_id, on_date desc)`, which is
+ * exactly this read.
+ *
+ * Paged, even though a structural argument against it exists.
+ *
+ * `bookings_one_per_day` means one row per child per day, so a caller asking for four
+ * weeks gets at most 28 rows and the 1000-row cap is unreachable. I wrote that argument
+ * into a comment first, and `bounded-queries.test.ts` refused it — reads in the money and
+ * evidence paths are paged unconditionally, with no allowlist entry available.
+ *
+ * That rule is right and the refusal was the guard working. The structural bound is a
+ * property of *today's* window parameter, and a later caller asking for a year would
+ * quietly inherit an argument made for four weeks. `listInvoiceLines` records the same
+ * reasoning: paging costs nothing when it is not needed, and uniform treatment beats a
+ * judgement call each reader has to re-make with less context than the person who made it.
+ */
+export async function listChildBookings(
+  db: Db,
+  childId: string,
+  from: string,
+  to: string,
+): Promise<Booking[]> {
+  const rows = await fetchAll<BookingRow>('listChildBookings', (a, b) =>
+    db
+      .from('bookings')
+      .select(BOOKING_COLUMNS)
+      .eq('child_id', childId)
+      .gte('on_date', from)
+      .lte('on_date', to)
+      // `id` joins the ordering for the reason `listBookings` records: paging a
+      // non-unique order repeats one row and skips another.
+      .order('on_date')
+      .order('id')
+      .range(a, b),
+  );
+  return rows.map(toBooking);
+}
+
+/**
+ * What `report_absence` can say. Mirrors 0051's returns, and the order is the order the
+ * function checks in.
+ */
+export const ABSENCE_OUTCOMES = [
+  'recorded',
+  'already_absent',
+  'no_booking',
+  'past',
+  'not_bookable',
+  'not_permitted',
+] as const;
+
+export type AbsenceOutcome = (typeof ABSENCE_OUTCOMES)[number];
+
+/**
+ * A guardian reports their own child absent for a booked day.
+ *
+ * The only write a family may make to the centre's own records, and it goes through the
+ * definer function rather than the table — `bookings_write` still refuses a guardian
+ * outright. See 0051 for why a policy could not have done this: `WITH CHECK` sees only
+ * the new row, so it cannot say "and nothing else changed", which would have left the
+ * office's `note` and the session times editable by a parent.
+ *
+ * The status it writes is always `absent`, never `cancelled`. Per 0018, absent is
+ * "booked and did not attend, usually still charged" — so this changes nothing about what
+ * a family owes, which is the reason it can be handed to them unsupervised.
+ */
+export async function reportAbsence(
+  db: Db,
+  input: { childId: string; onDate: string },
+): Promise<AbsenceOutcome> {
+  const { data, error } = await db.rpc('report_absence', {
+    p_child: input.childId,
+    p_date: input.onDate,
+  });
+  if (error) throw new Error(`reportAbsence: ${error.message}`);
+
+  /*
+    An unrecognised status is a refusal, not a success — the same contract as
+    `kioskSignChild`. A status added to the function later must not be read by this
+    version of the app as "it worked", because the direction that fails in is a family
+    believing they told the centre something they did not.
+  */
+  return typeof data === 'string' && (ABSENCE_OUTCOMES as readonly string[]).includes(data)
+    ? (data as AbsenceOutcome)
+    : 'not_permitted';
+}
+
 // ---------------------------------------------------------------------------
 // Invoices
 // ---------------------------------------------------------------------------

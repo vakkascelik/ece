@@ -58,6 +58,15 @@ export interface AuditTenant {
   centreId: string;
   otherCentreId: string;
   childId: string;
+  /**
+   * A day the child is booked in, three days out in NZ.
+   *
+   * Future rather than today because `report_absence` reckons the day in the CENTRE's
+   * timezone while the runner is on the machine's — a booking on today sits on the wrong
+   * side of midnight for part of every day, and a test written against it would pass in
+   * the morning and fail in the evening.
+   */
+  bookedDate: string;
   childName: string;
   /**
    * A second child at the same centre whom the parent is NOT a guardian of.
@@ -618,6 +627,30 @@ export async function seedAuditTenant(): Promise<AuditTenant> {
     Due 40 days ago, which lands it in the 31–60 column and gives the ageing something
     to be wrong about.
   */
+  /*
+    A booked day, for the parent-reported absence path (0051).
+
+    The note is seeded because the test asserts it SURVIVES: a guardian may change the
+    status and nothing else, and that guarantee is why the write goes through a definer
+    function rather than an RLS policy.
+  */
+  const bookedDate = nzDate(3);
+  must(
+    'booking',
+    await db
+      .from('bookings')
+      .insert({
+        centre_id: centreId,
+        child_id: childId,
+        on_date: bookedDate,
+        status: 'booked',
+        note: 'Office note, not the parent to edit',
+        created_by: ownerId,
+      })
+      .select('id')
+      .single(),
+  );
+
   const invoice = must(
     'invoice',
     await db
@@ -687,6 +720,7 @@ export async function seedAuditTenant(): Promise<AuditTenant> {
     centreId,
     otherCentreId,
     childId,
+    bookedDate,
     otherChildId,
     childName: 'Tāne',
     inviteToken,

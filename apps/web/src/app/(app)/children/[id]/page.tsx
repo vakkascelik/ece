@@ -4,6 +4,7 @@ import {
   getChild,
   listAdministrations,
   listAttendanceToday,
+  listChildBookings,
   listChildIncidents,
   listConsentHistory,
   listConsents,
@@ -26,10 +27,12 @@ import {
   initials,
   isUnderTwo,
   missingConsents,
+  shiftLocalDate,
   todayInZone,
 } from '@ece/core';
 import { requireCtx } from '@/lib/auth';
 import { serverDb } from '@/lib/supabase';
+import { BookingsPanel } from './BookingsPanel';
 import { ArchivePanel } from './ArchivePanel';
 import { ConsentPanel } from './ConsentPanel';
 import { CustodyPanel } from './CustodyPanel';
@@ -81,6 +84,7 @@ export default async function ChildPage({ params }: { params: Promise<{ id: stri
     doses,
     members,
     immunisation,
+    bookings,
   ] = await Promise.all([
     listHealthConditions(db, id),
     listMedications(db, id),
@@ -104,6 +108,10 @@ export default async function ChildPage({ params }: { params: Promise<{ id: stri
     // Unconditional: a family is entitled to see what the centre recorded about their
     // own child, and 0036's policy is what decides who that is.
     listImmunisation(db, id),
+    // Four weeks forward, from the centre's today. A guardian reports an absence from
+    // here; 0051 is what decides they may, and it refuses a past date regardless of
+    // what this window happens to include.
+    listChildBookings(db, id, today, shiftLocalDate(today, 28)),
   ]);
 
   const state = attendance.find((s) => s.childId === id);
@@ -281,6 +289,18 @@ export default async function ChildPage({ params }: { params: Promise<{ id: stri
           witnesses={witnesses}
           currentUserId={ctx.userId}
         />
+      </div>
+
+      {/*
+        Above consent for a family, because it is the only thing on this page they can
+        ACT on — everything else is a record they read. A parent opening this screen at
+        7am with a sick child should not have to scroll past the consent history.
+      */}
+      <div className="section">
+        <h2>Booked days</h2>
+        <div className="card">
+          <BookingsPanel bookings={bookings} isParent={ctx.role === 'parent'} />
+        </div>
       </div>
 
       {/* Consent second, per the pack — it gates whether a photo may exist at all. */}

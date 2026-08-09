@@ -66,6 +66,12 @@ and [`../schema.md`](../schema.md) for the page template.
 - [[privacy-and-retention]] — what the Privacy Act 2020 actually requires (and a correction to
   an earlier wrong claim), plus how purging coexists with append-only tables
 
+## Families
+
+- [[parent-self-service]] — the first write a family may make, why it is a definer function and
+  not a policy, why the button does not say Cancel, and an assertion that lied because its
+  subject could not see its own evidence
+
 ## Reporting
 
 - [[reporting]] — occupancy and attendance trends, the licence figure this product refused to

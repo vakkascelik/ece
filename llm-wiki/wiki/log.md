@@ -5,6 +5,68 @@ says so.*
 
 ---
 
+2026-08-09 — **A parent tells the centre their child is away.** 0051, `report_absence`,
+`BookingsPanel`. New page: [[parent-self-service]]. Section 3 of the plan opens.
+
+The first write a family may make to the centre's own records, and the argument that made it safe
+to hand over is one sentence already in the schema: 0018's enum comment says `absent` is *booked
+and did not attend, usually still charged*, while `cancelled` is *withdrawn in time*. **So this
+write cannot change what a family owes.** It is a notification, not a financial act, which is
+exactly why a guardian may perform it unsupervised at 7am from a phone — and why `cancelled` and
+`closed` stay office-only.
+
+**The plan's design does not work, and the reason is a property of RLS rather than taste.** It said
+"a guardian-scoped policy on `bookings`". A policy's `WITH CHECK` sees only the NEW row, so it
+**cannot say "and nothing else changed"** — anything permissive enough to allow the status change
+also lets a parent rewrite the office's `note` and shift the session times on the same row. Pinning
+those would mean comparing each column against its old value, which a policy cannot reference. A
+definer function can, so it is one, on the same pattern as `kiosk_sign_child`. Granted to
+`authenticated` rather than `anon`, so `review:security` check 8 and its allowlist are untouched.
+
+**A deliberate departure, recorded rather than done quietly: today is allowed.** The plan said
+future-only, which excludes the dominant case — a sick child *this morning* — and would have made
+the feature useless. What is refused is the past, which is what the instruction was really guarding.
+Even that is about the integrity of a record rather than money, since `absent` still charges.
+
+**An assertion that lied, and it is the most useful thing here.** The audit check first ran as the
+parent and failed, and the obvious reading was "the trigger did not fire". It had fired. **A parent
+cannot SELECT `audit_events` at all**, so the count was zero because of the policy on the *reader*.
+An assertion whose subject cannot see its own evidence reports the wrong failure and sends somebody
+hunting a bug that is not there. It now reads as the owner, plus a second assertion for the correct
+asymmetry: the parent's action is recorded and the parent cannot read the record.
+
+**The suite's UTC-date guard flagged my function, and the false positive was worth more than the
+fix.** The scan reads `prosrc`, which includes comments — so a function body that *explains* the
+hazard trips the guard for saying the words. Mine did: "never `current_date`, which is the
+session's". The tempting repair is an allowlist entry, which would permanently exempt a function
+from the check that matters.
+
+So the scan now strips SQL comments first — and **that closed a false negative nobody had noticed**.
+The old test was `prosrc ilike '%::date%' and prosrc not ilike '%at time zone%'`, so a function with
+`now()::date` in the code and the words "at time zone" anywhere in a comment **passed**. A comment
+could silence the guard. Both directions are mutation-tested: a planted `current_date` function and
+a planted `now()::date` function with a misleading comment are each caught by name.
+
+**And the bounded-query guard refused an argument I had written into a comment.** I claimed
+`listChildBookings` was structurally bounded — one row per child per day by `bookings_one_per_day`,
+so four weeks is 28 rows. True, and refused anyway: reads in the money and evidence paths are paged
+unconditionally with no allowlist available. The rule is right. My bound was a property of *today's*
+window parameter, and a later caller asking for a year would have inherited an argument made for
+four weeks. Paged, as `listInvoiceLines` already argues: uniform treatment beats a judgement each
+reader has to re-make with less context than the person who made it.
+
+**The wording is the feature.** The button says "Tell the centre", never "Cancel" — cancel names a
+different status, and a parent pressing it would reasonably believe they had stopped a charge. The
+panel says the fee is unchanged, and the e2e asserts both the sentence and the absence of the word.
+Only a `booked` day offers the control, because an enabled button that answers "you cannot do that"
+teaches people to distrust every button on the page. Staff see the panel without the column: the
+button means *a family told us*, and a manager pressing it would record that a family said
+something they did not.
+
+393/393 RLS, 16/16 security review, 470 unit tests, 107/107 e2e.
+
+---
+
 2026-08-09 — **Occupancy, and the denominator this product never had.** 0050,
 `packages/core/src/occupancy.ts`, `readAttendanceByDay`, `/reports`. New page: [[reporting]].
 
