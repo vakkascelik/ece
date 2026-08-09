@@ -24,12 +24,50 @@ async function signInAsOwnerAndCheck(page: import('@playwright/test').Page) {
 test('with no interval stated, a check shows elapsed time and no verdict', async ({ page }) => {
   const t = tenant();
 
-  // The fixture's child is signed in by `journey.spec.ts`; sign them in here so this
-  // spec does not depend on another file's side effects.
+  /*
+    Sign THIS child in, and prove it landed before anything downstream relies on it.
+
+    What this replaces claimed to remove a dependency on other files and did the
+    opposite. It clicked the *first* "Sign in" button on the roll, which is whichever
+    child happens to be away — the roll is ordered by surname and the suite has three by
+    the time this runs, including the one `journey.spec.ts` enrols fresh each time. So
+    the step signed in an arbitrary child and never checked, and this spec passed for
+    eight runs only because an earlier file had left Tāne signed in for its own reasons.
+
+    When that stopped being true the failure surfaced here, two steps later, as an empty
+    sleep register — a symptom that points at the sleep page rather than at the roll. In
+    the reproduction the register listed "Aroha Journey-…", signed in by this very block.
+
+    Named locator, and an assertion that the app took it. A setup step that cannot fail
+    is a setup step that has stopped running.
+  */
   await visit(page, '/attendance');
-  const signIn = page.getByRole('button', { name: /Sign in/ }).first();
-  if (await signIn.isVisible().catch(() => false)) {
-    await signIn.click();
+  const here = page.getByRole('region', { name: /Here now/ });
+  const arrived = here.getByText(t.childName).first();
+
+  if (!(await arrived.isVisible().catch(() => false))) {
+    /*
+      Wait for the WRITE, not for the row to move.
+
+      The roll is optimistic by design: `toggle` enqueues to the outbox, the row moves in
+      the same tick, and the send is `void send()` — deliberately not awaited, because a
+      spinner on a foyer tablet with no signal is theatre. So "the child is in Here now"
+      proves the local queue took it and proves nothing about the server, and `/sleep` is
+      server-rendered.
+
+      The old code navigated straight after the click and the trace shows the cost: a
+      `POST /rest/v1/attendance_events` with status -1, aborted mid-flight by the
+      navigation. Nothing was lost — the entry stays queued and the next visit to the
+      roll retries it, which is what the outbox is for — but the server did not have it
+      in time for the next assertion. Standalone the POST won that race; behind a longer
+      suite it lost.
+    */
+    const landed = page.waitForResponse(
+      (r) => r.url().includes('/rest/v1/attendance_events') && r.request().method() === 'POST',
+    );
+    await page.getByRole('button', { name: new RegExp(`^Sign in ${t.childName}`) }).click();
+    await expect(arrived).toBeVisible();
+    expect((await landed).ok(), 'the sign-in was rejected by the server').toBe(true);
   }
 
   await visit(page, '/sleep');
