@@ -42,8 +42,10 @@ Nothing here is a bug. They are known gaps with known closures.
   is a floor and not a pass.
 - **The mobile workspace has no unit tests and no runner**, so `npm test` reports three green
   workspaces while covering none of the app that runs in the room. Item 20.
-- **The web outbox has not been through `drill:offline`** — the check AGENTS names for that
-  path. Item 21, with what did run in its place.
+- **`drill:offline` has now run against live Postgres and passed 10/10 — item 21, closed
+  2026-08-09.** Caught a real bug doing it: the drill's own centre lookup broke the moment
+  this project held two centres with "albert" in the slug. What is still open is narrower:
+  the `expo-sqlite` queue on a real device, which was always item 15's claim, not this one's.
 - **The mobile app has never run on a device.** Not the airplane-mode drill, not the sign-out
   refusal, not the chunked session storage. Two bugs in that path were already found by reading it.
 - **Three store-submission blockers are not code**: the ratio flag puts a disclaimer on the hero
@@ -358,22 +360,22 @@ whether to trust the ratio above it.
 | **What is actually true** | Those tests cover `@ece/core`, `@ece/api` and `@ece/web`. Mobile has none, and no runner to add them to |
 | **To close it** | Add vitest to `apps/mobile` with the same config shape the other workspaces use, and start with the pure functions — the strip's sentence, the roll's ordering, the ratio labels. Component rendering needs `@testing-library/react-native`, which is a bigger decision |
 
-### 21. The web outbox has not been through `drill:offline`
+### 21. `drill:offline` — now run. **CLOSED 2026-08-09**, one narrower gap left behind it
 
-Added 2026-08-06 with the web offline path. `npm run drill:offline` is the check AGENTS §5
-names for this area, and it did not run: it needs `ECE_DRILL_PASSWORD`, the demo centre owner's
-password, which was not available in the session that built the feature.
+Added 2026-08-06 with the web offline path; it had not run because it needs
+`ECE_DRILL_PASSWORD`, the demo centre owner's password, which was not available in the
+session that built the feature.
 
 | | |
 |---|---|
-| **What did run** | Nine unit tests on the queue's rules (key fixed at enqueue, duplicate treated as landed, permanent refusal dead-lettered, dead never retried, only-dead discarded, corrupt store survived); two browser specs with the network actually cut, both mutation-tested; the full suite at 54/54 |
-| **What has not** | The contract exercised against live Postgres *from the web side*. The web queue calls the same `recordAttendance` and `classifyWriteFailure` the drill covers, and "the same function" is an argument rather than a run |
-| **To close it** | `ECE_ALLOW_DEMO_SEED=yes ECE_DRILL_PASSWORD=… npm run drill:offline`. Worth extending the drill to flush through the web outbox module rather than its own simulated queue, so the two cannot drift |
+| **What ran, and passed** | `ECE_ALLOW_DEMO_SEED=yes ECE_DRILL_PASSWORD=… npm run drill:offline` — 10/10, against live Postgres, through the same `recordAttendance` the web outbox calls: offline queue counts and marks pending correctly, first flush lands exactly three events, a forced second flush with the same keys recognises all three as duplicates rather than writing more, a corrected time survives the outage, a second device sees the same server state, and a 20-day-old event is refused with the code the outbox treats as permanent |
+| **A real defect found running it** | `offline-drill.ts` matched its demo centre with `.like('slug', '%albert%').single()`, which was exact until this project also came to hold a real `little-pearls-mt-albert` tenant. `.single()` then fails on two rows, not zero, and the die() message pointed at the wrong fix ("run onboard") for a database that already had the centre. Fixed to an exact match on `demo-mt-albert`, which is also the safer predicate on its own terms — a fuzzy slug match is one future centre name away from this drill writing invented events into a real tenant |
+| **What this still does not cover** | The `expo-sqlite` queue itself, on a real device — see item 15, which was always the separate, larger claim. This entry was only ever about the web outbox reaching live Postgres, and that part is now a run, not an argument |
 
-Related and separate: **work made offline on the web survives only while the tab stays open.**
-The queue is in `localStorage` and persists, but the app is server-rendered with no service
-worker, so a reload with no connection gives the browser's error page. Mobile is a binary and
-does survive a restart. See [[offline-outbox]].
+Related and separate, still open: **work made offline on the web survives only while the tab
+stays open.** The queue is in `localStorage` and persists, but the app is server-rendered with
+no service worker, so a reload with no connection gives the browser's error page. Mobile is a
+binary and does survive a restart. See [[offline-outbox]].
 
 ### 22. Whether a dose must be witnessed by a second person
 

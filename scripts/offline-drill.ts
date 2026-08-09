@@ -91,12 +91,24 @@ async function flushOnce(db: Db, queue: Queued[]) {
 async function main() {
   const admin = createServiceClient(url!, serviceKey!);
 
+  /*
+    Exact slug, not `.like('slug', '%albert%')`.
+
+    That matched exactly one row until this project also came to hold a real
+    `little-pearls-mt-albert` tenant alongside the demo one — found by running this
+    against live data, which is what this drill is for. `.single()` then fails on two
+    rows, not zero, and the old die() message ("Run npm run onboard first") pointed at
+    the wrong fix entirely. `demo-mt-albert` is the slug `seed-demo.ts` itself commits
+    to and guards on elsewhere in that script — matching it exactly here is also the
+    safer choice on its own terms: a fuzzy match is one future centre name away from
+    this drill writing invented attendance events into a real tenant.
+  */
   const { data: centreRow } = await admin
     .from('centres')
     .select('id, name, timezone')
-    .like('slug', '%albert%')
+    .eq('slug', 'demo-mt-albert')
     .single();
-  if (!centreRow) die('Expected the Little Pearls Mt Albert centre. Run `npm run onboard` first.');
+  if (!centreRow) die('Expected the demo-mt-albert centre. Run `npm run seed:demo` first.');
   const centre = centreRow as { id: string; name: string; timezone: string };
 
   const staff = createAnonClient(url!, anonKey!);

@@ -5,6 +5,55 @@ says so.*
 
 ---
 
+2026-08-09 — **`drill:offline`, finally run, and a bug it could not have found any other
+way.** `offline-drill.ts`. See [[unverified-claims]] §21, [[offline-outbox]].
+
+Item 21 has sat open since 2026-08-06: the web outbox had never been through the drill AGENTS
+§5 names for this, because it needs `ECE_DRILL_PASSWORD` — the demo centre owner's own login —
+and nobody had it to hand in the session that built the feature.
+
+**The password for that account was not recoverable, only resettable.** Supabase stores a hash,
+never the password, so there was no "look it up" available once it was not remembered. Reset
+through `auth.admin.updateUserById` with the existing service-role key — the same mechanism
+`seed-demo.ts` already uses for its synthetic parent — after asking first, because it is a real
+login credential and changing it without saying so first would be the wrong kind of quiet.
+
+**The admin client crashed on this machine; the Management API did not.** `auth.admin.listUsers()`
+and `updateUserById` both took down the whole process with `AuthRetryableFetchError` followed by
+a native libuv assertion (`UV_HANDLE_CLOSING`) — Windows, Node 24, something in how the GoTrue
+admin endpoint's response is handled, not investigated further because a working path already
+existed one line away. `test-rls.ts` already falls back to the Management API
+(`SUPABASE_ACCESS_TOKEN` + `SUPABASE_PROJECT_REF`) when `SUPABASE_DB_URL` is unset, for the exact
+reason documented there — a PAT is account-wide and this repo already treats that as the
+less-preferred, more-available fallback. The same endpoint, `crypt(..., gen_salt('bf'))` against
+`auth.users` directly, set the password without going near the client that was crashing.
+
+**The drill then failed for a second, unrelated reason, and it was the more important one.**
+`.like('slug', '%albert%').single()` used to match exactly one centre. It now matches two —
+`demo-mt-albert` and a real `little-pearls-mt-albert` tenant this project has since onboarded —
+and `.single()` fails on two rows exactly as it fails on zero, so the drill's own die() message
+("run onboard first") pointed at a database that already had the centre, just not uniquely.
+**Only found by running it against what the database actually holds today**, which is the whole
+argument for the drill existing rather than trusting that "the same function" was enough.
+
+Fixed to an exact match on `demo-mt-albert`, the slug `seed-demo.ts` itself commits to and
+guards elsewhere in that script. Worth stating plainly: the fuzzy match was not just broken, it
+was a standing risk — a differently-named future centre could have made this drill write
+invented attendance events into a real tenant instead of refusing to run.
+
+10/10 drill checks passed once both were fixed: offline queue counts and pending-marking, first
+flush lands exactly three events, a forced second flush recognises all three as duplicates
+rather than writing more, a corrected sign-in time survives the outage, two devices agree on the
+same server state, and a 20-day-old event is refused with the code the outbox treats as
+permanent. **No cleanup afterward** — `offline-drill.ts`'s own header explains why: attendance is
+append-only against the service role too, so clearing it needs the database owner, and the rows
+sit in a tenant literally named "invented data".
+
+What is still open, and always was a separate claim: the `expo-sqlite` queue itself needs a real
+device, which is item 15, not this one. Item 21 is closed; item 15 is not.
+
+---
+
 2026-08-09 — **Two reports the roadmap called "waitlist conversion", and two importers that
 refuse to guess a vendor's file format.** `attendanceTrend.ts`, `enquiryFunnel.ts`,
 `/reports/trends`, `/reports/waitlist-conversion`, `import-storypark.ts`,
