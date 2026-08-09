@@ -4,6 +4,12 @@ import { useActionState, useEffect, useState } from 'react';
 import { POST_KIND_LABELS, REO, type PostKind } from '@ece/core';
 import { write, type Result } from './actions';
 
+interface Strand {
+  id: string;
+  nameEn: string;
+  nameReo: string;
+}
+
 /**
  * Writing a post.
  *
@@ -11,7 +17,13 @@ import { write, type Result } from './actions';
  * educator writing up a learning moment should be able to read it back before forty families do —
  * and because publishing is what a notification hangs off.
  */
-export function Compose({ children_ }: { children_: { id: string; name: string }[] }) {
+export function Compose({
+  children_,
+  strands,
+}: {
+  children_: { id: string; name: string }[];
+  strands: Strand[];
+}) {
   const [state, action, pending] = useActionState<Result | null, FormData>(write, null);
   const [open, setOpen] = useState(false);
   const [kind, setKind] = useState<PostKind>('learning_moment');
@@ -84,6 +96,24 @@ export function Compose({ children_ }: { children_: { id: string; name: string }
             <p className="sub" style={{ margin: '0.25rem 0 0', fontSize: '0.8125rem' }}>
               Only their own {REO.whanau} will see it.
             </p>
+
+            {strands.length > 0 && (
+              <div style={{ marginTop: '0.75rem' }}>
+                <label>Te Whāriki strands this touches (optional)</label>
+                <div className="days">
+                  {strands.map((s) => (
+                    <label key={s.id}>
+                      <input type="checkbox" name="strandIds" value={s.id} />
+                      {s.nameEn} · {s.nameReo}
+                    </label>
+                  ))}
+                </div>
+                <p className="sub" style={{ margin: '0.25rem 0 0', fontSize: '0.8125rem' }}>
+                  Only for the evidence binder&rsquo;s curriculum-coverage section — {REO.whanau}
+                  never see this.
+                </p>
+              </div>
+            )}
           </div>
         )}
 

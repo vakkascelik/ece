@@ -579,6 +579,34 @@ meant, and source its real export format before writing a conversion script. Bui
 page before running this importer against a real family's data — collecting it before anyone can
 act on it is the wrong order.
 
+### 33. The five Te Whāriki strand names have not been diffed against a primary source
+
+Added 2026-08-10 with `curriculum_strands` (0058).
+
+Unlike the licensing criteria `criteria` refuses to seed at all, the five strand names —
+Wellbeing/Mana Atua, Belonging/Mana Whenua, Contribution/Mana Tangata,
+Communication/Mana Reo, Exploration/Mana Aotūroa — are common, consistently repeated
+knowledge in this field, not a figure subject to the kind of periodic renumbering that made
+`criteria` refuse to guess. They were seeded from that consistent knowledge, not transcribed
+from a PDF or physical copy of *He Whāriki Mātauranga mō ngā Mokopuna o Aotearoa* (Ministry
+of Education, 2017) held open beside the migration.
+
+**Why this is worth a page of its own rather than a shrug.** This repo has already paid for
+exactly this class of mistake once: `apps/site/src/app/layout.tsx` records Fraunces
+rendering `Māori` as `Maōri` — a macron over the wrong letter, caught only by someone
+looking at the rendered page rather than trusting the font. A macron error in
+`curriculum_strands.name_reo` would be quieter and worse: it would sit in a database column
+labelled "source: Te Whāriki, 2017" and print on a compliance document a reviewer might
+actually check the te reo against.
+
+No goals or learning outcomes are stored at all — see 0058's header for why that line was
+drawn where it was; this item is only about the five names themselves.
+
+**To close it:** open a verified digital or physical copy of *He Whāriki Mātauranga mō ngā
+Mokopuna o Aotearoa* and diff `curriculum_strands.name_reo` against it character by
+character, macrons included, before this table is relied on for anything printed and shown
+to a reviewer.
+
 ## See Also
 
 - [[kiosk-and-pins]] — the door tablet, and what it can and cannot know

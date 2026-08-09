@@ -75,6 +75,10 @@ const BOUNDED_BY_REASON: Record<string, string> = {
   // Post-scoped, and a post is about a handful of children.
   'engagement.ts:post_children': 'per post; a post names a few children',
 
+  // The five Te Whāriki strands (0058), full stop — no INSERT grant exists on this table
+  // for any API role, so five is not just today's count, it is the ceiling.
+  'engagement.ts:curriculum_strands': 'five rows by construction; no role can insert a sixth',
+
   // Membership-scoped. A person belongs to one or two centres; a centre has tens of staff.
   'index.ts:centres': "the caller's own memberships; one or two",
   'index.ts:memberships': "the caller's own memberships; one or two",

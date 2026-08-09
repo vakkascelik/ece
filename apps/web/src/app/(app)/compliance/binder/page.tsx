@@ -2,8 +2,10 @@ import Link from 'next/link';
 import {
   currentCriteriaSet,
   listCriteria,
+  listCurriculumStrands,
   listEvidence,
   listStaffRecords,
+  listStrandCoverage,
   readDayRatio,
 } from '@ece/api';
 import {
@@ -44,10 +46,12 @@ export default async function BinderPage() {
   const today = todayInZone(ctx.centre.timezone);
   const generatedAt = new Date().toLocaleString('en-NZ', { timeZone: ctx.centre.timezone });
 
-  const [staffRecords, evidence, criteriaSet] = await Promise.all([
+  const [staffRecords, evidence, criteriaSet, strands, strandCoverage] = await Promise.all([
     listStaffRecords(db, ctx.centre.id),
     listEvidence(db, ctx.centre.id),
     currentCriteriaSet(db),
+    listCurriculumStrands(db),
+    listStrandCoverage(db, ctx.centre.id),
   ]);
   const criteria = criteriaSet ? await listCriteria(db, criteriaSet.id) : [];
 
@@ -312,6 +316,37 @@ export default async function BinderPage() {
             )}
           </>
         )}
+      </section>
+
+      <section>
+        <h2>Curriculum coverage — Te Whāriki</h2>
+        <p>
+          Which strands this centre&rsquo;s published posts touch, tagged by kaiako as they
+          write. This counts what has been tagged, not what happened — a strand with nothing
+          against it may still be part of daily practice that nobody has recorded here yet.
+        </p>
+        <p className="sub">Source: {strands[0]?.source ?? 'Te Whāriki (2017)'}</p>
+        <table>
+          <thead>
+            <tr>
+              <th>Strand</th>
+              <th>Published posts tagged</th>
+            </tr>
+          </thead>
+          <tbody>
+            {strands.map((s) => {
+              const count = strandCoverage.get(s.id) ?? 0;
+              return (
+                <tr key={s.id}>
+                  <td>
+                    {s.nameEn} · {s.nameReo}
+                  </td>
+                  <td>{count === 0 ? <span className="sub">none tagged</span> : count}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </section>
 
       <section>

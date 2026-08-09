@@ -44,12 +44,17 @@ export async function write(_prev: unknown, form: FormData): Promise<Result> {
     return { error: 'A pānui goes to the whole centre, so it does not name children.' };
   }
 
+  // Optional, and the form only offers it for a learning moment or daily update — see
+  // Compose.tsx. A blank submission here is the normal case, not an error to catch.
+  const strandIds = form.getAll('strandIds').map((s) => s.toString());
+
   try {
     await createPost(db, ctx.centre.id, {
       kind,
       title,
       body,
       childIds,
+      strandIds,
       // Never publish straight from the compose form. An educator writing up a learning moment
       // should be able to look at it before forty families do.
       publish: false,

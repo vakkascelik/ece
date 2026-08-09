@@ -5807,6 +5807,139 @@ end $$;
 set local role authenticated;
 set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
 
+-- ===========================================================================
+-- TE WHĀRIKI STRANDS — 0058
+--
+-- `curriculum_strands` is reference data, open to every signed-in role at every centre —
+-- there is no tenant boundary to test on the table itself, only "does the app get to
+-- change it" (no) and "can a stranger read it" (no). `post_strands` inherits its
+-- visibility from `posts` via the delegated-subquery policy 0058's header explains, so the
+-- interesting assertions are about the POST, not a second copy of the guardianship logic.
+-- ===========================================================================
+
+set local role postgres;
+
+-- A published pānui at centre A — visible to every parent there regardless of
+-- guardianship, so this does not need to thread through the child-linkage fixture.
+insert into public.posts (id, centre_id, kind, title, body, author_id, published_at)
+values ('e1111111-1111-4111-8111-111111111111', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        'panui', 'RLS strand test panui', 'Body', '11111111-1111-4111-8111-111111111111', now());
+
+-- A DRAFT at the same centre — nobody but staff should see this post, and therefore
+-- nobody but staff should see a strand tagged on it either.
+insert into public.posts (id, centre_id, kind, title, body, author_id, published_at)
+values ('e3333333-3333-4333-8333-333333333333', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        'panui', 'RLS strand test draft', 'Body', '11111111-1111-4111-8111-111111111111', null);
+
+-- A post at centre B, for the write-isolation check.
+insert into public.posts (id, centre_id, kind, title, body, author_id, published_at)
+values ('e2222222-2222-4222-8222-222222222222', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+        'panui', 'Centre B notice', 'Body', '22222222-2222-4222-8222-222222222222', now());
+
+-- Tag the draft directly, bypassing RLS for fixture setup — this is what proves the read
+-- check below is a real filter and not just "nothing exists to see".
+insert into public.post_strands (post_id, strand_id)
+  select 'e3333333-3333-4333-8333-333333333333', id from public.curriculum_strands where code = 'wellbeing';
+
+set local role authenticated;
+
+-- Reference data: every role, every centre, no grant needed beyond SELECT.
+set local request.jwt.claims = '{"sub":"44444444-4444-4444-8444-444444444444","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.curriculum_strands) = 5,
+  'a parent reads all five curriculum strands — reference data, not centre-scoped'
+);
+
+do $$
+declare code text := 'none (the insert SUCCEEDED)';
+begin
+  begin
+    insert into public.curriculum_strands (code, name_en, name_reo, source, sort_order)
+    values ('x', 'x', 'x', 'x', 99);
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '42501',
+    'nobody can add a sixth strand from the app, got ' || code);
+end $$;
+
+-- `code` is both this block's sqlstate variable AND a real column on this table —
+-- PL/pgSQL raises 42702 (ambiguous_column) on an unqualified reference inside the WHERE,
+-- which is a real trap and not a typo: `curriculum_strands.code` resolves it explicitly
+-- rather than renaming the file's usual sqlstate-capture variable.
+do $$
+declare code text := 'none (the update SUCCEEDED)';
+begin
+  begin
+    update public.curriculum_strands set name_en = 'edited' where curriculum_strands.code = 'wellbeing';
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '42501', 'nor rename one, got ' || code);
+end $$;
+
+-- The educator can tag the pānui — staff-writable, the same condition posts_write uses.
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+do $$
+declare n integer;
+begin
+  insert into public.post_strands (post_id, strand_id)
+    select 'e1111111-1111-4111-8111-111111111111', id
+      from public.curriculum_strands where code = 'exploration';
+  get diagnostics n = row_count;
+  perform pg_temp.expect(n = 1, 'an educator tags a post with a Te Whāriki strand');
+end $$;
+
+-- A parent cannot tag anything — post_strands_write requires staff, the same as posts_write.
+set local request.jwt.claims = '{"sub":"44444444-4444-4444-8444-444444444444","role":"authenticated"}';
+do $$
+declare code text := 'none (the insert SUCCEEDED)';
+begin
+  begin
+    insert into public.post_strands (post_id, strand_id)
+      select 'e1111111-1111-4111-8111-111111111111', id
+        from public.curriculum_strands where curriculum_strands.code = 'belonging';
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '42501', 'a parent CANNOT tag a post with a strand, got ' || code);
+end $$;
+
+-- Nor can staff tag a post that is not theirs.
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+do $$
+declare code text := 'none (the insert SUCCEEDED)';
+begin
+  begin
+    insert into public.post_strands (post_id, strand_id)
+      select 'e2222222-2222-4222-8222-222222222222', id
+        from public.curriculum_strands where curriculum_strands.code = 'belonging';
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '42501',
+    'an educator CANNOT tag another centre''s post, got ' || code);
+end $$;
+
+-- A parent sees the tag on a pānui she can read —
+set local request.jwt.claims = '{"sub":"44444444-4444-4444-8444-444444444444","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.post_strands where post_id = 'e1111111-1111-4111-8111-111111111111') = 1,
+  'and a parent reads the strand tagged on a pānui she can see'
+);
+
+-- — but not the one on the draft, even though a row genuinely exists there. This is the
+-- assertion that would fail if post_strands_select forgot to delegate through posts at all.
+select pg_temp.expect(
+  (select count(*) from public.post_strands where post_id = 'e3333333-3333-4333-8333-333333333333') = 0,
+  'but reads NO strand on a draft she cannot see, though the tag exists'
+);
+
+-- Centre B reads none of centre A's tags either.
+set local request.jwt.claims = '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.post_strands where post_id = 'e1111111-1111-4111-8111-111111111111') = 0,
+  'another centre''s owner reads none of this centre''s strand tags'
+);
+
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+
 
 /*
  * The class. Every `_write_delete` policy's USING must equal its `_write_insert` counterpart's
@@ -5880,7 +6013,10 @@ begin
      -- trigger could not attribute them to a tenant even if it fired.
      and c.relname not in ('criteria', 'criteria_sets', 'schema_migrations',
                            'push_tokens', 'notification_preferences', 'notifications',
-                           'invitations')
+                           'invitations',
+                           -- 0058: the five Te Whāriki strands, national rather than
+                           -- per-centre — same reasoning as criteria.
+                           'curriculum_strands')
      and not exists (
        select 1 from pg_trigger t
         where t.tgrelid = c.oid

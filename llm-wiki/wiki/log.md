@@ -5,6 +5,59 @@ says so.*
 
 ---
 
+2026-08-10 — **The lowest-priority item in the whole roadmap, and it still found two real
+bugs.** 0058, `curriculum_strands`, `post_strands`. See [[curriculum-strands]],
+[[unverified-claims]] §33.
+
+Tier 4: tag a post to a Te Whāriki strand, so the evidence binder can show curriculum
+coverage. The roadmap's own ranking puts this last, ahead of nothing — "do not build a
+portfolio product" is the paragraph before it, and this is the one piece of that space that
+is actually compliance rather than pedagogy.
+
+**Seeded, not left empty — and that is a real distinction from `criteria`, not a shortcut.**
+`criteria` refuses to guess because Ministry numbering gets renumbered periodically; the five
+strand names are the stable top-level structure of a document unchanged since 2017. Seeded
+with a `source` column all the same. What is NOT seeded, and has no column for it at all: any
+goal or learning outcome under a strand — that is where the real detail and the real
+disagreement lives, and transcribing it from memory would be asserting curriculum content
+nobody here has checked.
+
+**Said plainly rather than skated past: the five te reo names have not been diffed against a
+primary source either**, only transcribed from consistent field knowledge. This repo has
+already paid for exactly this class of mistake once — a macron rendered on the wrong letter,
+`Māori` as `Maōri`, caught only by somebody looking at the page. A wrong macron in a column
+labelled "source: Te Whāriki, 2017" is the quieter, worse version of the same failure,
+because a compliance document is more likely to be checked than a heading font was.
+unverified-claims item 33 records it and says what would close it.
+
+**`post_strands` delegates its read policy to `posts` rather than re-deriving the
+guardianship logic.** A policy's USING clause may reference another table, and that
+reference is itself subject to the referenced table's own RLS — so `post_id in (select id
+from public.posts)` already returns exactly what this caller could see, without a second
+copy of `posts_select`'s branches to drift from the first.
+
+**Caught before either was ever committed: a `FOR ALL` policy that reintroduced a bug 0022
+had already removed.** The first draft copied `post_children_write`'s shape from reading
+0013's *original* text rather than its current, live form — `post_children_write` had since
+been split into separate INSERT and DELETE policies, precisely because a table with both a
+`FOR SELECT` and a `FOR ALL` policy carries two permissive read paths that OR together, the
+shape that produced the Phase 4 consent leak. `review:security` flagged it immediately.
+Fixed in 0058 itself.
+
+**And a PL/pgSQL trap the suite's own house style walked into.** Every permission-refusal
+assertion in this file captures a result in a variable called `code`. `curriculum_strands`
+has a real column also called `code`. `where code = 'wellbeing'` inside a block with
+`declare code text` is genuinely ambiguous — PL/pgSQL raised 42702 rather than guessing,
+caught only because the assertion was checking for 42501 specifically. Fixed by qualifying
+the column (`curriculum_strands.code`) rather than renaming the variable everywhere else
+already uses.
+
+9 new RLS assertions, 447/447 overall. 16/16 security review after the policy split. Verified
+end to end against the real database: tagging a draft leaves the binder's coverage count
+unchanged; publishing makes it appear with no separate step.
+
+---
+
 2026-08-10 — **A queue that had a writer for nobody and a reader for nothing, for three
 days.** 0056, 0057, `broadcast_emergency`, `/broadcast`, `/notifications`. See
 [[emergency-broadcast]].

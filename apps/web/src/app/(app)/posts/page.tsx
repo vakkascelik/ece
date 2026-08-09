@@ -1,5 +1,6 @@
 import {
   listChildren,
+  listCurriculumStrands,
   listMediaForPosts,
   listPostChildren,
   listPosts,
@@ -31,12 +32,15 @@ export default async function PostsPage() {
   const posts = await listPosts(db, ctx.centre.id);
   const ids = posts.map((p) => p.id);
 
-  const [childLinks, mediaByPost, children] = await Promise.all([
+  const [childLinks, mediaByPost, children, strands] = await Promise.all([
     listPostChildren(db, ids),
     listMediaForPosts(db, ids),
     // Staff need the roster to name children in a post. A parent does not, and would only get
     // their own child back anyway.
     isStaff ? listChildren(db, ctx.centre.id) : Promise.resolve([]),
+    // Reference data, not centre-scoped — fetched for staff only, the same reasoning as
+    // the roster above: a parent composes nothing, so has no form to put this on.
+    isStaff ? listCurriculumStrands(db) : Promise.resolve([]),
   ]);
 
   const nameOf = new Map(children.map((c) => [c.id, displayName(c)]));
@@ -64,7 +68,12 @@ export default async function PostsPage() {
         </div>
       </div>
 
-      {isStaff && <Compose children_={children.map((c) => ({ id: c.id, name: displayName(c) }))} />}
+      {isStaff && (
+        <Compose
+          children_={children.map((c) => ({ id: c.id, name: displayName(c) }))}
+          strands={strands}
+        />
+      )}
 
       {posts.length === 0 ? (
         <div className="card">

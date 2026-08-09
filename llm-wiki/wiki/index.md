@@ -33,6 +33,9 @@ and [`../schema.md`](../schema.md) for the page template.
   why the adult count is an event rather than a setting
 - [[compliance-and-evidence]] — staff records with expiry, criteria that ship empty on
   purpose, and a binder that never claims compliance
+- [[curriculum-strands]] — Tier 4's lowest-priority item, a `FOR ALL` policy that
+  reintroduced a bug 0022 had already removed once, and a PL/pgSQL variable named the same
+  as a real column
 - [[incident-register]] — one table with two audiences and the boundary running inside a centre:
   the draft a family must not see, why the generic `jsonb` register breaks the audit log, and the
   `EXECUTE` grant a code review cannot see because the file does not mention it

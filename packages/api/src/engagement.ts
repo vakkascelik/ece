@@ -87,7 +87,17 @@ export async function getPost(db: Db, postId: string): Promise<Post | null> {
 export async function createPost(
   db: Db,
   centreId: string,
-  input: { kind: PostKind; title: string; body: string; childIds?: string[]; publish?: boolean },
+  input: {
+    kind: PostKind;
+    title: string;
+    body: string;
+    childIds?: string[];
+    /** Which Te Whāriki strands this touches — see curriculum_strands (0058). Optional:
+        a post with none tagged is not an error, just not evidence for the binder's
+        coverage section. */
+    strandIds?: string[];
+    publish?: boolean;
+  },
 ): Promise<Post> {
   const { data: auth } = await db.auth.getUser();
 
@@ -117,6 +127,22 @@ export async function createPost(
       throw new Error(
         `createPost: the post was created but naming the children failed (${linkError.message}). ` +
           `It currently reaches nobody — add them, or delete it.`,
+      );
+    }
+  }
+
+  const strandIds = input.strandIds ?? [];
+  if (strandIds.length > 0) {
+    const { error: strandError } = await db
+      .from('post_strands')
+      .insert(strandIds.map((strand_id) => ({ post_id: post.id, strand_id })));
+    // Raised, the same shape as the childIds failure above: the post already exists and
+    // silently dropping a failed tag would leave it published with no curriculum evidence
+    // and no sign that anything went wrong. Unlike an empty childIds list this is not
+    // required — the caller only reaches this branch if it tried to tag something.
+    if (strandError) {
+      throw new Error(
+        `createPost: the post was created but tagging its strands failed (${strandError.message}).`,
       );
     }
   }
@@ -156,6 +182,63 @@ export async function listPostChildren(db: Db, postIds: string[]): Promise<Map<s
     else out.set(r.post_id, [r.child_id]);
   }
   return out;
+}
+
+// ---------------------------------------------------------------------------
+// Te Whāriki strands — 0058
+// ---------------------------------------------------------------------------
+
+export interface CurriculumStrand {
+  id: string;
+  code: string;
+  nameEn: string;
+  nameReo: string;
+  /** Read from the row rather than hard-coded in a page, so the binder's citation cannot
+      drift from what 0058 actually recorded. Identical across all five rows. */
+  source: string;
+  sortOrder: number;
+}
+
+/** The five strands, in order. Reference data — same row set for every centre. */
+export async function listCurriculumStrands(db: Db): Promise<CurriculumStrand[]> {
+  const { data, error } = await db
+    .from('curriculum_strands')
+    .select('id, code, name_en, name_reo, source, sort_order')
+    .order('sort_order');
+  if (error) throw new Error(`listCurriculumStrands: ${error.message}`);
+  return (
+    data as { id: string; code: string; name_en: string; name_reo: string; source: string; sort_order: number }[]
+  ).map((r) => ({
+    id: r.id,
+    code: r.code,
+    nameEn: r.name_en,
+    nameReo: r.name_reo,
+    source: r.source,
+    sortOrder: r.sort_order,
+  }));
+}
+
+/**
+ * How many PUBLISHED posts at this centre touch each strand — the binder's
+ * curriculum-coverage section reads this, not drafts. A draft nobody has published yet
+ * is not evidence that anything happened.
+ *
+ * Paged through `fetchAll`: `post_strands` has no row-count ceiling that matches a
+ * centre's true volume, and the same silent-1000-row trap applies here as everywhere
+ * else a many-row table is read — see reading-every-row.
+ */
+export async function listStrandCoverage(db: Db, centreId: string): Promise<Map<string, number>> {
+  const rows = await fetchAll<{ strand_id: string }>('listStrandCoverage', (a, b) =>
+    db
+      .from('post_strands')
+      .select('strand_id, posts!inner(centre_id, published_at)')
+      .eq('posts.centre_id', centreId)
+      .not('posts.published_at', 'is', null)
+      .range(a, b),
+  );
+  const counts = new Map<string, number>();
+  for (const r of rows) counts.set(r.strand_id, (counts.get(r.strand_id) ?? 0) + 1);
+  return counts;
 }
 
 // ---------------------------------------------------------------------------

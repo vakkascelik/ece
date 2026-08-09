@@ -578,7 +578,9 @@ async function main() {
                              'emergency_broadcasts',
                              'criteria', 'criteria_sets', 'schema_migrations',
                              'push_tokens', 'notification_preferences', 'notifications',
-                             'invitations')
+                             'invitations',
+                             -- 0058: national reference data, same reasoning as criteria.
+                             'curriculum_strands')
        and not exists (
          select 1 from pg_trigger t
           where t.tgrelid = c.oid and not t.tgisinternal
