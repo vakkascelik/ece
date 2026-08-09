@@ -5,6 +5,77 @@ says so.*
 
 ---
 
+2026-08-09 — **Enrolment enquiries, and the check whose explanation had to be rewritten.** 0052,
+0053, `submit_enrolment_application`. See [[parent-self-service]] and [[security-review]].
+
+The second write an unauthenticated caller may perform in this schema, and the first that concerns
+a named child. Structurally `job_applications` again; the differences are where the thought went.
+
+**What is not asked is the design.** No date of birth, no NSN, no health information, no
+immunisation status. Each is useful for placing a child and each is a special category of personal
+information about a **third party** — the child — handed over by somebody this product has not
+authenticated and cannot verify is their guardian. The birth *month* is asked instead, as free
+text, because the real question is "which room, roughly when". The same line 0024 draws in refusing
+CV attachments.
+
+**The idempotency key is email AND child name.** Keying on the email alone silently swallows a
+family enquiring about a second child, which is the case a centre most wants to know about.
+Mutation-tested by deleting the name clause: killed by the assertion named for it.
+
+---
+
+**The plan said check 8 would fail and that its MESSAGE must be rewritten, not just its allowlist.
+That was right, and it was a bigger job than extending a list.**
+
+The allowlist's argument was written for a list of *one* — "the one genuinely public function" —
+which reads as an exception. Two is a **category**, and a reader needs the category rather than a
+special case. It is now four properties a member must have: resolves the tenant from a slug rather
+than an id, returns void, is rate-limited, and is idempotent.
+
+**And the severity had to move.** The finding was `low` because of what it said — *"each returns
+nothing without a JWT, so this is defence in depth rather than a hole"* — and that reassurance was
+load-bearing. The check reads catalogue ACLs, not function bodies, so it **cannot know** whether
+that is true of what it is reporting; it stopped being true of any function in 0024 and is now
+false of two. Removing the reassurance without moving the severity would have left a finding rated
+for a sentence that no longer existed. It is `high` now: an unrecorded anon-executable definer
+function runs as its owner, so RLS is not in front of it, and `anon` is a key that ships in a
+browser. Zero noise today, and mutation-tested by granting `report_absence` to anon — which the new
+message correctly tells a reader to **revoke**, since it takes a uuid rather than a slug.
+
+---
+
+**A test that passed for the wrong reason, found by a mutation that did nothing.** Granting `anon`
+SELECT on `enrolment_applications` **did not fail the suite**. I nearly moved on. The read still
+raised 42501 — but on `permission denied for function caller_has_role`, not on the table: the
+SELECT policy calls that predicate and `anon` has no EXECUTE on it, so the policy cannot even be
+evaluated.
+
+That is real defence in depth and worth knowing about. It also means the behavioural assertion is
+**insensitive to the grant being widened** — the same shape as the `security_invoker` assertion
+that passed because of a nested view. The grant is now asserted directly against
+`information_schema`, and that one fails the moment anybody grants `anon` anything here.
+
+Getting there took a probe that reported `current_user` and `sqlerrm` back through the assertion
+label, because the catalogue said one thing and the suite said another and neither was lying. Worth
+remembering as a technique: when an assertion and the catalogue disagree, make the assertion tell
+you what it actually saw.
+
+**And I edited an applied migration again.** Appended the audit trigger to 0052 after it had been
+applied — the checksum contract, learned once already on 0045. Caught it before running anything,
+restored 0052 byte-for-byte, confirmed the runner still accepted it, and put the trigger in 0053.
+The insert it audits will carry a **null actor**, which is correct rather than a gap: the writer is
+`anon` and there is nobody this product can name. 0053 says so, because the tempting "fix" is to
+attribute it to the centre's owner — a record saying the owner filed an application about a child
+they have never met.
+
+411/411 RLS, 16/16 security review, 470 unit tests.
+
+**Not built yet:** the office screen and the public form. The table, the write path and the checks
+are complete and tested; nothing in TypeScript calls the function, so there is no dead code
+waiting. That is the next commit rather than a gap in this one.
+
+---
+
 2026-08-09 — **A parent tells the centre their child is away.** 0051, `report_absence`,
 `BookingsPanel`. New page: [[parent-self-service]]. Section 3 of the plan opens.
 

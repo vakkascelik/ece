@@ -130,6 +130,69 @@ that record — the audit log holds every family's activity, not just theirs.
 
 ---
 
+---
+
+## Enrolment enquiries (0052, 0053)
+
+A family who is not yet a customer asks for a place. Structurally this is
+`job_applications` again — see [[recruitment]] for the design it copies — and the differences
+are where the thought went.
+
+### A separate table, not a `children` row
+
+The same argument `waitlist` makes, for a sharper reason. Writing a stranger's claim into
+`children` would put somebody who may never attend into the roll, the ratio, the funding
+return and the retention schedule — and it would be a record **about a real child** created
+by an unauthenticated caller who may have no relationship to them at all.
+
+Promotion to `children` + `guardians` + `enrolments` is by hand. There is deliberately no
+function that does it: the moment a stranger's claim becomes the centre's record about a
+child is a moment somebody should be accountable for.
+
+### What is not asked
+
+**No date of birth, no NSN, no health information, no immunisation status.** Every one is
+useful for placing a child and every one is a special category of personal information about
+a **third party** — the child — supplied by somebody this product has not authenticated and
+cannot verify is their guardian.
+
+The birth *month* is asked instead, as free text. The real question is "which room, roughly
+when", and a month answers it. A centre that needs the date gets it at enrolment, from a
+person they have met, with a document. Same line 0024 draws in refusing CV attachments: the
+value of the extra field is not close to the cost of holding it.
+
+### The idempotency key is email **and** child name
+
+Keying on the email alone would silently swallow a family enquiring about a second child,
+which is the case a centre most wants to know about. Mutation-tested — removing the name
+clause fails the assertion by name.
+
+It returns quietly rather than raising, because *"you have already enquired"* is an oracle:
+it tells anybody who asks whether a named family is looking at a named service. Same
+reasoning as the uniform response on password recovery.
+
+### DELETE is granted, which `waitlist` refuses
+
+This table is written by unauthenticated strangers, so it accumulates spam and mistakes about
+**named children**. A centre that cannot remove a junk row is stuck holding personal
+information it never wanted, and IPP 9 cuts the same way: "needed" for a duplicate submission
+is zero. The delete is audited, and afterwards the audit row is the only evidence the enquiry
+existed.
+
+### A test that passed for the wrong reason
+
+Granting `anon` SELECT on this table **did not fail the suite.** The read still raised 42501 —
+but on `permission denied for function caller_has_role`, not on the table. The SELECT policy
+calls that predicate and `anon` has no EXECUTE on it, so the policy cannot even be evaluated.
+
+Genuine defence in depth, and worth knowing. It also meant the behavioural assertion was
+**insensitive to the grant being widened** — the same shape as the `security_invoker`
+assertion that passed because of a nested view. The grant is now asserted directly against
+`information_schema` as well, and that one fails the moment anybody grants `anon` anything
+here, whatever the policies do.
+
+---
+
 ## Related
 
 [[tenancy-and-rls]] · [[funding-and-billing]] · [[kiosk-and-pins]] · [[conventions]] ·

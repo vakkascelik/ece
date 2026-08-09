@@ -294,7 +294,7 @@ async function main() {
   /**
    * Functions that are reachable by `anon` on purpose.
    *
-   * This allowlist exists because the finding above used to explain itself with "each returns
+   * This allowlist exists because the finding used to explain itself with "each returns
    * nothing without a JWT, so this is defence in depth rather than a hole". That sentence was
    * true of every definer function in the schema until 0024, and it is **false** of
    * `submit_job_application`, which is designed to work without a JWT — it is the careers form
@@ -305,28 +305,70 @@ async function main() {
    * Naming it here keeps the message honest AND keeps the check useful, because a *new*
    * accidental grant still surfaces instead of hiding behind an already-noisy finding.
    *
-   * Adding a name to this list is a security decision. What it costs is stated in
-   * `supabase/migrations/0024_recruitment.sql`: the total capability conferred by holding the
-   * anon key becomes exactly what these functions do.
+   * ═══════════════════════════════════════════════════════════════════════════
+   * REWRITTEN AGAIN IN 0052, AND THE SECOND ENTRY IS WHY THE MESSAGE HAD TO CHANGE
+   *
+   * `submit_enrolment_application` makes this a list of two, and the argument above was
+   * written for a list of one — *"the one genuinely public function"*. A list of one is an
+   * exception; a list of two is a category, and the reader needs to know what the category
+   * is rather than be told about a special case.
+   *
+   * The category: **a function that takes a centre slug from an unauthenticated caller,
+   * writes exactly one row, and returns void.** Every member resolves the tenant from a slug
+   * rather than accepting an id, so a forged call cannot choose a tenant; every member
+   * returns nothing, so it cannot be used to read; every member is rate-limited in SQL and
+   * idempotent, so it cannot be used as an oracle to test whether an address is already
+   * known. A candidate that does not do all four does not belong here.
+   *
+   * Adding a name to this list is a security decision. What it costs is stated in 0024: the
+   * total capability conferred by holding the anon key becomes exactly what these functions
+   * do — which is now two writes instead of one.
    */
   const INTENTIONALLY_ANON = new Map([
     [
       'submit_job_application',
       'the public careers form — returns void, resolves the centre from a slug, rate-limited in SQL (0024)',
     ],
+    [
+      'submit_enrolment_application',
+      'the public enrolment enquiry — returns void, resolves the centre from a slug, rate-limited and idempotent in SQL (0052)',
+    ],
   ]);
 
   const unexpectedlyAnon = anonExecutable.filter((d) => !INTENTIONALLY_ANON.has(String(d.name)));
   const deliberate = anonExecutable.filter((d) => INTENTIONALLY_ANON.has(String(d.name)));
 
+  /*
+    SEVERITY RAISED FROM `low`, AND THE REASON IS THE MESSAGE BELOW.
+
+    This finding was low because of what it said: "each returns nothing without a JWT, so
+    this is defence in depth rather than a hole". That reassurance was load-bearing — it is
+    what made an unrecorded anon grant a note rather than a problem.
+
+    The sentence was true when every definer function in the schema required a JWT to do
+    anything. It stopped being true in 0024 and is now false of two functions. Worse, the
+    check **cannot know** whether it is true of the function it is reporting: it reads
+    catalogue ACLs, not bodies.
+
+    So the reassurance is gone, and the severity has to follow it. An unrecorded
+    anon-executable `SECURITY DEFINER` function in a multi-tenant schema is the exact shape
+    of a tenant-boundary bypass — the function runs as its owner, so RLS is not in front of
+    it, and `anon` is a key that ships in a browser. Reporting that as low was consistent
+    only while the message explained it away.
+
+    It is zero-noise today: everything reachable by anon is on the list above.
+  */
   add({
-    severity: unexpectedlyAnon.length === 0 ? 'ok' : 'low',
+    severity: unexpectedlyAnon.length === 0 ? 'ok' : 'high',
     check: 'no definer function is reachable by `anon` except the ones meant to be',
     detail:
       unexpectedlyAnon.length > 0
         ? `NOT ON THE ALLOWLIST: ${unexpectedlyAnon.map((d) => d.name).join(', ')} — ` +
-          'each returns nothing without a JWT, so this is defence in depth rather than a hole, ' +
-          'but nothing has recorded why it is reachable'
+          'reachable by an unauthenticated caller and running as its owner, so RLS is not in ' +
+          'front of it. This check reads ACLs, not bodies, and cannot tell you whether that ' +
+          'is safe. Read the function: it belongs on the allowlist only if it resolves the ' +
+          'centre from a slug rather than an id, returns void, is rate-limited, and is ' +
+          'idempotent. Otherwise revoke the grant'
         : deliberate.length === 0
           ? 'none carry an explicit anon grant or a default public ACL'
           : `deliberate and recorded: ${deliberate

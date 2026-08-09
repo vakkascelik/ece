@@ -5186,6 +5186,247 @@ set local role authenticated;
 set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
 
 
+-- ---------------------------------------------------------------------------
+-- ENROLMENT APPLICATIONS (0052, 0053)
+--
+-- The second write an unauthenticated caller may perform in this schema, and the first
+-- that concerns a named child. The assertions come in three parts: the function behaves,
+-- the TABLE is closed to everyone below the office, and `anon` reaches the function and
+-- nothing else.
+-- ---------------------------------------------------------------------------
+
+-- The public form. No JWT at all — this is the anon key in a browser.
+set local role anon;
+set local request.jwt.claims = '';
+
+select public.submit_enrolment_application(
+  'rls-test-a', 'Whaea Public', 'public.enquiry@example.test', 'Tama',
+  '021 555 0000', 'March 2024', current_date + 60, array[1,2,3]::smallint[],
+  'We are moving to the area.'
+);
+
+/*
+ * IT RETURNS VOID, SO IT CANNOT BE READ FROM — AND THE TABLE REFUSES ANYWAY.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * TWO BARRIERS, AND A BEHAVIOURAL TEST CANNOT TELL YOU WHICH ONE HELD.
+ *
+ * Found by mutation: granting `anon` SELECT on this table did **not** fail the suite.
+ * The read still raised 42501 — but on `permission denied for function caller_has_role`,
+ * not on the table. `enrolment_applications_select` calls that predicate, and `anon` has
+ * no EXECUTE on it, so the policy cannot even be evaluated.
+ *
+ * That is real defence in depth and it is worth knowing about. It also means the
+ * behavioural assertion below is **insensitive to the grant being widened**, which is
+ * exactly the shape of a test that passes for a reason other than its label — the same
+ * failure as the `security_invoker` assertion that passed because of a nested view.
+ *
+ * So the grant is asserted directly against the catalogue as well. That one IS sensitive:
+ * it fails the moment somebody grants anon anything here, whatever the policies do.
+ */
+select pg_temp.expect(
+  (select count(*) from information_schema.role_table_grants
+    where table_schema = 'public' and table_name = 'enrolment_applications'
+      and grantee = 'anon') = 0,
+  'anon holds NO privilege of any kind on enrolment_applications'
+);
+
+do $$
+declare code text := 'none (the select SUCCEEDED)';
+begin
+  begin
+    perform 1 from public.enrolment_applications;
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '42501',
+    'and a read as anon is refused outright rather than returning nothing, got ' || code);
+end $$;
+
+-- A forged centre. The caller sends a slug, never an id, so the set of writable centres is
+-- the set that exists — and an unknown one is refused rather than silently filed somewhere.
+do $$
+declare ok boolean := false;
+begin
+  begin
+    perform public.submit_enrolment_application(
+      'no-such-centre', 'Forger', 'forge@example.test', 'Nobody');
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'an unknown centre slug is refused, so a forged call cannot pick a tenant');
+end $$;
+
+-- Idempotent while the enquiry is open, and QUIET about it. An error saying "you have
+-- already enquired" is an oracle: it tells anybody who asks whether a named family is
+-- looking at a named service.
+select public.submit_enrolment_application(
+  'rls-test-a', 'Whaea Public', 'public.enquiry@example.test', 'Tama');
+
+set local role postgres;
+select pg_temp.expect(
+  (select count(*) from public.enrolment_applications
+    where lower(email) = 'public.enquiry@example.test') = 1,
+  'a repeated enquiry is a quiet no-op, not a second row and not an error'
+);
+
+/*
+ * A SIBLING IS A DIFFERENT ENQUIRY.
+ *
+ * The idempotency key is the email AND the child's name. Keying on the email alone would
+ * silently swallow a family enquiring about a second child, which is the case a centre
+ * most wants to know about.
+ */
+set local role anon;
+select public.submit_enrolment_application(
+  'rls-test-a', 'Whaea Public', 'public.enquiry@example.test', 'Aroha');
+
+set local role postgres;
+select pg_temp.expect(
+  (select count(*) from public.enrolment_applications
+    where lower(email) = 'public.enquiry@example.test') = 2,
+  'a second child from the same family is a second enquiry, not a swallowed duplicate'
+);
+
+-- The insert is audited with NO actor, which is the honest answer: the writer is anon and
+-- there is no `auth.uid()` to name. 0053 records why that must not be "fixed".
+select pg_temp.expect(
+  (select count(*) from public.audit_events
+    where entity = 'enrolment_applications' and action = 'insert' and actor_id is null) >= 1,
+  'a public enquiry is audited with no actor — nobody this product can name sent it'
+);
+
+-- Length caps are restated in the function, so a caller who is not the form gets a
+-- sentence rather than a raw constraint violation. 0027 exists because that was once
+-- true of only three fields out of six.
+set local role anon;
+do $$
+declare ok boolean := false;
+begin
+  begin
+    perform public.submit_enrolment_application(
+      'rls-test-a', 'Whaea Public', 'long@example.test', 'Tama', repeat('9', 41));
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'an over-long phone number is refused by the FUNCTION, not by the table');
+end $$;
+
+do $$
+declare ok boolean := false;
+begin
+  begin
+    perform public.submit_enrolment_application(
+      'rls-test-a', 'Whaea Public', 'bad-address', 'Tama');
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'an address with no @ is refused');
+end $$;
+
+-- Days outside 1..7 would corrupt every roster read that trusts the array.
+do $$
+declare ok boolean := false;
+begin
+  begin
+    perform public.submit_enrolment_application(
+      'rls-test-a', 'Whaea Public', 'days@example.test', 'Tama',
+      null, null, null, array[0, 9]::smallint[]);
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'a day outside Monday..Sunday is refused');
+end $$;
+
+/*
+ * `anon` REACHES THE FUNCTION AND NOTHING ELSE.
+ *
+ * The class-level check in `review:security` asserts no OTHER definer function carries an
+ * anon grant. This is the behavioural half: the one thing anon may do to this table is
+ * call the function, and every direct verb is refused by grant.
+ */
+do $$
+declare code text := 'none (the insert SUCCEEDED)';
+begin
+  begin
+    insert into public.enrolment_applications (centre_id, contact_name, email, child_name)
+    values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Direct', 'direct@example.test', 'Tama');
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '42501',
+    'anon CANNOT insert directly — the function is the whole public write path, got ' || code);
+end $$;
+
+set local role authenticated;
+
+-- The office reads and moves them.
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.enrolment_applications) = 2,
+  'an owner reads the enquiries for their centre'
+);
+
+update public.enrolment_applications
+   set status = 'contacted',
+       moved_by = '11111111-1111-4111-8111-111111111111',
+       moved_at = now()
+ where lower(email) = 'public.enquiry@example.test' and child_name = 'Tama';
+
+select pg_temp.expect(
+  (select status from public.enrolment_applications
+    where lower(email) = 'public.enquiry@example.test' and child_name = 'Tama') = 'contacted',
+  'and moves one along'
+);
+
+-- A row cannot claim somebody acted without saying when.
+do $$
+declare ok boolean := false;
+begin
+  begin
+    update public.enrolment_applications
+       set moved_by = '11111111-1111-4111-8111-111111111111', moved_at = null
+     where child_name = 'Aroha';
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'an enquiry cannot record who moved it without recording when');
+end $$;
+
+-- Nobody below the office. It is a queue of other families' names and contact details, and
+-- who is ahead of them — the same reasoning `waitlist` records.
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.enrolment_applications) = 0,
+  'an educator reads NO enrolment enquiries'
+);
+
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.enrolment_applications) = 0,
+  'and a parent reads none either'
+);
+
+set local request.jwt.claims = '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.enrolment_applications) = 0,
+  'and another centre''s owner sees nothing at all'
+);
+
+-- Deletable by the office, which `waitlist` refuses. This table is written by strangers, so
+-- it accumulates spam about named children, and IPP 9 says do not keep what is not needed.
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+do $$
+declare n integer;
+begin
+  delete from public.enrolment_applications where child_name = 'Aroha';
+  get diagnostics n = row_count;
+  perform pg_temp.expect(n = 1, 'the office CAN delete a junk enquiry about a named child');
+end $$;
+
+-- And the deletion is what survives it.
+select pg_temp.expect(
+  (select count(*) from public.audit_events
+    where entity = 'enrolment_applications' and action = 'delete') = 1,
+  'and the deletion is audited — afterwards the audit row is the only evidence it existed'
+);
+
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+
+
 /*
  * The class. Every `_write_delete` policy's USING must equal its `_write_insert` counterpart's
  * WITH CHECK, so a condition cannot be enforced on one verb and quietly not the other.

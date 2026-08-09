@@ -174,11 +174,30 @@ policy text alone.
   address in the project.
 - One storage bucket, private. A photo is reachable only through a signed URL, which is what
   makes withdrawing consent effective rather than cosmetic.
-- `anon` has **no table grant at all** in `public`. It does, since 0024, hold EXECUTE on one
-  function: `submit_job_application`, the public careers form. That is the whole of the
-  unauthenticated write surface, and the check that reports anon-executable definer functions
-  now carries an allowlist naming it — because its old explanation, "each returns nothing
-  without a JWT", is false of a function designed to work without one. See [[recruitment]].
+- `anon` has **no table grant at all** in `public`. It holds EXECUTE on **two** functions:
+  `submit_job_application` (0024, the public careers form) and `submit_enrolment_application`
+  (0052, the enrolment enquiry). That is the whole of the unauthenticated write surface.
+
+  The check that reports anon-executable definer functions carries an allowlist naming both —
+  because its old explanation, *"each returns nothing without a JWT"*, is false of functions
+  designed to work without one. See [[recruitment]] and [[parent-self-service]].
+
+  **Rewritten again in 0052, and the second entry is why.** The allowlist's argument was
+  written for a list of *one* — "the one genuinely public function" — which reads as an
+  exception. Two is a category, and a reader needs the category rather than a special case.
+  It is now stated as four properties a member must have: resolves the tenant **from a slug
+  rather than an id**, returns **void**, is **rate-limited**, and is **idempotent**. A
+  candidate missing any of them does not belong on the list.
+
+  **And the finding's severity went from `low` to `high`.** It was low because of what it
+  said — *"each returns nothing without a JWT, so this is defence in depth rather than a
+  hole"* — and that reassurance was load-bearing. The check reads catalogue ACLs, not
+  function bodies, so it **cannot know** whether that is true of what it is reporting. With
+  the reassurance removed the severity had to follow it: an unrecorded anon-executable
+  `SECURITY DEFINER` function is the exact shape of a tenant-boundary bypass, because the
+  function runs as its owner and `anon` is a key that ships in a browser. Zero noise today,
+  and mutation-tested by granting `report_absence` to anon — which the new message correctly
+  tells a reader to **revoke**, since it takes a uuid rather than a slug.
 - All four views run as the invoker.
 
 ### Not covered, and not to be assumed from a green run
