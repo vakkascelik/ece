@@ -59,6 +59,14 @@ export default async function ReportsPage() {
               {ctx.centre.name} · thirty days to {today}
             </p>
           </div>
+          <div className="inline">
+            <Link href="/reports/trends">
+              <button type="button">Attendance trends</button>
+            </Link>
+            <Link href="/reports/waitlist-conversion">
+              <button type="button">Enquiry conversion</button>
+            </Link>
+          </div>
         </div>
         <PageActions hint="The printed version keeps the table and drops the navigation." />
       </div>

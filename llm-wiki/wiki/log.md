@@ -5,6 +5,79 @@ says so.*
 
 ---
 
+2026-08-09 — **Two reports the roadmap called "waitlist conversion", and two importers that
+refuse to guess a vendor's file format.** `attendanceTrend.ts`, `enquiryFunnel.ts`,
+`/reports/trends`, `/reports/waitlist-conversion`, `import-storypark.ts`,
+`import-discover.ts`. See [[reporting]], [[unverified-claims]] §31–32.
+
+The last of Phase 13's non-money items from `docs/roadmap-phases-8-13.md`: attendance trends,
+waitlist conversion, and the Storypark/Discover importers.
+
+**It is not called "waitlist conversion" on the page, and the roadmap's own name is wrong.**
+`enrolment_applications.status` is current state, not history — an enquiry that reached
+`waitlisted` and later became `enrolled` now says `enrolled`, and the fact it passed through
+that stage is gone from the row. The schema can answer "of everyone who enquired, how many
+became a placement", not "of everyone who was ever waitlisted, specifically", and building the
+second question anyway would have been the exact confidently-wrong report AGENTS.md §4.5
+forbids. The page is titled for the question it actually answers.
+
+**The conversion rate divides by decided enquiries, not by all of them**, and is `null` rather
+than `0%` when nothing has been resolved — the same shape `averageChildren` already uses in
+`occupancy.ts`, because `0%` reads as "every enquiry is failing" when the truth is "nobody has
+been contacted back yet".
+
+**`averageOverOpenDays` came out of `occupancy.ts` before it could be written a third time.**
+The daily average, a new weekly one, a new per-weekday one — three chances for the rounding or
+the open-day filter to drift apart. One function, three callers, caught before the second copy
+existed rather than after.
+
+**The trend report excludes the week `today` falls in, on every day of the week including
+Sunday.** `completeWeeksBefore` — a Wednesday's three open days would otherwise average as
+though the week had already finished, the same closed-day distortion the occupancy report
+guards against, one level up. Mutation-tested the Sunday-bucketing case specifically:
+`getUTCDay()` returns 0 for Sunday, and a bucketing rule with no remap sends it into the
+*following* week rather than the one it belongs to — the kind of off-by-one that passes on six
+days out of seven and was caught by a test written for the seventh.
+
+**Neither importer parses a real vendor file, and says so rather than pretending otherwise.**
+This repo has never seen a real Storypark export, has not sourced its column layout, and
+"Discover" is not even a specifically identified product — the roadmap names the script and
+nothing else. Both importers do what `import-criteria.ts` already does for the Ministry's
+criteria: define this product's own intake JSON, documented in each script's header, and
+require a person to map the real export into it by hand. Guessing a vendor format and shipping
+an importer that looks complete and silently mismaps a column is a worse outcome than admitting
+the format is unsourced.
+
+**Storypark writes text only, and a `photos` key in the file is a hard stop, not a silently
+dropped field.** A photograph in this product cannot exist without a recorded consent decision
+— [[consent-gated-media]] is the whole reason those flags exist — and a picture pulled from an
+old journal export has no consent row behind it here. Caught before it mattered: the first
+draft used `T12:00:00Z` for a story's date with no time attached, which for a UTC+13 offset
+already rolls the calendar date over to the next day by the time anyone in Auckland reads it —
+the exact class of bug `localDates.test.ts` exists to catch, built by hand instead of with
+`.toISOString().slice(0, 10)`, so the guard's regex would not have caught this one either.
+`T00:01:00Z` fixes it and the comment says why, including the assumption it relies on.
+
+**Discover writes into `waitlist` (0018), never into `children`.** 0052 already argued this once
+about the public enquiry form — "a stranger's claim about a child is not a child record… there
+is deliberately no function that does it" — and a row copied from another company's database is
+the same category of claim, arguably weaker. `waitlist` already exists for exactly this and had
+never had a writer. It also has **no DELETE grant for any role, service_role included** — found
+by trying to clean up a manual test row and getting refused, which is 0018's own design working
+rather than a bug in the test; the row was retired with an UPDATE and a resolution note instead,
+which is what a centre would actually do with a mistaken entry.
+
+**Both importers verified against the real dev database, not just read.** Matched by name
+(including `preferred_name`), rejected an unmatched name and a bad date without guessing,
+skipped a re-run of the same file as already-imported, and refused a file carrying a `photos`
+key outright. A reference bug (`matched.indexOf({ childId, story })`, which can never find
+anything — it is a fresh object literal compared by reference) was caught here rather than left
+for whoever ran this against a real file first.
+
+16/16 core tests for the two new pure functions, full gate green.
+
+---
+
 2026-08-09 — **A setup step that had never once worked.** `sleep.spec.ts`. See
 [[offline-outbox]].
 

@@ -59,6 +59,10 @@ Nothing here is a bug. They are known gaps with known closures.
 - Anything asserted about ERO taking over regulation, or the April 2026 criteria
   renumbering, came from an earlier research session in the `salix` repo and has not been
   re-checked here.
+- **Neither switcher importer parses a real export.** `import-storypark.ts` and
+  `import-discover.ts` define their own intake shapes rather than a sourced vendor format —
+  this repo has never seen a real export from either product, and "Discover" is not even a
+  specifically identified one. Items 31 and 32.
 
 ## Details
 
@@ -536,6 +540,43 @@ disagree with. Both are asserted in `xero.test.ts` rather than left as absences.
 row against `XERO_COLUMNS`, and import one file. Until then the column set is a best effort and the
 two guards above are what make it safe to be wrong.
 
+### 31. Storypark's export format has not been sourced at all
+
+Added 2026-08-09 with `scripts/import-storypark.ts`.
+
+Weaker footing than item 30's Xero entry, which at least confirmed the required fields against
+Xero Central. This repo has never seen a real Storypark export and has not read documentation of
+its column layout, so the importer does not attempt to parse one. It defines its own intake JSON
+instead — documented in the script's header, the same move `import-criteria.ts` makes for the
+Ministry's published criteria — and requires a person to map the real export into that shape by
+hand, with `source` recording what the export was and when. Text only: a `photos`/`media`/`images`
+key anywhere in the file is a hard refusal, because a photograph in this product cannot exist
+without a recorded consent decision and an imported one would have none.
+
+**To close it:** get a real Storypark export from a centre using it. Either write a small
+conversion script from its actual columns into this importer's JSON shape, or confirm by hand that
+the manual-mapping workflow is an acceptable permanent design rather than a stopgap.
+
+### 32. "Discover" is not a specifically identified or sourced childcare product
+
+Added 2026-08-09 with `scripts/import-discover.ts`.
+
+`docs/roadmap-phases-8-13.md` names this script with no further specification of which product it
+means or what it exports. Rather than guess at a format for an unidentified product, the importer
+targets `waitlist` (0018) with its own documented intake shape — the same non-parsing design as
+item 31 — and imports prospective families, never enrolled children. Promotion to a real child
+record stays a human decision, the same argument 0052 makes about the public enquiry form.
+
+**Nothing in this product has a screen that reads `waitlist`.** `grep` for `.from('waitlist')`
+outside its own migration returns nothing — see [[reporting]]. Importing real personal
+information (names, contact details, a child's date of birth) into a table nobody at the centre
+can view is a privacy cost with no offsetting use.
+
+**To close it:** confirm which product "Discover" actually refers to, if a specific one was
+meant, and source its real export format before writing a conversion script. Build a `/waitlist`
+page before running this importer against a real family's data — collecting it before anyone can
+act on it is the wrong order.
+
 ## See Also
 
 - [[kiosk-and-pins]] — the door tablet, and what it can and cannot know
@@ -545,5 +586,6 @@ two guards above are what make it safe to be wrong.
 - [[offline-outbox]] — what the drill covers and does not
 - [[consent-gated-media]] — where consent decisions finally do work
 - [[funding-and-billing]] — why nothing is estimated, and what cannot be submitted
+- [[reporting]] — occupancy, attendance trends, and enquiry conversion
 
-*Last updated: 2026-08-05*
+*Last updated: 2026-08-09*

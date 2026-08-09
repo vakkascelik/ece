@@ -78,6 +78,29 @@ export interface OccupancySummary {
   daysAtOrOverLicence: string[];
 }
 
+/**
+ * Mean children **across days that had any attendance**, or null when none did.
+ *
+ * The one averaging rule this product uses everywhere a span of days is reduced to one
+ * number — here, and in `attendanceTrend.ts`'s weekly and weekday summaries. Factored out
+ * because it was about to be written a third time with a fourth chance to drift: the first
+ * two copies (the overall figure and, briefly, a per-week draft of it) already disagreed on
+ * rounding before this existed. Closed days are excluded for the reason `OccupancySummary`
+ * documents above — averaging them in reports a fraction of the truth that looks precise.
+ */
+export function averageOverOpenDays(
+  days: readonly DayAttendance[],
+): { daysWithAttendance: number; averageChildren: number | null } {
+  const open = days.filter((d) => d.children > 0);
+  return {
+    daysWithAttendance: open.length,
+    averageChildren:
+      open.length === 0
+        ? null
+        : Math.round((open.reduce((sum, d) => sum + d.children, 0) / open.length) * 10) / 10,
+  };
+}
+
 export function summariseOccupancy(
   days: readonly DayAttendance[],
   licensedPlaces: number | null,
@@ -90,10 +113,7 @@ export function summariseOccupancy(
     null,
   );
 
-  const averageChildren =
-    open.length === 0
-      ? null
-      : Math.round((open.reduce((sum, d) => sum + d.children, 0) / open.length) * 10) / 10;
+  const { daysWithAttendance, averageChildren } = averageOverOpenDays(days);
 
   const daysAtOrOverLicence = assessed
     .filter((d) => d.stated && d.children >= d.licensedPlaces)
@@ -101,7 +121,7 @@ export function summariseOccupancy(
 
   return {
     days: assessed,
-    daysWithAttendance: open.length,
+    daysWithAttendance,
     busiest,
     averageChildren,
     daysAtOrOverLicence,

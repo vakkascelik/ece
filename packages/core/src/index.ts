@@ -265,9 +265,17 @@ export * from './xero';
 // is null until somebody types it in, and null is a result rather than a zero.
 export * from './occupancy';
 
+// The same attendance, bucketed into weeks and weekdays instead of days — a trend
+// rather than a log. No new query; arithmetic on what occupancy.ts already reads.
+export * from './attendanceTrend';
+
 // The public enrolment enquiry. Validated here, in the SQL function, and by the table —
 // three copies, which is the price of an error a person can read.
 export * from './enquiry';
+
+// How enquiries become enrolments, and the one question the schema cannot answer —
+// see the file for why this is not a strict "waitlist conversion rate".
+export * from './enquiryFunnel';
 export * from './funding';
 
 // Applications for employment. The one vocabulary shared with the public website, which

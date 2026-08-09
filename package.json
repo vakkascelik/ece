@@ -26,6 +26,8 @@
     "tokens:check": "tsx scripts/tokens-css.ts --check",
     "drill:offline": "node --env-file-if-exists=.env.local --import tsx scripts/offline-drill.ts",
     "import:criteria": "node --env-file-if-exists=.env.local --import tsx scripts/import-criteria.ts",
+    "import:storypark": "node --env-file-if-exists=.env.local --import tsx scripts/import-storypark.ts",
+    "import:discover": "node --env-file-if-exists=.env.local --import tsx scripts/import-discover.ts",
     "check:docs": "tsx scripts/check-docs-links.ts",
     "sweep:media": "node --env-file-if-exists=.env.local --import tsx scripts/sweep-orphan-media.ts",
     "reconcile:funding": "node --env-file-if-exists=.env.local --import tsx scripts/reconcile-funding.ts",
