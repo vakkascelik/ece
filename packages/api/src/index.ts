@@ -235,3 +235,7 @@ export * from './kiosk';
 
 // Usage records for external model calls. Not the calls themselves — see @ece/ai.
 export * from './ai';
+
+// Enrolment enquiries. The public write path is the definer function; apps/site maps a
+// narrow import to this module so it cannot reach the rest of the API.
+export * from './enquiries';

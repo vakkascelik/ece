@@ -3,8 +3,9 @@
 *The first write a family may make to the centre's own records, and the reasoning that made it
 safe to hand over.*
 
-Migration `0051`. Code: `report_absence` in SQL, `reportAbsence` in `packages/api/src/billing.ts`,
-`BookingsPanel` on the child record.
+Migrations `0051` (absence), `0052`–`0054` (enrolment enquiries). Code: `report_absence` and
+`submit_enrolment_application` in SQL, `packages/api/src/enquiries.ts`, `BookingsPanel` on the
+child record, `apps/site/src/app/enrolment`, and `/enquiries` in the web app.
 
 ---
 
@@ -130,8 +131,6 @@ that record — the audit log holds every family's activity, not just theirs.
 
 ---
 
----
-
 ## Enrolment enquiries (0052, 0053)
 
 A family who is not yet a customer asks for a place. Structurally this is
@@ -225,6 +224,75 @@ Genuine defence in depth, and worth knowing. It also meant the behavioural asser
 assertion that passed because of a nested view. The grant is now asserted directly against
 `information_schema` as well, and that one fails the moment anybody grants `anon` anything
 here, whatever the policies do.
+
+---
+
+## The form and the queue
+
+`apps/site/src/app/enrolment` for the public form, `/enquiries` in `apps/web` for the office.
+
+### The narrow import, kept narrow
+
+`apps/site` maps **only** `@ece/api/recruitment` and now `@ece/api/enquiries` — not `@ece/api`.
+The marketing site deliberately cannot reach the rest of the query layer, and a public form
+importing the module that also holds invoicing would quietly undo that. `packages/api/src/enquiries.ts`
+exists to keep that property rather than because enquiries needed their own file.
+
+### What the form asks
+
+Guardian's name, email, optional phone, which centre, a **coarse age band**, optional start
+date, optional days. Nothing about the child beyond the band.
+
+The age question is a `<select>` and not a date input, because **a date field is a date of
+birth however it is labelled**. "Not born yet" is a real option: families join waitlists
+before the birth, which is exactly when a centre most wants to hear from them.
+
+The centre's *current* form — Adobe Muse, posting to a 2018 PHP mailer — asks for the child's
+full name and exact date of birth. Not carrying that forward is the point of this one.
+
+### Three copies of the validation, on purpose
+
+The table's CHECK constraints hold; `submit_enrolment_application` restates them so a caller
+who is not the form gets a sentence rather than a constraint violation; `enquiryProblem` in
+`@ece/core` restates them again so the form can say it next to the field. That is the same
+arrangement `applicationProblem` documents, and 0027 exists because a version of it once
+covered three fields out of six.
+
+`enquiryProblem` has **no branch for a child's name**, and a test asserts the input shape does
+not contain one — so a `childName` appearing there later is a visible change rather than a
+quiet addition.
+
+### The honeypot uses `.trap`, not `.visually-hidden`
+
+A visually-hidden field is still in the accessibility tree, so somebody on a screen reader
+might fill it in and have their enquiry silently discarded. **A trap that punishes blind
+families is worse than no trap.** `display: none`, `aria-hidden`, `tabIndex={-1}`. The
+reasoning is already in `globals.css` from the careers form; it is repeated here because the
+next person to add a form will reach for `.visually-hidden`.
+
+The honeypot returns the *same* sentence a real submission returns. Naming the centre back to
+the family would be a nicety and would also let anything comparing two responses read off
+which field was the trap.
+
+### "Either centre" is two writes with no transaction
+
+Copied wholesale from the careers action, including the reason the obvious `try` around the
+loop is wrong: if the first lands and the second throws, the family is told "we could not save
+that — please phone" while their enquiry is **already in the database** for one centre. They
+phone as instructed, and staff hold one record and one call for the same event with no way to
+know they are the same. There is no compensation to write either — `anon` has no DELETE. So
+outcomes are collected and the truth is reported.
+
+### The office screen has no "promote to child" button
+
+Marking an enquiry `enrolled` is a label. Creating the child, the guardians and the enrolment
+happens by hand on the other screens, after a conversation. 0052 refuses to automate the
+moment a stranger's claim becomes the centre's record about a child — a button here would make
+it a click.
+
+The delete is **armed**, not immediate: a confirm step, the same pattern `/applications` uses.
+Once removed, the audit row survives but holds no phone number, so the row is the only way to
+ring the family back.
 
 ---
 

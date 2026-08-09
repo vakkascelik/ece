@@ -17,7 +17,8 @@
     "paths": {
       "@/*": ["./src/*"],
       "@ece/core": ["../../packages/core/src/index.ts"],
-      "@ece/api/recruitment": ["../../packages/api/src/recruitment.ts"]
+      "@ece/api/recruitment": ["../../packages/api/src/recruitment.ts"],
+      "@ece/api/enquiries": ["../../packages/api/src/enquiries.ts"]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],

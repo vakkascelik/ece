@@ -370,6 +370,15 @@ test.describe('staff screens', () => {
     await visit(page, '/reports');
     await auditPage(page, '/reports');
   });
+  /*
+    Audited empty, which is the state the audit tenant is in — the fixture files no
+    enquiry. The populated table has a select and two buttons per row and is NOT covered
+    here; that gap is real and named rather than implied by a green run.
+  */
+  test('enquiries', async ({ page }) => {
+    await visit(page, '/enquiries');
+    await auditPage(page, '/enquiries');
+  });
   test('settings', async ({ page }) => {
     await visit(page, '/settings');
     await auditPage(page, '/settings');

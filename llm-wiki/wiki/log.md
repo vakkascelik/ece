@@ -5,6 +5,44 @@ says so.*
 
 ---
 
+2026-08-09 — **The enquiry form, and the queue behind it.** `apps/site/src/app/enrolment`,
+`/enquiries`, `packages/api/src/enquiries.ts`. See [[parent-self-service]].
+
+The app layer for 0052–0054. Three things in it were decided by something already in the repo
+rather than by me, which is the pattern of the whole day.
+
+**The site's narrow import stays narrow.** `apps/site` maps `@ece/api/recruitment` and now
+`@ece/api/enquiries` — never `@ece/api`. The marketing site deliberately cannot reach the rest of
+the query layer, and a public form importing the module that also holds invoicing would quietly
+undo that. `enquiries.ts` exists to keep the property, not because enquiries needed a file.
+
+**The age question is a `<select>`, and that is the design rather than the styling.** A date input
+is a date of birth however it is labelled. "Not born yet" is a real option: families join waitlists
+before the birth, which is exactly when a centre most wants to hear from them.
+
+**The honeypot uses `.trap`, not `.visually-hidden`.** A visually-hidden field is still in the
+accessibility tree, so somebody on a screen reader might fill it in and have their enquiry silently
+discarded — *a trap that punishes blind families is worse than no trap*. The reasoning was already
+in `globals.css` from the careers form. I nearly wrote `.honeypot`, along with `.checks` and
+`.check`, none of which exist: **third time this session I invented CSS classes**, and the third
+time the fix was to go and read what was already there.
+
+**The office screen has no "promote to child" button.** Marking an enquiry `enrolled` is a label;
+creating the child, the guardians and the enrolment stays hand-work. 0052 refuses to automate the
+moment a stranger's claim becomes the centre's record about a child, and a button would make it a
+click.
+
+**A gap named rather than implied.** The a11y sweep covers `/enquiries` **empty**, because the
+fixture files no enquiry — so the populated table, with a select and two buttons per row, is
+unaudited. That is written into the spec as a comment. A passing audit of an empty page reads as
+coverage of a page that was never rendered, which is the same failure the `/reports` entry was
+added to prevent this morning.
+
+108/108 e2e, 414/414 RLS, 16/16 security review, 479 unit tests, site audit clean across 20 page
+views.
+
+---
+
 2026-08-09 — **A correction: the enquiry asks for an age band, not a child's name.** 0054. See
 [[parent-self-service]].
 

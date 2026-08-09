@@ -38,6 +38,24 @@ export interface Centre {
   /** Tel: href form. Kept beside the display form so neither is derived wrongly. */
   phoneHref: string;
   email: string;
+  /**
+   * Where the pin goes on the map, and the one field here that did NOT come off their own site.
+   *
+   * **Geocoded 2026-08-07** through the Google Geocoding API, from the `street`, `suburb` and
+   * `postcode` above. Both came back `location_type: ROOFTOP` — Google's strongest result, meaning
+   * a known street address rather than an interpolated point on a road — with `partial_match`
+   * absent and a `formatted_address` identical to what is written here, down to the postcode. That
+   * is the check; the numbers are recorded rather than the query, so nothing re-geocodes at request
+   * time.
+   *
+   * WHY NOT JUST HAND GOOGLE THE ADDRESS STRING, which the Static Maps API will geocode for you.
+   * Because then the pin is decided per request by a service whose answer nobody has looked at, and
+   * a childcare centre pinned to the wrong building is a parent standing outside a stranger's house
+   * with a three-month-old. Geocoding once, checking the result, and committing it makes the pin a
+   * reviewable value in a diff — the same argument that keeps this whole file out of the database.
+   */
+  lat: number;
+  lng: number;
 }
 
 export const CENTRES: readonly Centre[] = [
@@ -52,6 +70,8 @@ export const CENTRES: readonly Centre[] = [
     phone: '+64 9 815 2277',
     phoneHref: '+6498152277',
     email: 'contact@littlepearls.org.nz',
+    lat: -36.8951734,
+    lng: 174.7238665,
   },
   {
     path: 'mt-roskill',
@@ -64,6 +84,8 @@ export const CENTRES: readonly Centre[] = [
     phone: '+64 9 216 7838',
     phoneHref: '+6492167838',
     email: 'mtroskill@littlepearls.org.nz',
+    lat: -36.9080103,
+    lng: 174.7387794,
   },
 ];
 
@@ -96,6 +118,13 @@ export const CENTRE_FACTS = {
   structure: 'Not-for-profit, community established',
   careersEmail: 'career@littlepearls.org.nz',
   tagline: 'Every child is precious like a pearl',
+  /**
+   * Both centres are in Auckland, so this is a constant rather than a lookup — but it is
+   * written down rather than assumed, because the enrolment form compares a family's start
+   * date against "today" and a server running UTC calls a New Zealand morning yesterday.
+   * That would tell somebody a start date of today had already been.
+   */
+  timezone: 'Pacific/Auckland',
 } as const;
 
 /**

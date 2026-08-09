@@ -264,6 +264,10 @@ export * from './xero';
 // How full the centre has been, and the branch for when it cannot say — the licence
 // is null until somebody types it in, and null is a result rather than a zero.
 export * from './occupancy';
+
+// The public enrolment enquiry. Validated here, in the SQL function, and by the table —
+// three copies, which is the price of an error a person can read.
+export * from './enquiry';
 export * from './funding';
 
 // Applications for employment. The one vocabulary shared with the public website, which

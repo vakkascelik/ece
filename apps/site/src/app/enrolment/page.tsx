@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { CENTRES, CENTRE_FACTS } from '@/lib/centres';
 import { appUrl } from '@/lib/site';
+import { EnquiryForm } from './EnquiryForm';
 
 export const metadata: Metadata = {
   title: 'Enrolment and fees',
@@ -13,7 +14,12 @@ export const metadata: Metadata = {
 /**
  * Enrolment.
  *
- * WHY THERE IS NO FORM ON THIS PAGE YET
+ * THE FORM, AND THE TWO THINGS IT STILL WILL NOT ASK
+ *
+ * **Updated 2026-08-09: there is a form now.** What follows was written when there was not,
+ * and it is kept rather than deleted because it is the specification the form was built to —
+ * and because it is what caught migration 0052, which had shipped a required `child_name`
+ * against it. The page was right and the schema changed (0054).
  *
  * Their current page has one, and it posts to an Adobe Muse PHP mailer (`scripts/form-u832.php`)
  * that has not been touched since 2018 and whose delivery could not be verified. Carrying that
@@ -32,6 +38,17 @@ export const metadata: Metadata = {
  * the centre — using contact details that are already public on their own site. When an enquiry
  * form is built it will collect the guardian's details and a coarse age band, and it will not ask
  * for a child's name or date of birth.
+ *
+ * That last sentence is now implemented rather than promised. `EnquiryForm` asks for the
+ * guardian's name, email, optional phone, which centre, a **coarse age band**
+ * (`expecting | under-2 | 2-and-over`), an optional start date and optional days. It asks
+ * nothing about the child beyond the band, and the database cannot be told one through this
+ * path: `submit_enrolment_application` takes no such argument, and the RLS suite asserts that
+ * against the catalogue so a behavioural test cannot quietly reintroduce it.
+ *
+ * The phone numbers stay above the form, and deliberately. A family who would rather ring
+ * should not have to fill anything in, and for some of the whānau this centre serves a phone
+ * call is the accessible option and a web form is not.
  *
  * WHY THERE IS NO FEE ON A PAGE ABOUT FEES
  *
@@ -69,12 +86,13 @@ export default function EnrolmentPage() {
         ))}
       </div>
 
-      <h2>What to tell us</h2>
+      <h2>Or send us an enquiry</h2>
       <p>
         It helps if you can say roughly how old your child is, when you are hoping to start, and
         which days you would like. You do not need to send us anything about your child before we
         have spoken — we will take the details we need when a place is available.
       </p>
+      <EnquiryForm />
 
       <h2>Fees</h2>
       {/*

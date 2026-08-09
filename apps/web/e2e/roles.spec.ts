@@ -176,24 +176,24 @@ const MATRIX: Array<{ path: string; guard: string; allowed: Record<Role, boolean
 /** Nav links each role should be offered. Presentation, but a wrong link is a wrong promise. */
 const NAV: Record<Role, { shown: string[]; hidden: string[] }> = {
   owner: {
-    shown: ['Overview', 'Children', 'Posts', 'Messages', 'Attendance', 'Incidents', 'Sleep checks', 'Site safety', 'Visitors', 'Excursions', 'Staff', 'Roster', 'People', 'Compliance', 'Funding', 'Accounts', 'Reports', 'Settings'],
+    shown: ['Overview', 'Children', 'Posts', 'Messages', 'Attendance', 'Incidents', 'Sleep checks', 'Site safety', 'Visitors', 'Excursions', 'Staff', 'Roster', 'People', 'Compliance', 'Funding', 'Accounts', 'Reports', 'Enquiries', 'Settings'],
     hidden: [],
   },
   manager: {
-    shown: ['Overview', 'Children', 'Posts', 'Messages', 'Attendance', 'Incidents', 'Sleep checks', 'Site safety', 'Visitors', 'Excursions', 'Staff', 'Roster', 'People', 'Compliance', 'Funding', 'Accounts', 'Reports', 'Settings'],
+    shown: ['Overview', 'Children', 'Posts', 'Messages', 'Attendance', 'Incidents', 'Sleep checks', 'Site safety', 'Visitors', 'Excursions', 'Staff', 'Roster', 'People', 'Compliance', 'Funding', 'Accounts', 'Reports', 'Enquiries', 'Settings'],
     hidden: [],
   },
   educator: {
     // Roster is shown and Accounts is not: an educator plans around next week and has no
     // business in what families owe.
     shown: ['Overview', 'Children', 'Posts', 'Messages', 'Attendance', 'Incidents', 'Sleep checks', 'Site safety', 'Visitors', 'Excursions', 'Staff', 'Roster'],
-    hidden: ['People', 'Compliance', 'Funding', 'Accounts', 'Reports', 'Settings'],
+    hidden: ['People', 'Compliance', 'Funding', 'Accounts', 'Reports', 'Enquiries', 'Settings'],
   },
   parent: {
     // "Your tamariki" and "Pānui", not "Children" and "Posts" — the same routes, named for
     // the person reading them.
     shown: ['Overview', 'Your tamariki', 'Pānui', 'Messages'],
-    hidden: ['Attendance', 'Incidents', 'Sleep checks', 'Site safety', 'Visitors', 'Excursions', 'Staff', 'Roster', 'People', 'Compliance', 'Funding', 'Accounts', 'Reports', 'Settings', 'Children', 'Posts'],
+    hidden: ['Attendance', 'Incidents', 'Sleep checks', 'Site safety', 'Visitors', 'Excursions', 'Staff', 'Roster', 'People', 'Compliance', 'Funding', 'Accounts', 'Reports', 'Enquiries', 'Settings', 'Children', 'Posts'],
   },
 };
 
