@@ -3,7 +3,7 @@
 *The first write a family may make to the centre's own records, and the reasoning that made it
 safe to hand over.*
 
-Migrations `0051` (absence), `0052`–`0054` (enrolment enquiries). Code: `report_absence` and
+Migrations `0051` (absence), `0052`–`0054` (enrolment enquiries), `0055` (confirmations). Code: `report_absence` and
 `submit_enrolment_application` in SQL, `packages/api/src/enquiries.ts`, `BookingsPanel` on the
 child record, `apps/site/src/app/enrolment`, and `/enquiries` in the web app.
 
@@ -293,6 +293,76 @@ it a click.
 The delete is **armed**, not immediate: a confirm step, the same pattern `/applications` uses.
 Once removed, the audit row survives but holds no phone number, so the row is the only way to
 ring the family back.
+
+---
+
+## Detail confirmations (0055)
+
+*"How do you know these emergency contacts are current?"* — a reviewer asks it, and until this
+migration nothing in the product could answer.
+
+It held the details and the date they were **entered**, which is a different fact. A phone
+number typed in 2023 and never touched is either correct or three years stale, and nothing
+distinguished those two.
+
+One row per confirmation, by one guardian, for one child. The newest answers the question; the
+older ones answer *"how often does this family actually check"*, which is the follow-up.
+
+### Append-only, and that is the point rather than a habit
+
+UPDATE and DELETE are withheld from every role including `service_role`. **A confirmation that
+can be edited answers nothing** — "last confirmed in March" is only worth saying if nobody
+could have written it in April. Same treatment as `attendance_events`, `payments` and
+`consent_events`.
+
+No audit trigger, and it went into **both** exemption lists in the same commit —
+`rls_isolation.sql` and `scripts/security-review.ts`. Earlier the same day `ai_requests` went
+into one and not the other, and the second list was the only reason anybody noticed. See the
+four-in-one-day pattern in [[conventions]].
+
+### What it does not store, and what that costs
+
+**No snapshot of what was confirmed.** The richer design copies the guardian's phone and
+address into the row so the product can say *"confirmed, and nothing has changed since"*. That
+is a real question and this table cannot answer it — stated here rather than discovered later.
+
+It is refused because a snapshot is a second copy of a family's contact details living under a
+different retention rule from the first, on an **append-only table that cannot be corrected or
+purged**. `guardians` is purgeable when a child leaves; a frozen duplicate is not, and IPP 9
+cuts against holding one.
+
+The question is answerable without it. `guardians` carries the shared audit trigger, so an
+update to a family's details is already recorded with a timestamp — "has anything changed since
+the last confirmation" is a comparison against `audit_events`, not a column here. That
+comparison is office-only, because a guardian cannot read `audit_events`, and that is the right
+asymmetry.
+
+**The screen says so.** The date is shown without a verdict: *"It does not mean nothing has
+changed since."* A green tick reading "confirmed" over a phone number changed last week would
+be worse than no tick — the same reasoning the sleep register uses when no interval is stated.
+
+### Two halves in the insert policy, and both are asserted
+
+- The child must be the caller's **ward** — `caller_ward_ids()`, which is guardianship, not
+  visibility. An educator can see the child and has nothing to confirm about them.
+- The guardian record must be the caller's **own**. A confirmation filed on a family's behalf
+  is a record of an assurance they never gave.
+
+Mutation-tested separately: dropping the second half is killed by *"a guardian CANNOT confirm
+in another guardian's name"*, and granting the append-only verbs back is killed by *"NOBODY can
+back-date a confirmation"*.
+
+### A placement bug that looked like a policy bug
+
+The first run failed on the very first insert with `new row violates row-level security policy`,
+which reads as a broken policy. The policy was fine. The block had been placed near the end of
+the suite — **after the offboarding sections revoke Priya's membership and archive Ana** — and
+`caller_ward_ids()` requires a *live* membership by design, which 0004's own header states.
+
+So every assertion in the block failed for a reason that had nothing to do with the thing under
+test. The block now sits above the purge section with a note saying why, because the next person
+to add a guardian-scoped assertion at the bottom of the file will hit exactly this.
+
 
 ---
 

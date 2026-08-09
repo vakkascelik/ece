@@ -5,6 +5,53 @@ says so.*
 
 ---
 
+2026-08-09 — **When a family last said their details are right.** 0055, `detail_confirmations`,
+`ConfirmPanel`. See [[parent-self-service]]. §3.3.
+
+A reviewer asks how a centre knows its emergency contacts are current, and this product could not
+answer. It held the details and the date they were *entered*, which is a different fact — a phone
+number typed in 2023 and never touched is either correct or three years stale, and nothing
+distinguished those.
+
+**Append-only, and here that is the entire argument rather than a habit.** "Last confirmed in
+March" is only worth saying if nobody could have written it in April. UPDATE and DELETE withheld
+from every role including `service_role`.
+
+**Both exemption lists in the same commit.** `ai_requests` went into one and not the other this
+morning, and only the second list caught it. This time `review:security` went HIGH once — for the
+missing trigger — and the fix touched `rls_isolation.sql` and `security-review.ts` together.
+
+**What it refuses to store, and the cost said out loud.** No snapshot of what was confirmed. The
+richer design copies the phone and address in so the product can say "confirmed, and nothing has
+changed since" — a real question this table cannot answer. Refused because a snapshot is a second
+copy of a family's contact details under a different retention rule, on an **append-only table that
+cannot be corrected or purged**; `guardians` is purgeable when a child leaves and a frozen
+duplicate is not. The question is still answerable: `guardians` carries the audit trigger, so
+"changed since" is a comparison against `audit_events` rather than a column here — and that
+comparison is office-only, because a guardian cannot read `audit_events`. **The screen says the
+caveat rather than hiding it**, and the e2e asserts the sentence is on the page.
+
+**A placement bug that looked exactly like a policy bug.** The first run failed on the very first
+insert with `new row violates row-level security policy`, which reads as a broken policy. The
+policy was fine. I had put the block near the end of the suite — *after* the offboarding sections
+revoke Priya's membership and archive Ana — and `caller_ward_ids()` requires a **live** membership
+by design, which 0004's own header states. Every assertion failed for a reason that had nothing to
+do with the thing under test.
+
+I nearly diagnosed it wrong twice over: first suspecting my hand-rolled `exists` on `guardians`
+(which `conventions.md` does warn about), then probing the live database where the fixture rows do
+not exist and reading three zeros as evidence. **A probe against the wrong database is not
+evidence, and it looks exactly like evidence.** The block now sits above the purge section with a
+note saying why.
+
+**And the heredoc bit again.** `cat >>` with apostrophes in the content — "child's details" — which
+CLAUDE.md explicitly warns about and which has now broken three times. The correction is the same
+every time: use Write/Edit for anything long.
+
+424/424 RLS, 16/16 security review.
+
+---
+
 2026-08-09 — **The enquiry form, and the queue behind it.** `apps/site/src/app/enrolment`,
 `/enquiries`, `packages/api/src/enquiries.ts`. See [[parent-self-service]].
 

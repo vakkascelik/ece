@@ -81,6 +81,7 @@ const APPEND_ONLY = [
   'messages',
   'payments',
   'ai_requests',
+  'detail_confirmations',
 ];
 
 async function main() {
@@ -570,6 +571,8 @@ async function main() {
                              'excursion_consents', 'excursion_headcounts', 'staff_attendance_events',
                              -- 0049: a usage record, and the row is its own record.
                              'ai_requests',
+                             -- 0055: a confirmation IS the record; an editable one answers nothing.
+                             'detail_confirmations',
                              'criteria', 'criteria_sets', 'schema_migrations',
                              'push_tokens', 'notification_preferences', 'notifications',
                              'invitations')

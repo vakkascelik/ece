@@ -872,3 +872,67 @@ export async function supersedeCustodyArrangement(db: Db, id: string): Promise<v
     .eq('id', id);
   if (error) throw new Error(`supersedeCustodyArrangement: ${error.message}`);
 }
+
+// ---------------------------------------------------------------------------
+// Detail confirmations (0055)
+// ---------------------------------------------------------------------------
+
+export interface DetailConfirmation {
+  id: string;
+  childId: string;
+  guardianId: string;
+  confirmedAt: string;
+}
+
+/**
+ * When this child's details were last confirmed, and by whom. Newest first.
+ *
+ * Bounded by `limit` rather than paged, and the reason is structural: a family confirms
+ * once or twice a year, and the screen shows the most recent handful. The full history is
+ * a question nobody has asked — when they do, this becomes a paged read with a window,
+ * like every other report here.
+ */
+export async function listConfirmations(
+  db: Db,
+  childId: string,
+  limit = 5,
+): Promise<DetailConfirmation[]> {
+  const { data, error } = await db
+    .from('detail_confirmations')
+    .select('id, child_id, guardian_id, confirmed_at')
+    .eq('child_id', childId)
+    .order('confirmed_at', { ascending: false })
+    .limit(limit);
+
+  if (error) throw new Error(`listConfirmations: ${error.message}`);
+  return (data ?? []).map((r) => {
+    const row = r as { id: string; child_id: string; guardian_id: string; confirmed_at: string };
+    return {
+      id: row.id,
+      childId: row.child_id,
+      guardianId: row.guardian_id,
+      confirmedAt: row.confirmed_at,
+    };
+  });
+}
+
+/**
+ * A guardian records that their child's details are current.
+ *
+ * `confirmed_at` is left to the column default rather than sent by the caller. A client
+ * clock is not evidence, and this row exists to be evidence — the whole value of the table
+ * is that "last confirmed in March" could not have been written in April.
+ *
+ * No update counterpart, and there never will be: the table is append-only in the grants,
+ * so a correction is a new confirmation.
+ */
+export async function confirmDetails(
+  db: Db,
+  input: { childId: string; guardianId: string },
+): Promise<void> {
+  const { error } = await db
+    .from('detail_confirmations')
+    .insert({ child_id: input.childId, guardian_id: input.guardianId })
+    .select('id');
+  if (error) throw new Error(`confirmDetails: ${error.message}`);
+}

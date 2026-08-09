@@ -23,6 +23,7 @@ import {
   addHealthCondition,
   addMedicationAuthority,
   archiveChild,
+  confirmDetails,
   reportAbsence,
   createChild,
   createEnrolment,
@@ -753,4 +754,35 @@ export async function reportChildAbsence(
   } catch (e) {
     return { message: actionError(e, 'children.reportAbsence').error };
   }
+}
+
+/**
+ * A guardian records that their child's details are current.
+ *
+ * `requireCtx`, not `requireCapability` — like `reportChildAbsence`, this is one of the two
+ * actions in this file a **parent** is meant to perform. The enforcement is 0055's insert
+ * policy, which checks both halves in the database: the child must be the caller's ward,
+ * and the guardian record must be the caller's own. The gate here only ensures somebody is
+ * signed in.
+ *
+ * The `guardianId` arriving from the form is not trusted. It is resolved on the server for
+ * the button that sends it, and the policy checks `guardians.user_id = auth.uid()` anyway —
+ * so a forged one is refused by Postgres rather than by this function.
+ */
+export async function confirmChildDetails(_prev: unknown, form: FormData): Promise<Result> {
+  await requireCtx();
+  const db = await serverDb();
+
+  const childId = str(form, 'childId');
+  const guardianId = str(form, 'guardianId');
+  if (!childId || !guardianId) return { error: 'Which child?' };
+
+  try {
+    await confirmDetails(db, { childId, guardianId });
+  } catch (e) {
+    return actionError(e, 'children.confirmDetails');
+  }
+
+  revalidatePath(`/children/${childId}`);
+  return { ok: true };
 }

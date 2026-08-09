@@ -5,6 +5,7 @@ import {
   listAdministrations,
   listAttendanceToday,
   listChildBookings,
+  listConfirmations,
   listChildIncidents,
   listConsentHistory,
   listConsents,
@@ -33,6 +34,7 @@ import {
 import { requireCtx } from '@/lib/auth';
 import { serverDb } from '@/lib/supabase';
 import { BookingsPanel } from './BookingsPanel';
+import { ConfirmPanel } from './ConfirmPanel';
 import { ArchivePanel } from './ArchivePanel';
 import { ConsentPanel } from './ConsentPanel';
 import { CustodyPanel } from './CustodyPanel';
@@ -85,6 +87,7 @@ export default async function ChildPage({ params }: { params: Promise<{ id: stri
     members,
     immunisation,
     bookings,
+    confirmations,
   ] = await Promise.all([
     listHealthConditions(db, id),
     listMedications(db, id),
@@ -112,6 +115,9 @@ export default async function ChildPage({ params }: { params: Promise<{ id: stri
     // here; 0051 is what decides they may, and it refuses a past date regardless of
     // what this window happens to include.
     listChildBookings(db, id, today, shiftLocalDate(today, 28)),
+    // Unconditional: a family is entitled to see when they last confirmed, and staff are
+    // entitled to see it too — 0055's select policy is what decides who that is.
+    listConfirmations(db, id, 1),
   ]);
 
   const state = attendance.find((s) => s.childId === id);
@@ -149,6 +155,22 @@ export default async function ChildPage({ params }: { params: Promise<{ id: stri
     : {};
 
   const enrolledOn = enrolments.length > 0 ? enrolments[0].startDate : null;
+
+  /*
+    Formatted here rather than in the panel, in the centre's zone, like every other time on
+    this page. A client component formatting it would use the browser's zone — which for a
+    manager checking from home on holiday is not the centre's, and for a date that a
+    reviewer may read back is the wrong one.
+  */
+  const lastConfirmed =
+    confirmations.length > 0
+      ? new Intl.DateTimeFormat('en-NZ', {
+          timeZone: ctx.centre.timezone,
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+        }).format(new Date(confirmations[0].confirmedAt))
+      : null;
 
   /*
     Formatted on the server in the centre's zone, like every other time in this
@@ -353,6 +375,20 @@ export default async function ChildPage({ params }: { params: Promise<{ id: stri
           isParent={ctx.role === 'parent'}
           pinStatuses={pinStatuses}
         />
+        {/*
+          Inside the whānau section rather than beside it, because the thing being confirmed
+          is what is directly above: the contacts, the phone numbers, who may collect. A
+          confirmation control sitting in its own section would be confirming nothing in
+          particular, which is how "confirmed" ends up meaning "clicked".
+        */}
+        <div className="card" style={{ marginTop: '1rem' }}>
+          <ConfirmPanel
+            childId={child.id}
+            ownGuardianId={ownGuardianId}
+            lastConfirmed={lastConfirmed}
+            isParent={ctx.role === 'parent'}
+          />
+        </div>
       </div>
 
       <div className="section">

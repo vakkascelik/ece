@@ -3962,6 +3962,153 @@ begin
     'an owner CANNOT purge a child who is still enrolled');
 end $$;
 
+-- NOTE ON PLACEMENT: this block sits ABOVE the purge and offboarding sections on
+-- purpose. `caller_ward_ids()` requires a LIVE membership, and those sections revoke
+-- Priya's and archive Ana. Placed after them, every assertion here fails with a policy
+-- violation that looks like a broken policy and is actually a revoked parent — which is
+-- what happened on the first attempt.
+
+-- ---------------------------------------------------------------------------
+-- DETAIL CONFIRMATIONS (0055)
+--
+-- A family says their details are right. The interesting properties are that a guardian
+-- can only confirm for their OWN child and only as THEMSELVES, and that nobody at all can
+-- edit the result — a confirmation that could be rewritten answers nothing.
+-- ---------------------------------------------------------------------------
+
+-- Priya (guardian d1111111, account 33333333) confirms for Ana (a1111111), her ward.
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+
+do $$
+declare n integer;
+begin
+  insert into public.detail_confirmations (child_id, guardian_id)
+  values ('a1111111-1111-4111-8111-111111111111', 'd1111111-1111-4111-8111-111111111111');
+  get diagnostics n = row_count;
+  perform pg_temp.expect(n = 1, 'a guardian confirms their own child''s details are current');
+end $$;
+
+select pg_temp.expect(
+  (select count(*) from public.detail_confirmations
+    where child_id = 'a1111111-1111-4111-8111-111111111111') = 1,
+  'and reads it back'
+);
+
+/*
+ * NOT FOR SOMEBODY ELSE'S CHILD.
+ *
+ * The boundary inside a centre: Beau is at the same service and is not Priya's ward.
+ * `caller_ward_ids` is guardianship rather than visibility, which is what makes this
+ * refusal different from the educator case below.
+ */
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.detail_confirmations (child_id, guardian_id)
+    values ('b2222222-2222-4222-8222-222222222222', 'd1111111-1111-4111-8111-111111111111');
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'a guardian CANNOT confirm for a child who is not theirs');
+end $$;
+
+/*
+ * NOR IN SOMEBODY ELSE'S NAME.
+ *
+ * `d3333333` is Ana's grandmother — a real guardian of this child, with no app account.
+ * Priya may confirm for Ana, but not *as* the grandmother: a confirmation filed on
+ * somebody's behalf is a record of an assurance they never gave.
+ */
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.detail_confirmations (child_id, guardian_id)
+    values ('a1111111-1111-4111-8111-111111111111', 'd3333333-3333-4333-8333-333333333333');
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'a guardian CANNOT confirm in another guardian''s name');
+end $$;
+
+/*
+ * APPEND-ONLY, ASSERTED ON THE SQLSTATE.
+ *
+ * The verb is withheld by GRANT, so Postgres raises 42501 rather than filtering to zero
+ * rows. "The update changed nothing" would also be true of a policy that simply did not
+ * match, and the distinction is the design: a missing policy can be added by a later
+ * migration without anybody noticing, a revoked grant cannot.
+ */
+do $$
+declare code text := 'none (the update SUCCEEDED)';
+begin
+  begin
+    update public.detail_confirmations set confirmed_at = now() - interval '1 year'
+     where child_id = 'a1111111-1111-4111-8111-111111111111';
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '42501',
+    'NOBODY can back-date a confirmation — an editable one answers nothing, got ' || code);
+end $$;
+
+do $$
+declare code text := 'none (the delete SUCCEEDED)';
+begin
+  begin
+    delete from public.detail_confirmations
+     where child_id = 'a1111111-1111-4111-8111-111111111111';
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '42501', 'and nobody can remove one, got ' || code);
+end $$;
+
+-- Including service_role, which is the branch that matters: the web app's server actions
+-- hold that key.
+set local role service_role;
+do $$
+declare code text := 'none (the update SUCCEEDED)';
+begin
+  begin
+    update public.detail_confirmations set confirmed_at = now() - interval '1 year';
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '42501',
+    'SERVICE_ROLE cannot rewrite a confirmation either, got ' || code);
+end $$;
+set local role authenticated;
+
+-- Staff who can see the child can read it: "when did this family last check" is a question
+-- the office and an educator planning a trip both have.
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.detail_confirmations
+    where child_id = 'a1111111-1111-4111-8111-111111111111') = 1,
+  'an educator can SEE when a family last confirmed'
+);
+
+-- But has nothing to confirm. Visibility is not guardianship, and this is the pair to the
+-- refusal above: same table, different reason, and only one of them is about the child.
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.detail_confirmations (child_id, guardian_id)
+    values ('a1111111-1111-4111-8111-111111111111', 'd1111111-1111-4111-8111-111111111111');
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'an educator CANNOT confirm on a family''s behalf');
+end $$;
+
+-- Another centre sees nothing, through the child rather than through a centre_id column —
+-- this table deliberately has none.
+set local request.jwt.claims = '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.detail_confirmations) = 0,
+  'and another centre''s owner sees no confirmation at all'
+);
+
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+
+
 -- A blank reason is refused, because the reason is what makes the audit row mean
 -- anything at all.
 do $$
@@ -5543,7 +5690,9 @@ begin
                            'safety_checks', 'excursion_consents', 'excursion_headcounts',
                            'staff_attendance_events',
                            -- 0049: a usage record, and the row is its own record.
-                           'ai_requests')
+                           'ai_requests',
+                           -- 0055: a confirmation IS the record.
+                           'detail_confirmations')
      -- Reference data, and settings that belong to a person rather than a centre — the
      -- trigger could not attribute them to a tenant even if it fired.
      and c.relname not in ('criteria', 'criteria_sets', 'schema_migrations',

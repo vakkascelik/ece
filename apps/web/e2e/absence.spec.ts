@@ -70,6 +70,50 @@ test('a parent reports an absence, and the wording never claims the fee changed'
   await page.context().close();
 });
 
+test('a parent confirms their details, and a manager is not offered the button', async ({
+  browser,
+}) => {
+  const t = tenant();
+
+  const parent = await signIn(browser, t.parentEmail, t.password);
+  await visit(parent, `/children/${t.childId}`);
+
+  // Before: nobody has confirmed. Said plainly rather than shown as a date of zero.
+  await expect(parent.getByText('No parent or caregiver has confirmed these details.')).toBeVisible();
+
+  await parent.getByRole('button', { name: 'These details are correct' }).click();
+  await expect(parent.getByRole('status').filter({ hasText: 'recorded that today' })).toBeVisible();
+
+  /*
+    THE SENTENCE THIS FEATURE EXISTS TO BE HONEST ABOUT.
+
+    The panel records WHEN a family said the details were right, and 0055 deliberately
+    stores no snapshot — so the product cannot claim nothing has changed since. A confident
+    "confirmed" over a phone number edited last week would be worse than no claim at all,
+    and this asserts the caveat is on the screen rather than only in the migration.
+  */
+  await expect(parent.getByText('It does not mean nothing has changed since')).toBeVisible();
+
+  await parent.reload({ waitUntil: 'networkidle' });
+  await expect(parent.getByText('Last confirmed by a parent or caregiver on')).toBeVisible();
+  await parent.context().close();
+
+  /*
+    A manager sees the date and is offered no button.
+
+    Not because they are less trusted, but because a confirmation is a record of a FAMILY's
+    assurance — a manager pressing it would record something the family never said. 0055's
+    insert policy refuses it in the database; this asserts the screen does not invite it.
+  */
+  const manager = await signIn(browser, t.managerEmail, t.password);
+  await visit(manager, `/children/${t.childId}`);
+
+  await expect(manager.getByText('Last confirmed by a parent or caregiver on')).toBeVisible();
+  await expect(manager.getByRole('button', { name: 'These details are correct' })).toHaveCount(0);
+
+  await manager.context().close();
+});
+
 test('a second report is honest rather than silent, and staff get no such button', async ({
   browser,
 }) => {
