@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { isUnusableUrl, URL_ENV } from '@/lib/site';
+import { mapsConfigured } from '@/lib/staticMap';
 
 /**
  * Health check for the host's load balancer.
@@ -66,6 +67,19 @@ export async function GET() {
       ...(unset.length > 0 ? { usingDefaultsFor: unset } : {}),
       ...(unusable.length > 0 ? { setButNotAUrl: unusable } : {}),
       ...(careersMissing.length > 0 ? { careersFormDisabledFor: careersMissing } : {}),
+      /*
+       * Reported, never fatal — a contact page with an address and no picture of it is a working
+       * contact page. It is here because the failure is otherwise invisible: `CentreMap` renders
+       * nothing rather than a broken image, so a site with no maps and a site whose key was never
+       * set look identical from the outside. This is the one place that tells them apart.
+       *
+       * A `true` here does NOT mean maps are appearing. The key can be set and the Maps Static API
+       * still not enabled on the Google Cloud project, which is a 403 per centre and shows up in
+       * the container log rather than here. Checking would mean calling Google from a health probe,
+       * and a health check that fails because a third party is slow rolls back a container that is
+       * fine — the reason this endpoint does not query Supabase either.
+       */
+      ...(mapsConfigured() ? {} : { mapsDisabledFor: ['GOOGLE_MAPS_API_KEY'] }),
     },
     { headers: { 'Cache-Control': 'no-store' } },
   );

@@ -465,6 +465,50 @@ a:hover { text-decoration-thickness: 2px; }
 .btn-quiet:hover { background: var(--aqua-pale); color: var(--teal-ink); }
 
 /*
+ * The centre's map, and the two links under it.
+ *
+ * `overflow: hidden` on the link rather than a radius on the image, because the radius has to clip
+ * the *link's* focus ring and background too — a rounded picture inside a square link is the shape
+ * that looks like a mistake at 2px of outline offset.
+ *
+ * `display: block` on the image kills the descender gap an inline `<img>` leaves under itself, which
+ * on a bordered box shows up as a stripe of card colour along the bottom edge and nowhere else.
+ *
+ * No `aspect-ratio` here. The `width`/`height` attributes are on the element and are the API's real
+ * output size, so the browser already reserves the box before the bytes land; declaring the ratio
+ * again in CSS is a second source of truth for the same fact.
+ */
+.map {
+  display: block;
+  margin: 0 0 var(--space-4);
+  border: 1px solid var(--sand);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  /* It is a picture, not a sentence — the underline links get by default reads as damage on it. */
+  text-decoration: none;
+  background: var(--sand);
+}
+
+.map img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/*
+ * Wrapping, and `--space-2` rather than a larger gap: at 340px — the narrowest a contact card gets —
+ * "Get directions" and a full international phone number do not sit on one line, so they stack, and
+ * two 48px targets a hair apart are easier to hit than two that have drifted apart.
+ */
+.map-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  max-width: none;
+}
+
+/*
  * A gap the centre has to fill, marked on the page rather than filled with a plausible guess.
  * Visible on purpose: an invented fee is a fee a family gets billed, and a placeholder that only
  * exists in a tracking file is a placeholder that ships.

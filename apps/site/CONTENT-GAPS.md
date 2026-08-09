@@ -165,6 +165,26 @@ the site links to no social accounts (gap 9 — nobody has confirmed the account
 fresh as inline SVG. The second is cheap, has no licence question, scales without a second file, and
 would tint from the brand tokens instead of being fixed-colour PNGs.
 
+### 16. How long Google's map tiles may be held
+
+Added 2026-08-07 with the maps themselves, so it is a known gap rather than a discovery.
+
+`/contact` and both centre pages now show a map. The container fetches it from the Maps Static API
+and serves the bytes from this origin — which is what keeps the reader's browser from ever
+contacting Google, and is also, unavoidably, **caching Google's content**. Their Maps Platform terms
+place limits on that, and nobody here has read the current version of them.
+
+So the TTLs in `src/lib/staticMap.ts` are set short and conservative — six hours for an image, an
+hour in the reader's browser — rather than argued up to a limit somebody half-remembers. **Do not
+treat those numbers as a finding about the terms.** They are a guess made in the safe direction.
+
+**To close it:** read the current Maps Platform Terms of Service and the Maps Static API service
+specific terms, and write down what they actually permit. Three outcomes are possible and only one
+is work: the caching is fine as it stands; the TTL needs a number; or the image must be requested by
+the reader's browser, in which case the choice is between opening `img-src` to
+`maps.googleapis.com` — which hands Google every reader's IP address and puts the API key on their
+screen — and taking the maps back out. That third case is a decision for the owner, not a fix.
+
 ### 11. Whether the old enrolment form still reaches anyone
 
 Their form posts to `scripts/form-u832.php`, an Adobe Muse mailer last modified in 2018. It was not

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { CentreMap } from '../../CentreMap';
 import { Photo } from '../../Photo';
 import { PHOTOS } from '@/lib/photos';
 import { CENTRE_FACTS, centreByPath } from '@/lib/centres';
@@ -34,8 +35,12 @@ import { CENTRE_FACTS, centreByPath } from '@/lib/centres';
  * take to close it. A page that guesses a capacity is a page that misinforms a parent about
  * whether there is room for their child.
  *
- * No map embed either — a link out to a maps search instead. An iframe is a third party on a page
- * aimed at parents of three-month-olds, and the CSP forbids frames for that reason.
+ * THERE IS A MAP NOW, AND IT IS STILL NOT AN EMBED. This used to read "no map embed either — a link
+ * out to a maps search instead. An iframe is a third party on a page aimed at parents of
+ * three-month-olds, and the CSP forbids frames for that reason." The second sentence is why there
+ * is no iframe here today. What changed is that "a map" and "an iframe" were being treated as the
+ * same decision: this server fetches a picture and serves it from this origin, the reader's browser
+ * never contacts Google, and `frame-src 'none'` is untouched. See `lib/staticMap.ts`.
  */
 export async function generateMetadata({
   params,
@@ -54,8 +59,6 @@ export async function generateMetadata({
 export default async function CentrePage({ params }: { params: Promise<{ centre: string }> }) {
   const centre = centreByPath((await params).centre);
   if (!centre) notFound();
-
-  const mapQuery = encodeURIComponent(`${centre.street}, ${centre.suburb} ${centre.postcode}`);
 
   /*
     JSON-LD so a search result can show the address and phone number directly. `ChildCare` is the
@@ -117,11 +120,7 @@ export default async function CentrePage({ params }: { params: Promise<{ centre:
         <dt>Hours</dt>
         <dd>{CENTRE_FACTS.hours}</dd>
       </dl>
-      <p>
-        <a href={`https://www.google.com/maps/search/?api=1&query=${mapQuery}`}>
-          Open this address in maps
-        </a>
-      </p>
+      <CentreMap centre={centre} />
 
       <h2>Rooms at this centre</h2>
       <p>

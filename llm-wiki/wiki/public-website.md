@@ -116,21 +116,100 @@ stay the repo root, which is the trap [[deployment]] already records one version
 
 ### Rejected
 
-- **A Google Maps embed.** A link out instead. An iframe is a third party on a page read by parents
-  of three-month-olds, and `frame-src 'none'` stays.
-- **A webfont.** The system stack, which is also what their current site uses. A webfont is a
-  third-party request and a layout shift for a typeface nobody asked for.
+- **A Google Maps embed.** Still rejected, and there is a map now — see *The map that is not an
+  embed* below. An iframe is a third party on a page read by parents of three-month-olds, and
+  `frame-src 'none'` stays.
+- **A webfont from a CDN.** *Corrected — the site has a typeface, and this bullet used to say it
+  did not.* The original decision was "the system stack, because a webfont is a third-party request
+  and a layout shift". The first half was answered by `next/font`, which downloads the files at
+  build time and serves them from this origin, so `font-src 'self' data:` never changed; the second
+  by `display: 'swap'`. Headings are Literata. The choice of face was itself a defect caught by
+  looking — see the long note in `apps/site/src/app/layout.tsx` on Fraunces putting the macron over
+  the wrong letter, which renders `Māori` as `Maōri`.
 - **Any analytics.** `docs/privacy-statement.md` says "no tracking of any kind" and "no third-party
   analytics script in either app" — that sentence now needs to say *any* app, and the answer stays
   no.
-- **Their photographs.** All three homepage images are Flickr-hosted and show children. The platform
-  models exactly why this matters: `photo_public` is a **separate consent** from `photo_internal`,
-  because families who agree to a photo in the private journal routinely refuse one on a public
-  website. The site ships with no child photographs at all.
+- **Their photographs, unexamined.** *Corrected — the site carries photographs now, and this bullet
+  used to say it carried none.* Every one of their eleven was downloaded and looked at rather than
+  judged from its filename. Seven show only the premises, and a picture of an empty room engages
+  nobody's consent; those are in use, committed to `apps/site/public/` so `img-src 'self' data:`
+  still holds. The four showing children were withheld until the centre confirmed the consents on
+  2026-08-07, and the reason they were a separate question is the one the platform models:
+  `photo_public` is a **separate consent** from `photo_internal`, because families who agree to a
+  photo in the private journal routinely refuse one on a public website. See
+  `apps/site/CONTENT-GAPS.md` gap 10 for what is still open about them.
 - **Their social links.** Facebook over plain HTTP, a Twitter handle predating X, plus Flickr and
   Instagram. None could be confirmed active. A footer of dead links is worse than no footer.
 - **Reproducing their enrolment form.** It collects a child's full name and exact date of birth from
   a public page and posts to a 2018 Muse PHP mailer. See below.
+
+### The map that is not an embed
+
+Added 2026-08-07, on `/contact` and both `/centres/*` pages. It is the third time a request has
+arrived that this site's CSP appeared to forbid, and the third time the answer was to build it
+differently rather than widen a directive — the pattern is worth more than any of the three
+features.
+
+**The distinction the original rejection missed.** "A Google Maps embed" was refused because *an
+iframe is a third party on a page read by parents of three-month-olds*. Correct, and it was being
+applied to the wrong noun. What an embed costs a reader is Google's JavaScript executing in the
+page, Google's cookies in their browser, and their IP address handed to Google for the crime of
+looking up a childcare centre's address. **None of that is a property of a map.** It is a property
+of the delivery. The same conflation had already been made once on this site about the typeface and
+resolved the same way.
+
+**What is built.** The container fetches a PNG from the Maps Static API, holds it in memory, and
+serves it from `/api/map/<centre>`. The reader's browser makes one request, to this origin, for an
+image.
+
+| | Embed (`frame-src`) | Direct `<img>` to Google | This |
+|---|---|---|---|
+| CSP change | `frame-src` opened | `img-src` opened | **none** |
+| Reader's browser contacts Google | yes | yes | **no** |
+| Google JS in the page | yes | no | no |
+| Cookies set on the reader | yes | no | no |
+| API key visible to the reader | yes | yes | **no** |
+
+The last row is the one that surprises people. A key in an `<img src>` is a key on every reader's
+screen, restrictable only by HTTP referrer — which is a request header anybody can set. Unprefixed
+and server-side, `GOOGLE_MAPS_API_KEY` cannot be inlined into client JavaScript by Next even by
+accident, the same mechanism `lib/db.ts` relies on for the Supabase anon key.
+
+**The coordinates were geocoded once and committed, not resolved per request.** `centres.ts` now
+carries a `lat`/`lng` per centre, checked on 2026-08-07: both came back `location_type: ROOFTOP`
+with no `partial_match` and a `formatted_address` identical to what the file already held. Handing
+Google the address string at request time also works and was rejected — it moves "which building is
+this childcare centre in" from a value somebody can review in a diff to a service call nobody sees,
+and the failure mode is a parent standing outside a stranger's house with a three-month-old. There
+is a test asserting the request contains the coordinates and **not** the street name, which is the
+one that fails if somebody simplifies it back.
+
+**Two behaviours worth knowing before changing this.**
+
+1. *The picture is optional; the links are not.* The first version of `CentreMap` returned `null`
+   when there was no image, which silently removed the "open in maps" link from both pages — a page
+   that had a working way to find the place would have lost it because an environment variable was
+   missing. Only the `<img>` is conditional now.
+2. *A failure keeps the last good image.* A blip at Google must not blank a page that was working a
+   second ago. Mutation-tested: reverting that line fails exactly one assertion.
+
+**The cache is a module-level `Map`, deliberately not `fetch(..., { next: { revalidate } })`.** The
+root layout is `force-dynamic`, which changes the default caching of `fetch`, and whether an
+explicit `next.revalidate` overrides that default is a question about Next's internals that would
+have to be re-answered on every upgrade. Fifteen lines that behave identically on every version won.
+Measured: nine requests across two centres produced two calls upstream.
+
+**What nobody has checked, and it is in `apps/site/CONTENT-GAPS.md`.** Google's Maps Platform terms
+restrict how long their content may be cached, and serving it from our own origin is caching. The
+TTLs are set short and conservative rather than argued to a limit. Do not read the numbers in
+`staticMap.ts` as a finding about the terms.
+
+**As of 2026-08-07 the Maps Static API is not enabled on the Google Cloud project**, so the live
+site shows the fallback: address, "Get directions", phone number, no picture. Enabling it is a
+console tick and needs no deploy — the negative result is cached for fifteen minutes, not for the
+life of the container, for exactly this reason. The failure path was verified against the real
+Google endpoint; the success path was verified end to end against a local stand-in serving a real
+PNG, because the only thing the stand-in cannot prove is what Google's cartography looks like.
 
 ### The enquiry form is deliberately not built yet
 

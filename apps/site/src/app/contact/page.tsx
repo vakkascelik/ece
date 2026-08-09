@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { CentreMap } from '../CentreMap';
 import { CENTRES, CENTRE_FACTS } from '@/lib/centres';
 import { appUrl } from '@/lib/site';
 
@@ -21,8 +22,13 @@ export const metadata: Metadata = {
  *
  * Their page also states hours nowhere — hours appear once, on the homepage. They are here too,
  * because "what time do you open" is why people open a contact page.
+ *
+ * A MAP EACH, as of 2026-08-07, replacing the bare "Open in maps" link. Nothing about the position
+ * on third parties moved to allow it: the picture is fetched by this server and served from this
+ * origin, so the CSP is byte-for-byte what it was. See `lib/staticMap.ts` for why that distinction
+ * is the whole design and not a technicality.
  */
-export default function ContactPage() {
+export default async function ContactPage() {
   return (
     <>
       <h1>Contact us</h1>
@@ -32,37 +38,29 @@ export default function ContactPage() {
       </p>
 
       <div className="grid">
-        {CENTRES.map((centre) => {
-          const mapQuery = encodeURIComponent(
-            `${centre.street}, ${centre.suburb} ${centre.postcode}`,
-          );
-          return (
-            <div className="card" key={centre.path}>
-              <h2 style={{ marginTop: 0 }}>{centre.name}</h2>
-              <dl className="facts">
-                <dt>Phone</dt>
-                <dd>
-                  <a href={`tel:${centre.phoneHref}`}>{centre.phone}</a>
-                </dd>
-                <dt>Email</dt>
-                <dd>
-                  <a href={`mailto:${centre.email}`}>{centre.email}</a>
-                </dd>
-                <dt>Address</dt>
-                <dd>
-                  {centre.street}
-                  <br />
-                  {centre.suburb} {centre.postcode}
-                </dd>
-              </dl>
-              <p>
-                <a href={`https://www.google.com/maps/search/?api=1&query=${mapQuery}`}>
-                  Open in maps
-                </a>
-              </p>
-            </div>
-          );
-        })}
+        {CENTRES.map((centre) => (
+          <div className="card" key={centre.path}>
+            <h2 style={{ marginTop: 0 }}>{centre.name}</h2>
+            <dl className="facts">
+              <dt>Phone</dt>
+              <dd>
+                <a href={`tel:${centre.phoneHref}`}>{centre.phone}</a>
+              </dd>
+              <dt>Email</dt>
+              <dd>
+                <a href={`mailto:${centre.email}`}>{centre.email}</a>
+              </dd>
+              <dt>Address</dt>
+              <dd>
+                {centre.street}
+                <br />
+                {centre.suburb} {centre.postcode}
+              </dd>
+            </dl>
+            {/* The picture drops out if there is no map to show; the links under it do not. */}
+            <CentreMap centre={centre} />
+          </div>
+        ))}
       </div>
 
       <h2>Working with us</h2>

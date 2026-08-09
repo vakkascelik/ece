@@ -29,14 +29,26 @@
  *
  * WHAT THIS POLICY ALLOWS THAT THE APP'S DOES NOT
  *
- * Nothing, yet. It was tempting to open `frame-src` for a Google Map and `font-src` for a
- * webfont, and both were refused for the same reason the app refuses them: a third party on a
- * page read by parents of three-month-olds. The map is a link out, and the type is the system
- * stack — which is also what their current site uses, so nothing is lost.
+ * Still nothing. Two requests have been made of this file and both were answered by building the
+ * feature differently rather than by widening a directive, which is the pattern worth keeping.
  *
- * `img-src` stays `'self' data:` because every image on this site is committed to
- * `apps/site/public/`. Their current photography is hosted on Flickr and none of it is used here
- * until the consent position for each photograph is known.
+ * **The webfont.** This used to say the type was the system stack because "a webfont is a third
+ * party on a page read by parents of three-month-olds". There is a typeface now. `next/font`
+ * downloads the files at build time and serves them from this origin, so `font-src 'self' data:`
+ * never had to change — "no webfont" and "no third-party request" were being treated as one
+ * decision and are not.
+ *
+ * **The map.** Same shape, and it is the newer one — 2026-08-07. `frame-src` is still `'none'` and
+ * `img-src` is still `'self' data:`, because the container fetches the picture from the Maps Static
+ * API and serves the bytes from `/api/map/<centre>`. What was refused was never the map; it was an
+ * iframe running Google's JavaScript, setting Google's cookies and collecting the IP address of
+ * everyone who opens the contact page. The reader's browser still talks to exactly one origin. See
+ * `lib/staticMap.ts`, which carries the reasoning and the one thing about it nobody has checked.
+ *
+ * `img-src` therefore stays `'self' data:`. Every image on this site is either committed to
+ * `apps/site/public/` or proxied through this origin, and the alternative to the proxy — allowing
+ * `maps.googleapis.com` — is a directive that would let any future page fetch any image from
+ * Google, to save one route handler.
  */
 
 /** Per-request, from the Web Crypto API — available in the Edge runtime, unlike node:crypto. */

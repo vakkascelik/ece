@@ -369,6 +369,30 @@ Notes on those three:
   custom domain.
 | `SUPABASE_URL` | **required for the careers form** | The same project URL the platform uses |
 | `SUPABASE_ANON_KEY` | **required for the careers form** | The **anon** key, never the service-role key |
+| `GOOGLE_MAPS_API_KEY` | optional, for the maps | A Google Maps Platform key with the **Maps Static API** enabled |
+
+> ### The maps key, and the two ways it goes wrong
+>
+> **Unprefixed, for the same reason as the pair above.** The key is used by this container and never
+> by a browser: `apps/site/src/lib/staticMap.ts` fetches the picture and `/api/map/<centre>` serves
+> the bytes from this origin, which is why the site's CSP still says `img-src 'self' data:` and
+> `frame-src 'none'`. A `NEXT_PUBLIC_` prefix would inline the key into client JavaScript, put it in
+> front of every reader, and make that whole design pointless.
+>
+> **Enabling the API is a separate step from creating the key**, and it is the one that catches
+> people. "Maps Static API" is its own product in the Google Cloud console — a key that geocodes
+> happily will still return **403 with a plain-text body** for a static map. The symptom is a site
+> with no maps and no error anywhere on the page, because `CentreMap` renders nothing rather than a
+> broken image; the 403 is in the container log, prefixed `[map]`.
+>
+> **Restrict it and set a budget.** This key is not secret in the sense the service-role key is —
+> the worst case is somebody else's map requests on this project's bill — but it is a bill.
+> Restrict it to the Maps Static API, and to the Geocoding API only if the coordinates in
+> `apps/site/src/lib/centres.ts` ever need redoing.
+>
+> **Unset is a supported state.** Both pages fall back to what they carried before the maps existed:
+> the address in text, "Get directions", and the phone number. `/api/health` reports
+> `mapsDisabledFor` so the difference is visible without reading the HTML.
 
 > ### Why those two are unprefixed, and what they can do
 >
