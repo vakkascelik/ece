@@ -15,7 +15,7 @@
  */
 export const MEDIA_BUCKET = 'media';
 
-export const NOTIFICATION_KINDS = ['post', 'message', 'attendance', 'reminder'] as const;
+export const NOTIFICATION_KINDS = ['post', 'message', 'attendance', 'reminder', 'emergency'] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
 
 export interface NotificationPreferences {
@@ -41,14 +41,22 @@ export const DEFAULT_PREFERENCES: NotificationPreferences = {
   quietUntil: '07:00',
 };
 
-const ENABLED: Record<NotificationKind, keyof NotificationPreferences> = {
+// 'emergency' has no entry and no opt-out — see wantsKind below.
+const ENABLED: Record<Exclude<NotificationKind, 'emergency'>, keyof NotificationPreferences> = {
   post: 'posts',
   message: 'messages',
   attendance: 'attendance',
   reminder: 'reminders',
 };
 
+/**
+ * Whether this person's preferences allow this kind — except `emergency`, which is not a
+ * preference question. There is no toggle for it in `NotificationPreferences` and there
+ * will not be one: a family cannot opt out of being told the building is being evacuated,
+ * so the type has nothing to check here rather than a boolean that could be set to false.
+ */
 export function wantsKind(prefs: NotificationPreferences, kind: NotificationKind): boolean {
+  if (kind === 'emergency') return true;
   return prefs[ENABLED[kind]] === true;
 }
 

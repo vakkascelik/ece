@@ -71,6 +71,9 @@ and [`../schema.md`](../schema.md) for the page template.
 - [[parent-self-service]] — the first write a family may make, why it is a definer function and
   not a policy, why the button does not say Cancel, and an assertion that lied because its
   subject could not see its own evidence
+- [[emergency-broadcast]] — a fan-out that reaches every family through a queue with a writer
+  for nobody and a reader for nothing, until now; why the word does not mean push or email yet;
+  and a bug the RLS suite caught while its own assertion was being written
 
 ## Reporting
 

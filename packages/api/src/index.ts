@@ -239,3 +239,7 @@ export * from './ai';
 // Enrolment enquiries. The public write path is the definer function; apps/site maps a
 // narrow import to this module so it cannot reach the rest of the API.
 export * from './enquiries';
+
+// A family's own notification queue, and the emergency broadcast that is 0057's only writer
+// of it so far — the fan-out is a definer function, the same shape as kiosk.ts.
+export * from './notifications';

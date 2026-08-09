@@ -5626,6 +5626,187 @@ select pg_temp.expect(
 
 set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
 
+-- ===========================================================================
+-- EMERGENCY BROADCAST — 0057
+--
+-- `broadcast_emergency` is SECURITY DEFINER, exactly like `purge_child`: it bypasses every
+-- policy below, so its own explicit role check is the only thing standing between a caller
+-- and every family's inbox at a centre that is not theirs.
+--
+-- By this point in the suite, Priya (33333333) has been revoked (the parent-revocation
+-- block above) and Bob (22222222) has been revoked from centre B (the membership-revocation
+-- block after it). Centre A's ACTIVE, non-kiosk membership is therefore Alice (owner),
+-- Quinn (parent) and Ed (educator) — three, not four — which is why the recipient count
+-- below is computed rather than hard-coded: a fixture this large should not need a reader
+-- to recount who is still active by hand.
+-- ===========================================================================
+
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+
+do $$
+declare
+  v_expected integer;
+  v_returned integer;
+begin
+  select count(*) into v_expected
+    from public.memberships
+   where centre_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+     and revoked_at is null
+     and role <> 'kiosk';
+
+  select public.broadcast_emergency(
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    'Evacuation drill',
+    'The building is being evacuated. Please make your way to the car park.'
+  ) into v_returned;
+
+  perform pg_temp.expect(v_returned = v_expected,
+    'an owner sends an emergency broadcast, reaching every active non-kiosk member (' ||
+      v_returned || ' of ' || v_expected || ')');
+end $$;
+
+-- As service_role: `notifications_own` means Alice herself can see only her OWN row
+-- through ordinary RLS, which is not what this is checking. The total fan-out is a fact
+-- only the elevated role (or the function that just ran as it) can see in one query.
+set local role service_role;
+select pg_temp.expect(
+  (select count(*) from public.notifications
+    where centre_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+      and kind = 'emergency' and title = 'Evacuation drill') =
+  (select count(*) from public.memberships
+    where centre_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+      and revoked_at is null and role <> 'kiosk'),
+  'and a notifications row lands for every one of them, no more and no fewer'
+);
+set local role authenticated;
+
+select pg_temp.expect(
+  (select count(*) from public.emergency_broadcasts
+    where centre_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+      and title = 'Evacuation drill') = 1,
+  'and the send itself is recorded once in emergency_broadcasts'
+);
+
+-- The recipient reads her own copy — notifications_own has existed since 0017 with
+-- nothing to read until this function existed to write to it.
+set local request.jwt.claims = '{"sub":"44444444-4444-4444-8444-444444444444","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.notifications where kind = 'emergency' and title = 'Evacuation drill') = 1,
+  'a parent who received the broadcast reads it in their own notifications'
+);
+
+-- But not the staff-only history: visibility of one's own delivery is not the same
+-- question as who is allowed to browse what a centre has sent.
+select pg_temp.expect(
+  (select count(*) from public.emergency_broadcasts) = 0,
+  'and a parent reads NO emergency_broadcasts history'
+);
+
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.emergency_broadcasts) = 0,
+  'nor can an educator, though they too received the notification'
+);
+
+do $$
+declare msg text := 'none (the call SUCCEEDED)';
+begin
+  begin
+    perform public.broadcast_emergency('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'x', 'y');
+  exception when others then msg := sqlstate;
+  end;
+  perform pg_temp.expect(msg <> 'none (the call SUCCEEDED)',
+    'an educator CANNOT send an emergency broadcast, got ' || msg);
+end $$;
+
+set local request.jwt.claims = '{"sub":"44444444-4444-4444-8444-444444444444","role":"authenticated"}';
+do $$
+declare msg text := 'none (the call SUCCEEDED)';
+begin
+  begin
+    perform public.broadcast_emergency('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'x', 'y');
+  exception when others then msg := sqlstate;
+  end;
+  perform pg_temp.expect(msg <> 'none (the call SUCCEEDED)',
+    'nor can a parent, got ' || msg);
+end $$;
+
+-- Bob's own centre-B membership was itself revoked earlier in this suite, which is
+-- immaterial here: `caller_has_role` checks for an active membership AT CENTRE A
+-- specifically, and Bob has never held one there, revoked or otherwise.
+set local request.jwt.claims = '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}';
+do $$
+declare msg text := 'none (the call SUCCEEDED)';
+begin
+  begin
+    perform public.broadcast_emergency('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'x', 'y');
+  exception when others then msg := sqlstate;
+  end;
+  perform pg_temp.expect(msg <> 'none (the call SUCCEEDED)',
+    'an owner of another centre CANNOT broadcast to this one, got ' || msg);
+end $$;
+
+select pg_temp.expect(
+  (select count(*) from public.emergency_broadcasts
+    where centre_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') = 0,
+  'and reads none of this centre''s broadcast history either'
+);
+
+-- Append-only, asserted on the sqlstate — the verb is withheld by GRANT, not filtered to
+-- zero rows, for the reason detail_confirmations' own block above already argues.
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+do $$
+declare code text := 'none (the update SUCCEEDED)';
+begin
+  begin
+    update public.emergency_broadcasts set title = 'edited' where title = 'Evacuation drill';
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '42501',
+    'NOBODY can edit a sent broadcast after the fact, got ' || code);
+end $$;
+
+do $$
+declare code text := 'none (the delete SUCCEEDED)';
+begin
+  begin
+    delete from public.emergency_broadcasts where title = 'Evacuation drill';
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '42501', 'nor delete one, got ' || code);
+end $$;
+
+set local role service_role;
+do $$
+declare code text := 'none (the update SUCCEEDED)';
+begin
+  begin
+    update public.emergency_broadcasts set title = 'edited';
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '42501',
+    'SERVICE_ROLE cannot rewrite a broadcast record either, got ' || code);
+end $$;
+set local role authenticated;
+
+-- Not a public write path like the enrolment enquiry — anon holds no EXECUTE at all.
+set local role anon;
+set local request.jwt.claims = '{"role":"anon"}';
+do $$
+declare allowed boolean := false;
+begin
+  begin
+    perform public.broadcast_emergency('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'x', 'y');
+    allowed := true;
+  exception when insufficient_privilege then allowed := false;
+  when others then allowed := false;
+  end;
+  perform pg_temp.expect(not allowed, 'anon CANNOT call broadcast_emergency at all');
+end $$;
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+
 
 /*
  * The class. Every `_write_delete` policy's USING must equal its `_write_insert` counterpart's
@@ -5692,7 +5873,9 @@ begin
                            -- 0049: a usage record, and the row is its own record.
                            'ai_requests',
                            -- 0055: a confirmation IS the record.
-                           'detail_confirmations')
+                           'detail_confirmations',
+                           -- 0057: a sent broadcast IS the record — see the header of 0057.
+                           'emergency_broadcasts')
      -- Reference data, and settings that belong to a person rather than a centre — the
      -- trigger could not attribute them to a tenant even if it fired.
      and c.relname not in ('criteria', 'criteria_sets', 'schema_migrations',

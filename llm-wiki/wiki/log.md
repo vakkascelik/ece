@@ -5,6 +5,64 @@ says so.*
 
 ---
 
+2026-08-10 — **A queue that had a writer for nobody and a reader for nothing, for three
+days.** 0056, 0057, `broadcast_emergency`, `/broadcast`, `/notifications`. See
+[[emergency-broadcast]].
+
+Phase 12's "emergency broadcast" item. `notifications` (0017) shipped with quiet-hours
+arithmetic tested to 17 assertions and nothing in either app that ever wrote to it or read
+from it — `grep` for `.from('notifications')` outside its own migration found nothing.
+
+**The word "broadcast" does not mean what it usually means here, and the form says so.**
+The roadmap asked for this built on push and email; this project has neither, and building a
+real email vendor integration to make the word honest would be its own multi-day
+undertaking with its own privacy-statement change — the exact shape of decision already made
+once about SMS and deferred. So this ships the one channel that is real: a row on a page a
+family has to think to open. `BroadcastForm.tsx`'s own copy says exactly that rather than
+letting the word oversell it.
+
+**`SECURITY DEFINER`, the same shape as `purge_child`, for the same reason.** Sending one
+means writing into every active member's row — a fan-out 0017's own comment had already
+called "a service-role action, like onboarding" when it declined to grant `authenticated`
+any INSERT. The function's own `caller_has_role` check is therefore the only thing between a
+caller and a centre that is not theirs, because SECURITY DEFINER bypasses every policy below
+it.
+
+**A separate `emergency_broadcasts` table, append-only, revoked from `service_role` too.**
+`notifications_own` restricts a row to its recipient by design — an owner has no policy to
+browse forty individual deliveries. So this is the fact instead: what was sent, by whom, to
+how many. Checked by trying to delete a manual test row and being refused, the same way
+`waitlist`'s missing DELETE grant got found two days ago.
+
+**The RLS suite caught a real mistake in its own first draft.** The recipient-count
+assertion originally checked the total as the sending owner, immediately after the call. It
+failed — correctly: `notifications_own` means an owner reads only her own row through
+ordinary RLS, same as anyone else, and the fan-out total is not a fact a normal session can
+see in one query. Needed `service_role`, the same bypass the function itself uses. Left the
+mistake in as the comment, because it is the kind one writes again without it.
+
+**The recipient count in the test is computed, not remembered.** The shared fixture is 5,800
+lines deep by the point this block runs, and an earlier test has already revoked one of
+centre A's four memberships. A hard-coded `4` would have been a plausible number that was
+simply wrong — the count is read from `memberships` at assertion time instead, which is also
+the more honest description of what "reaches everyone" is supposed to mean.
+
+**`wantsKind` gained a kind with no preference to check.** `emergency` has no boolean in
+`NotificationPreferences` and will not get one — nobody opts out of an evacuation notice — so
+the function returns `true` unconditionally for it rather than reading a field that does not
+exist.
+
+**What this is not, said plainly rather than left implied:** no unread badge, no push, no
+email. A family has to think to open `/notifications`. Closing that properly is push
+delivery working at all, which is unverified-claims item 5 and needs a device this session
+does not have.
+
+438/438 RLS (14 new), 16/16 security review, 495/495 unit tests, full build. Verified against
+the real dev database end to end — signed in as the demo owner, sent a broadcast, read it
+back through the API layer the web app actually calls, not just through raw SQL.
+
+---
+
 2026-08-09 — **`drill:offline`, finally run, and a bug it could not have found any other
 way.** `offline-drill.ts`. See [[unverified-claims]] §21, [[offline-outbox]].
 

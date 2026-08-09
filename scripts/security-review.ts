@@ -82,6 +82,7 @@ const APPEND_ONLY = [
   'payments',
   'ai_requests',
   'detail_confirmations',
+  'emergency_broadcasts',
 ];
 
 async function main() {
@@ -573,6 +574,8 @@ async function main() {
                              'ai_requests',
                              -- 0055: a confirmation IS the record; an editable one answers nothing.
                              'detail_confirmations',
+                             -- 0057: a sent emergency broadcast IS the record.
+                             'emergency_broadcasts',
                              'criteria', 'criteria_sets', 'schema_migrations',
                              'push_tokens', 'notification_preferences', 'notifications',
                              'invitations')

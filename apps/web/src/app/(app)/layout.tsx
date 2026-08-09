@@ -46,6 +46,8 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           <NavLink href="/children">{ctx.role === 'parent' ? 'Your tamariki' : 'Children'}</NavLink>
           <NavLink href="/posts">{ctx.role === 'parent' ? 'Pānui' : 'Posts'}</NavLink>
           <NavLink href="/messages">Messages</NavLink>
+          {/* Everyone's own inbox — 0057, and the first thing that ever reads this table. */}
+          <NavLink href="/notifications">Notifications</NavLink>
           {can(ctx.role, 'recordDailyPractice') && <NavLink href="/attendance">Attendance</NavLink>}
           {/* Beside Attendance because it is the same shift and the same tablet — not under
               Compliance, which is where the binder is assembled rather than where the day is
@@ -87,6 +89,12 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
               a report is what you read once the day-to-day is recorded, not instead of it. */}
           {can(ctx.role, 'manageCentre') && <NavLink href="/reports">Reports</NavLink>}
           {can(ctx.role, 'manageCentre') && <NavLink href="/settings">Settings</NavLink>}
+          {/* Its own link rather than a Settings tab — a distinct, consequential action
+              (send once, reach everyone, no undo), and burying it costs the one moment
+              somebody actually needs to find it fast. */}
+          {can(ctx.role, 'broadcastEmergency') && (
+            <NavLink href="/broadcast">Emergency broadcast</NavLink>
+          )}
           {/* Everyone: this is the user's own account, not the centre's. */}
           <NavLink href="/account">Account</NavLink>
         </nav>

@@ -141,6 +141,12 @@ export const CAPABILITIES = {
    * only decides whether the nav link is drawn.
    */
   manageRecruitment: ['owner', 'manager'],
+  /**
+   * Send an emergency broadcast. The same two roles `broadcast_emergency` (0057) checks in
+   * Postgres — listed here only so the send form is never drawn for a role the database
+   * would refuse, never as the thing that actually stops them.
+   */
+  broadcastEmergency: ['owner', 'manager'],
 } as const satisfies Record<string, readonly MemberRole[]>;
 
 export type Capability = keyof typeof CAPABILITIES;
