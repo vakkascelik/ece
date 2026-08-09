@@ -314,6 +314,34 @@ it enumerates grows.* Adding a role to `createAuditTenant` and not to that list 
 construction — the same failure as the two audit-exemption lists in [[model-calls]], and the same
 one `tokens:check` exists to prevent for design tokens.
 
+### The same shape, four times in one day
+
+Worth collecting, because the individual fixes are unremarkable and the pattern is not. On
+2026-08-09 four separate defects had one cause — **a hand-maintained list that does not grow when
+the thing it enumerates does**:
+
+| List | Missing | How it would have been found |
+|---|---|---|
+| audit-trigger exemptions in `rls_isolation.sql` | `ai_requests` | `review:security` went HIGH — the *good* failure, because a second list disagreed |
+| audit-trigger exemptions in `security-review.ts` | `ai_requests` | nothing; it is the second copy of the first |
+| account ids in `destroyAuditTenant` | `kioskId` | **nothing.** One leaked login per run, forever |
+| audited routes in `a11y.spec.ts` | `/reports` | **nothing.** The sweep keeps reporting every listed screen clean, truthfully |
+
+Three of the four fail *silently* and one of them never fails at all — the a11y sweep would go on
+passing while saying nothing about a page it had never seen. That is worse than a red test, because
+the green one reads as coverage.
+
+**The tell is the same every time: a literal list that has to be edited whenever an unrelated file
+grows.** When adding one, ask what happens if the next person forgets — if the answer is "nothing
+visible", the list needs a check that derives its contents rather than restating them. That is
+exactly what `tokens:check` does, what `bounded-queries.test.ts` does by scanning source, and what
+the audit-trigger class assertion does by reading `pg_class`. None of those can be forgotten into
+silence.
+
+Not unified here: the two audit lists cross a SQL/TypeScript boundary, and the a11y and tenant lists
+are legitimately hand-curated (each entry carries a reason). Recorded so the fifth instance is
+recognised as an instance rather than as a fresh surprise.
+
 Its centre loop was also fail-fast, and one stuck tenant aborted it **before the accounts section**.
 That is where the rest of the damage was: `--dry-run` found **60 orphan logins**, the same
 accumulation the fixture comment already describes from an earlier occurrence ("fifty-six of them

@@ -5,6 +5,73 @@ says so.*
 
 ---
 
+2026-08-09 — **Occupancy, and the denominator this product never had.** 0050,
+`packages/core/src/occupancy.ts`, `readAttendanceByDay`, `/reports`. New page: [[reporting]].
+
+The last item in §2, and it opened with a finding rather than a feature: **this product could not
+compute occupancy at all, and had never noticed.** It knew how many children attended and had never
+known how many it was allowed — `centres` carried no licence capacity. The number every multi-site
+operator asks for was missing a denominator, and nothing said so because nothing had tried.
+
+**So the interesting decision was what to do about the absence, not how to divide.** A default is
+the obvious move and it is wrong in a way that survives review: a New Zealand licence runs from
+about ten places to about a hundred and fifty, so a default can be **wrong by a factor of three
+while producing percentages that look entirely real**, and one of them ends up in a board paper.
+`licensed_places` is therefore nullable with no default, the same contract as the sleep and drill
+intervals — null means the centre has not stated one, which is a different fact from any number.
+
+**The union is the mechanism, not the documentation.** `DayOccupancy` has two branches and the
+not-stated one has no `percent` field at all, so a caller cannot read a percentage without having
+handled the case where there is not one. `percent: null` was considered and rejected: every call
+site re-invents the sentence and one of them eventually renders `null%` or quietly `?? 0`. Same
+reasoning as `ModelPayload` having no string branch — make the wrong thing unsayable rather than
+forbidden.
+
+**The percentage is deliberately not capped at 100, and the page explains why it is not a breach.**
+A day over the licence is the most important row the report can hold. But `children` counts everyone
+present at *any point*, so a morning child leaving before an afternoon child arrives can push a day
+over the licence while the centre was never over it at any instant. A report that called that a
+breach would accuse a centre of something it did not do, so the screen names which question it is
+answering and points at the ratio history for the other. Two questions that look like one.
+
+**The average is over open days.** Ninety children across five calendar days is 18; across the
+three the centre was open it is 30. The first is a third of the truth and nothing about it looks
+wrong. `daysWithAttendance` is returned alongside so a reader knows what the average is over, and
+the page says it in words. Null rather than zero when nothing was recorded, because "we have no
+data" and "no children came" are different statements and only one is alarming.
+
+**Four mutations, four killed by name:** collapsing not-stated into 0%, averaging over calendar
+days, capping the percentage, and `>` instead of `>=` at capacity. The last one matters more than it
+looks — at capacity is the day a centre turned a family away, and `>` drops it silently.
+
+**And the optimisation I refused.** `count(distinct child_id) group by date` in Postgres returns one
+small answer instead of thousands of rows, and it is not used: the grouping key is a **local date**
+and the column is an instant, so the SQL would have to embed `at time zone 'Pacific/Auckland'` — and
+this schema has a `timezone` column precisely so that no query hardcodes one. `localDates.test.ts`
+scans for exactly that and would reject it. The caller passes windows it already computed from the
+centre's zone and the bucketing happens in TypeScript. Slower and correct beats faster and thirteen
+hours out twice a year.
+
+**The grant went in the same migration as the column**, which is the whole lesson of 0047/0048 —
+`centres` carries column-level UPDATE grants, and a column added without one makes Postgres refuse
+the entire settings form rather than just the new field. Asserted against `information_schema`
+rather than by attempting a write, because a successful write proves a grant exists for whoever is
+writing and says nothing about the column being in the list. Mutation-tested by revoking it.
+
+**And the pattern showed up a fourth time.** `/reports` was not in `a11y.spec.ts`'s hand-maintained
+route list, so the new page would have shipped as the one screen no accessibility audit had ever
+seen — and the sweep would have gone on reporting every *listed* screen clean, truthfully, while
+saying nothing about this one. Four defects in one day with a single cause: two audit-exemption
+lists, the teardown's account ids, and now the audited routes. Three of the four fail silently and
+one never fails at all. Collected in [[conventions]] with the tell — a literal list that must be
+edited when an unrelated file grows — so the fifth is recognised as an instance rather than a fresh
+surprise.
+
+381/381 RLS, 16/16 security review, 470 unit tests, 105/105 e2e — the last including an
+accessibility audit of the new page, which is the thing that would otherwise have been missing.
+
+---
+
 2026-08-09 — **Xero, as a file rather than an integration.** `/billing/xero.csv`,
 `packages/core/src/xero.ts`, `listIssuedInvoiceLines`. See [[exports]].
 

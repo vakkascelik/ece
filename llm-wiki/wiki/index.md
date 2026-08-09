@@ -66,6 +66,12 @@ and [`../schema.md`](../schema.md) for the page template.
 - [[privacy-and-retention]] — what the Privacy Act 2020 actually requires (and a correction to
   an earlier wrong claim), plus how purging coexists with append-only tables
 
+## Reporting
+
+- [[reporting]] — occupancy and attendance trends, the licence figure this product refused to
+  invent a default for, why the average is over open days rather than calendar days, and the
+  Postgres GROUP BY that would have been faster and wrong
+
 ## Model calls
 
 - [[model-calls]] — what is sent to an external model and what the type system makes

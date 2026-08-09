@@ -358,6 +358,18 @@ test.describe('staff screens', () => {
     await auditPage(page, '/funding');
   });
 
+  /*
+    Audited in the NOT-STATED state, which is the one every centre starts in.
+
+    The fixture states no licence, so this is the page saying it cannot compute occupancy —
+    a paragraph and a table column reading "not stated". The percentage variant is not
+    covered here; it would need the fixture to set a licence, and the branch that renders a
+    number is the simpler of the two.
+  */
+  test('reports', async ({ page }) => {
+    await visit(page, '/reports');
+    await auditPage(page, '/reports');
+  });
   test('settings', async ({ page }) => {
     await visit(page, '/settings');
     await auditPage(page, '/settings');

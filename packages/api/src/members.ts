@@ -111,6 +111,8 @@ export async function updateCentre(
      * Off until somebody turns it on — see 0047 and `docs/claude-api-plan.md`.
      */
     aiFeatures?: boolean;
+    /** Same null-means-none-stated contract as the intervals above. See 0050. */
+    licensedPlaces?: number | null;
   },
 ): Promise<void> {
   const row: Record<string, unknown> = {};
@@ -123,6 +125,7 @@ export async function updateCentre(
   if (patch.drillIntervalDays !== undefined) row.drill_interval_days = patch.drillIntervalDays;
   if (patch.ratioSource !== undefined) row.ratio_source = patch.ratioSource;
   if (patch.aiFeatures !== undefined) row.ai_features = patch.aiFeatures;
+  if (patch.licensedPlaces !== undefined) row.licensed_places = patch.licensedPlaces;
   if (Object.keys(row).length === 0) return;
 
   /*

@@ -80,6 +80,7 @@ interface CentreRow {
   medication_requires_witness: boolean;
   sleep_check_minutes: number | null;
   drill_interval_days: number | null;
+  licensed_places: number | null;
   ratio_source: RatioSource;
   ai_features: boolean;
   archived_at: string | null;
@@ -106,6 +107,9 @@ const toCentre = (r: CentreRow): Centre => ({
   // Null is meaningful here too: none stated, which the screen renders differently
   // from any number.
   drillIntervalDays: r.drill_interval_days,
+  // Null is meaningful a third time: not stated, which the occupancy report renders
+  // as a sentence rather than as a percentage. Do not `?? 0`.
+  licensedPlaces: r.licensed_places,
   ratioSource: r.ratio_source,
   aiFeatures: r.ai_features,
   archivedAt: r.archived_at,
@@ -123,7 +127,7 @@ const toMembership = (r: MembershipRow): Membership => ({
 export async function listMyCentres(db: Db): Promise<Centre[]> {
   const { data, error } = await db
     .from('centres')
-    .select('id, name, moe_service_number, slug, timezone, medication_requires_witness, sleep_check_minutes, drill_interval_days, ratio_source, ai_features, archived_at')
+    .select('id, name, moe_service_number, slug, timezone, medication_requires_witness, sleep_check_minutes, drill_interval_days, licensed_places, ratio_source, ai_features, archived_at')
     .is('archived_at', null)
     .order('name');
   if (error) throw new Error(`listMyCentres: ${error.message}`);
@@ -193,7 +197,7 @@ export async function createCentre(
       slug: input.slug,
       moe_service_number: input.moeServiceNumber ?? null,
     })
-    .select('id, name, moe_service_number, slug, timezone, medication_requires_witness, sleep_check_minutes, drill_interval_days, ratio_source, ai_features, archived_at')
+    .select('id, name, moe_service_number, slug, timezone, medication_requires_witness, sleep_check_minutes, drill_interval_days, licensed_places, ratio_source, ai_features, archived_at')
     .single();
   if (error) throw new Error(`createCentre: ${error.message}`);
 

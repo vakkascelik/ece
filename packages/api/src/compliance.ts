@@ -391,6 +391,79 @@ export async function archiveEvidence(db: Db, evidenceId: string): Promise<void>
  * a local concept and the events are instants. The caller works out the window from the
  * centre's timezone; getting that wrong shifts a whole day's evidence by twelve hours.
  */
+/**
+ * Distinct children present on each day of a range, for the occupancy report.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * ONE QUERY OVER A RANGE, NOT ONE PER DAY
+ *
+ * The obvious shape is a loop over dates calling `readDayRatio`, and it has been written
+ * here before: the roster forecast shipped with a page issuing 31 queries, and it had to
+ * be rewritten into a range read. A term is ninety days, so the loop is ninety round
+ * trips for one screen.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * PAGED, AND THE BOUND IS NOT STRUCTURAL
+ *
+ * ~130 events a day at a 65-place service is ~2,600 a month and ~8,000 a term, so this
+ * passes PostgREST's 1000-row ceiling inside a fortnight. That ceiling is silent — no
+ * error, just fewer rows — and here it would under-count attendance, which is the same
+ * direction of wrongness that under-reported a funding claim by 28%. `fetchAll`.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * COUNTED IN THE APPLICATION, ON PURPOSE
+ *
+ * A `count(distinct child_id) group by date` in Postgres would be one small answer rather
+ * than thousands of rows. It is not used because the grouping key is a **local date** and
+ * the column is an instant: the SQL would have to say `(at at time zone 'Pacific/Auckland')`
+ * with the zone baked in, and this schema has a `timezone` column precisely so that no
+ * query hardcodes one. `localDates.test.ts` scans for exactly that pattern.
+ *
+ * So the caller supplies the day windows it already computed from the centre's timezone,
+ * and the bucketing happens here against them. Slower and correct beats faster and
+ * thirteen hours out on the two days a year the offset moves.
+ *
+ * Superseded events are excluded: a corrected sign-in is not a second child.
+ */
+export async function readAttendanceByDay(
+  db: Db,
+  centreId: string,
+  days: readonly { date: string; fromUtc: string; toUtc: string }[],
+): Promise<Array<{ date: string; children: number }>> {
+  if (days.length === 0) return [];
+
+  const first = days[0]!;
+  const last = days[days.length - 1]!;
+
+  const rows = await fetchAll<{ id: string; child_id: string; at: string; corrects: string | null }>(
+    'readAttendanceByDay',
+    (a, b) =>
+      db
+        .from('attendance_events')
+        .select('id, child_id, at, corrects, children!inner(centre_id)')
+        .eq('children.centre_id', centreId)
+        .gte('at', first.fromUtc)
+        .lt('at', last.toUtc)
+        .order('at')
+        .order('id')
+        .range(a, b),
+  );
+
+  // A corrected event is superseded by the one that corrects it. Counting both would
+  // inflate a day by every correction a manager made — and corrections cluster on the
+  // days somebody was watching, which are the days a report is about.
+  const superseded = new Set(rows.map((r) => r.corrects).filter((c): c is string => c !== null));
+
+  return days.map((day) => {
+    const present = new Set<string>();
+    for (const row of rows) {
+      if (superseded.has(row.id)) continue;
+      if (row.at >= day.fromUtc && row.at < day.toUtc) present.add(row.child_id);
+    }
+    return { date: day.date, children: present.size };
+  });
+}
+
 export async function readDayRatio(
   db: Db,
   input: {

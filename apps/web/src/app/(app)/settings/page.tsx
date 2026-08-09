@@ -16,6 +16,7 @@ export default async function SettingsPage() {
         drillIntervalDays={ctx.centre.drillIntervalDays}
         ratioSource={ctx.centre.ratioSource}
         aiFeatures={ctx.centre.aiFeatures}
+        licensedPlaces={ctx.centre.licensedPlaces}
       />
     </>
   );

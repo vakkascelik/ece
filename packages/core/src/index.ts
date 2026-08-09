@@ -38,6 +38,13 @@ export interface Centre {
    */
   drillIntervalDays: number | null;
   /**
+   * Children this service is licensed for, as stated by the centre. Null means not
+   * stated, with the same contract as the two above — the occupancy report then shows
+   * the attendance counts, which are real, and declines to compute a percentage of a
+   * denominator nobody gave. See 0050.
+   */
+  licensedPlaces: number | null;
+  /**
    * Where the adult half of the ratio comes from. Defaults to `declared` so no
    * existing centre's history changes meaning on deploy, and never blends with the
    * other source — see 0040.
@@ -253,6 +260,10 @@ export * from './modelSpend';
 // Invoices in the shape Xero imports. Pure, so the column set is testable without
 // an accounting system — which is the only way it can be tested at all.
 export * from './xero';
+
+// How full the centre has been, and the branch for when it cannot say — the licence
+// is null until somebody types it in, and null is a result rather than a zero.
+export * from './occupancy';
 export * from './funding';
 
 // Applications for employment. The one vocabulary shared with the public website, which

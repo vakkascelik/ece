@@ -14,6 +14,7 @@ export function SettingsForm({
   drillIntervalDays,
   ratioSource,
   aiFeatures,
+  licensedPlaces,
 }: {
   name: string;
   moeServiceNumber: string | null;
@@ -25,6 +26,7 @@ export function SettingsForm({
   ratioSource: RatioSource;
   /** Off until somebody turns it on. Nothing leaves this product while it is false. */
   aiFeatures: boolean;
+  licensedPlaces: number | null;
 }) {
   const [state, action, busy] = useActionState(saveCentre, null as Result);
 
@@ -90,6 +92,32 @@ export function SettingsForm({
           <strong>No child&rsquo;s name, date of birth, NSN or health information is ever sent</strong>,
           and neither is any staff member&rsquo;s. Anything it writes is a draft for you to check, never
           a compliance finding.
+        </p>
+      </div>
+
+      {/*
+        The denominator of every occupancy figure, and blank is a real answer.
+
+        Blank means the centre has not stated its licence, and the report then shows the
+        attendance counts — which are real — and declines to compute a percentage. A
+        default here would produce confident percentages against a number nobody gave.
+      */}
+      <div style={{ marginBottom: '1.25rem' }}>
+        <label htmlFor="places">Children this service is licensed for</label>
+        <input
+          id="places"
+          name="licensedPlaces"
+          type="number"
+          min={1}
+          max={1000}
+          step={1}
+          defaultValue={licensedPlaces ?? ''}
+          style={{ maxWidth: '8rem' }}
+        />
+        <p className="sub" style={{ fontSize: '0.8125rem', margin: '0.25rem 0 0' }}>
+          From your licence. Leave it blank if you would rather not state it &mdash; the
+          occupancy report will show how many tamariki attended and say it cannot work out a
+          percentage.
         </p>
       </div>
 

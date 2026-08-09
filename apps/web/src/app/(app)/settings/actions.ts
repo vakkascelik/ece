@@ -57,6 +57,27 @@ export async function saveCentre(_prev: unknown, form: FormData) {
     outside it is refused rather than coerced — 0040 forbids blending, and silently
     falling back to `declared` on a typo is a quiet version of exactly that.
   */
+  /*
+    Licensed places. Blank is NULL — not stated — with the same contract as the two
+    intervals above, and for a sharper reason: this is the DENOMINATOR of every occupancy
+    figure. A blank coerced to 0 divides by zero; a blank given a default produces
+    percentages against a licence the centre never stated, and they look exactly like
+    real ones.
+
+    The upper bound is a sanity limit, not a rule. New Zealand' largest services are
+    around 150 places, but that is a fact about today' market, and refusing a lawful
+    licence is a support call this product cannot win.
+  */
+  const placesRaw = String(form.get('licensedPlaces') ?? '').trim();
+  let licensedPlaces: number | null = null;
+  if (placesRaw) {
+    const n = Number(placesRaw);
+    if (!Number.isInteger(n) || n < 1 || n > 1000) {
+      return { error: 'Licensed places is a whole number of children, 1 or more.' };
+    }
+    licensedPlaces = n;
+  }
+
   const sourceRaw = String(form.get('ratioSource') ?? '').trim();
   const ratioSource = (RATIO_SOURCES as readonly string[]).includes(sourceRaw)
     ? (sourceRaw as RatioSource)
@@ -73,6 +94,7 @@ export async function saveCentre(_prev: unknown, form: FormData) {
       drillIntervalDays,
       ratioSource,
       aiFeatures: form.get('aiFeatures') === 'on',
+      licensedPlaces,
     });
   } catch (err) {
     const message = (err as Error).message;

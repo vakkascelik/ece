@@ -4906,6 +4906,100 @@ end $$;
 set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
 
 
+-- ---------------------------------------------------------------------------
+-- LICENSED PLACES (0050) — the denominator, and the fact that it may be absent
+--
+-- The interesting property is not who may write it. It is that a centre which has never
+-- stated its licence reads NULL rather than a number, because every occupancy percentage
+-- in the product is computed against this and a default would produce confident
+-- percentages against a figure nobody gave.
+--
+-- The second assertion is the one 0047 taught: `centres` carries COLUMN-level UPDATE
+-- grants, so a column added without its grant makes Postgres refuse the whole statement
+-- before any policy runs — which breaks every other field on the settings form, not just
+-- the new one. Asserted against `information_schema` rather than by attempting a write,
+-- because a successful write proves the grant exists for the role doing the writing and
+-- says nothing about the column being in the list.
+-- ---------------------------------------------------------------------------
+
+set local role postgres;
+
+do $$
+declare v_id uuid; v_places integer;
+begin
+  insert into public.centres (name, slug, timezone)
+  values ('LICENCE PROBE', 'licence-probe', 'Pacific/Auckland')
+  returning id, licensed_places into v_id, v_places;
+
+  perform pg_temp.expect(
+    v_places is null,
+    'a centre created without stating a licence has NO licensed places, not a default'
+  );
+
+  delete from public.centres where id = v_id;
+end $$;
+
+select pg_temp.expect(
+  (select count(*) from information_schema.column_privileges
+    where table_schema = 'public' and table_name = 'centres'
+      and column_name = 'licensed_places' and privilege_type = 'UPDATE'
+      and grantee = 'authenticated') = 1,
+  'licensed_places carries its COLUMN-level UPDATE grant — without it the whole settings form fails'
+);
+
+-- Zero is not a licensed service and a negative one is a typo. Both would poison every
+-- percentage derived from them, and zero would divide by itself.
+do $$
+declare ok boolean := false;
+begin
+  begin
+    update public.centres set licensed_places = 0
+     where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'a licence of zero places is refused');
+end $$;
+
+set local role authenticated;
+
+-- An owner states it, and reads it back.
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+update public.centres set licensed_places = 40
+ where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+
+select pg_temp.expect(
+  (select licensed_places from public.centres
+    where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') = 40,
+  'an owner states the centre''s licensed places'
+);
+
+-- And an educator cannot. Filtered rather than raised: `centres_update` excludes them in
+-- USING, so the statement affects no rows instead of erroring.
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+do $$
+declare still integer;
+begin
+  begin
+    update public.centres set licensed_places = 999
+     where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  exception when others then null;
+  end;
+  still := (select licensed_places from public.centres
+             where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
+  perform pg_temp.expect(still = 40, 'an educator CANNOT change the licence, got ' || coalesce(still::text, 'null'));
+end $$;
+
+-- Put it back, so a later assertion about this centre is not reading a licence this
+-- block invented. The audit-row assertions further down are order-sensitive for exactly
+-- this reason — see the note added on 2026-08-09.
+set local role postgres;
+update public.centres set licensed_places = null
+ where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+set local role authenticated;
+
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+
+
 /*
  * The class. Every `_write_delete` policy's USING must equal its `_write_insert` counterpart's
  * WITH CHECK, so a condition cannot be enforced on one verb and quietly not the other.

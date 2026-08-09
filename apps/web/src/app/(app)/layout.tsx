@@ -80,6 +80,9 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           {/* Beside Funding because both are money, and distinct from it: Funding is what
               the Crown owes this centre, Accounts is what families do. */}
           {can(ctx.role, 'manageCentre') && <NavLink href="/billing">Accounts</NavLink>}
+          {/* After the money screens because it is derived from them and from attendance:
+              a report is what you read once the day-to-day is recorded, not instead of it. */}
+          {can(ctx.role, 'manageCentre') && <NavLink href="/reports">Reports</NavLink>}
           {can(ctx.role, 'manageCentre') && <NavLink href="/settings">Settings</NavLink>}
           {/* Everyone: this is the user's own account, not the centre's. */}
           <NavLink href="/account">Account</NavLink>
