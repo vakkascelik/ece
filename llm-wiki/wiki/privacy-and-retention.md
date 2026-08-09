@@ -82,6 +82,30 @@ purged would strip the remaining sibling's record of a contact. It never touches
 who has an app account: that is a person with a login, and removing them would break their
 access rather than tidy up a contact card.
 
+### `detail_confirmations` holds a date and deliberately nothing else
+
+Added 2026-08-09 by `0055`. Append-only, one row each time a guardian says their child's
+details are current — and it is on this page rather than only on
+[[parent-self-service]] because **what it refuses to store is a retention decision**, not a
+product one.
+
+The richer design copies the guardian's phone and address into the row so the product can say
+"confirmed, and nothing has changed since". That is a real question and this table cannot
+answer it. It is refused because the snapshot would be a **second copy of a family's contact
+details living under a different rule from the first**: `guardians` is purgeable when a child
+leaves, and a frozen duplicate on an append-only table can be neither corrected nor purged.
+IPP 9 cuts against holding one.
+
+The question stays answerable without the copy. `guardians` carries the shared audit trigger,
+so a change to a family's details already has a timestamp — "has anything changed since the
+last confirmation" is a comparison against `audit_events`, not a column here. That comparison
+is office-only, because a guardian cannot read `audit_events`.
+
+Purging needs nothing new: both foreign keys are `on delete cascade`, so `purge_child`'s
+`delete from public.children` takes the confirmations with it, and so does
+`purge_orphaned_guardians`. This is the same shape as consent — append-only against *edits*,
+still deletable by a purge, which is the right way round.
+
 ### Rejected: automatic deletion on a schedule
 
 `children_due_for_purge()` lists what is due; nothing calls it on a timer. Retention is
@@ -133,4 +157,4 @@ from it not existing.
 - [[model-calls]] — the fourth processor, and the cross-border disclosure the type system prevents
 - [[unverified-claims]]
 
-*Last updated: 2026-08-04*
+*Last updated: 2026-08-09*

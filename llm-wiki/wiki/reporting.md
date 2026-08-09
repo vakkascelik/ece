@@ -161,7 +161,7 @@ Migration: none. Code: `packages/core/src/enquiryFunnel.ts`,
 
 The roadmap that named this item called it "waitlist conversion". It is not built as one,
 because the schema cannot answer that question and building it as though it could would be
-exactly the confidently-wrong report [AGENTS.md §4.5](../AGENTS.md) forbids.
+exactly the confidently-wrong report [AGENTS.md §4.5](../../AGENTS.md) forbids.
 
 **`enrolment_applications.status` (0052/0054) is current state, not history.** The path is
 `new → contacted → waitlisted → enrolled`, and once a row reaches `enrolled` it no longer says

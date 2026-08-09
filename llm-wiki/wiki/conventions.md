@@ -342,6 +342,19 @@ Not unified here: the two audit lists cross a SQL/TypeScript boundary, and the a
 are legitimately hand-curated (each entry carries a reason). Recorded so the fifth instance is
 recognised as an instance rather than as a fresh surprise.
 
+**And the countermeasure worked once, the same day.** `detail_confirmations` (0055) is the next
+append-only table with no audit trigger, and it went into *both* exemption lists in the same
+commit. Knowing the shape was enough — which is the argument for writing the pattern down rather
+than only the four fixes.
+
+**A convention that did not survive one day, though.** The section above this one ends *"use the
+predicates"*, and 0055's insert policy — written the next morning — hand-rolls
+`exists (select 1 from public.guardians …)` where `caller_guardian_ids()` already exists and is
+stricter. See [[parent-self-service]] for what gets through. The lesson is not "try harder": a
+convention recorded in prose is only reachable by somebody who happens to reread that page. The
+version that would have caught it is a check that scans policy bodies for `from public.guardians`
+and similar, the way the UTC-date guard scans `prosrc`.
+
 Its centre loop was also fail-fast, and one stuck tenant aborted it **before the accounts section**.
 That is where the rest of the damage was: `--dry-run` found **60 orphan logins**, the same
 accumulation the fixture comment already describes from an earlier occurrence ("fifty-six of them

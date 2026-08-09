@@ -78,6 +78,33 @@ for whoever ran this against a real file first.
 
 ---
 
+2026-08-09 — **A wiki pass that found a defect in the thing it was documenting.** See
+[[privacy-and-retention]], [[parent-self-service]], [[conventions]].
+
+Writing `detail_confirmations` up on the retention page — where it belongs, because refusing to
+store a snapshot is a retention decision and not a product one — meant reading 0055's policies
+again next to `caller_guardian_ids()`. They do not match.
+
+The insert policy's second half hand-rolls `exists (select 1 from public.guardians g where
+g.id = guardian_id and g.user_id = auth.uid())`. The predicate that already answers this is
+**stricter**: it also requires a live membership *at the guardian's own centre* and
+`archived_at is null`. So a caller who is a guardian at two centres can name their centre-B
+guardian record on a confirmation for their centre-A child, and `detail_confirmations` carries
+no `centre_id` to catch it — deliberately, since it reaches its tenant through the child.
+
+Not a cross-tenant read; the select policy is still `caller_may_see_child`. It is a row pairing
+a child with a guardian who has no business on it.
+
+**[[conventions]] says "use the predicates", and it was written down the day before.** That is
+the part worth keeping. A convention in prose is only reachable by somebody who rereads that
+page, which is not a mechanism — the version that would have caught this scans policy bodies
+the way the UTC-date guard scans `prosrc`.
+
+Also recorded: the audit-exemption countermeasure from the four-in-one-day pattern **worked**.
+0055 went into both lists in the same commit because the shape was already written down.
+
+---
+
 2026-08-09 — **A setup step that had never once worked.** `sleep.spec.ts`. See
 [[offline-outbox]].
 

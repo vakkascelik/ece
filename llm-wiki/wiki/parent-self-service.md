@@ -352,6 +352,35 @@ Mutation-tested separately: dropping the second half is killed by *"a guardian C
 in another guardian's name"*, and granting the append-only verbs back is killed by *"NOBODY can
 back-date a confirmation"*.
 
+#### A correction: the second half hand-rolls a predicate that already exists
+
+Found 2026-08-09 while updating this page, which is late — it should have been found while
+writing it. The second half is written as a bare `exists`:
+
+```sql
+and exists (select 1 from public.guardians g
+             where g.id = guardian_id and g.user_id = auth.uid())
+```
+
+`caller_guardian_ids()` answers exactly this question and answers it **more narrowly**: it
+additionally requires a live membership *at the guardian's own centre* and
+`archived_at is null`. The hand-rolled version checks only "this guardian row is mine", so two
+things get through that the predicate would refuse:
+
+- **A guardian record at another centre.** A caller who is a guardian at two centres passes
+  `child_id in (select caller_ward_ids())` with a child at centre A while naming their own
+  guardian record at centre B. `detail_confirmations` carries no `centre_id` — by design, it
+  reaches its tenant through the child — so nothing else catches the mismatch.
+- **An archived guardian record**, where the caller also holds a live one for the same child.
+
+Neither is a cross-tenant *read*: the select policy is still `caller_may_see_child`. It is a
+row that pairs a child with a guardian who has no business being named on it.
+
+[[conventions]] already says this, under *"A policy that reads another table inherits that
+table's RLS"* — **use the predicates** — and it was written down the day before this policy
+was. Recorded here rather than quietly amended, because the interesting fact is that a
+convention one day old did not survive contact with the next migration.
+
 ### A placement bug that looked like a policy bug
 
 The first run failed on the very first insert with `new row violates row-level security policy`,
