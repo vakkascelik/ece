@@ -242,14 +242,53 @@ end $$;
  * SENDING ANYTHING TO AN EXTERNAL MODEL IS OFF UNTIL SOMEBODY TURNS IT ON (0047).
  *
  * The load-bearing property of the whole column, and the one a future migration could
- * quietly undo by adding a default or a backfill. Every centre in this fixture was
- * created without mentioning `ai_features`, exactly as every real centre was.
+ * quietly undo by adding a default or a backfill.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * CORRECTION, 2026-08-09. THIS WAS A CENSUS AND IS NOW A PROPERTY.
+ *
+ * It used to read `select count(*) from public.centres where ai_features` — nought across
+ * the WHOLE TABLE. That is a different claim from the one the label makes, and it is
+ * false in normal operation: the moment any centre legitimately turns the feature on, the
+ * assertion fails for a reason that is not a defect.
+ *
+ * It was caught by an e2e run that enabled the flag on the audit tenant and had not yet
+ * put it back. That is the benign version. The malignant version arrives when a real
+ * customer switches it on and `test:rls` goes red every run until somebody edits this
+ * line — and the pressure at that moment is to delete the check, on a security assertion,
+ * to make a suite go green. A check whose normal state is failing is a check that gets
+ * removed. See `unverified-claims` on never flipping a flag to silence a warning.
+ *
+ * So it now asserts the thing the label always meant: a centre created without mentioning
+ * the column comes out false, and the catalogue default is false. Both survive a real
+ * customer enabling the feature, and both still fail if a migration adds a `default true`
+ * or backfills the column — which is the failure this exists to catch.
  */
 set local role postgres;
+
+do $$
+declare v_id uuid; v_on boolean;
+begin
+  insert into public.centres (name, slug, timezone)
+  values ('AI DEFAULT PROBE', 'ai-default-probe', 'Pacific/Auckland')
+  returning id, ai_features into v_id, v_on;
+
+  perform pg_temp.expect(
+    v_on = false,
+    'a centre created without mentioning ai_features does NOT permit sending data to an external model'
+  );
+
+  delete from public.centres where id = v_id;
+end $$;
+
+-- And the catalogue agrees, so the property does not rest on one insert happening to
+-- work. A backfill would leave this untouched; a changed default would not.
 select pg_temp.expect(
-  (select count(*) from public.centres where ai_features) = 0,
-  'no centre permits sending data to an external model unless somebody turned it on'
+  (select column_default from information_schema.columns
+    where table_schema = 'public' and table_name = 'centres' and column_name = 'ai_features') = 'false',
+  'and the column default is false in the catalogue, not merely in practice'
 );
+
 set local role authenticated;
 set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
 

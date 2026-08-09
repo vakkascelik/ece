@@ -11,6 +11,7 @@ import { assessAll, currentStaff, summarise, summariseDay, todayInZone } from '@
 import { requireCapability } from '@/lib/auth';
 import { serverDb } from '@/lib/supabase';
 import { dayWindow, lastSevenDays } from '@/lib/dayWindow';
+import { ComplianceNarrative } from './ComplianceNarrative';
 import { CriteriaGaps } from './CriteriaGaps';
 import { EvidenceList } from './EvidenceList';
 import { RatioHistory } from './RatioHistory';
@@ -68,6 +69,30 @@ export default async function CompliancePage() {
 
   const breachDays = replays.filter((r) => r.breaches.length > 0).length;
 
+  /*
+    The figures the written summary may see, assembled here rather than re-read inside the
+    action. The prose must describe the same numbers as the tables below it, and the only
+    way to guarantee that is for both to come from the same variables.
+
+    A breach still open at the last event of a day has `minutesInBreach === null`, which is
+    a real state and not a zero — it means "we do not know how long". Summing it as zero
+    would understate the total, so those days are counted separately and the count is sent
+    alongside. See `ratioHistory.ts`.
+  */
+  const narrativeFigures = {
+    totalRecords: summary.total,
+    expiredRecords: summary.expired,
+    dueSoonRecords: summary.dueSoon,
+    unsightedRecords: summary.unsighted,
+    daysReplayed: replays.length,
+    daysWithBreach: breachDays,
+    minutesInBreach: replays.reduce((total, r) => total + (r.minutesInBreach ?? 0), 0),
+    daysWithUnknownBreachDuration: replays.filter(
+      (r) => r.breaches.length > 0 && r.minutesInBreach === null,
+    ).length,
+    signInEvents: replays.reduce((total, r) => total + r.snapshots.length, 0),
+  };
+
   return (
     <>
       <div className="section-head">
@@ -124,6 +149,18 @@ export default async function CompliancePage() {
           </p>
         )}
       </div>
+
+      {/*
+        Below the one-line answer, not above it. The computed flags are what a manager
+        acts on; this is a convenience for writing them up afterwards, and the order on
+        the page says so.
+
+        Rendered only where the centre has turned it on — a button that exists solely to
+        say "this is switched off" is worse than no button, and `ai_features` defaults
+        false. The action re-checks the flag regardless: this is a layout decision, not a
+        control, and the control is in Postgres.
+      */}
+      {ctx.centre.aiFeatures && <ComplianceNarrative figures={narrativeFigures} />}
 
       <div className="section">
         <h2>Staff records — {summary.total}</h2>

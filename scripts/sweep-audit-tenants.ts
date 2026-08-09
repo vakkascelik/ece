@@ -96,6 +96,36 @@ async function main() {
   const centres = await run(
     `select id, slug from public.centres where slug like 'audit-%' ${olderThan} order by slug`,
   );
+  /*
+    PAYMENTS FIRST, AND ONLY THIS SCRIPT MAY DO IT.
+
+    The comment below is right that a CASCADE runs as the table owner and so is not
+    stopped by the append-only grant. `payments.invoice_id` is not a cascade — it is
+    `on delete restrict` (0019) — so a payment genuinely blocks the delete of its
+    tenant, and no amount of owner privilege changes that. The row has to go first.
+
+    This is the one place that may do it. `destroyAuditTenant` and the e2e sweep run as
+    `service_role`, which has no DELETE on `payments` at all, and that is the guarantee
+    working rather than an obstacle to route around. Here the connection is the table
+    owner via the Management API — the cost the fixture's comment names when it says a
+    stuck tenant "needs the Management API". Without this the escape hatch does not
+    actually escape, which was true until 2026-08-09: three tenants held a payment, the
+    e2e sweep could not remove them, and this script would have failed on them too.
+  */
+  if (!dryRun && centres.length > 0) {
+    // Scoped by the ids already selected above, not by re-deriving the age filter. The
+    // first version rewrote `olderThan` with a regex to re-qualify its column name, which
+    // worked and was one rename away from silently widening to every payment in the
+    // project. The ids are exact and cannot drift from the list being swept.
+    const ids = centres.map((c) => `'${c.id as string}'`).join(', ');
+    await run(`delete from public.payments p
+                using public.invoices i
+                where i.id = p.invoice_id and i.centre_id in (${ids})`);
+  }
+
+  let dropped = 0;
+  const stuck: string[] = [];
+
   for (const c of centres) {
     if (dryRun) {
       console.log(`  would drop   ${c.slug}`);
@@ -105,10 +135,21 @@ async function main() {
     // tables — a referential action runs as the table owner, so the guarantee is intact and
     // simply is not a guarantee against dropping the tenant. Only possible since 0020;
     // before that this script could not have worked at all.
-    await run(`delete from public.centres where id = '${c.id}'`);
-    console.log(`  dropped      ${c.slug}`);
+    //
+    // Per-tenant and non-fatal for the reason the e2e sweep is: one centre that refuses to
+    // go must not stop the others, and must not skip the ACCOUNTS below — which is what
+    // an aborting loop did, silently, while orphan logins accumulated.
+    try {
+      await run(`delete from public.centres where id = '${c.id}'`);
+      console.log(`  dropped      ${c.slug}`);
+      dropped += 1;
+    } catch (e) {
+      stuck.push(`${c.slug}: ${(e as Error).message.split('\n')[0]}`);
+      console.warn(`  COULD NOT DROP ${c.slug}`);
+    }
   }
-  console.log(`  ${centres.length} centre(s)`);
+  console.log(`  ${dryRun ? centres.length : dropped} centre(s)`);
+  if (stuck.length > 0) console.warn(`\n  stuck:\n    ${stuck.join('\n    ')}\n`);
 
   // --- accounts ------------------------------------------------------------
   //

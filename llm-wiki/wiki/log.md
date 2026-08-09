@@ -5,6 +5,121 @@ says so.*
 
 ---
 
+2026-08-09 — **Tier A: one screen, one button, eight integers.** The compliance narrative.
+`compliance/narrative.ts`, `ComplianceNarrative.tsx`, `narrative.spec.ts`. See [[model-calls]].
+
+The last step of `docs/claude-api-plan.md` that can be built without a key. It sends eight numbers
+and five fixed words, and the two decisions worth recording are both about what is *not* sent.
+
+**The centre's name is withheld even though it would improve the prose.** A name plus a breach count
+is a small disclosure, but it is a disclosure about an identifiable organisation — and the screen can
+put the name back locally, for free, after the sentences come back. There was no trade to make.
+
+**An open breach is `null`, not zero, and the payload had to say so.** `minutesInBreach` is null when
+a breach was still open at the last recorded event of a day. Summing that as zero produces a total
+that reads like a total and is a floor, which is [[reading-every-row]]'s bug in a different costume:
+a compliance figure that understates itself silently. So a separate count goes alongside, and the
+instruction tells the model to say the figure is a floor when it is one. I caught this by writing a
+comment claiming I had handled it and then noticing I had not — the comment was written first, which
+is the only reason it was caught at all.
+
+**The figures are passed into the action, never re-read inside it.** The prose has to describe the
+same numbers as the table above it, and one set of variables is the only way to guarantee that. The
+side effect is the more valuable half: the action *cannot* reach the database for figures, so it
+cannot quietly widen later.
+
+**It is a button, and it sits below the computed answer.** A generated sentence sitting on the
+dashboard by default becomes part of how the screen reads, and within a fortnight somebody is
+skimming prose instead of the table. The table is the product. Also: it costs money per render, on
+the page a manager leaves open — and a cross-border disclosure that happens because somebody pressed
+a button is a different thing from one that happens because they opened a page.
+
+**The draft label goes above the prose, not below it.** A caveat underneath is read second, if at
+all, and by then the sentences have been taken as a finding.
+
+**`check:bundle` was not enough on its own, so I checked the artefact.** "Within budget" only says
+first-load JS did not move; it does not say the SDK stayed server-side. Grepping the built chunks
+found `anthropic` in two client files — which turned out to be **Sentry's own AI
+auto-instrumentation**, present already and nothing to do with this. The real markers —
+`anthropic-version` and the system prompt's first sentence — appear in `.next/server` and in no
+client chunk. Worth doing the second check rather than reading a green line.
+
+**The e2e caught two things and one of them was my test.** `getByRole('alert')` matched Next's
+`__next-route-announcer__`, an empty live region on every route, so the query resolved to two
+elements. Scoped to the panel rather than dropped to a CSS class — the ARIA role is the contract
+worth asserting.
+
+The other was a teardown failure, and the obvious suspect was wrong. `ai_requests` is append-only
+with DELETE revoked from `service_role`, which is exactly the shape that broke this teardown twice
+before on `payments`. Tested rather than assumed: a probe centre with an `ai_requests` row deleted
+cleanly, because referential actions run as the constraint owner and are not subject to the grant.
+So the FK cascade is not the problem, and the note in `destroyAuditTenant` about `payments` does not
+extend to this table.
+
+**A correction to yesterday's assertion, and it is the kind that matters.** The `ai_features` check
+read *"nought centres across the whole table have this on"* — a census, not the property its own
+label claims. It is **false in normal operation**: the first customer to legitimately enable the
+feature turns `test:rls` red on every run. An e2e run that switched the flag on and had not yet put
+it back is what surfaced it, which is the harmless version; the harmful version is a real centre
+doing the same thing, the suite failing for a reason that is not a defect, and the pressure at that
+moment being to delete a security assertion to make a suite go green. **A check whose normal state
+is failing is a check that gets removed.** It now asserts what the label always meant — a centre
+inserted without mentioning the column comes out false, and the catalogue default is `false` — both
+of which survive a customer using the feature and still fail if a migration adds `default true` or
+backfills.
+
+I also found it by running `test:rls` *during* a live e2e run, which is the same mistake
+`conventions.md` already records about running a build during one. The conclusion happened to be
+real; the method was not sound, and it is only luck that those two coincided.
+
+**And a defect that is not mine, found because a new spec made the teardown fail twice.** The
+teardown's `sweepStaleAuditTenants` had inverted into the thing it was written to prevent. Three
+tenants from an earlier session still held a payment — created during the very investigation that
+established a payment cannot be deleted — and were never reclaimed. Once they aged past the
+two-hour cutoff, every run's sweep picked them up, the **batch** delete failed on the whole batch,
+the function threw, and the teardown died before reaching `destroyAuditTenant`. So each run
+stranded its own tenant, which two hours later became another the sweep would fail on. **Twelve had
+accumulated**, and the only symptom throughout was one red teardown at the end of an otherwise
+green run — the easiest thing in a suite to read as noise, because every test passed.
+
+The sweep is per-tenant now and skips an unremovable centre with its reason printed; the teardown
+wraps it, because housekeeping for other runs must never block cleanup of this one. **The
+append-only guarantee was working correctly the whole time** and nothing here weakened it — the
+stranded rows were cleared as the table owner, out of band. The bug was never that payments cannot
+be deleted. It was that one undeletable thing stopped everything else from being deleted.
+
+**And the escape hatch did not escape.** The fixture's new warning points at `npm run sweep:audit`,
+which runs as the table owner — so I checked whether that would actually have worked, and it would
+not have. Owner privilege does not defeat `on delete restrict`; the payment has to go first and
+nothing deleted it. Writing an instruction I had not verified would have been the same failure this
+repo keeps recording, so the script now clears payments for exactly the tenants it is sweeping,
+scoped by the ids it already selected. It is the only place permitted to do that.
+
+Its centre loop was fail-fast too, and one stuck tenant aborted it **before the accounts section** —
+which is where the rest of the damage turned out to be: `--dry-run` found **60 orphan logins**, the
+same accumulation the fixture's own comment describes from an earlier occurrence. It recurred
+because the loop had been made resilient for centres and not for what ran after them. Recorded in
+[[conventions]]: when a cleanup step can fail, the visible casualty is rarely the expensive one.
+
+**And a third leak, which is mine.** With the sixty cleared, one audit account remained: the kiosk
+login. `destroyAuditTenant` deletes a hand-written list of ids and I added the kiosk role to the
+fixture earlier this session without adding it there — so every run since has leaked exactly one
+account. One per run is the worst rate for noticing: too slow to see, and **it never fails
+anything**. The tenant drops, the teardown reports success, the count climbs. I found it by counting
+rows after the sweep, not by any test, and no test would ever have caught it. A list written by hand
+does not grow when the thing it enumerates grows — the same shape as the two audit-exemption lists
+above, on the same day.
+
+**What the new spec proves, and what it cannot.** No key, so `modelClient()` returns null and the
+action stops one step short of the network. That sounds like it makes the test worthless; it does
+not, because **everything on this side of the call is the half with a database in it** — capability,
+flag, month boundary in the centre's timezone, spend read, `checkSpend`, and the insert into
+`ai_requests`, all against live Postgres under a real JWT. It also proves the panel is absent until a
+centre turns the feature on, which no unit test can see. The model call is the one purely-network
+step, and it is the one step still uncovered. [[unverified-claims]] §27 unchanged.
+
+---
+
 2026-08-09 — **The caller, the cap and the usage record.** 0049, `packages/ai`,
 `packages/core/src/modelSpend.ts`, `packages/api/src/ai.ts`. New page: [[model-calls]].
 

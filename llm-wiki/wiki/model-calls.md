@@ -115,6 +115,47 @@ failure that recorded an estimate would make the cap refuse calls for spend that
 
 ---
 
+## The one screen — `/compliance`
+
+Tier A of the plan: aggregates only, no personal information, so no new consent is required.
+
+**Eight integers and five words.** The payload is `staff_records_total`, `_expired`, `_due_soon`,
+`_original_not_sighted`, `days_replayed`, `days_with_a_recorded_breach`, `total_minutes_in_breach`,
+`days_where_breach_length_is_unknown`, `attendance_events_in_period`, and a fixed label vocabulary of
+`['staff records', 'ratio history', 'seven days', 'certificates', 'sign-in events']`.
+
+Two decisions inside that are easy to miss:
+
+- **The centre's name is deliberately not sent**, though it would improve the prose. A centre name
+  plus a breach count is small, but it is a disclosure about an identifiable organisation, and the
+  screen can put the name back locally for free.
+- **`days_where_breach_length_is_unknown` is sent separately** because `minutesInBreach` is `null`,
+  not zero, when a breach was still open at the last recorded event of a day. Summing null as zero
+  would understate the total. The instruction tells the model to say the figure is a floor rather
+  than a total when that count is above zero — which is the same rule the rest of the product
+  follows: [[reading-every-row]] exists because a silent understatement is the worst failure
+  available to a compliance figure.
+
+The figures are computed by the page and **passed into** the action, not re-read inside it. The
+prose has to describe the same numbers as the table above it, and the only way to guarantee that is
+one set of variables. It also means the action cannot reach the database for figures — the property
+that stops it quietly widening later.
+
+### It is a button, and the button is below the computed answer
+
+Three reasons, weightiest first. A generated sentence sitting on the dashboard by default becomes
+part of how the screen reads, and within a fortnight somebody is skimming the prose instead of the
+table — the table is the product. It costs money per render, on the page a manager leaves open. And
+a cross-border disclosure that happens because somebody pressed a button is a different thing from
+one that happens because they opened a page.
+
+The output is labelled **before** the prose, not after. A caveat underneath is read second, if at
+all, and by then the sentences have been taken as a finding. [[unverified-claims]] §28.
+
+The panel is absent entirely unless `ai_features` is on — a button whose only function is to say
+"this is switched off" is worse than no button. That is a layout decision; the control is the flag
+check inside the action, and behind that, Postgres.
+
 ## Cost, and the cap
 
 `packages/core/src/modelSpend.ts`, pure, so the cap is testable without a key.
@@ -174,6 +215,23 @@ from the client, but only one of them cannot be undone by a later migration with
 noticing. The mutation confirmed it: granting UPDATE back made the statement succeed with no
 exception, and the named assertion failed with `got none (the update SUCCEEDED)`.
 
+### A correction: the default-off assertion was a census
+
+The suite's `ai_features` assertion originally read *"nought centres across the whole table have
+this on"*. That is a different claim from the label above it, and it is **false in normal
+operation** — the first customer to legitimately enable the feature turns `test:rls` red on every
+run.
+
+It was caught by an e2e run that switched the flag on and had not yet put it back, which is the
+benign version. The malignant version is a real centre enabling it, the suite failing for a reason
+that is not a defect, and the pressure at that moment being to delete a security assertion so a
+suite goes green. A check whose normal state is failing is a check that gets removed.
+
+It now asserts the property the label always meant: a centre inserted without mentioning the column
+comes out false, and the catalogue default is `false`. Both survive a customer using the feature,
+and both still fail if a migration adds `default true` or backfills the column — which is the
+failure it exists to catch.
+
 ### Two exemption lists, and a warning
 
 `ai_requests` carries **no audit trigger** — the row is its own record, the reasoning 0021 records
@@ -196,6 +254,13 @@ one earned. If a third list appears, unify all three.
 - **The live API call.** No key, no `ant` CLI. Six tests drive an injected fake, which covers the
   refusal branch, the empty-content branch, the error branch and the request body. Whether the API
   *accepts* that body is untested and cannot be tested from here. [[unverified-claims]] §27.
+
+  What `narrative.spec.ts` *does* cover is everything on this side of the call, and that is the
+  half with a database in it: the capability check, the flag, the month boundary in the centre's
+  timezone, the spend read, `checkSpend`, and the insert into `ai_requests` — all against live
+  Postgres under a real JWT with RLS in front. It also proves the panel is **absent** until a
+  centre turns the feature on, which no unit test can. The model call is the one step that is
+  purely network, and it is the one step not covered.
 - **The price list.** §28.
 - **Whether the output is any good.** Nobody has read a generated narrative, because none has been
   generated. The instruction forbids claiming compliance or breach; that it obeys is unverified.

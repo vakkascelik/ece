@@ -256,6 +256,71 @@ and the server was not.
 A mutation test has four steps and the fourth is the one that gets dropped: **mutate, build, run,
 restore *and build again*.** If a failure survives a restore, rebuild before believing it.
 
+### The cleanup that became the mess it was written to clean up
+
+`sweepStaleAuditTenants` removes audit tenants older than two hours, so a run killed mid-flight does
+not leave its centre behind forever. On 2026-08-09 it was doing the opposite, and had been for a
+while.
+
+Three tenants from an earlier session still held a **payment** — created during the very
+investigation that established a payment cannot be deleted (`payments.invoice_id` is `on delete
+restrict`, and DELETE on `payments` is withheld from `service_role` as well as `authenticated`).
+The fixture was corrected afterwards to seed invoices and never a payment. The three tenants
+created while finding that out were never reclaimed.
+
+Then they aged past the two-hour cutoff, and the mechanism inverted:
+
+1. Every run's sweep now picked them up.
+2. The delete was one batch — `.delete().in('id', ids)` — so it failed on the whole batch.
+3. The function threw.
+4. The teardown died **before reaching `destroyAuditTenant`**, so the run stranded its own tenant.
+5. Which, two hours later, became another tenant the sweep would try and fail on.
+
+Twelve had accumulated before anybody looked, and the only symptom the whole time was **one red
+teardown at the end of an otherwise green run** — the easiest failure in a suite to read as noise,
+because every test passed.
+
+Three things came out of it, and the third is the general one:
+
+- **The sweep is per-tenant now**, and an unremovable centre is skipped with its reason printed
+  rather than aborting the batch.
+- **The teardown wraps the sweep.** Housekeeping for *other* runs must never block cleanup of
+  *this* one. The per-tenant change makes the catch redundant today; the ordering is the hazard,
+  and anything that runs before your own cleanup and can throw will eventually take it with it.
+- **The append-only guarantee was working correctly the entire time.** Nothing here weakened it —
+  the stranded rows were cleared as the table owner, out of band. The bug was never that payments
+  could not be deleted; it was that one thing that could not be deleted stopped everything else
+  from being.
+
+**The escape hatch did not escape.** `npm run sweep:audit` is what the fixture points at when a
+tenant cannot be removed from the test harness — it runs as the table owner through the Management
+API. It would have failed on the same three, because owner privilege does not defeat `on delete
+restrict`; the payment has to go first, and nothing deleted it. That script now clears payments for
+the tenants it is about to sweep, scoped by the ids it already selected. It is the **only** place
+allowed to: the fixture and the teardown run as `service_role`, which has no DELETE on `payments`
+at all, and that is the guarantee rather than an obstacle.
+
+**A third leak, found by counting rows rather than by a test.** With the sixty cleared, one audit
+account was still there: the **kiosk** login. `destroyAuditTenant` deletes a hand-written list of
+ids — owner, manager, educator, parent — and the kiosk role was added to the fixture without being
+added to that line. So every run since the kiosk seed landed leaked exactly one account.
+
+One per run is the worst possible rate for noticing. It is too slow to be obvious, and **it never
+fails anything**: the tenant drops, the teardown reports success, the count climbs. Nothing in the
+suite would ever have gone red.
+
+The general shape is worth more than the fix: *a list written by hand does not grow when the thing
+it enumerates grows.* Adding a role to `createAuditTenant` and not to that list is a silent leak by
+construction — the same failure as the two audit-exemption lists in [[model-calls]], and the same
+one `tokens:check` exists to prevent for design tokens.
+
+Its centre loop was also fail-fast, and one stuck tenant aborted it **before the accounts section**.
+That is where the rest of the damage was: `--dry-run` found **60 orphan logins**, the same
+accumulation the fixture comment already describes from an earlier occurrence ("fifty-six of them
+had accumulated"). It happened again because the loop was fixed for centres and not for the thing
+that ran after them. When a cleanup step can fail, ask what is downstream of it — the visible
+casualty is rarely the expensive one.
+
 ### Adding a column to a table with COLUMN-level grants
 
 The new-table checklist says *policy and grant*. There is a second form of it that the checklist

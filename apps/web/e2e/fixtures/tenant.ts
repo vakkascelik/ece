@@ -735,7 +735,24 @@ export async function destroyAuditTenant(tenant: AuditTenant): Promise<void> {
   // why, which `scripts/onboard.ts` had already documented. When it failed here it failed
   // *during teardown*, so the accounts survived: fifty-six of them had accumulated by the
   // time the first real customer was onboarded, along with six orphan centres.
-  for (const id of [tenant.ownerId, tenant.managerId, tenant.educatorId, tenant.parentId]) {
+  /*
+    `kioskId` was missing from this list until 2026-08-09, so every run since the kiosk
+    seed landed leaked exactly one login. One per run is the worst rate for noticing:
+    too slow to be obvious, and it never fails anything — the tenant is dropped, the
+    teardown reports success, and the account count climbs. It was found by counting rows
+    after a sweep, not by a test, and nothing here would ever have failed because of it.
+
+    The general shape, which is why this comment is longer than the fix: a list of ids
+    written by hand does not grow when the fixture grows. Adding a role to
+    `createAuditTenant` and not to this line is a silent leak by construction.
+  */
+  for (const id of [
+    tenant.ownerId,
+    tenant.managerId,
+    tenant.educatorId,
+    tenant.parentId,
+    tenant.kioskId,
+  ]) {
     const res = await db.auth.admin.deleteUser(id);
     // A missing account is the desired end state, so a 404 is success.
     if (res.error && !/not.?found/i.test(res.error.message)) {
@@ -769,12 +786,46 @@ export async function sweepStaleAuditTenants(): Promise<number> {
   if (error) throw new Error(`sweep: ${error.message}`);
   if (!data || data.length === 0) return 0;
 
-  const ids = data.map((c) => c.id as string);
+  /*
+    ONE AT A TIME, AND A FAILURE IS REPORTED RATHER THAN THROWN.
 
-  // Same stopping point as `destroyAuditTenant`, and it matters more here: this is what
-  // reclaims a run that died before its own teardown, which is exactly when nobody is
-  // watching. A seeded payment would strand every centre this sweeps.
-  const { error: delError } = await db.from('centres').delete().in('id', ids);
-  if (delError) throw new Error(`sweep: ${delError.message}`);
-  return data.length;
+    This used to be a single `.delete().in('id', ids)` that threw on any error, and on
+    2026-08-09 that inverted the whole purpose of this function.
+
+    Three tenants from an earlier session still held a payment — created during the very
+    investigation that established payments cannot be deleted, and never reclaimed
+    afterwards. `payments.invoice_id` is `on delete restrict` and DELETE on `payments` is
+    withheld from `service_role`, so those three could not be removed by anything here.
+    That is the append-only guarantee working correctly.
+
+    What went wrong is what happened next. Once they aged past the two-hour cutoff, every
+    subsequent run's sweep picked them up, the batch delete failed on them, this function
+    threw, and the teardown died **before reaching `destroyAuditTenant`** — so each run
+    then stranded its own tenant too. Twelve had accumulated before anybody looked. The
+    function written to reclaim stranded tenants had become the thing stranding them, and
+    it was silent because the only symptom was one red teardown.
+
+    So: per-tenant, and an unremovable one is skipped with its reason printed rather than
+    aborting the sweep. Housekeeping for other runs must never block cleanup of this one.
+    A tenant that genuinely cannot be removed from here needs the Management API — the
+    cost `destroyAuditTenant` already names — and the printed reason is how somebody finds
+    out it is time to pay it.
+  */
+  let swept = 0;
+  const stuck: string[] = [];
+
+  for (const centre of data) {
+    const { error: delError } = await db.from('centres').delete().eq('id', centre.id as string);
+    if (delError) stuck.push(`${centre.slug as string} (${delError.message})`);
+    else swept += 1;
+  }
+
+  if (stuck.length > 0) {
+    console.warn(
+      `  sweep could not remove ${stuck.length} stale audit tenant(s); they need the ` +
+        `Management API:\n    ${stuck.join('\n    ')}`,
+    );
+  }
+
+  return swept;
 }
