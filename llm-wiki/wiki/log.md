@@ -5,6 +5,67 @@ says so.*
 
 ---
 
+2026-08-09 — **A correction: the enquiry asks for an age band, not a child's name.** 0054. See
+[[parent-self-service]].
+
+I went to build the public form and found the page I was about to put it on had already decided
+the question, in a comment written when the site was built:
+
+> *"When an enquiry form is built it will collect the guardian's details and a coarse age band,
+> and it will not ask for a child's name or date of birth."*
+
+0052 — mine, from an hour earlier — shipped `child_name text not null`. The enquiry could not be
+filed without naming a child.
+
+**The page's two reasons are both stronger than mine.** `docs/tenant-little-pearls.md` holds this
+deployment to **zero personal information** until professional indemnity insurance is in place, and
+a public endpoint writing an identifiable under-five into this database crosses the line that doc
+exists to hold — on the weakest lawful basis in the product, because nobody has signed anything and
+no consent conversation has happened. And the plainer one: **the centre does not need a child's
+name to phone a guardian back.**
+
+0052 argued a first name was "the least this can be". That is reasoning from the table outwards.
+From the family inwards it is not needed at all — the enquiry is a request for a conversation with
+an *adult*, and the adult's name is already on the row. So the schema changed, not the page. That
+is AGENTS.md §5's rule working in the direction it is usually quoted in reverse: the wiki was right.
+
+**What replaced it.** A coarse band — `expecting`, `under-2`, `2-and-over` — which answers "which
+room, roughly when" and nothing else. `expecting` is a real case: families join waitlists before
+the child is born, and a nullable birth month could not have said so. `child_born` is dropped
+outright: "March 2024" is a date of birth with the day filed off, and it invites exactly the field
+the page refuses. `child_name` survives as **nullable**, because an enquiry the office takes by
+phone from a family it has met may carry one — *the form does not ask*, which is a different
+statement from the column not existing, and the honest one.
+
+**The idempotency key had to move with it.** It was email plus child name, so a sibling was not
+swallowed; it is now email plus band, which carries the same property for a family with a baby and
+a three-year-old. It cannot separate twins in one band, and 0054 says so rather than leaving
+somebody to find out — the fix is a conversation, which is what an enquiry is for, and that beats
+asking every family for a name to disambiguate a rare case.
+
+**The old signature is dropped, not left beside the new one.** Two overloads of a name on
+`review:security`'s allowlist would both be reachable by `anon`, and the allowlist is keyed by
+name — the old one would stay callable, still demanding a child's name, with nothing reporting it.
+A superseded public write path is not a deprecation, it is a second door.
+
+**Two assertions that pin the decision rather than the behaviour.** A behavioural test cannot catch
+this coming back, because whoever re-added the parameter would write a test that passes it. So the
+suite reads the catalogue: the function takes no argument matching `child_name`, and the column is
+nullable.
+
+Mutation-testing those was itself instructive. Adding the parameter as a **ninth** argument made
+every existing call ambiguous — `42725 function ... is not unique` — so the suite died before
+reaching my assertion, which is a stronger failure than I designed for but not the one I was
+testing. Replacing at the same arity then failed an *earlier* behavioural assertion, because my
+stub did nothing. The predicate was finally checked directly against the mutated catalogue, where
+it returned 1 rather than 0. Three attempts to mutate one assertion, and the lesson is the one
+`conventions.md` already records: a mutation that fails somewhere else has not tested the thing you
+meant to test.
+
+414/414 RLS, 16/16 security review.
+
+---
+
 2026-08-09 — **Enrolment enquiries, and the check whose explanation had to be rewritten.** 0052,
 0053, `submit_enrolment_application`. See [[parent-self-service]] and [[security-review]].
 

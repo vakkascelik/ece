@@ -149,23 +149,58 @@ Promotion to `children` + `guardians` + `enrolments` is by hand. There is delibe
 function that does it: the moment a stranger's claim becomes the centre's record about a
 child is a moment somebody should be accountable for.
 
-### What is not asked
+### What is not asked — and a correction to 0052
 
-**No date of birth, no NSN, no health information, no immunisation status.** Every one is
-useful for placing a child and every one is a special category of personal information about
-a **third party** — the child — supplied by somebody this product has not authenticated and
-cannot verify is their guardian.
+**No name, no date of birth, no NSN, no health information, no immunisation status.** Every
+one is useful for placing a child and every one is personal information about a **third
+party** — the child — supplied by somebody this product has not authenticated and cannot
+verify is their guardian.
 
-The birth *month* is asked instead, as free text. The real question is "which room, roughly
-when", and a month answers it. A centre that needs the date gets it at enrolment, from a
-person they have met, with a document. Same line 0024 draws in refusing CV attachments: the
-value of the extra field is not close to the cost of holding it.
+> **0052 got this wrong and 0054 fixes it.** I shipped `child_name text not null` and an
+> enquiry that could not be filed without naming a child. `apps/site/src/app/enrolment/page.tsx`
+> had already decided otherwise, in a comment written when the site was built:
+>
+> *"When an enquiry form is built it will collect the guardian's details and a coarse age
+> band, and it will not ask for a child's name or date of birth."*
+>
+> With two reasons, both stronger than mine. `docs/tenant-little-pearls.md` holds this
+> deployment to **zero personal information** until professional indemnity insurance is in
+> place — a public endpoint writing an identifiable under-five into this database crosses
+> the line that doc exists to hold, on the weakest lawful basis in the product, because
+> nobody has signed anything. And: **the centre does not need a child's name to phone a
+> guardian back.**
+>
+> 0052 argued a first name was "the least this can be". That is reasoning from the table
+> outwards. From the family inwards it is not needed at all — the enquiry is a request for a
+> conversation with an *adult*, whose name is already on the row. The page was right and the
+> schema was wrong, so the schema changed.
 
-### The idempotency key is email **and** child name
+What is asked instead is a **coarse age band** — `expecting`, `under-2`, `2-and-over` —
+which answers "which room, roughly when" and nothing else. `expecting` is a real case:
+families join waitlists before the child is born, and a nullable birth month could not say
+so.
 
-Keying on the email alone would silently swallow a family enquiring about a second child,
-which is the case a centre most wants to know about. Mutation-tested — removing the name
-clause fails the assertion by name.
+`child_name` survives as a **nullable** column, because an enquiry the office takes by phone
+from a family it has met may reasonably carry one. *The public form does not ask for it*,
+which is a different statement from the column not existing — and the honest one.
+
+### The idempotency key is email **and** age band
+
+0052 keyed on email and child name so a family enquiring about a second child was not
+swallowed. Without a name, the band carries that property: a family with a baby and a
+three-year-old sends two enquiries and both land.
+
+**What it cannot separate is twins.** Two children in the same band from one address inside
+a single open enquiry collapse to one row. Stated rather than hidden — the fix is a
+conversation, which is what an enquiry is for, and that is a better outcome than asking every
+family for a child's name to disambiguate a rare case.
+
+### Two assertions that pin the decision rather than the behaviour
+
+A behavioural test cannot catch a child's name coming back, because whoever re-added the
+parameter would write a test that passes it. So the suite reads the catalogue: the public
+function **takes no argument matching `child_name`**, and the column **is nullable**. If
+either changes, the suite fails and whoever changed it has to come and read the reasoning.
 
 It returns quietly rather than raising, because *"you have already enquired"* is an oracle:
 it tells anybody who asks whether a named family is looking at a named service. Same

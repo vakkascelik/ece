@@ -5199,9 +5199,18 @@ set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","r
 set local role anon;
 set local request.jwt.claims = '';
 
+/*
+ * A COARSE AGE BAND, AND NO CHILD'S NAME. See 0054.
+ *
+ * The first version of this suite passed 'Tama' as a required argument, because 0052
+ * required one. The site's enrolment page had already decided otherwise — guardian
+ * details and a coarse band, never a name or a date of birth — and the tenant doc it
+ * cites holds this deployment to zero personal information until indemnity insurance is
+ * in place. The schema was wrong, not the page.
+ */
 select public.submit_enrolment_application(
-  'rls-test-a', 'Whaea Public', 'public.enquiry@example.test', 'Tama',
-  '021 555 0000', 'March 2024', current_date + 60, array[1,2,3]::smallint[],
+  'rls-test-a', 'Whaea Public', 'public.enquiry@example.test', 'under-2',
+  '021 555 0000', current_date + 60, array[1,2,3]::smallint[],
   'We are moving to the area.'
 );
 
@@ -5249,7 +5258,7 @@ declare ok boolean := false;
 begin
   begin
     perform public.submit_enrolment_application(
-      'no-such-centre', 'Forger', 'forge@example.test', 'Nobody');
+      'no-such-centre', 'Forger', 'forge@example.test', 'under-2');
   exception when others then ok := true;
   end;
   perform pg_temp.expect(ok, 'an unknown centre slug is refused, so a forged call cannot pick a tenant');
@@ -5259,7 +5268,7 @@ end $$;
 -- already enquired" is an oracle: it tells anybody who asks whether a named family is
 -- looking at a named service.
 select public.submit_enrolment_application(
-  'rls-test-a', 'Whaea Public', 'public.enquiry@example.test', 'Tama');
+  'rls-test-a', 'Whaea Public', 'public.enquiry@example.test', 'under-2');
 
 set local role postgres;
 select pg_temp.expect(
@@ -5271,19 +5280,19 @@ select pg_temp.expect(
 /*
  * A SIBLING IS A DIFFERENT ENQUIRY.
  *
- * The idempotency key is the email AND the child's name. Keying on the email alone would
- * silently swallow a family enquiring about a second child, which is the case a centre
- * most wants to know about.
+ * The idempotency key is the email AND the age band. Without a child's name (0054) the band
+ * is what carries this: a family with a baby and a three-year-old sends two enquiries and
+ * both land. Twins in one band collapse to one row, which 0054 states rather than hides.
  */
 set local role anon;
 select public.submit_enrolment_application(
-  'rls-test-a', 'Whaea Public', 'public.enquiry@example.test', 'Aroha');
+  'rls-test-a', 'Whaea Public', 'public.enquiry@example.test', '2-and-over');
 
 set local role postgres;
 select pg_temp.expect(
   (select count(*) from public.enrolment_applications
     where lower(email) = 'public.enquiry@example.test') = 2,
-  'a second child from the same family is a second enquiry, not a swallowed duplicate'
+  'a second child in a different age band is a second enquiry, not a swallowed duplicate'
 );
 
 -- The insert is audited with NO actor, which is the honest answer: the writer is anon and
@@ -5303,7 +5312,7 @@ declare ok boolean := false;
 begin
   begin
     perform public.submit_enrolment_application(
-      'rls-test-a', 'Whaea Public', 'long@example.test', 'Tama', repeat('9', 41));
+      'rls-test-a', 'Whaea Public', 'long@example.test', 'under-2', repeat('9', 41));
   exception when others then ok := true;
   end;
   perform pg_temp.expect(ok, 'an over-long phone number is refused by the FUNCTION, not by the table');
@@ -5314,11 +5323,55 @@ declare ok boolean := false;
 begin
   begin
     perform public.submit_enrolment_application(
-      'rls-test-a', 'Whaea Public', 'bad-address', 'Tama');
+      'rls-test-a', 'Whaea Public', 'bad-address', 'under-2');
   exception when others then ok := true;
   end;
   perform pg_temp.expect(ok, 'an address with no @ is refused');
 end $$;
+
+-- An age band outside the three is refused. The vocabulary is small on purpose: it answers
+-- "which room, roughly when" and nothing else.
+do $$
+declare ok boolean := false;
+begin
+  begin
+    perform public.submit_enrolment_application(
+      'rls-test-a', 'Whaea Public', 'band@example.test', '2024-03-14');
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'a date of birth in the age-band field is refused');
+end $$;
+
+/*
+ * THE ASSERTION THAT PINS THE DECISION RATHER THAN THE BEHAVIOUR.
+ *
+ * `apps/site`'s enrolment page decided, before this schema existed, that a public enquiry
+ * form "will not ask for a child's name or date of birth" — and `tenant-little-pearls.md`
+ * holds this deployment to zero personal information until indemnity insurance is in place.
+ * 0052 shipped a `child_name` that was NOT NULL and contradicted both; 0054 corrected it.
+ *
+ * A behavioural test cannot catch that coming back: somebody re-adding the parameter would
+ * write a test that passes it. So this reads the catalogue. The public function takes eight
+ * arguments and none of them is a child's name — if that changes, this fails, and whoever
+ * changed it has to come and read this comment.
+ */
+select pg_temp.expect(
+  (select count(*) from pg_proc p
+     join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public'
+      and p.proname = 'submit_enrolment_application'
+      and pg_get_function_arguments(p.oid) ilike '%child_name%') = 0,
+  'the public enquiry function cannot be given a child''s name — it does not take one'
+);
+
+set local role postgres;
+select pg_temp.expect(
+  (select is_nullable from information_schema.columns
+    where table_schema = 'public' and table_name = 'enrolment_applications'
+      and column_name = 'child_name') = 'YES',
+  'and the column is nullable, so an enquiry with no child named is a complete row'
+);
+set local role anon;
 
 -- Days outside 1..7 would corrupt every roster read that trusts the array.
 do $$
@@ -5326,8 +5379,8 @@ declare ok boolean := false;
 begin
   begin
     perform public.submit_enrolment_application(
-      'rls-test-a', 'Whaea Public', 'days@example.test', 'Tama',
-      null, null, null, array[0, 9]::smallint[]);
+      'rls-test-a', 'Whaea Public', 'days@example.test', 'under-2',
+      null, null, array[0, 9]::smallint[]);
   exception when others then ok := true;
   end;
   perform pg_temp.expect(ok, 'a day outside Monday..Sunday is refused');
@@ -5344,8 +5397,8 @@ do $$
 declare code text := 'none (the insert SUCCEEDED)';
 begin
   begin
-    insert into public.enrolment_applications (centre_id, contact_name, email, child_name)
-    values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Direct', 'direct@example.test', 'Tama');
+    insert into public.enrolment_applications (centre_id, contact_name, email, child_age_band)
+    values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Direct', 'direct@example.test', 'under-2');
   exception when others then code := sqlstate;
   end;
   perform pg_temp.expect(code = '42501',
@@ -5365,11 +5418,11 @@ update public.enrolment_applications
    set status = 'contacted',
        moved_by = '11111111-1111-4111-8111-111111111111',
        moved_at = now()
- where lower(email) = 'public.enquiry@example.test' and child_name = 'Tama';
+ where lower(email) = 'public.enquiry@example.test' and child_age_band = 'under-2';
 
 select pg_temp.expect(
   (select status from public.enrolment_applications
-    where lower(email) = 'public.enquiry@example.test' and child_name = 'Tama') = 'contacted',
+    where lower(email) = 'public.enquiry@example.test' and child_age_band = 'under-2') = 'contacted',
   'and moves one along'
 );
 
@@ -5380,7 +5433,7 @@ begin
   begin
     update public.enrolment_applications
        set moved_by = '11111111-1111-4111-8111-111111111111', moved_at = null
-     where child_name = 'Aroha';
+     where child_age_band = '2-and-over';
   exception when others then ok := true;
   end;
   perform pg_temp.expect(ok, 'an enquiry cannot record who moved it without recording when');
@@ -5412,7 +5465,7 @@ set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","r
 do $$
 declare n integer;
 begin
-  delete from public.enrolment_applications where child_name = 'Aroha';
+  delete from public.enrolment_applications where child_age_band = '2-and-over';
   get diagnostics n = row_count;
   perform pg_temp.expect(n = 1, 'the office CAN delete a junk enquiry about a named child');
 end $$;
