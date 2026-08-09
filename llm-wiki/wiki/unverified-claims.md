@@ -65,6 +65,10 @@ Nothing here is a bug. They are known gaps with known closures.
   `import-discover.ts` define their own intake shapes rather than a sourced vendor format —
   this repo has never seen a real export from either product, and "Discover" is not even a
   specifically identified one. Items 31 and 32.
+- **The five Te Whāriki strand names have not been diffed against a primary source, and
+  `messages/mi.json` is entirely placeholder text.** The i18n infrastructure exists and is
+  proven against one real page; no te reo Māori translation exists anywhere in the product.
+  Items 33 and 34.
 
 ## Details
 
@@ -606,6 +610,31 @@ drawn where it was; this item is only about the five names themselves.
 Mokopuna o Aotearoa* and diff `curriculum_strands.name_reo` against it character by
 character, macrons included, before this table is relied on for anything printed and shown
 to a reviewer.
+
+### 34. `messages/mi.json` contains no real te reo Māori — every string is a placeholder
+
+Added 2026-08-10 with the i18n infrastructure. See [[i18n]].
+
+Every value in `apps/web/messages/mi.json` is the English string with a literal `[mi] `
+prefix — `"[mi] Your account"`, not a translation. This is deliberate and the prefix is the
+whole safeguard: the roadmap scoped the te reo Māori interface as "mechanical work touching
+every component… a week of tedium," and generating real translations at that scale without
+a way to verify them is exactly the kind of unchecked assertion this page exists to refuse.
+What was built instead is the plumbing — the cookie, the message-file loading, the
+Server/Client Component split — proven against one real page (`/account`) rather than
+guessed at translated content across the whole app.
+
+**The risk this item exists to name:** if the `[mi] ` prefix is ever stripped from
+`mi.json` without the values behind it becoming real translations, the product would present
+placeholder text as though it were te reo Māori — worse than the infrastructure not existing
+at all, because it looks finished. Nothing enforces the prefix's presence; this page and the
+one comment in `LocaleSwitcher.tsx` are the only things saying not to.
+
+**To close it:** a fluent te reo Māori speaker translates `messages/en.json` into
+`messages/mi.json` for real, for every page — starting from `/account`, the only page
+currently wired to read either file, and continuing through the rest of the app the same
+way `daily-registers.md` became three narrower pages rather than one: page by page, checked
+each time rather than assumed.
 
 ## See Also
 

@@ -5,6 +5,56 @@ says so.*
 
 ---
 
+2026-08-10 — **The plumbing for a te reo Māori interface, deliberately not the interface.**
+`next-intl`, `apps/web/src/i18n/`, `apps/web/src/lib/locale.ts`,
+`apps/web/messages/`, `/account`. See [[i18n]], [[unverified-claims]] §34.
+
+The roadmap scoped this item itself as "mechanical work touching every component… a week
+of tedium," and the honest response to that is not to fake a week of tedium in one sitting.
+Generating te reo Māori text for every string across two apps with no fluent reviewer in
+the loop would be asserting content this repo cannot check — the same failure
+unverified-claims exists to name, and this repo has already paid for exactly that class of
+mistake once, a macron on the wrong letter. So: the technical plumbing, built and proven
+against one real page, with every translated value left as an explicit, prefixed
+placeholder rather than a guess dressed up as an answer.
+
+**A cookie, not next-intl's own `[locale]` routing.** That mode needs its own middleware,
+and `middleware.ts` already does the one job the whole security model depends on — minting
+the CSP nonce that lets `script-src 'strict-dynamic'` hold. Composing a second middleware
+in was a real way to break that silently, the same failure mode root layout's own header
+comment already records for a different mistake. `ece_locale` costs one cookie read in
+`i18n/request.ts`, no middleware at all — the same shape `CENTRE_COOKIE` already uses for
+which centre is active.
+
+**A file split the build caught the need for, not reasoning ahead of time.** The first
+draft put `LOCALES`/`Locale`/`LOCALE_LABELS` and the cookie-reading `getLocale()` in one
+file. The build failed: a Client Component importing the constants pulled in `next/headers`
+transitively, and Next refuses to bundle *any* import from a file that touches a
+server-only API into client code, even an export the client never uses. Split into
+`locale.ts` (pure) and `locale.server.ts` (the cookie read) and it compiled clean.
+
+**One page, chosen to exercise both halves of next-intl's API.** `/account/page.tsx` is a
+Server Component and awaits `getTranslations()`; its child `ChangePasswordForm.tsx` is a
+Client Component and calls the hook form, `useTranslations()`, un-awaited. Migrating a page
+that only needed one would have left the harder half — the one that actually ships to a
+browser — unproven.
+
+**The `[mi]` prefix on every value in `mi.json` is the entire safeguard against this
+looking finished when it is not**, and nothing enforces it. Selecting "Te reo Māori" in the
+switcher on `/account` proves the mechanism and shows, unmistakably, that the content
+behind it is not real. unverified-claims item 34 says so and says what closing it means:
+page by page, a fluent speaker, starting from the one page this actually reaches.
+
+Verified against the running dev server rather than only the build: the cookie → config →
+render pipeline checked on the unauthenticated `/login` page (shared root layout, so no
+sign-in needed) — no cookie and an explicit `en` both render `<html lang="en-NZ">`, `mi`
+renders `mi-NZ`, and a garbage value falls back to the default rather than erroring. A fully
+authenticated check of `/account`'s rendered strings was attempted — replicating Next's
+Server Actions POST protocol by hand through curl — and abandoned as disproportionate to
+what the build's own RSC-boundary failure already proved.
+
+---
+
 2026-08-10 — **The lowest-priority item in the whole roadmap, and it still found two real
 bugs.** 0058, `curriculum_strands`, `post_strands`. See [[curriculum-strands]],
 [[unverified-claims]] §33.

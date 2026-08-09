@@ -1,0 +1,17 @@
+{
+  "Account": {
+    "title": "[mi] Your account",
+    "changePasswordHeading": "[mi] Change password"
+  },
+  "ChangePasswordForm": {
+    "currentLabel": "[mi] Current password",
+    "newLabel": "[mi] New password",
+    "confirmLabel": "[mi] New password again",
+    "success": "[mi] Password changed. Anywhere else you were signed in has been signed out.",
+    "submit": "[mi] Change password",
+    "submitting": "[mi] Changing…"
+  },
+  "LocaleSwitcher": {
+    "label": "[mi] Language"
+  }
+}

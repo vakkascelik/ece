@@ -131,6 +131,10 @@ and [`../schema.md`](../schema.md) for the page template.
 
 - [[conventions]] — migrations, timezones, PostgREST traps, testing, tokens, and the versions
   worth not re-litigating
+- [[i18n]] — infrastructure for the te reo Māori interface, deliberately not the interface
+  itself: a cookie instead of next-intl's own middleware, a Server/Client Component split
+  the build caught the need for, and a `[mi]` placeholder prefix that is the only thing
+  stopping this from looking like a translation nobody actually did
 
 ---
 

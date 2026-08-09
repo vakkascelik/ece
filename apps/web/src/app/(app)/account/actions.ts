@@ -1,7 +1,9 @@
 'use server';
 
+import { cookies } from 'next/headers';
 import { createAnonClient } from '@ece/api';
 import { actionError } from '@/lib/actionError';
+import { LOCALE_COOKIE, LOCALES, type Locale } from '@/lib/locale';
 import { passwordProblem } from '@/lib/password';
 import { serverDb } from '@/lib/supabase';
 
@@ -64,4 +66,20 @@ export async function changePassword(_prev: unknown, form: FormData): Promise<Ch
   await db.auth.signOut({ scope: 'others' });
 
   return { ok: true };
+}
+
+/**
+ * Set the display language for this browser.
+ *
+ * `next-intl` reads this cookie on the very next render — see `src/i18n/request.ts` — so
+ * no session or database write is involved and no other device is affected. Anything not
+ * in `LOCALES` is silently ignored rather than erroring: a stray value in a hand-edited
+ * cookie should not crash the account page.
+ */
+export async function setLocale(locale: string): Promise<void> {
+  if (!(LOCALES as readonly string[]).includes(locale)) return;
+  // `.includes` does not narrow `locale` for TypeScript even though LOCALES is a literal
+  // union — the check above is what actually guarantees this cast is safe.
+  const store = await cookies();
+  store.set(LOCALE_COOKIE, locale as Locale, { maxAge: 60 * 60 * 24 * 365, sameSite: 'lax' });
 }

@@ -1,4 +1,5 @@
 import type { NextConfig } from 'next';
+import createNextIntlPlugin from 'next-intl/plugin';
 
 /**
  * Environment comes from the workspace root `.env.local`, loaded by `dotenv-cli`
@@ -53,4 +54,16 @@ const config: NextConfig = {
     : {}),
 };
 
-export default config;
+/*
+ * next-intl, deliberately WITHOUT its URL-routing mode ([locale] path segments and the
+ * middleware that rewrites them). `middleware.ts` mints a per-request CSP nonce that the
+ * whole app's security model depends on — see the header comment on the root layout —
+ * and layering next-intl's own middleware in would mean either replacing that logic or
+ * composing two middlewares that both touch the request/response headers, either of
+ * which is a real chance of silently breaking the nonce for every route at once. A
+ * cookie read in `src/i18n/request.ts` (the same pattern `CENTRE_COOKIE` already uses for
+ * which centre is active) needs no middleware at all. See llm-wiki/wiki/i18n.md.
+ */
+const withNextIntl = createNextIntlPlugin();
+
+export default withNextIntl(config);

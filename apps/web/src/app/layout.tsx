@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
+import { NextIntlClientProvider } from 'next-intl';
+import { getLocale, getMessages } from 'next-intl/server';
 import './globals.css';
 
 /*
@@ -37,10 +39,21 @@ export const metadata: Metadata = {
   description: 'Administration for New Zealand early learning services.',
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  // `next-intl/server`'s own getLocale()/getMessages() — resolved through
+  // `src/i18n/request.ts`, which is where the cookie is actually read (`@/lib/locale`).
+  // This pair reads the config next-intl has already resolved for the request rather
+  // than reading the cookie a second time.
+  const locale = await getLocale();
+  const messages = await getMessages();
+
   return (
-    <html lang="en-NZ">
-      <body>{children}</body>
+    <html lang={locale === 'mi' ? 'mi-NZ' : 'en-NZ'}>
+      <body>
+        <NextIntlClientProvider locale={locale} messages={messages}>
+          {children}
+        </NextIntlClientProvider>
+      </body>
     </html>
   );
 }
