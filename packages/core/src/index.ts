@@ -249,6 +249,10 @@ export * from './redaction';
 // What a model call costs and when to stop making them. Pure, so the cap is testable
 // without a key — see the note on the price list being unverified.
 export * from './modelSpend';
+
+// Invoices in the shape Xero imports. Pure, so the column set is testable without
+// an accounting system — which is the only way it can be tested at all.
+export * from './xero';
 export * from './funding';
 
 // Applications for employment. The one vocabulary shared with the public website, which

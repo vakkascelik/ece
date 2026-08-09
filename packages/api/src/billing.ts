@@ -619,6 +619,66 @@ export async function listOutstandingInvoices(
   }));
 }
 
+/**
+ * Every line of every issued invoice in a period, for the accounting export.
+ *
+ * One query rather than one per invoice. The obvious shape — list the invoices, then call
+ * `listInvoiceLines` for each — is the N+1 that `readDayForecast` already had to be
+ * rewritten out of once: a term's invoicing at a 65-place service is hundreds of invoices,
+ * so it is hundreds of round trips for a file somebody downloads while waiting.
+ *
+ * `invoices!inner(centre_id, status, issued_at)` is the same embedded-filter idiom as
+ * `listStaffAttendance`. It matters more here than it looks: `invoice_lines` carries no
+ * `centre_id` of its own, so the tenant boundary for this read is entirely the policy on
+ * `invoices` that the join walks through. There is no `.eq('centre_id', …)` to forget
+ * because there is no such column — which is the safer arrangement, not a gap.
+ *
+ * DRAFTS ARE EXCLUDED, and that is the whole point of the filter. A draft is an invoice
+ * nobody has sent; importing one into an accounting system creates a receivable for money
+ * that was never asked for. `voided` is excluded for the mirror reason.
+ */
+export async function listIssuedInvoiceLines(
+  db: Db,
+  centreId: string,
+  fromIso: string,
+  toIso: string,
+): Promise<InvoiceLine[]> {
+  const rows = await fetchAll<{
+    id: string;
+    invoice_id: string;
+    child_id: string | null;
+    description: string;
+    quantity: number | string;
+    unit_cents: number;
+  }>('listIssuedInvoiceLines', (from, to) =>
+    db
+      .from('invoice_lines')
+      .select(
+        'id, invoice_id, child_id, description, quantity, unit_cents, invoices!inner(centre_id, status, issued_at)',
+      )
+      .eq('invoices.centre_id', centreId)
+      .in('invoices.status', ['issued', 'paid'])
+      .gte('invoices.issued_at', fromIso)
+      .lt('invoices.issued_at', toIso)
+      // `invoice_id` first so a multi-line invoice's rows stay together, which is what
+      // Xero uses to group them, then `id` to break the tie — paging a non-unique order
+      // repeats one row and skips another.
+      .order('invoice_id')
+      .order('id')
+      .range(from, to),
+  );
+
+  return rows.map((r) => ({
+    id: r.id,
+    invoiceId: r.invoice_id,
+    childId: r.child_id,
+    description: r.description,
+    // numeric(8,2) arrives as a string from PostgREST.
+    quantity: Number(r.quantity),
+    unitCents: r.unit_cents,
+  }));
+}
+
 // ---------------------------------------------------------------------------
 // Funding receipts (0046)
 // ---------------------------------------------------------------------------

@@ -35,11 +35,21 @@ export function PageActions({
   csvLabel = 'Download CSV',
   printLabel = 'Print or save as PDF',
   hint,
+  children,
 }: {
   csvHref?: string;
   csvLabel?: string;
   printLabel?: string;
   hint?: string;
+  /**
+   * An extra control for the same row — currently only the Xero export on `/billing`.
+   *
+   * `children` rather than a second `csvHref2` prop, because the next page that wants a
+   * second download will want a different label and a different href, and a numbered
+   * prop pair is how a component acquires four of them. One page uses this; if a third
+   * ever does, the shape is already right.
+   */
+  children?: React.ReactNode;
 }) {
   return (
     <div className="no-print" style={{ margin: '0 0 1rem' }}>
@@ -49,6 +59,7 @@ export function PageActions({
             {csvLabel}
           </a>
         )}
+        {children}
         <button type="button" className="secondary" onClick={() => window.print()}>
           {printLabel}
         </button>

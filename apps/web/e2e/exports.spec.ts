@@ -37,6 +37,11 @@ const EXPORTS: Array<{ path: string; why: string; allowed: Record<Role, boolean>
     allowed: { manager: true, educator: false, parent: false },
   },
   {
+    path: '/billing/xero.csv',
+    why: 'manageCentre — the same rows as the accounts export, shaped for an accounting system',
+    allowed: { manager: true, educator: false, parent: false },
+  },
+  {
     path: '/funding/export.csv',
     why: 'manageCentre — the RS7 preparation figures',
     allowed: { manager: true, educator: false, parent: false },
@@ -139,6 +144,75 @@ test('the accounts export emits summable numbers, not formatted money', async ({
   expect(body).toContain('455.00');
   expect(body).not.toContain('$455.00');
   expect(body).toContain('Family,Invoice,Due,Invoiced,Paid,Owing,Days overdue,Age');
+
+  await page.context().close();
+});
+
+test('the Xero export dates DD/MM/YYYY and guesses nothing about the chart of accounts', async ({
+  browser,
+}) => {
+  const t = tenant();
+  const page = await signIn(browser, t.managerEmail, t.password);
+
+  /*
+    An explicit window, because the DEFAULT deliberately excludes this invoice.
+
+    The default is the previous whole month — what a bookkeeper reconciles — and the
+    fixture issues its invoice today. Passing `from`/`to` covers today and tests the
+    parameter at the same time. A version of this test that used the default would pass
+    against an empty file and assert nothing, which is the failure mode the roll export
+    test avoids by naming a child that is actually there.
+  */
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Pacific/Auckland' });
+  const res = await page.request.get(`/billing/xero.csv?from=${today}&to=${today}`);
+  const body = await res.text();
+
+  expect(res.headers()['content-type']).toContain('text/csv');
+
+  // The template's header row, generated from the same constant the rows are.
+  expect(body).toContain('ContactName,EmailAddress,');
+  expect(body).toContain(',InvoiceNumber,Reference,InvoiceDate,DueDate,');
+  expect(body).toContain(',Description,Quantity,UnitAmount,Discount,AccountCode,TaxType,');
+
+  // Xero matches an existing customer on an exact name, so the contact is the guardian
+  // and nothing decorative.
+  expect(body).toContain('Hine Audit-');
+  expect(body).toContain('INV-');
+
+  /*
+    THE ASSERTION THIS TEST EXISTS FOR.
+
+    Not one ISO date anywhere in the file. Xero wants DD/MM/YYYY, and the way this goes
+    wrong is not a rejected import — it is `new Date('2026-01-01')` being midnight UTC,
+    formatted on a UTC server, rendering 31/12/2025 and filing a whole invoice in the
+    previous financial year. Asserting the absence of `YYYY-MM-DD` catches the format
+    slipping back; `xero.test.ts` covers the year boundary itself.
+  */
+  expect(body).toMatch(/\d{2}\/\d{2}\/\d{4}/);
+  expect(body).not.toMatch(/\d{4}-\d{2}-\d{2}/);
+
+  /*
+    And the two columns that stay empty on purpose. A future change that helpfully fills
+    in `200` and `15% GST on Income` would post a centre's revenue to an account nobody
+    chose — silently, because it reconciles perfectly. This is the guard against a
+    well-meaning improvement.
+  */
+  // The BOM as an escape, not the literal character: `toCsv` prepends a BOM so Excel
+  // renders macrons, and a bare BOM in source is invisible — ESLint's
+  // `no-irregular-whitespace` rejects it, correctly.
+  const [header, firstRow] = body.replace(/^\uFEFF/, '').split(/\r?\n/);
+  const columns = header!.split(',');
+  const values = firstRow!.split(',');
+  expect(values[columns.indexOf('AccountCode')]).toBe('');
+  expect(values[columns.indexOf('TaxType')]).toBe('');
+
+  // No derived total for Xero to disagree with — it computes them from the lines.
+  expect(columns).not.toContain('Total');
+  expect(columns).not.toContain('TaxAmount');
+
+  // The period is in the filename, not only the download date: a July file pulled in
+  // August must not be named for August.
+  expect(res.headers()['content-disposition']).toContain(`xero-invoices-${today.slice(0, 7)}-`);
 
   await page.context().close();
 });

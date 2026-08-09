@@ -5,6 +5,64 @@ says so.*
 
 ---
 
+2026-08-09 — **Xero, as a file rather than an integration.** `/billing/xero.csv`,
+`packages/core/src/xero.ts`, `listIssuedInvoiceLines`. See [[exports]].
+
+The roadmap said sales-invoice CSV, no OAuth, and not to add OAuth until asked. That still holds and
+the reasoning is worth restating: a refresh token per centre is a new class of secret in a database
+that holds none, plus a rotation job, plus a failure mode where a silently expired token means
+invoices quietly stop syncing — bought for something a bookkeeper does monthly.
+
+**I sourced the format instead of recalling it, and the distinction turned out to matter.** From
+Xero Central directly: only `ContactName` and `InvoiceNumber` are required; one row per invoice
+*line*, grouped by a shared `InvoiceNumber`; `DD/MM/YYYY`; amounts tax-inclusive or tax-exclusive but
+never mixed; other fields may be left blank; and *"don't delete any columns or change any column
+headings."* What I could **not** source is the exact list and order of the remaining columns — that
+came from a third-party mirror of the template, and no import has been run. [[unverified-claims]]
+§30. The last instruction is what makes the gap real: a wrong column set is a rejected file.
+
+That is the *tolerable* failure though, and the design leans on it. Xero refuses and says why; a
+bookkeeper loses ten minutes. The failure worth engineering against is a file Xero **accepts and
+gets wrong**, and there are two of those:
+
+**`AccountCode` and `TaxType` are blank, deliberately.** This product has no chart of accounts and
+no tax field anywhere in the schema — an invoice is quantity × unit price. `200` and
+`15% GST on Income` are the plausible defaults and both are guesses about somebody else's books
+wearing the appearance of facts. Revenue posted to a wrongly-guessed account **reconciles
+perfectly** and is found by an accountant months later. Xero's own page says other fields may be
+left blank, so blank is both correct and supported. Asserted in a test rather than left as an
+absence, because an empty column looks like an oversight to whoever reads it next.
+
+**No derived totals.** `Total`, `TaxTotal`, `LineAmount`, `TaxAmount` are absent from the column set
+rather than blank in it. Xero computes them from the lines, and a total we emitted that disagreed
+with quantity × unit price would be a wrong number it had no reason to question. Same rule as
+`invoice_totals` being a view: a money figure kept in two places drifts, and the copy is the one
+that lies.
+
+**`xeroDate` does not construct a `Date`, and that is a real bug avoided rather than a stylistic
+preference.** `new Date('2026-01-01')` is midnight UTC; formatting it anywhere behind UTC renders
+`31/12/2025` — a whole invoice in the wrong financial year, silently, on a server set to UTC, which
+is production. This repo has now fixed that same shape three times, so the test asserts both ends of
+a year.
+
+**Drafts are excluded**, which is the filter's entire purpose. A draft is an invoice nobody sent;
+importing one creates a receivable for money that was never asked for.
+
+**One query, not one per invoice.** `invoices!inner(...)` rather than looping `listInvoiceLines` —
+a term's invoicing is hundreds of invoices and therefore hundreds of round trips for a file somebody
+is waiting on. Worth noticing while reading it: `invoice_lines` carries no `centre_id`, so the
+tenant boundary for that read is entirely the policy on `invoices` the join walks through. There is
+no `.eq('centre_id', …)` to forget because there is no such column.
+
+**And a comment that pointed at the wrong file.** `csvDownload` claimed *"the route×role matrix in
+`roles.spec.ts` covers the export paths"*. It does not — `roles.spec.ts` contains no export path at
+all. The coverage is real and lives in `exports.spec.ts`; only the pointer was wrong. Corrected in
+place, because a comment that sends a reader to the wrong file to verify a **security** claim is
+worse than one that sends them nowhere: the reader who checks finds an empty grep and has to decide
+whether the claim or the comment is broken. `/billing/xero.csv` is now in that matrix.
+
+---
+
 2026-08-09 — **Tier A: one screen, one button, eight integers.** The compliance narrative.
 `compliance/narrative.ts`, `ComplianceNarrative.tsx`, `narrative.spec.ts`. See [[model-calls]].
 

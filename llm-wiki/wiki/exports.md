@@ -108,6 +108,87 @@ The CSV beside it is an ordinary `<a>`, not a fetch-and-blob: it middle-clicks, 
 works on the connection where JavaScript has not arrived. `download` is deliberately absent so the
 attribute cannot override the server's filename and drop the centre's name from it.
 
+## The Xero export
+
+`/billing/xero.csv`. Issued invoices in the shape Xero's importer expects, one row per invoice
+**line**, rows grouped into an invoice by a shared `InvoiceNumber`.
+
+### A file, not an integration
+
+The alternative is Xero's API: OAuth, a refresh token per centre, a rotation job, and a per-tenant
+third-party secret in a database that currently holds none. That is a new class of secret and a new
+failure mode — a silently expired token means invoices quietly stop syncing — bought for something
+a bookkeeper does monthly. **Do not add OAuth until a centre asks for it**, which is the roadmap's
+instruction and remains the right call. A file a bookkeeper uploads is a file they can look at
+first.
+
+### What is sourced, and what is not
+
+Verified against Xero Central on 2026-08-09:
+
+- Only `ContactName` and `InvoiceNumber` are **required**.
+- One row per line; rows sharing an `InvoiceNumber` become one invoice, so the contact and number
+  repeat on every row of a multi-line invoice.
+- `InvoiceDate` and `DueDate` are `DD/MM/YYYY`.
+- Amounts may include *or* exclude tax, but one file must not mix them.
+- *"Any other fields can be left blank and completed in Xero afterwards."*
+- *"Don't delete any columns or change any column headings."*
+
+**Not sourced: the exact list and order of the remaining columns.** That came from a third-party
+mirror of the template, and nobody here has opened a template downloaded from Xero or run a real
+import. [[unverified-claims]] §30. It matters because of the last instruction above — a wrong column
+set is a rejected file.
+
+The failure mode is the tolerable one: Xero refuses the import and says why. What would be
+intolerable is a file it *accepts* and gets wrong, which is what the next two decisions are about.
+
+### `AccountCode` and `TaxType` are deliberately blank
+
+**This product does not know them.** There is no chart of accounts here and no tax field anywhere in
+the schema — an invoice is quantity × unit price, full stop.
+
+A plausible default exists for both: `200` is Xero's usual sales account, `15% GST on Income` is the
+New Zealand rate. Emitting either would be a guess about somebody's books wearing the appearance of
+a fact, and the failure is **silent** — revenue posted to a wrongly-guessed account reconciles
+perfectly and is found by an accountant months later. Blank is supported by Xero's own instruction
+and is the honest state. The hint on `/billing` says so in as many words.
+
+### No derived totals
+
+`Total`, `TaxTotal`, `LineAmount`, `TaxAmount` and `InvoiceAmountDue` are **absent from the column
+set**, not blank in it. They are derived, and a total we emitted that disagreed with quantity × unit
+price would be a wrong number Xero had no reason to question. Xero computes them from the lines.
+
+This is the same rule as `invoice_totals` being a view rather than a stored column, for the same
+reason: a money figure kept in two places drifts, and the copy is the one that lies.
+
+### Drafts are excluded, and a voided invoice with it
+
+`listIssuedInvoiceLines` filters to `issued` and `paid`. A draft is an invoice nobody has sent;
+importing one creates a receivable for money that was never asked for.
+
+### The window is a month, in the centre's timezone
+
+Default is the **previous whole month**, which is what a bookkeeper reconciles. Exporting
+"everything" would re-offer invoices Xero already holds — and Xero skips an invoice number it
+already has, so the second import silently does almost nothing, which looks like the export being
+broken. `?from=` and `?to=` override it; `to` is inclusive to the caller and exclusive internally.
+
+`xeroDate` splits the ISO string rather than constructing a `Date`. `new Date('2026-01-01')` is
+midnight UTC, and formatting that anywhere behind UTC renders `31/12/2025` — **a whole invoice in
+the wrong financial year**, silently, on a server set to UTC. Which is production. Same bug this
+repo has now fixed three times.
+
+### One query, not one per invoice
+
+`listIssuedInvoiceLines` uses the `invoices!inner(...)` embedded filter rather than looping
+`listInvoiceLines`. A term's invoicing at a 65-place service is hundreds of invoices, so the obvious
+shape is hundreds of round trips for a file somebody is waiting on.
+
+Worth noticing: `invoice_lines` carries **no `centre_id`**, so the tenant boundary for that read is
+entirely the policy on `invoices` that the join walks through. There is no `.eq('centre_id', …)` to
+forget because there is no such column — the safer arrangement, not a gap.
+
 ## See Also
 
 - [[funding-and-billing]] — the figures the money exports carry

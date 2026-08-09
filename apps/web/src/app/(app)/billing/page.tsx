@@ -47,8 +47,19 @@ export default async function BillingPage() {
         </p>
         <PageActions
           csvHref="/billing/export.csv"
-          hint="The spreadsheet has the same figures as plain numbers, so a column can be summed."
-        />
+          hint="The spreadsheet has the same figures as plain numbers, so a column can be summed. The Xero file covers last month's issued invoices and leaves the account code and tax rate blank — those are your chart of accounts, not ours."
+        >
+          {/*
+            A second download rather than a second format of the first. They answer
+            different questions: the accounts CSV is what families owe *now*, the Xero
+            file is what was *issued* in a period. Merging them would produce a file that
+            was wrong for both — an accounting import must not contain a balance, and an
+            arrears report must not be limited to one month.
+          */}
+          <a className="btn secondary" href="/billing/xero.csv">
+            Download for Xero
+          </a>
+        </PageActions>
       </div>
 
       <div className="card" style={{ marginBottom: '1rem' }}>

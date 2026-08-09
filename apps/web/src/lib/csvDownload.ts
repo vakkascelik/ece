@@ -15,8 +15,13 @@ import { exportFilename, toCsv, type CsvColumn } from '@ece/core';
  * still underneath. That is worth stating because a download feels like a formatting
  * concern and is not: `/billing` refusing an educator while `/billing/export.csv`
  * hands them the same rows would be a real hole, and nothing about the CSV layer would
- * hint at it. The route×role matrix in `roles.spec.ts` covers the export paths for
- * that reason.
+ * hint at it. `exports.spec.ts` carries a route×role matrix for that reason — every
+ * export route belongs in it, and a new one that is not in it is untested.
+ *
+ * (This said `roles.spec.ts` until 2026-08-09, which is a different file and does not
+ * cover a single export path. The coverage was real and the pointer was not; a comment
+ * that sends a reader to the wrong place to verify a security claim is worse than one
+ * that sends them nowhere.)
  *
  * ═══════════════════════════════════════════════════════════════════════════
  * `no-store`, ALWAYS

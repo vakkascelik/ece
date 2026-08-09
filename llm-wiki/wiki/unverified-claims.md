@@ -512,6 +512,30 @@ load-bearing on anything a centre is billed for.
 **To close it:** make one real call with a key, read the actual usage from the response and the
 actual charge from the console, and compare. That is the same drill as §27 and closes with it.
 
+### 30. Xero's full column list came from a third-party mirror, and no import has been run
+
+Added 2026-08-09 with `/billing/xero.csv`.
+
+What **is** sourced, from Xero Central itself: only `ContactName` and `InvoiceNumber` are required;
+one row per invoice line with rows grouped by a shared `InvoiceNumber`; `DD/MM/YYYY` dates; amounts
+either tax-inclusive or tax-exclusive but never mixed in one file; other fields may be left blank
+and completed in Xero afterwards; and *"don't delete any columns or change any column headings."*
+
+What is **not**: the exact names and order of the other columns in `XERO_COLUMNS`. Those came from a
+third-party knowledge base mirroring the template, not from a template downloaded from Xero, and
+**nobody has run a real import**. The last sourced instruction is what makes this matter — a wrong
+column set is a rejected file.
+
+The exposure is bounded, and deliberately so. A wrong column set makes Xero **refuse the import and
+say why**, which is loud and costs a bookkeeper ten minutes. The failure that would matter is a file
+Xero *accepts* and gets wrong, and the two decisions guarding against it are that `AccountCode` and
+`TaxType` are left blank rather than guessed, and that no derived total is emitted for Xero to
+disagree with. Both are asserted in `xero.test.ts` rather than left as absences.
+
+**To close it:** download the sales-invoice template from a real Xero organisation, diff its header
+row against `XERO_COLUMNS`, and import one file. Until then the column set is a best effort and the
+two guards above are what make it safe to be wrong.
+
 ## See Also
 
 - [[kiosk-and-pins]] — the door tablet, and what it can and cannot know
