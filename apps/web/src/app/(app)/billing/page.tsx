@@ -2,7 +2,7 @@ import { listGuardians, listOutstandingInvoices } from '@ece/api';
 import { BUCKETS, formatCents, summariseArrears, todayInZone } from '@ece/core';
 import { requireCapability } from '@/lib/auth';
 import { serverDb } from '@/lib/supabase';
-import { TabHelp } from '../help/TabHelp';
+import { PageHeader } from '../PageHeader';
 import { PageActions } from '../PageActions';
 
 /**
@@ -41,28 +41,30 @@ export default async function BillingPage() {
 
   return (
     <div className="binder">
-      <div className="no-print has-help">
-        <h1>Accounts</h1>
-        <TabHelp href="/billing" />
-        <p className="sub">
-          What families still owe on invoices this centre has issued, as at {today}.
-        </p>
-        <PageActions
-          csvHref="/billing/export.csv"
-          hint="The spreadsheet has the same figures as plain numbers, so a column can be summed. The Xero file covers last month's issued invoices and leaves the account code and tax rate blank — those are your chart of accounts, not ours."
-        >
-          {/*
-            A second download rather than a second format of the first. They answer
-            different questions: the accounts CSV is what families owe *now*, the Xero
-            file is what was *issued* in a period. Merging them would produce a file that
-            was wrong for both — an accounting import must not contain a balance, and an
-            arrears report must not be limited to one month.
-          */}
-          <a className="btn secondary" href="/billing/xero.csv">
-            Download for Xero
-          </a>
-        </PageActions>
-      </div>
+      <PageHeader
+        title="Accounts"
+        helpHref="/billing"
+        subtitle={
+          <>What families still owe on invoices this centre has issued, as at {today}.</>
+        }
+        actions={
+          <PageActions
+            csvHref="/billing/export.csv"
+            hint="The spreadsheet has the same figures as plain numbers, so a column can be summed. The Xero file covers last month's issued invoices and leaves the account code and tax rate blank — those are your chart of accounts, not ours."
+          >
+            {/*
+              A second download rather than a second format of the first. They answer
+              different questions: the accounts CSV is what families owe *now*, the Xero
+              file is what was *issued* in a period. Merging them would produce a file that
+              was wrong for both — an accounting import must not contain a balance, and an
+              arrears report must not be limited to one month.
+            */}
+            <a className="btn secondary" href="/billing/xero.csv">
+              Download for Xero
+            </a>
+          </PageActions>
+        }
+      />
 
       <div className="card" style={{ marginBottom: '1rem' }}>
         <p className="inline" style={{ margin: 0 }}>

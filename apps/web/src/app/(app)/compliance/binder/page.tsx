@@ -19,6 +19,7 @@ import { requireCapability } from '@/lib/auth';
 import { serverDb } from '@/lib/supabase';
 import { dayWindow, lastSevenDays } from '@/lib/dayWindow';
 import { PageActions } from '../../PageActions';
+import { PageHeader } from '../../PageHeader';
 
 /**
  * The evidence binder: one dated document to hand to a reviewer.
@@ -86,16 +87,27 @@ export default async function BinderPage() {
       <div className="no-print inline" style={{ marginBottom: '1.5rem' }}>
         <Link href="/compliance">Back to compliance</Link>
       </div>
-      <PageActions hint="Choose &ldquo;Save as PDF&rdquo; as the destination in the print dialogue." />
-
-      <header>
-        <h1>Licensing evidence</h1>
-        <p className="sub">
-          <strong>{ctx.centre.name}</strong>
-          {ctx.centre.moeServiceNumber ? ` · Ministry service number ${ctx.centre.moeServiceNumber}` : ''}
-        </p>
-        <p className="sub">Generated {generatedAt}</p>
-      </header>
+      {/*
+        The one header on this route that keeps its own second line. `generatedAt` is not a
+        subtitle — it is part of the document, and a binder printed without the date it was
+        generated is a binder nobody can date. So it stays below the header rather than being
+        folded into it, and it prints while the actions do not.
+      */}
+      <PageHeader
+        title="Licensing evidence"
+        subtitle={
+          <>
+            <strong>{ctx.centre.name}</strong>
+            {ctx.centre.moeServiceNumber
+              ? ` · Ministry service number ${ctx.centre.moeServiceNumber}`
+              : ''}
+          </>
+        }
+        actions={
+          <PageActions hint="Choose &ldquo;Save as PDF&rdquo; as the destination in the print dialogue." />
+        }
+      />
+      <p className="sub">Generated {generatedAt}</p>
 
       {/*
         Stated at the top rather than buried. A reviewer reading this needs to know what it

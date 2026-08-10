@@ -3,7 +3,7 @@ import { summariseIncidents, supersededIds, todayInZone } from '@ece/core';
 import { requireCapability } from '@/lib/auth';
 import { dayWindow, shiftLocalDate } from '@/lib/dayWindow';
 import { serverDb } from '@/lib/supabase';
-import { TabHelp } from '../help/TabHelp';
+import { PageHeader } from '../PageHeader';
 import { IncidentList, type IncidentRow } from './IncidentList';
 import { NewIncident, type BasedOn } from './NewIncident';
 
@@ -146,46 +146,53 @@ export default async function IncidentsPage({
 
   return (
     <>
-      <div className="has-help">
-        <h1>Incidents</h1>
-        <TabHelp href="/incidents" />
-      </div>
-      <p className="sub">
-        Injuries, illness, behaviour and near misses at {ctx.centre.name}, over the last {days}{' '}
-        days.
-      </p>
-
       {/*
-        What is outstanding, not how many happened. A centre with forty resolved
-        incidents is in the same state as one with none, and a counter that only ever
-        goes up is a counter nobody reads.
+        The outstanding summary is the header's status strip rather than a card of its own.
+
+        It was already the right data and the rule it follows is unchanged: what is
+        outstanding, not how many happened. A centre with forty resolved incidents is in the
+        same state as one with none, and a counter that only ever goes up is a counter
+        nobody reads. What changed is where it sits — a card underneath the title read as a
+        piece of page content, which is exactly what a state summary is not.
       */}
-      <div className="card" style={{ marginBottom: '1rem' }}>
-        {summary.clear ? (
-          <p style={{ margin: 0 }}>
-            <span className="flag flag-ok">{'✓'} Nothing outstanding</span>{' '}
-            <span className="sub">Every report in this period is final, sent and acknowledged.</span>
-          </p>
-        ) : (
-          <p className="inline" style={{ margin: 0 }}>
-            {summary.drafts > 0 && (
-              <span className="flag flag-warn">
-                {'●'} {summary.drafts} draft{summary.drafts === 1 ? '' : 's'}
+      <PageHeader
+        title="Incidents"
+        helpHref="/incidents"
+        subtitle={
+          <>
+            Injuries, illness, behaviour and near misses at {ctx.centre.name}, over the last {days}{' '}
+            days.
+          </>
+        }
+        status={
+          summary.clear ? (
+            <>
+              <span className="flag flag-ok">{'✓'} Nothing outstanding</span>
+              <span className="sub">
+                Every report in this period is final, sent and acknowledged.
               </span>
-            )}
-            {summary.awaitingNotification > 0 && (
-              <span className="flag flag-critical">
-                {'▲'} {summary.awaitingNotification} whānau not told
-              </span>
-            )}
-            {summary.awaitingAcknowledgement > 0 && (
-              <span className="flag flag-quiet">
-                {summary.awaitingAcknowledgement} awaiting acknowledgement
-              </span>
-            )}
-          </p>
-        )}
-      </div>
+            </>
+          ) : (
+            <>
+              {summary.drafts > 0 && (
+                <span className="flag flag-warn">
+                  {'●'} {summary.drafts} draft{summary.drafts === 1 ? '' : 's'}
+                </span>
+              )}
+              {summary.awaitingNotification > 0 && (
+                <span className="flag flag-critical">
+                  {'▲'} {summary.awaitingNotification} whānau not told
+                </span>
+              )}
+              {summary.awaitingAcknowledgement > 0 && (
+                <span className="flag flag-quiet">
+                  {summary.awaitingAcknowledgement} awaiting acknowledgement
+                </span>
+              )}
+            </>
+          )
+        }
+      />
 
       {/*
         `key` forces a remount when the form's subject or mode changes.

@@ -4,6 +4,7 @@ import { requireCtx } from '@/lib/auth';
 import { serverDb } from '@/lib/supabase';
 import { NewThread } from './NewThread';
 import { Thread } from './Thread';
+import { PageHeader } from '../PageHeader';
 
 /**
  * Threads between kaiako and whānau.
@@ -33,16 +34,14 @@ export default async function MessagesPage() {
 
   return (
     <>
-      <div className="section-head">
-        <div>
-          <h1>Messages</h1>
-          <p className="sub" style={{ marginBottom: '1rem' }}>
-            {isStaff
-              ? `Conversations with ${REO.whanau} at ${ctx.centre.name}.`
-              : `With the kaiako at ${ctx.centre.name}.`}
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title="Messages"
+        subtitle={
+          isStaff
+            ? `Conversations with ${REO.whanau} at ${ctx.centre.name}.`
+            : `With the kaiako at ${ctx.centre.name}.`
+        }
+      />
 
       <NewThread
         childOptions={children.map((c) => ({ id: c.id, name: displayName(c) }))}

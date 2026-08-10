@@ -17,6 +17,7 @@ import {
 } from '@ece/core';
 import { requireCtx } from '@/lib/auth';
 import { serverDb } from '@/lib/supabase';
+import { PageHeader } from '../PageHeader';
 
 /**
  * The roll.
@@ -50,30 +51,32 @@ export default async function ChildrenPage() {
 
   return (
     <>
-      <div className="section-head">
-        <div>
-          <h1>{isParent ? 'Your tamariki' : 'Children'}</h1>
-          <p className="sub">
-            {isParent
-              ? `Enrolled at ${ctx.centre.name}.`
-              : `${children.length} enrolled at ${ctx.centre.name}` +
-                (children.length > 0 ? ` — ${underTwo} under two.` : '.')}
-          </p>
-        </div>
-        {can(ctx.role, 'manageChildren') && (
-          <div className="page-actions">
-            {/* Owner and manager only, which is stricter than this page: an educator and a
-                parent both READ it, and the policy decides how many rows each gets. A file
-                is different — it leaves the product and sits in a downloads folder. */}
-            <a className="btn" href="/children/export.csv">
-              Download list
-            </a>
-            <Link href="/children/new">
-              <button type="button">Enrol a child</button>
-            </Link>
-          </div>
-        )}
-      </div>
+      <PageHeader
+        title={isParent ? 'Your tamariki' : 'Children'}
+        subtitle={
+          isParent
+            ? `Enrolled at ${ctx.centre.name}.`
+            : `${children.length} enrolled at ${ctx.centre.name}` +
+              (children.length > 0 ? ` — ${underTwo} under two.` : '.')
+        }
+        /* Enrol is the one filled button: it is what this screen exists to do. The export
+           beside it is a link and stays secondary. */
+        actions={
+          can(ctx.role, 'manageChildren') ? (
+            <div className="page-actions">
+              {/* Owner and manager only, which is stricter than this page: an educator and a
+                  parent both READ it, and the policy decides how many rows each gets. A file
+                  is different — it leaves the product and sits in a downloads folder. */}
+              <a className="btn" href="/children/export.csv">
+                Download list
+              </a>
+              <Link href="/children/new">
+                <button type="button">Enrol a child</button>
+              </Link>
+            </div>
+          ) : undefined
+        }
+      />
 
       {children.length === 0 ? (
         <div className="card">

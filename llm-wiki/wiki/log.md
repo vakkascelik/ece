@@ -5,6 +5,32 @@ says so.*
 
 ---
 
+2026-08-11 — **One page header replaces four spellings; step 3 of the second design handover.**
+`apps/web/src/app/(app)/PageHeader.tsx` and every `page.tsx` under `(app)` bar one. See
+[[console-handover]].
+
+The component is not the interesting part; the bottom margin is. Four spellings of the header
+also meant four amounts of space under it — an inline `1.25rem`, a `marginBottom: '1rem'` on the
+subtitle, `.sub`'s default `2rem`, or nothing — so the first line of content began at a different
+height on almost every screen. `PageHeader` owns that number now and every inline override is
+deleted.
+
+`helpHref` is the trap in this step and is documented as one. The handover names the prop and
+draws a `?`, which reads like an anchor to `/help`; it is actually the route key `TabHelp` looks
+a doc up by, and what renders is the in-place `<details>` disclosure committed the day before.
+Implementing the prop name literally as a link would have silently reverted [[in-product-help]].
+
+Applying "at most one filled button" found three screens that deserve **zero**. `/reports` had
+two filled buttons whose only job was to navigate elsewhere; `/attendance` has a wall display and
+a download, while the thing it exists to do is on the row. On a read-only screen a filled button
+promises a next action that does not exist.
+
+`children/[id]` is deliberately still on `.record-head` — step 6 rebuilds that header, and
+converting it here would mean inventing an avatar slot now and discarding it then.
+
+`first-load-css` went 4.1kB → 4.2kB against a 4kB limit that was already breached. Nothing was
+orphaned that could pay for it. Step 4 is where it should come back.
+
 2026-08-11 — **Twenty-one nav links become six groups; step 2 of the second design handover.**
 `apps/web/src/app/(app)/NavGroup.tsx`, `layout.tsx`, `globals.css`. See [[console-handover]],
 and a correction to [[conventions]].

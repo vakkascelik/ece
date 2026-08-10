@@ -29,6 +29,15 @@
  *
  * Neither control is printed. A page that prints its own "Print" button is a page
  * somebody has to explain.
+ *
+ * WHY IT NO LONGER CARRIES ITS OWN BOTTOM MARGIN
+ *
+ * It used to be a block sitting above the content, so a 1rem gap underneath was its own
+ * business. Every caller now passes it to `PageHeader`'s `actions` slot, where it is a
+ * column in a flex row and that margin is dead space at the top of the screen. `PageHeader`
+ * owns the spacing beneath the whole header — see `.page-header` in globals.css. The
+ * argument above about links versus buttons is untouched, which is the part of this
+ * component anybody would want to reuse.
  */
 export function PageActions({
   csvHref,
@@ -52,7 +61,7 @@ export function PageActions({
   children?: React.ReactNode;
 }) {
   return (
-    <div className="no-print" style={{ margin: '0 0 1rem' }}>
+    <div className="no-print">
       <div className="page-actions">
         {csvHref && (
           <a className="btn" href={csvHref}>

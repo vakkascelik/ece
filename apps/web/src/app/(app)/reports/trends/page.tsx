@@ -11,6 +11,7 @@ import { requireCapability } from '@/lib/auth';
 import { serverDb } from '@/lib/supabase';
 import { dayWindow } from '@/lib/dayWindow';
 import { PageActions } from '../../PageActions';
+import { PageHeader } from '../../PageHeader';
 
 const WEEK_COUNT = 12;
 const WEEKDAY_LABELS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -71,16 +72,18 @@ export default async function TrendsPage() {
   return (
     <div className="binder">
       <div className="no-print">
-        <div className="section-head">
-          <div>
-            <h1>Attendance trends</h1>
-            <p className="sub">
+        <PageHeader
+          title="Attendance trends"
+          subtitle={
+            <>
               {ctx.centre.name} · {WEEK_COUNT} complete weeks, {weeks[0]?.weekStart} to{' '}
               {weeks[weeks.length - 1]?.weekEnd}
-            </p>
-          </div>
-        </div>
-        <PageActions hint="The printed version keeps the tables and drops the navigation." />
+            </>
+          }
+          actions={
+            <PageActions hint="The printed version keeps the tables and drops the navigation." />
+          }
+        />
       </div>
 
       <div className="card">

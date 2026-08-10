@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { listExcursions } from '@ece/api';
 import { requireCapability } from '@/lib/auth';
 import { serverDb } from '@/lib/supabase';
-import { TabHelp } from '../help/TabHelp';
+import { PageHeader } from '../PageHeader';
 import { PlanExcursion } from './PlanExcursion';
 
 /**
@@ -43,11 +43,11 @@ export default async function ExcursionsPage() {
 
   return (
     <>
-      <div className="has-help">
-        <h1>Excursions</h1>
-        <TabHelp href="/excursions" />
-      </div>
-      <p className="sub">Outings from {ctx.centre.name}.</p>
+      <PageHeader
+        title="Excursions"
+        helpHref="/excursions"
+        subtitle={<>Outings from {ctx.centre.name}.</>}
+      />
 
       {out.length > 0 && (
         <div className="card" style={{ marginBottom: '1rem' }}>

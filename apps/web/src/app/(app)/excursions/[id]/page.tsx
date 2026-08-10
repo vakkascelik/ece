@@ -13,6 +13,7 @@ import { requireCapability } from '@/lib/auth';
 import { serverDb } from '@/lib/supabase';
 import { Roster, type RosterRow } from './Roster';
 import { Runsheet } from './Runsheet';
+import { PageHeader } from '../../PageHeader';
 
 /**
  * One outing: the plan, the roster with its consent states, and the counts.
@@ -99,13 +100,17 @@ export default async function ExcursionPage({ params }: { params: Promise<{ id: 
         <Link href="/excursions">Back to outings</Link>
       </p>
 
-      <h1>{excursion.destination}</h1>
-      <p className="sub">
-        Leaves {when.format(new Date(excursion.departsAt))}
-        {excursion.returnsAt && <> · back by {when.format(new Date(excursion.returnsAt))}</>}
-        {excursion.transport && <> · {excursion.transport}</>}
-        {excursion.adultsAttending !== null && <> · {excursion.adultsAttending} adults</>}
-      </p>
+      <PageHeader
+        title={excursion.destination}
+        subtitle={
+          <>
+            Leaves {when.format(new Date(excursion.departsAt))}
+            {excursion.returnsAt && <> · back by {when.format(new Date(excursion.returnsAt))}</>}
+            {excursion.transport && <> · {excursion.transport}</>}
+            {excursion.adultsAttending !== null && <> · {excursion.adultsAttending} adults</>}
+          </>
+        }
+      />
 
       {excursion.plan && (
         <div className="card" style={{ marginBottom: '1rem' }}>

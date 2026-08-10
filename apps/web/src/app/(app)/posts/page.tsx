@@ -11,6 +11,7 @@ import { requireCtx } from '@/lib/auth';
 import { serverDb } from '@/lib/supabase';
 import { Compose } from './Compose';
 import { PostCard } from './PostCard';
+import { PageHeader } from '../PageHeader';
 
 /**
  * The feed — pānui, daily updates and learning moments.
@@ -57,16 +58,14 @@ export default async function PostsPage() {
 
   return (
     <>
-      <div className="section-head">
-        <div>
-          <h1>{isStaff ? 'Posts' : POST_KIND_LABELS.panui + ' and learning moments'}</h1>
-          <p className="sub" style={{ marginBottom: '1rem' }}>
-            {isStaff
-              ? `What ${REO.whanau} at ${ctx.centre.name} see. Drafts are visible only to kaiako.`
-              : `From the kaiako at ${ctx.centre.name}.`}
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title={isStaff ? 'Posts' : POST_KIND_LABELS.panui + ' and learning moments'}
+        subtitle={
+          isStaff
+            ? `What ${REO.whanau} at ${ctx.centre.name} see. Drafts are visible only to kaiako.`
+            : `From the kaiako at ${ctx.centre.name}.`
+        }
+      />
 
       {isStaff && (
         <Compose

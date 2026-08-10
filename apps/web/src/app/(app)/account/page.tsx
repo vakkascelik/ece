@@ -4,6 +4,7 @@ import { serverDb } from '@/lib/supabase';
 import { getLocale } from '@/lib/locale.server';
 import { ChangePasswordForm } from './ChangePasswordForm';
 import { LocaleSwitcher } from './LocaleSwitcher';
+import { PageHeader } from '../PageHeader';
 
 /**
  * The user's own account, as opposed to /settings which is the centre's and
@@ -24,8 +25,7 @@ export default async function AccountPage() {
 
   return (
     <>
-      <h1>{t('title')}</h1>
-      <p className="sub">{auth.user?.email}</p>
+      <PageHeader title={t('title')} subtitle={auth.user?.email} />
 
       <h2 style={{ fontSize: '1.05rem' }}>{t('changePasswordHeading')}</h2>
       <ChangePasswordForm />

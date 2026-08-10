@@ -11,7 +11,7 @@ import {
 import { requireCapability } from '@/lib/auth';
 import { dayWindow } from '@/lib/dayWindow';
 import { serverDb } from '@/lib/supabase';
-import { TabHelp } from '../help/TabHelp';
+import { PageHeader } from '../PageHeader';
 import { StaffRoster, type RosterRow } from './StaffRoster';
 import { PageActions } from '../PageActions';
 
@@ -76,18 +76,25 @@ export default async function StaffPage() {
 
   return (
     <>
-      <div className="has-help">
-        <h1>Staff</h1>
-        <TabHelp href="/staff" />
-      </div>
-      <p className="sub">Who works at {ctx.centre.name}, and who is here.</p>
-      {can(ctx.role, 'manageMembers') && (
-        <PageActions
-          csvHref="/staff/export.csv"
-          csvLabel="Download staff list"
-          hint="Today’s first and last events per person. Not a timesheet — it does not subtract breaks or resolve a missing sign-out."
-        />
-      )}
+      <PageHeader
+        title="Staff"
+        helpHref="/staff"
+        subtitle={<>Who works at {ctx.centre.name}, and who is here.</>}
+        /*
+          The export stays behind `manageMembers`, unchanged — an educator reads this screen
+          and signs colleagues in, and the downloadable list of everybody's hours is office
+          business. That is presentation; the policy is what refuses the route.
+        */
+        actions={
+          can(ctx.role, 'manageMembers') ? (
+            <PageActions
+              csvHref="/staff/export.csv"
+              csvLabel="Download staff list"
+              hint="Today’s first and last events per person. Not a timesheet — it does not subtract breaks or resolve a missing sign-out."
+            />
+          ) : undefined
+        }
+      />
 
       <div className="card" style={{ marginBottom: '1rem' }}>
         <p className="inline" style={{ margin: 0 }}>

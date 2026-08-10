@@ -1,7 +1,7 @@
 import { listEmergencyBroadcasts, listMembers } from '@ece/api';
 import { requireCapability } from '@/lib/auth';
 import { serverDb } from '@/lib/supabase';
-import { TabHelp } from '../help/TabHelp';
+import { PageHeader } from '../PageHeader';
 import { BroadcastForm } from './BroadcastForm';
 
 /**
@@ -28,13 +28,11 @@ export default async function BroadcastPage() {
 
   return (
     <>
-      <div className="section-head">
-        <div className="has-help">
-          <h1>Emergency broadcast</h1>
-          <TabHelp href="/broadcast" />
-          <p className="sub">{ctx.centre.name}</p>
-        </div>
-      </div>
+      <PageHeader
+        title="Emergency broadcast"
+        helpHref="/broadcast"
+        subtitle={ctx.centre.name}
+      />
 
       <BroadcastForm recipientCount={recipientCount} />
 

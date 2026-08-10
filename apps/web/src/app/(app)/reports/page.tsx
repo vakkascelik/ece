@@ -4,7 +4,7 @@ import { summariseOccupancy, todayInZone } from '@ece/core';
 import { requireCapability } from '@/lib/auth';
 import { serverDb } from '@/lib/supabase';
 import { dayWindow, shiftLocalDate } from '@/lib/dayWindow';
-import { TabHelp } from '../help/TabHelp';
+import { PageHeader } from '../PageHeader';
 import { PageActions } from '../PageActions';
 
 /**
@@ -53,24 +53,39 @@ export default async function ReportsPage() {
   return (
     <div className="binder">
       <div className="no-print">
-        <div className="section-head">
-          <div className="has-help">
-            <h1>Reports</h1>
-            <TabHelp href="/reports" />
-            <p className="sub">
+        <PageHeader
+          title="Reports"
+          helpHref="/reports"
+          subtitle={
+            <>
               {ctx.centre.name} · thirty days to {today}
-            </p>
-          </div>
-          <div className="inline">
-            <Link href="/reports/trends">
-              <button type="button">Attendance trends</button>
-            </Link>
-            <Link href="/reports/waitlist-conversion">
-              <button type="button">Enquiry conversion</button>
-            </Link>
-          </div>
-        </div>
-        <PageActions hint="The printed version keeps the table and drops the navigation." />
+            </>
+          }
+          /*
+            No filled button here, and that is the correct number. This screen exists to be
+            read; the two links go to sibling reports and the third prints. A filled button
+            is a promise that it is the thing to do next, and on a read-only page there is
+            no such thing — filling these three would have made the loudest control on the
+            page a way of leaving it.
+
+            Passed as PageActions children, which is the slot its own docblock describes for
+            exactly this and predicted a third caller for.
+          */
+          actions={
+            <PageActions hint="The printed version keeps the table and drops the navigation.">
+              <Link href="/reports/trends">
+                <button type="button" className="secondary">
+                  Attendance trends
+                </button>
+              </Link>
+              <Link href="/reports/waitlist-conversion">
+                <button type="button" className="secondary">
+                  Enquiry conversion
+                </button>
+              </Link>
+            </PageActions>
+          }
+        />
       </div>
 
       {/* The one-line answer, before the table. */}

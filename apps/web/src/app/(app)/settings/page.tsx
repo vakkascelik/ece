@@ -1,5 +1,5 @@
 import { requireCapability } from '@/lib/auth';
-import { TabHelp } from '../help/TabHelp';
+import { PageHeader } from '../PageHeader';
 import { SettingsForm } from './SettingsForm';
 
 export default async function SettingsPage() {
@@ -7,11 +7,11 @@ export default async function SettingsPage() {
 
   return (
     <>
-      <div className="has-help">
-        <h1>Settings</h1>
-        <TabHelp href="/settings" />
-      </div>
-      <p className="sub">Details for {ctx.centre.name}.</p>
+      <PageHeader
+        title="Settings"
+        helpHref="/settings"
+        subtitle={<>Details for {ctx.centre.name}.</>}
+      />
       <SettingsForm
         name={ctx.centre.name}
         moeServiceNumber={ctx.centre.moeServiceNumber}

@@ -96,6 +96,49 @@ that is unwanted the fix is a presentation rule (suppress headings below some li
 out — so `.filter(Boolean)` removes nothing today. Kept as specified, and documented as
 belt-and-braces rather than left to look load-bearing.
 
+### Step 3 — one page header, and the prop that must not become a link
+
+`PageHeader` takes `title`, `subtitle`, `helpHref`, `actions`, `status`, and **owns its own
+bottom margin**. That last part is the component: there were four spellings of the same block
+and, more to the point, four different amounts of space under it — `.page-head` with an inline
+`1.25rem`, a `marginBottom: '1rem'` on the subtitle, `.sub`'s default `2rem`, or nothing at all.
+Adopted on every `page.tsx` under `(app)` except one, and every inline margin override deleted
+with it. There is now one number and changing it moves every screen together.
+
+**`helpHref` is not a link and must never become one.** The handover's prop list names it and
+its mockup draws a `?` beside the title, which reads like an anchor to `/help`. It is not: it is
+the route key `TabHelp` looks a doc up by, and what renders is the existing in-place `<details>`
+disclosure — server-rendered, no JavaScript, operable before React hydrates, argued for at length
+in [[in-product-help]]. The prop name is the handover's; the behaviour is the code's. Turning it
+into an anchor would undo the feature committed the day before and break the audit that clicks
+`summary.help-mark` and expects `.help-body`. The docblock says so in those words, because the
+name invites the mistake.
+
+`PageActions` lost its own `margin: 0 0 1rem`. It had that because it used to be a block above
+the content; every caller now passes it to `actions`, where it is a column in a flex row and the
+margin is dead space at the top of the screen. Its argument about links versus buttons — the part
+anybody would reuse — is untouched.
+
+**One filled button per header, and three screens turned out to deserve zero.** `/reports` had
+two filled buttons that navigate to sibling reports; they are secondary now. `/attendance`'s two
+actions are a wall display and a download, and the thing that screen exists to do — sign a child
+in — is on the row, not in the header. A read-only screen has no primary action, and filling one
+anyway makes the loudest control on the page a way of leaving it.
+
+**The child record is deliberately not converted.** `children/[id]` uses `.record-head`: an
+avatar, a name, a meta line and a status flag. Step 6 rebuilds that header — flags under the
+name, tabs as routes — and converting it here would mean inventing a `leading` slot for the
+avatar in step 3 and rewriting it in step 6. It is the one page under `(app)` still on its own
+header, and it is one commit away rather than forgotten.
+
+**The CSS budget moved the wrong way, by 0.1kB.** `first-load-css` is 4.2kB against a 4kB limit,
+having been 4.1kB before this step and already over. `.page-header`, `.page-status` and step 2's
+nav-group rules are what added it. Nothing was orphaned that could be removed to pay for it —
+`.section-head` still has six callers and `.page-head` is now PageHeader's own row class. Step 4
+is where this comes back: consolidating four `.flag` spellings into one primitive should remove
+more than these two steps added, and if it does not, that is a finding rather than a rounding
+error.
+
 ### The footer's three links are a second landmark, and that is what kept a test passing
 
 Account, Notifications and Help moved to `.side-foot`. They went into a
@@ -195,4 +238,4 @@ at its cause.
 - [[in-product-help]] — the `?` affordance that `PageHeader` takes over in step 3
 - [[conventions]] — token generation, and why nothing here regenerates them
 
-*Last updated: 2026-08-11 (steps 1-2 of 10)*
+*Last updated: 2026-08-11 (steps 1-3 of 10)*

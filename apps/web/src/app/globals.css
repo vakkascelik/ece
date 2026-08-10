@@ -547,6 +547,27 @@ button.danger { background: var(--surface); color: var(--danger); border-color: 
 }
 .page-actions .btn:hover { background: var(--surface-sunken); }
 
+/*
+ * PageHeader.
+ *
+ * The one rule that matters: the header owns the space beneath it. Every screen used to
+ * write its own — `.page-head` with an inline 1.25rem here, a `marginBottom: '1rem'` on
+ * the subtitle there, `.sub`'s default 2rem elsewhere — so the first line of content
+ * started at a different height on almost every page. There is now one number, and
+ * changing it moves every screen at once, which is the only way a rhythm stays a rhythm.
+ *
+ * `.sub` is zeroed inside the header for the same reason: its 2rem bottom margin is right
+ * when it is the last thing before content and wrong when the header is.
+ */
+.page-header { margin: 0 0 1.25rem; }
+.page-header .sub { margin: 0.25rem 0 0; font-size: var(--text-sm); }
+/*
+ * The status strip: what is outstanding, under the title rather than in a card of its own.
+ * Wraps, because three flags at 390px do not fit on one line and a strip that scrolls
+ * sideways hides the last one — which on Incidents is "whānau not told".
+ */
+.page-status { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 0.75rem; }
+
 /* --- Child record (design handoff, screen 6) ------------------------------ */
 
 /* 760px. A record read under pressure should not be a line of text a metre wide. */

@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { can } from '@ece/core';
 import { requireCtx } from '@/lib/auth';
 import { TABS } from './tabs';
+import { PageHeader } from '../PageHeader';
 
 /**
  * How this product works, for the people using it rather than the people building it.
@@ -27,15 +28,15 @@ export default async function HelpPage() {
 
   return (
     <>
-      <div className="section-head">
-        <div>
-          <h1>How this works</h1>
-          <p className="sub" style={{ marginBottom: '1rem' }}>
-            Every screen you can open at {ctx.centre.name}, what it is for, and what it will
-            not tell you.
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title="How this works"
+        subtitle={
+          <>
+            Every screen you can open at {ctx.centre.name}, what it is for, and what it will not
+            tell you.
+          </>
+        }
+      />
 
       <div className="card">
         <h2>Why your list is not the same as a colleague’s</h2>

@@ -11,7 +11,7 @@ import { assessAll, currentStaff, summarise, summariseDay, todayInZone } from '@
 import { requireCapability } from '@/lib/auth';
 import { serverDb } from '@/lib/supabase';
 import { dayWindow, lastSevenDays } from '@/lib/dayWindow';
-import { TabHelp } from '../help/TabHelp';
+import { PageHeader } from '../PageHeader';
 import { ComplianceNarrative } from './ComplianceNarrative';
 import { CriteriaGaps } from './CriteriaGaps';
 import { EvidenceList } from './EvidenceList';
@@ -96,18 +96,21 @@ export default async function CompliancePage() {
 
   return (
     <>
-      <div className="section-head">
-        <div className="has-help">
-          <h1>Compliance</h1>
-          <TabHelp href="/compliance" />
-          <p className="sub" style={{ marginBottom: '1rem' }}>
+      <PageHeader
+        title="Compliance"
+        helpHref="/compliance"
+        subtitle={
+          <>
             {ctx.centre.name} · as at {today}
-          </p>
-        </div>
-        <Link href="/compliance/binder">
-          <button type="button">Evidence binder</button>
-        </Link>
-      </div>
+          </>
+        }
+        /* The one filled button on this screen: assembling the binder is what it exists for. */
+        actions={
+          <Link href="/compliance/binder">
+            <button type="button">Evidence binder</button>
+          </Link>
+        }
+      />
 
       {/* The one-line answer, before any table. */}
       <div

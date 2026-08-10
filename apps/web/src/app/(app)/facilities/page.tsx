@@ -10,7 +10,7 @@ import {
 import { requireCapability } from '@/lib/auth';
 import { dayWindow, shiftLocalDate } from '@/lib/dayWindow';
 import { serverDb } from '@/lib/supabase';
-import { TabHelp } from '../help/TabHelp';
+import { PageHeader } from '../PageHeader';
 import { DrillLog, type DrillRow } from './DrillLog';
 import { HazardList, type HazardRow } from './HazardList';
 import { SafetyChecks, type SafetyRow } from './SafetyChecks';
@@ -109,11 +109,11 @@ export default async function FacilitiesPage() {
 
   return (
     <>
-      <div className="has-help">
-        <h1>Site safety</h1>
-        <TabHelp href="/facilities" />
-      </div>
-      <p className="sub">Hazards, drills and daily checks at {ctx.centre.name}.</p>
+      <PageHeader
+        title="Site safety"
+        helpHref="/facilities"
+        subtitle={<>Hazards, drills and daily checks at {ctx.centre.name}.</>}
+      />
 
       {/*
         What is outstanding, not how many hazards have ever been found. A centre that

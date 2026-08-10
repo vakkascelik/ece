@@ -3,7 +3,7 @@ import { listAttendanceToday, listChildren, listHealthByChild, readAdultsPresent
 import { assessRatio, can, splitByAgeBand, todayInZone } from '@ece/core';
 import { requireCapability } from '@/lib/auth';
 import { serverDb } from '@/lib/supabase';
-import { TabHelp } from '../help/TabHelp';
+import { PageHeader } from '../PageHeader';
 import { AdultCount } from './AdultCount';
 import { RatioBanner } from './RatioBanner';
 import { RollClient } from './RollClient';
@@ -73,23 +73,30 @@ export default async function AttendancePage({
 
   return (
     <>
-      <div className="page-head" style={{ marginBottom: '1.25rem' }}>
-        <div className="has-help">
-          <h1>Attendance</h1>
-          <TabHelp href="/attendance" />
-          <p className="sub" style={{ margin: 0, fontSize: 'var(--text-sm)' }}>
+      <PageHeader
+        title="Attendance"
+        helpHref="/attendance"
+        subtitle={
+          <>
             {ctx.centre.name} · {today}
-          </p>
-        </div>
-        <div className="page-actions">
-          <Link className="btn secondary" href="/attendance?wall=1">
-            Wall display
-          </Link>
-          <a className="btn" href="/attendance/export.csv">
-            Download roll
-          </a>
-        </div>
-      </div>
+          </>
+        }
+        /*
+          Both secondary. The thing this screen exists to do is sign a child in or out, and
+          that control is on the row — not up here. Neither of these is it: one opens a
+          read-only view on a wall, the other downloads a file.
+        */
+        actions={
+          <div className="page-actions">
+            <Link className="btn secondary" href="/attendance?wall=1">
+              Wall display
+            </Link>
+            <a className="btn" href="/attendance/export.csv">
+              Download roll
+            </a>
+          </div>
+        }
+      />
 
       {/*
         Adults first, then the roll. The ratio itself is rendered inside RollClient, because a

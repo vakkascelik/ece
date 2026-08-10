@@ -1,6 +1,7 @@
 import { listMembers } from '@ece/api';
 import { requireCtx } from '@/lib/auth';
 import { serverDb } from '@/lib/supabase';
+import { PageHeader } from './PageHeader';
 
 export default async function OverviewPage() {
   const ctx = await requireCtx();
@@ -14,12 +15,14 @@ export default async function OverviewPage() {
 
   return (
     <>
-      <h1>{ctx.centre.name}</h1>
-      <p className="sub">
-        {ctx.centre.moeServiceNumber
-          ? `Ministry of Education service ${ctx.centre.moeServiceNumber}`
-          : 'No Ministry service number recorded yet'}
-      </p>
+      <PageHeader
+        title={ctx.centre.name}
+        subtitle={
+          ctx.centre.moeServiceNumber
+            ? `Ministry of Education service ${ctx.centre.moeServiceNumber}`
+            : 'No Ministry service number recorded yet'
+        }
+      />
 
       <div className="card">
         <h2 style={{ fontSize: '1rem', margin: '0 0 0.75rem' }}>People with access</h2>

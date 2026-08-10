@@ -4,6 +4,7 @@ import { summariseEnquiryFunnel, todayInZone } from '@ece/core';
 import { requireCapability } from '@/lib/auth';
 import { serverDb } from '@/lib/supabase';
 import { PageActions } from '../../PageActions';
+import { PageHeader } from '../../PageHeader';
 
 const STATUS_LABELS: Record<string, string> = {
   new: 'New',
@@ -55,15 +56,17 @@ export default async function WaitlistConversionPage() {
   return (
     <div className="binder">
       <div className="no-print">
-        <div className="section-head">
-          <div>
-            <h1>Enquiry conversion</h1>
-            <p className="sub">
+        <PageHeader
+          title="Enquiry conversion"
+          subtitle={
+            <>
               {ctx.centre.name} · all enquiries received, as at {today}
-            </p>
-          </div>
-        </div>
-        <PageActions hint="The printed version keeps the tables and drops the navigation." />
+            </>
+          }
+          actions={
+            <PageActions hint="The printed version keeps the tables and drops the navigation." />
+          }
+        />
       </div>
 
       <div className="card">
