@@ -86,8 +86,16 @@ export default defineConfig({
         Inverted now: a new spec is picked up by default and *excluding* one is the
         thing you have to write down. `seed.setup.ts` and `cleanup.teardown.ts` are
         already out because they do not end in `.spec.ts`.
+
+        `e2e/.artifacts/` is excluded, and that exclusion was earned. It is the gitignored
+        directory Playwright already keeps its storage state and tenant file in, and a
+        screenshot harness put there was collected as an ordinary spec — it ran in the owner
+        project, ahead of `incidents.spec.ts` alphabetically, and left a draft incident in the
+        shared audit tenant. Two `Finalise` buttons, a strict-mode violation, and a failure in
+        a file nobody had touched. Anything dropped in the artefacts directory is scratch by
+        definition and must never be a test.
       */
-      testMatch: /^(?!.*a11y-parent\.spec\.ts).*\.spec\.ts$/,
+      testMatch: /^(?!.*a11y-parent\.spec\.ts)(?!.*[\\/]\.artifacts[\\/]).*\.spec\.ts$/,
       use: { ...devices['Desktop Chrome'], storageState: OWNER_STATE },
     },
     {

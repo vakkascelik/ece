@@ -28,7 +28,20 @@ async function save(page: import('@playwright/test').Page) {
   const done = page.waitForResponse(
     (r) => new URL(r.url()).pathname === '/settings' && r.request().method() === 'POST',
   );
-  await page.getByRole('button', { name: 'Save' }).click();
+  /*
+    The Integrations card's own Save.
+
+    Settings became one form per section on 2026-08-11, so there are three buttons named
+    "Save". The toggle this file drives is the one control in the product that sends data
+    outside it, and it has a card to itself for exactly that reason — scoped by the card's
+    heading rather than by position, because the order of the cards is a layout decision and
+    this is not a test about layout.
+  */
+  await page
+    .locator('form')
+    .filter({ hasText: 'Integrations' })
+    .getByRole('button', { name: 'Save' })
+    .click();
   await done;
 }
 

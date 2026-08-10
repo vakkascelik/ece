@@ -5,6 +5,22 @@ says so.*
 
 ---
 
+2026-08-11 — **A screenshot harness in `e2e/.artifacts/` was being collected as a test, and it
+poisoned the shared tenant.** `apps/web/playwright.config.ts`, `e2e/narrative.spec.ts`.
+
+Found on the first full-suite run after the console handover. The owner project's `testMatch` is
+deliberately inverted — a new spec is picked up by default and excluding one has to be written
+down — and `.artifacts/` is where Playwright already keeps its storage state and tenant file, so
+a capture harness dropped there matched. It ran ahead of `incidents.spec.ts` alphabetically and
+left a **draft incident in the shared audit tenant**: two `Finalise` buttons, a strict-mode
+violation, and a failure in a file nobody had touched.
+
+Nothing in the gitignored artefacts directory should ever be a test, and the config now says so.
+The second failure was the same settings-Save ambiguity as three earlier ones — `narrative.spec`
+drives the AI toggle, which is now the Integrations card.
+
+Whole suite green afterwards: 116/116.
+
 2026-08-11 — **Mobile: a strip that keeps its height, and an empty state that cannot promise
 push; step 10 of the second design handover, and the last.** `apps/mobile/components/`,
 `screens/`. See [[console-handover]].
