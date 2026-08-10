@@ -102,6 +102,40 @@ day-safe, and a fixture that is only wrong inside a narrow window is a fixture t
 wrong while somebody is debugging something else. `recentlyToday()` in
 `apps/web/e2e/fixtures/tenant.ts` clamps it.
 
+### A mutation test that could not fail, because the suite was testing yesterday's build
+
+`playwright.config.ts` sets `reuseExistingServer: !process.env.CI`, which is right for iterating
+locally and has a trap in it that is worth one paragraph.
+
+Found 2026-08-11 while mutation-testing the `NavGroup` empty-group rule. A `next start` had been
+left running on 3210 from an unrelated screenshot capture. The mutant was introduced,
+`npm run build -w @ece/web` rebuilt `.next`, the suite was run — and **all five tests passed**,
+which for a deliberately broken build is the worst possible outcome: the obvious conclusion is
+that the new assertions are inert and should be deleted. Playwright had reused the running
+server, which was still serving the pre-mutant output. Killing it and re-running failed exactly
+the two assertions it should, on the two roles it should, and left the manager passing because a
+manager legitimately sees all six groups.
+
+So: **a manually started server makes the whole suite a test of the previous build**, silently,
+with no warning from Playwright and nothing in the output that says which build was served. It
+does not only affect mutation tests — it affects any local run after any edit. If a change that
+should have broken something does not break it, kill whatever is on the port before believing
+the result.
+
+**The clamp is not the whole fix, found 2026-08-11.** `recentlyToday()` runs once, in the seed
+project, and pins the timestamp inside the day *as it stood at seed time*. A full run takes ten
+minutes. Seeded at 00:00:23 and asserted at 00:01:50, the sign-in was stamped on the 10th and
+read back on the 11th — `ratio.present` fell to 0, and the wall display's unverified-ratio
+caveat, which renders only when somebody is present, was not on the page. Same symptom as the
+third occurrence, and **no clamp can fix it**, because the day changes after the clamp has run.
+
+The window is now about ten minutes a day rather than an hour, which makes it rarer and
+correspondingly more confusing: it arrives once, in the middle of unrelated work, and everything
+passes on the retry. If it costs anybody an hour a second time, the fix is for the seed to refuse
+to start within a run's length of midnight — a skip that names the reason beats a failure that
+implicates whatever was last edited. Not done yet; recorded so the next person spends a minute
+rather than an evening.
+
 **Fourth time, 2026-08-07 — and this one is why the rule is now enforced rather than written
 down.** `recordPayment` in `packages/api/src/billing.ts` defaulted `paid_on` to
 `new Date().toISOString().slice(0, 10)`: the exact expression the bullet above forbids by name,

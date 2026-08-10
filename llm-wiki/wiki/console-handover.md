@@ -67,6 +67,80 @@ horizontal scroll — the note against `.card` in `globals.css` records it. The 
 sits at roughly x=38 and would not have overflowed, so this is insurance rather than a fix; it
 is written down because the *reason* it is cheap is that somebody already paid for the lesson.
 
+### Step 2 — six groups, and two counts the spec got wrong
+
+`NavGroup` is a server component: `<h3>` + `<ul>`, rendering `null` when
+`Children.toArray(children).filter(Boolean)` is empty. The six groups are the spec's — Today,
+Tamariki, Records, People, Money, Centre — wrapped around the existing `<NavLink>` calls with
+every `can()` condition, href, label and parent-specific label swap unchanged.
+
+**The spec's description of the result is arithmetically wrong, and the mechanism it asks for is
+right.** It says "an educator sees three headings and a parent sees none — the flat list is still
+correct for them". Against the capability matrix in `@ece/core` that is not what the rule
+produces:
+
+| Role | Headings rendered | Why |
+|---|---|---|
+| owner / manager | 6 | every capability |
+| educator | **4**, not 3 | `recordDailyPractice` carries Staff and Roster, so **People** survives alongside Today, Tamariki and Records |
+| parent | **2**, not 0 | Overview, Children, Posts and Messages carry no `can()` guard at all, so **Today** and **Tamariki** always survive |
+
+The mechanism was implemented as specified and the prose was not, because making the prose true
+would mean adding capability conditions to four unguarded links — which the same spec forbids in
+the next sentence, and which would be inventing an access rule to satisfy a sentence. A parent
+therefore gets two headings over four links, which is more furniture than four links need. If
+that is unwanted the fix is a presentation rule (suppress headings below some link count), not a
+`can()` condition; it is not built, because nothing asked for it.
+
+`Children.toArray` already drops `null`, `undefined` and booleans — verified, 6 children in, 2
+out — so `.filter(Boolean)` removes nothing today. Kept as specified, and documented as
+belt-and-braces rather than left to look load-bearing.
+
+### The footer's three links are a second landmark, and that is what kept a test passing
+
+Account, Notifications and Help moved to `.side-foot`. They went into a
+`<nav aria-label="Your account">` rather than a bare `<ul>`, for two reasons that agree.
+
+The principled one: they are navigation, and the spec's own argument for moving them — "they are
+about the person, not the centre" — is exactly the distinction a landmark label carries. Two
+labelled landmarks is not the six the spec warns against; the six groups are headings inside the
+one rail nav.
+
+The practical one, found by reading the test before writing the code: `roles.spec.ts` scopes its
+whole nav assertion to `page.locator('aside.side nav')` and asserts **Help is visible for all four
+roles**. A bare `<ul>` in the footer would have moved Help out of that locator and failed four
+tests, and the failure would have looked like a capability regression rather than a DOM move.
+`.side nav a` also matches inside the footer nav, so the link treatment is inherited rather than
+restated.
+
+### The new assertion, and the mutation test that lied
+
+`roles.spec.ts` gained `NAV_GROUPS`: which headings each role should be offered, and which must
+not exist. Nothing else in the repo could catch a regression here — the links are correctly
+absent either way, so every existing assertion passes with six empty headings on an educator's
+screen, and an empty "Money" heading is a disclosure that money screens exist.
+
+It passed first try, which this repo treats as a reason for suspicion rather than confidence. The
+mutation — deleting `if (items.length === 0) return null;` — **also passed**, and the reason is
+recorded in [[conventions]]: a `next start` left over from a screenshot capture, and
+`reuseExistingServer`. Against a fresh server the mutant failed on educator/"Money" and
+parent/"Records" and left manager passing, which is the correct shape.
+
+Worth stating plainly: had that check not been run, the honest-looking conclusion would have been
+that the new assertions were worthless.
+
+### One comment that stopped being true, extended rather than deleted
+
+Incidents carried "Beside Attendance because it is the same shift and the same tablet — not under
+Compliance". The grouping splits that: Attendance is under **Today**, Incidents under **Records**.
+
+Half the argument survives — Compliance is under **Centre**, so Incidents is still nowhere near
+the binder — and the half that does not is now written down beside it, with the distinction that
+replaced it (Attendance is watched, an incident is filed) and the instruction that if it proves
+wrong in use the fix is to move Incidents into Today rather than to dissolve the groups. A comment
+that quietly stops describing its own code is how the next reader is misled by something that was
+once true.
+
 ### A stale comment left in place, with a correction attached
 
 The `@media (max-width: 767px)` preamble in `globals.css` still argues **against** a hamburger —
@@ -121,4 +195,4 @@ at its cause.
 - [[in-product-help]] — the `?` affordance that `PageHeader` takes over in step 3
 - [[conventions]] — token generation, and why nothing here regenerates them
 
-*Last updated: 2026-08-10 (step 1 of 10)*
+*Last updated: 2026-08-11 (steps 1-2 of 10)*

@@ -206,6 +206,39 @@ const NAV: Record<Role, { shown: string[]; hidden: string[] }> = {
   },
 };
 
+/**
+ * The group headings each role should be offered, and the ones that must not exist.
+ *
+ * A heading is a disclosure. "Money" rendered over an empty list tells an educator that money
+ * screens exist, which is the presentation half of the argument this file already makes about
+ * an empty custody panel — and it is the failure mode `NavGroup` returning `null` prevents.
+ * Nothing else would catch it: the links are correctly absent either way, so every assertion
+ * above passes with six empty headings on an educator's screen.
+ *
+ * The counts are what the capability matrix actually produces, not what the design handover
+ * predicted (three for an educator, none for a parent). Overview, Children, Posts and Messages
+ * carry no `can()` guard, so Today and Tamariki survive for everybody; Staff and Roster ride on
+ * `recordDailyPractice`, so People survives for an educator. Recorded in the wiki.
+ */
+const NAV_GROUPS: Record<Role, { shown: string[]; hidden: string[] }> = {
+  owner: {
+    shown: ['Today', 'Tamariki', 'Records', 'People', 'Money', 'Centre'],
+    hidden: [],
+  },
+  manager: {
+    shown: ['Today', 'Tamariki', 'Records', 'People', 'Money', 'Centre'],
+    hidden: [],
+  },
+  educator: {
+    shown: ['Today', 'Tamariki', 'Records', 'People'],
+    hidden: ['Money', 'Centre'],
+  },
+  parent: {
+    shown: ['Today', 'Tamariki'],
+    hidden: ['Records', 'People', 'Money', 'Centre'],
+  },
+};
+
 async function signIn(browser: Browser, email: string, password: string): Promise<Page> {
   const ctx = await browser.newContext();
   const page = await ctx.newPage();
@@ -261,6 +294,19 @@ for (const role of ['manager', 'educator', 'parent'] as const) {
       }
       for (const label of NAV[role].hidden) {
         await expect(nav.getByRole('link', { name: label, exact: true }), `${role} should NOT see "${label}"`).toHaveCount(0);
+      }
+
+      for (const label of NAV_GROUPS[role].shown) {
+        await expect(
+          nav.getByRole('heading', { name: label, exact: true }),
+          `${role} should see the "${label}" group`,
+        ).toBeVisible();
+      }
+      for (const label of NAV_GROUPS[role].hidden) {
+        await expect(
+          nav.getByRole('heading', { name: label, exact: true }),
+          `${role} should NOT see a "${label}" heading — an empty group is still a disclosure`,
+        ).toHaveCount(0);
       }
 
       await page.context().close();

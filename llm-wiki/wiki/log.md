@@ -5,6 +5,31 @@ says so.*
 
 ---
 
+2026-08-11 — **Twenty-one nav links become six groups; step 2 of the second design handover.**
+`apps/web/src/app/(app)/NavGroup.tsx`, `layout.tsx`, `globals.css`. See [[console-handover]],
+and a correction to [[conventions]].
+
+The spec's mechanism was implemented and its arithmetic was not, because the two disagree. It
+predicts "an educator sees three headings and a parent sees none"; against the capability matrix
+the rule it specifies gives an educator **four** (Staff and Roster ride on
+`recordDailyPractice`, so People survives) and a parent **two** (Overview, Children, Posts and
+Messages carry no `can()` guard at all). Making the sentence true would mean inventing capability
+conditions for four unguarded links, which the same spec forbids two sentences later. The
+counts are recorded rather than engineered around.
+
+The footer's three links went into a second labelled `<nav>` rather than a bare list, and that
+was decided by reading `roles.spec.ts` first: it scopes every nav assertion to
+`aside.side nav` and asserts Help is visible for all four roles. A bare `<ul>` would have failed
+four tests with something that looks exactly like a capability regression and is not.
+
+**A correction to [[conventions]], earned the hard way.** That page says `recentlyToday()` clamps
+the fixture's midnight trap. It clamps it *at seed time only*. This run seeded at 00:00:23 and
+asserted at 00:01:50, so the sign-in was stamped on the 10th and read back on the 11th; the roll
+emptied and the wall display's unverified-ratio caveat, which renders only when somebody is
+present, was not on the page. One failure in fifty-six, in a test with nothing to do with
+navigation, on the one night this work crossed midnight. No clamp can fix it — the day changes
+after the clamp has run.
+
 2026-08-10 — **The menu button moves to the left; step 1 of the second design handover.**
 `apps/web/src/app/(app)/SideRail.tsx`, `globals.css`, `eslint.config.mjs`. See
 [[console-handover]], and the superseded notice now at the top of [[design-system]].
