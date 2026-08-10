@@ -256,6 +256,73 @@ pluralised. The singular is not the rare case on this strip — it is the **firs
 which is the moment somebody is deciding whether to believe a screen about a child in the
 building.
 
+### Step 6 — the child record becomes five routes, and the safety property got stronger
+
+`children/[id]/layout.tsx` owns everything that does not change between tabs; `page.tsx` is the
+overview and `[tab]/page.tsx` is the other four. A layout rather than a component each page
+renders, so the header does not remount when a tab changes — the flag row is what an educator is
+reading *while* they navigate.
+
+**Tabs could have destroyed the record's one safety decision, and this is the part to read.** The
+page used to lead with a "Read this first" block above the identity metadata, because health is
+"the only block read under time pressure": names and dates are read by somebody sitting down, an
+allergy by somebody holding a child who has eaten something. Health on its own tab puts the
+allergy one tap away from every other screen, which is worse than the scroll it replaced.
+
+So the flags moved **into the header**: breach-toned for anaphylaxis and severe with the response
+plan inline, warn for medication authorised, consents unanswered, no enrolment, no immunisation
+record. They sit above the age and date of birth and they are on **every tab**, including the
+paperwork ones. The property is stronger than it was.
+
+The handover's mockup draws the meta line above the flags; its prose says "flags directly under
+the name". The prose agrees with the safety argument, so the prose won.
+
+`a11y.spec.ts`'s tripwire was rewritten to match. It read the `<h2>` order on one long page —
+meaningless once each tab has its own headings — and now asserts the critical flag is visible and
+**measurably above** `.record-meta` on all five tabs. If somebody later moves the flag row back
+inside a tab, it fails on the tab they did not think about. Four more audits were added, one per
+tab: the overview is the least dense of the five, and auditing only it would have reported a pass
+on four screens nobody looked at.
+
+**Learning is not built, and the tab is absent rather than empty.** The handover names six tabs.
+Five are groupings of panels that already exist. Nothing in this product associates a post, a
+learning moment or a curriculum strand with one child in a way this record could read, so
+building it means building a per-child feed — a feature, not a restyle. An empty tab labelled
+"Learning" is a promise the product does not keep, which is the same objection this record
+already makes to an empty "Custody" heading.
+
+**No tab is hidden from a guardian, and the mechanism is there anyway.** The handover asks for
+tabs a guardian's capabilities cannot fill to be hidden. With this mapping there are none — a
+parent legitimately reads their own child's whānau, health, attendance and paperwork, and the
+panels inside already gate what they show. `tabs.ts` carries the `capability` field and reports
+honestly that it currently excludes nobody, rather than a filter invented to make a sentence
+true. That is the third time this handover has predicted a capability-driven hiding that the
+capability matrix does not produce.
+
+Each branch fetches only what it renders. The single-page version issued fourteen queries on
+every open, including medication doses for a manager who came to fix a spelling.
+
+### An undefined tab returns 200, and the test says why
+
+`/children/[id]/finance` calls `notFound()` and shows the not-found page — with a **200**. The
+record's layout does async work and streams, so by the time the page calls `notFound()` the
+response has begun and the status can no longer be changed. A status-code assertion would have
+been asserting something this app cannot deliver, so the test asserts what the person who
+mistyped the URL is actually shown.
+
+### A fifth assertion broken by the same in-product-help commit
+
+`absence.spec.ts` asserted the confirmation panel's caveat by text. The Whānau help note quotes
+that caveat almost word for word, so the locator resolved to two elements. Both texts are correct
+and neither should change.
+
+That is now **five** e2e assertions broken by `712ba7d`, across three files, all by the same
+mechanism: the product documents its own copy on the same screen, and assertions that match copy
+by text stop pointing at the thing the copy describes. Four were found by this handover only
+because it happened to touch the screens they cover. The pattern is worth a rule — **a test that
+matches product copy needs a container**, and the container is what says which of the two
+sentences it means.
+
 ### The footer's three links are a second landmark, and that is what kept a test passing
 
 Account, Notifications and Help moved to `.side-foot`. They went into a
@@ -355,4 +422,4 @@ at its cause.
 - [[in-product-help]] — the `?` affordance that `PageHeader` takes over in step 3
 - [[conventions]] — token generation, and why nothing here regenerates them
 
-*Last updated: 2026-08-11 (steps 1-5 of 10)*
+*Last updated: 2026-08-11 (steps 1-6 of 10)*

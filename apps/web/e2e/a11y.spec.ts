@@ -162,6 +162,23 @@ test.describe('staff screens', () => {
     await auditPage(page, `/children/[id]`);
   });
 
+  /*
+    Every tab, not just the overview.
+
+    The overview is the least dense of the five and auditing only it would report a pass on
+    four screens nobody looked at — the health tab alone carries a table, a radio group, a
+    medication form and the dose log. Cheap to cover and the exact place a contrast or
+    labelling failure would otherwise ship.
+  */
+  for (const tab of ['whanau', 'health', 'attendance', 'documents']) {
+    test(`child record — the ${tab} tab`, async ({ page }) => {
+      const t = tenant();
+      await visit(page, `/children/${t.childId}/${tab}`);
+      await expect(page.getByRole('heading', { name: /Tāne/ })).toBeVisible();
+      await auditPage(page, `/children/[id]/${tab}`);
+    });
+  }
+
   /**
    * A tripwire on the reading order, not a style check.
    *
@@ -171,24 +188,76 @@ test.describe('staff screens', () => {
    * ordering is a safety decision and it is invisible to every other check in this
    * repo: the page renders, axe passes and the tests are green with the sections in any
    * order at all. So it is asserted, the same way the unverified-ratio caveat is.
+   *
+   * REWRITTEN WHEN THE RECORD BECAME TABS, AND IT ASSERTS MORE THAN IT USED TO
+   *
+   * It read the `<h2>` order on one long page: Health above Details, Consent above
+   * Enrolment. Tabs make that meaningless — each tab has its own headings — and tabs
+   * could easily have destroyed the property outright, by putting the allergy one tap
+   * away from every screen that is not the health tab.
+   *
+   * So the flags moved into the record's header, and this asserts the stronger thing:
+   * the critical condition is above the reference metadata **and it is on every tab**,
+   * including the paperwork ones. If somebody later moves the flag row back inside a
+   * tab, this fails on the tab they did not think about.
    */
-  test('the child record leads with health, not with identity metadata', async ({ page }) => {
+  test('the child record leads with health on every tab, not with identity metadata', async ({
+    page,
+  }) => {
     const t = tenant();
-    await visit(page, `/children/${t.childId}`);
 
-    const order = (await page.getByRole('heading', { level: 2 }).allTextContents()).map((h) =>
-      h.trim(),
+    for (const tab of ['', '/whanau', '/health', '/attendance', '/documents']) {
+      await visit(page, `/children/${t.childId}${tab}`);
+
+      const flag = page.locator('.record-flags .flag-critical').first();
+      await expect(flag, `no critical health flag on /children/[id]${tab}`).toBeVisible();
+
+      // Above the reference text — age, date of birth, enrolment — not merely present.
+      // Measured, because "above" is the whole claim and a flag row that renders below
+      // the metadata would satisfy a presence check.
+      const flagBox = await flag.boundingBox();
+      const metaBox = await page.locator('.record-meta').boundingBox();
+      expect(
+        flagBox!.y,
+        `the health flag sits below the identity metadata on /children/[id]${tab}`,
+      ).toBeLessThan(metaBox!.y);
+    }
+  });
+
+  /**
+   * A tab is a route, which is the entire point of them being routes.
+   *
+   * Asserted because the failure mode is invisible: tabs held in `useState` look and
+   * behave identically until somebody pastes the URL into a message, and by then the
+   * person receiving it is on the overview wondering what they were meant to look at.
+   */
+  test('every tab of the child record is linkable, and a made-up one is not', async ({ page }) => {
+    const t = tenant();
+
+    await visit(page, `/children/${t.childId}/health`);
+    await expect(page.getByRole('heading', { name: 'Health' })).toBeVisible();
+    // The tab bar agrees with the URL, and says so in the accessibility tree rather than
+    // only in colour.
+    await expect(page.getByRole('link', { name: 'Health' })).toHaveAttribute(
+      'aria-current',
+      'page',
     );
-    const at = (name: string) => order.indexOf(name);
 
-    expect(at('Health'), `no Health section — headings were: ${order.join(', ')}`).toBeGreaterThanOrEqual(0);
-    expect(
-      at('Details'),
-      `identity metadata is above health. Order: ${order.join(' → ')}`,
-    ).toBeGreaterThan(at('Health'));
-    // Consent gates whether a photo may exist, so it sits above the family/enrolment
-    // blocks too.
-    expect(at('Consent'), `Order: ${order.join(' → ')}`).toBeLessThan(at('Enrolment'));
+    /*
+      An undefined tab shows the not-found page, not the overview.
+
+      Asserted on content rather than on `response.status()`, and the reason is worth
+      recording: the status is **200**. The record's layout does async work and streams, so
+      by the time the page calls `notFound()` the response has begun and the status can no
+      longer be changed. That is a Next constraint rather than a fault here, and it means a
+      status-code assertion would be asserting something this app cannot deliver.
+
+      What matters to the person who mistyped the URL is what they are shown, and that is
+      what this checks.
+    */
+    await page.goto(`/children/${t.childId}/finance`, { waitUntil: 'networkidle' });
+    await expect(page.getByRole('heading', { name: 'Not found' })).toBeVisible();
+    await expect(page.locator('.record-tabs')).toHaveCount(0);
   });
 
   /**

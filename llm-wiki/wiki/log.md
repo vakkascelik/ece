@@ -5,6 +5,33 @@ says so.*
 
 ---
 
+2026-08-11 — **The child record becomes five routes; step 6 of the second design handover.**
+`children/[id]/` — new `layout.tsx`, `[tab]/page.tsx`, `RecordTabs.tsx`, `tabs.ts`, `record.css`
+— plus six e2e specs. See [[console-handover]].
+
+Tabs as routes, so a manager can send a colleague straight to the health tab. The part worth
+recording is what tabs nearly cost. This record's one safety decision is that health is read
+before identity metadata, because an allergy is read by somebody holding a child who has eaten
+something; health on its own tab puts that allergy one tap away from every other screen, which is
+worse than the scroll it replaced. So the flags moved into the header — breach-toned with the
+response plan inline — above the age and date of birth and on **every tab**. The a11y tripwire
+was rewritten from "Health `<h2>` precedes Details `<h2>`" to "the critical flag is measurably
+above `.record-meta`, on all five tabs", which asserts more than it did.
+
+**Learning is not built and its tab is absent rather than empty.** Nothing associates a post or a
+curriculum strand with one child in a way this record could read; building it is a feature, not a
+restyle, and an empty tab is a promise the product does not keep.
+
+`notFound()` on an undefined tab renders the not-found page with a **200**, because the layout
+streams and the status is already sent. Recorded because a status-code assertion looks obviously
+right and cannot work here.
+
+**A fifth pre-existing e2e break from `712ba7d`**, this one in `absence.spec.ts`: the Whānau help
+note quotes the confirmation panel's caveat almost word for word. Five assertions across three
+files now, all the same mechanism — the product documents its own copy on the same screen, and a
+locator that matches copy by text stops pointing at the thing the copy describes. The rule: a
+test that matches product copy needs a container.
+
 2026-08-11 — **Attendance gets the ratio band and the queue count; step 5 of the second design
 handover — and three e2e tests were already red.** `attendance/` (`page.tsx`, `RollClient.tsx`,
 `AdultCount.tsx`, `AttendanceRow.tsx`, `OfflineStrip.tsx`, new `attendance.css`),

@@ -31,7 +31,7 @@ async function signInAsKiosk(browser: Browser): Promise<Page> {
 /** Issue a PIN from the office, as the owner. */
 async function issuePin(page: Page, pin: string) {
   const t = tenant();
-  await visit(page, `/children/${t.childId}`);
+  await visit(page, `/children/${t.childId}/whanau`);
 
   const setButton = page.getByRole('button', { name: /Set PIN|Replace PIN/ });
   await setButton.first().click();

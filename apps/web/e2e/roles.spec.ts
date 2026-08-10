@@ -419,15 +419,19 @@ test.describe('the boundary inside a centre', () => {
 
     // Educators must reach a child's health record — an allergy disclosed at the door at
     // 8am has to be readable by the person who was told.
+    //
+    // The overview, not the health tab, and that is the assertion: the allergy is in the
+    // record's header on every tab, so an educator meets it without choosing one. It used
+    // to be a block at the top of a single long page and `.first()` was needed because it
+    // appeared twice; now the header is the only copy outside the health tab.
     await page.goto(`/children/${t.childId}`, { waitUntil: 'networkidle' });
-    // `.first()`: the allergy appears both as a flag at the top and as a row in the health
-    // table, and that duplication is the design — an educator should meet it before they
-    // have scrolled anywhere.
-    await expect(page.getByText('Peanuts').first()).toBeVisible();
+    await expect(page.locator('.record-flags').getByText('Peanuts')).toBeVisible();
 
-    // And must not reach custody. Asserted on the *heading*, not on the detail: an empty
-    // panel tells an educator that a court order exists, which is most of what the
-    // restriction protects.
+    // And must not reach custody. On the whānau tab, where custody now lives — visiting the
+    // overview would pass trivially and assert nothing, which is worse than not asserting.
+    // On the *heading*, not the detail: an empty panel tells an educator that a court order
+    // exists, which is most of what the restriction protects.
+    await page.goto(`/children/${t.childId}/whanau`, { waitUntil: 'networkidle' });
     await expect(page.getByRole('heading', { name: /Custody/ })).toHaveCount(0);
     await expect(page.getByText(new RegExp(`FAM-${t.tag}`))).toHaveCount(0);
 
@@ -453,7 +457,7 @@ test.describe('the boundary inside a centre', () => {
         await page.waitForURL('/');
       }
 
-      await page.goto(`/children/${t.childId}`, { waitUntil: 'networkidle' });
+      await page.goto(`/children/${t.childId}/whanau`, { waitUntil: 'networkidle' });
       await expect(page.getByRole('heading', { name: /Custody/ })).toBeVisible();
       await expect(page.getByText(new RegExp(`FAM-${t.tag}`))).toBeVisible();
       await ctx.close();

@@ -25,7 +25,7 @@ test('a second dose of the same medicine is recorded, not swallowed as a duplica
   page,
 }) => {
   const t = tenant();
-  await visit(page, `/children/${t.childId}`);
+  await visit(page, `/children/${t.childId}/health`);
 
   const row = page.getByRole('row', { name: /Adrenaline auto-injector/ });
   await expect(row).toBeVisible();
@@ -76,7 +76,7 @@ test('a parent sees what was given and is offered no way to record it', async ({
   await page.getByRole('button', { name: 'Sign in' }).click();
   await page.waitForURL('/');
 
-  await page.goto(`/children/${t.childId}`, { waitUntil: 'networkidle' });
+  await page.goto(`/children/${t.childId}/health`, { waitUntil: 'networkidle' });
   await expect(page.getByText('Adrenaline auto-injector')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Record a dose' })).toHaveCount(0);
 

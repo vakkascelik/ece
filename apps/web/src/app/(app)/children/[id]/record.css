@@ -1,0 +1,90 @@
+/*
+ * The child record, route-scoped.
+ *
+ * One screen uses all of it, and `check:bundle` measures the root layout's stylesheet, so
+ * none of this is paid for by the other twenty-nine screens. Same reasoning as
+ * `attendance.css` and `kiosk.css`.
+ *
+ * `.record`, `.record-head`, `.record-initials`, `.record-who` and `.record-meta` are still
+ * in globals.css from the first design pack — they were there before this file existed and
+ * moving them is a separate change from adding to them.
+ */
+
+/*
+ * The flag row.
+ *
+ * Wraps, and each flag may be long: a response plan reads "EpiPen in the office fridge, ring
+ * 111 first" and truncating that to fit a row would be the single worst truncation in this
+ * product. So `white-space: normal` overrides `.flag`'s `nowrap`, and a flag that needs two
+ * lines gets two lines.
+ */
+.record-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: flex-start;
+  margin: 0 0 8px;
+}
+.record-flags .flag {
+  white-space: normal;
+  text-align: left;
+}
+
+/* Reference text: below the flags, and quieter than them. */
+.record-meta { margin: 0 0 var(--space-5); }
+
+/*
+ * The tabs.
+ *
+ * A bottom border across the full width with the current tab's own border sitting on top of
+ * it, which is what makes the row read as one strip rather than five separate links. 44px
+ * tall: this record is opened on the same tablet as the roll.
+ */
+.record-tabs { margin: 0 0 var(--space-5); border-bottom: 1px solid var(--line); }
+.record-tabs ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  gap: var(--space-5);
+  flex-wrap: wrap;
+}
+.record-tabs a {
+  display: flex;
+  align-items: center;
+  min-height: var(--target-min);
+  padding: 0 2px;
+  text-decoration: none;
+  color: var(--muted);
+  font-size: var(--text-base);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+.record-tabs a:hover { color: var(--ink); }
+/*
+ * Weight and colour and a rule, never colour alone — the same requirement every flag in this
+ * product meets, applied to navigation.
+ */
+.record-tabs a[aria-current='page'] {
+  color: var(--accent);
+  font-weight: 600;
+  border-bottom-color: var(--accent);
+}
+
+/* The overview's summary cards. */
+.record-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+}
+.record-summary .card { margin-bottom: 0; }
+.record-summary-eyebrow {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.record-summary-body { font-size: var(--text-base); line-height: 1.7; }

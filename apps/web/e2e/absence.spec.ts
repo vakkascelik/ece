@@ -76,7 +76,8 @@ test('a parent confirms their details, and a manager is not offered the button',
   const t = tenant();
 
   const parent = await signIn(browser, t.parentEmail, t.password);
-  await visit(parent, `/children/${t.childId}`);
+  // The whanau tab: confirming details is about the contacts, so it sits with them.
+  await visit(parent, `/children/${t.childId}/whanau`);
 
   // Before: nobody has confirmed. Said plainly rather than shown as a date of zero.
   await expect(parent.getByText('No parent or caregiver has confirmed these details.')).toBeVisible();
@@ -92,7 +93,19 @@ test('a parent confirms their details, and a manager is not offered the button',
     "confirmed" over a phone number edited last week would be worse than no claim at all,
     and this asserts the caveat is on the screen rather than only in the migration.
   */
-  await expect(parent.getByText('It does not mean nothing has changed since')).toBeVisible();
+  /*
+    Scoped to the panel's own caveat, not to the page.
+
+    Unscoped this matched two elements from 2026-08-11: the panel's sentence and the Whānau
+    help note, which quotes it almost word for word. Both are correct and neither should
+    change — the fifth assertion in this suite to be broken by the product documenting its
+    own copy on the same screen. See the note in `offline.spec.ts` for the general shape.
+
+    `.sub` is the panel's caveat paragraph; the help note's copy is inside `.help-body`.
+  */
+  await expect(
+    parent.locator('p.sub').getByText('It does not mean nothing has changed since'),
+  ).toBeVisible();
 
   await parent.reload({ waitUntil: 'networkidle' });
   await expect(parent.getByText('Last confirmed by a parent or caregiver on')).toBeVisible();
@@ -106,7 +119,7 @@ test('a parent confirms their details, and a manager is not offered the button',
     insert policy refuses it in the database; this asserts the screen does not invite it.
   */
   const manager = await signIn(browser, t.managerEmail, t.password);
-  await visit(manager, `/children/${t.childId}`);
+  await visit(manager, `/children/${t.childId}/whanau`);
 
   await expect(manager.getByText('Last confirmed by a parent or caregiver on')).toBeVisible();
   await expect(manager.getByRole('button', { name: 'These details are correct' })).toHaveCount(0);

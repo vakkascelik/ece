@@ -28,7 +28,7 @@ test('an update supersedes rather than overwrites, and sighting is its own claim
   page,
 }) => {
   const t = tenant();
-  await visit(page, `/children/${t.childId}`);
+  await visit(page, `/children/${t.childId}/health`);
 
   const panel = page.locator('section.card').filter({ hasText: 'Immunisation' });
   await expect(panel).toBeVisible();
@@ -74,7 +74,7 @@ test('a parent reads their child’s record and is offered no way to write it', 
   await page.getByRole('button', { name: 'Sign in' }).click();
   await page.waitForURL('/');
 
-  await page.goto(`/children/${t.childId}`, { waitUntil: 'networkidle' });
+  await page.goto(`/children/${t.childId}/health`, { waitUntil: 'networkidle' });
   const panel = page.locator('section.card').filter({ hasText: 'Immunisation' });
 
   // Readable: a family is entitled to see what the centre recorded about their child.
