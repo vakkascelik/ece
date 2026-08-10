@@ -3,6 +3,7 @@ import { onSite, todayInZone } from '@ece/core';
 import { requireCapability } from '@/lib/auth';
 import { dayWindow, shiftLocalDate } from '@/lib/dayWindow';
 import { serverDb } from '@/lib/supabase';
+import { TabHelp } from '../help/TabHelp';
 import { VisitorBook, type VisitorRow } from './VisitorBook';
 
 /**
@@ -52,7 +53,10 @@ export default async function VisitorsPage() {
 
   return (
     <>
-      <h1>Visitors</h1>
+      <div className="has-help">
+        <h1>Visitors</h1>
+        <TabHelp href="/visitors" />
+      </div>
       <p className="sub">Who is at {ctx.centre.name}, and who has been.</p>
       <VisitorBook onSiteRows={onSiteRows} todayRows={todayRows} />
     </>

@@ -3,6 +3,7 @@ import { listLeave, listShifts, listStaffMembers, readForecast } from '@ece/api'
 import { can, currentStaff, shiftLocalDate, summariseForecast, todayInZone } from '@ece/core';
 import { requireCapability } from '@/lib/auth';
 import { serverDb } from '@/lib/supabase';
+import { TabHelp } from '../help/TabHelp';
 import { RosterWeek, type DayView } from './RosterWeek';
 
 const DAYS = 7;
@@ -79,7 +80,10 @@ export default async function RosterPage({
 
   return (
     <>
-      <h1>Roster</h1>
+      <div className="has-help">
+        <h1>Roster</h1>
+        <TabHelp href="/roster" />
+      </div>
       <p className="sub">Who is planned to be on, and whether that covers who is booked in.</p>
 
       <div className="card" style={{ marginBottom: '1rem' }}>

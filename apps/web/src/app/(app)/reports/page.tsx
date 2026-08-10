@@ -4,6 +4,7 @@ import { summariseOccupancy, todayInZone } from '@ece/core';
 import { requireCapability } from '@/lib/auth';
 import { serverDb } from '@/lib/supabase';
 import { dayWindow, shiftLocalDate } from '@/lib/dayWindow';
+import { TabHelp } from '../help/TabHelp';
 import { PageActions } from '../PageActions';
 
 /**
@@ -53,8 +54,9 @@ export default async function ReportsPage() {
     <div className="binder">
       <div className="no-print">
         <div className="section-head">
-          <div>
+          <div className="has-help">
             <h1>Reports</h1>
+            <TabHelp href="/reports" />
             <p className="sub">
               {ctx.centre.name} · thirty days to {today}
             </p>

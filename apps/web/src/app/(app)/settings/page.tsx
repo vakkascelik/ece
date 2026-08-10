@@ -1,4 +1,5 @@
 import { requireCapability } from '@/lib/auth';
+import { TabHelp } from '../help/TabHelp';
 import { SettingsForm } from './SettingsForm';
 
 export default async function SettingsPage() {
@@ -6,7 +7,10 @@ export default async function SettingsPage() {
 
   return (
     <>
-      <h1>Settings</h1>
+      <div className="has-help">
+        <h1>Settings</h1>
+        <TabHelp href="/settings" />
+      </div>
       <p className="sub">Details for {ctx.centre.name}.</p>
       <SettingsForm
         name={ctx.centre.name}

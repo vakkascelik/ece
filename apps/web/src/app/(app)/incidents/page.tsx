@@ -3,6 +3,7 @@ import { summariseIncidents, supersededIds, todayInZone } from '@ece/core';
 import { requireCapability } from '@/lib/auth';
 import { dayWindow, shiftLocalDate } from '@/lib/dayWindow';
 import { serverDb } from '@/lib/supabase';
+import { TabHelp } from '../help/TabHelp';
 import { IncidentList, type IncidentRow } from './IncidentList';
 import { NewIncident, type BasedOn } from './NewIncident';
 
@@ -145,7 +146,10 @@ export default async function IncidentsPage({
 
   return (
     <>
-      <h1>Incidents</h1>
+      <div className="has-help">
+        <h1>Incidents</h1>
+        <TabHelp href="/incidents" />
+      </div>
       <p className="sub">
         Injuries, illness, behaviour and near misses at {ctx.centre.name}, over the last {days}{' '}
         days.

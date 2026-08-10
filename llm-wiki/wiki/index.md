@@ -126,6 +126,9 @@ and [`../schema.md`](../schema.md) for the page template.
 - [[design-system]] — applying the Doorway handoff: the four token values that diverged, the
   one master-prompt constraint that had to be refused, and which of the thirteen screens are
   actually done
+- [[in-product-help]] — the `?` beside every heading and the page behind it: why a `<details>`
+  and not a tooltip, why 186 B of JavaScript is a correctness property rather than a boast, and
+  the three buttons that were better off without a question mark
 
 ## Conventions
 

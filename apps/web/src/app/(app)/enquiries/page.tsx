@@ -2,6 +2,7 @@ import { listEnquiries } from '@ece/api';
 import { todayInZone } from '@ece/core';
 import { requireCapability } from '@/lib/auth';
 import { serverDb } from '@/lib/supabase';
+import { TabHelp } from '../help/TabHelp';
 import { EnquiryRow } from './EnquiryRow';
 
 /**
@@ -30,8 +31,9 @@ export default async function EnquiriesPage() {
   return (
     <>
       <div className="section-head">
-        <div>
+        <div className="has-help">
           <h1>Enquiries</h1>
+          <TabHelp href="/enquiries" />
           <p className="sub" style={{ marginBottom: '1rem' }}>
             {ctx.centre.name} · as at {today}
           </p>

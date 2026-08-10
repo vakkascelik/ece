@@ -2,6 +2,7 @@ import { listGuardians, listOutstandingInvoices } from '@ece/api';
 import { BUCKETS, formatCents, summariseArrears, todayInZone } from '@ece/core';
 import { requireCapability } from '@/lib/auth';
 import { serverDb } from '@/lib/supabase';
+import { TabHelp } from '../help/TabHelp';
 import { PageActions } from '../PageActions';
 
 /**
@@ -40,8 +41,9 @@ export default async function BillingPage() {
 
   return (
     <div className="binder">
-      <div className="no-print">
+      <div className="no-print has-help">
         <h1>Accounts</h1>
+        <TabHelp href="/billing" />
         <p className="sub">
           What families still owe on invoices this centre has issued, as at {today}.
         </p>

@@ -3,6 +3,7 @@ import { listAttendanceToday, listChildren, listHealthByChild, readAdultsPresent
 import { assessRatio, can, splitByAgeBand, todayInZone } from '@ece/core';
 import { requireCapability } from '@/lib/auth';
 import { serverDb } from '@/lib/supabase';
+import { TabHelp } from '../help/TabHelp';
 import { AdultCount } from './AdultCount';
 import { RatioBanner } from './RatioBanner';
 import { RollClient } from './RollClient';
@@ -73,8 +74,9 @@ export default async function AttendancePage({
   return (
     <>
       <div className="page-head" style={{ marginBottom: '1.25rem' }}>
-        <div>
+        <div className="has-help">
           <h1>Attendance</h1>
+          <TabHelp href="/attendance" />
           <p className="sub" style={{ margin: 0, fontSize: 'var(--text-sm)' }}>
             {ctx.centre.name} · {today}
           </p>

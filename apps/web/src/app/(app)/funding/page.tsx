@@ -11,6 +11,7 @@ import {
 import { requireCapability } from '@/lib/auth';
 import { dayWindow } from '@/lib/dayWindow';
 import { serverDb } from '@/lib/supabase';
+import { TabHelp } from '../help/TabHelp';
 import { PageActions } from '../PageActions';
 
 /**
@@ -67,8 +68,9 @@ export default async function FundingPage({
     <div className="binder">
       <div className="no-print">
         <div className="section-head">
-          <div>
+          <div className="has-help">
             <h1>Funding preparation</h1>
+            <TabHelp href="/funding" />
             <p className="sub" style={{ marginBottom: '1rem' }}>
               {ctx.centre.name}
               {ctx.centre.moeServiceNumber ? ` · Ministry service number ${ctx.centre.moeServiceNumber}` : ''}

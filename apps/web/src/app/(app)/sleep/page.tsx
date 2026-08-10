@@ -4,6 +4,7 @@ import { SLEEP_POSITION_LABELS, sleepStatuses, todayInZone } from '@ece/core';
 import { requireCapability } from '@/lib/auth';
 import { dayWindow } from '@/lib/dayWindow';
 import { serverDb } from '@/lib/supabase';
+import { TabHelp } from '../help/TabHelp';
 import { SleepRegister, type SleepRow } from './SleepRegister';
 
 /**
@@ -80,7 +81,10 @@ export default async function SleepPage() {
 
   return (
     <>
-      <h1>Sleep checks</h1>
+      <div className="has-help">
+        <h1>Sleep checks</h1>
+        <TabHelp href="/sleep" />
+      </div>
       <p className="sub">
         Children signed in at {ctx.centre.name} today, longest since a check first.
       </p>

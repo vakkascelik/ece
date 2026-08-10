@@ -11,6 +11,7 @@ import { assessAll, currentStaff, summarise, summariseDay, todayInZone } from '@
 import { requireCapability } from '@/lib/auth';
 import { serverDb } from '@/lib/supabase';
 import { dayWindow, lastSevenDays } from '@/lib/dayWindow';
+import { TabHelp } from '../help/TabHelp';
 import { ComplianceNarrative } from './ComplianceNarrative';
 import { CriteriaGaps } from './CriteriaGaps';
 import { EvidenceList } from './EvidenceList';
@@ -96,8 +97,9 @@ export default async function CompliancePage() {
   return (
     <>
       <div className="section-head">
-        <div>
+        <div className="has-help">
           <h1>Compliance</h1>
+          <TabHelp href="/compliance" />
           <p className="sub" style={{ marginBottom: '1rem' }}>
             {ctx.centre.name} · as at {today}
           </p>

@@ -384,6 +384,25 @@ test.describe('staff screens', () => {
     await auditPage(page, '/settings');
   });
 
+  /*
+    Help, twice: collapsed and with a question mark open.
+
+    The open state is the one worth auditing. Collapsed, a `<details>` is a button and
+    axe has almost nothing to look at; expanded, it is the panel somebody reads — and a
+    help affordance that fails an audit is a special kind of wrong, because the person
+    most likely to open it is the person having the most difficulty.
+  */
+  test('help — the documentation page', async ({ page }) => {
+    await visit(page, '/help');
+    await auditPage(page, '/help');
+  });
+  test('help, with a question mark opened', async ({ page }) => {
+    await visit(page, '/attendance');
+    await page.locator('summary.help-mark').first().click();
+    await expect(page.locator('.help-body').first()).toBeVisible();
+    await auditPage(page, '/attendance (help note open)');
+  });
+
   test('centre selection', async ({ page }) => {
     await visit(page, '/select-centre');
     await auditPage(page, '/select-centre');

@@ -3,6 +3,7 @@ import { listApplications, listMembers } from '@ece/api';
 import { isOpenApplication } from '@ece/core';
 import { requireCapability } from '@/lib/auth';
 import { serverDb } from '@/lib/supabase';
+import { TabHelp } from '../help/TabHelp';
 import { ApplicationRow } from './ApplicationRow';
 
 /**
@@ -74,7 +75,10 @@ export default async function ApplicationsPage() {
 
   return (
     <>
-      <h1>Applications</h1>
+      <div className="has-help">
+        <h1>Applications</h1>
+        <TabHelp href="/applications" />
+      </div>
       <p className="sub">
         People who have applied to work at {ctx.centre.name}. Only owners and managers can see this.
       </p>

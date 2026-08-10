@@ -288,6 +288,56 @@ for whoever ran this against a real file first.
 
 ---
 
+2026-08-10 — **A question mark on every screen, and the page behind it.** New:
+[[in-product-help]]. `HelpNote`, `help/tabs.ts`, `/help`.
+
+Documentation for the people using the admin panel rather than the people building it. A `?`
+beside every screen's heading and beside the eight sections of the child record, and a `/help`
+page listing every screen the reader's role can open. Both read the same array, so they cannot
+drift.
+
+**`<details>`, not a tooltip, and the precedent was already here.** `AttendanceRow` once
+carried a child's anaphylaxis response plan in a `title` attribute and it was **deleted** rather
+than restyled — a `title` is invisible to a keyboard, a touch screen and most screen readers.
+Building the help surface on that attribute would have repeated the mistake in the one place
+whose whole job is explaining things. Native `<details>` is focusable, operable and announced,
+with no ARIA to get wrong; `RatioBanner`'s "Which rule is this?" is the same shape.
+
+**186 B of client bundle, which is a correctness property.** Nothing here is a client
+component. Yesterday's diagnosis was a tap on the roll that landed before hydration and did
+nothing, silently — help that is inert for the first moment of a page is broken exactly when
+somebody unfamiliar is poking at it. The panel is in flow rather than an overlay for the
+related reason: a popup on a door tablet is a trap.
+
+**Every entry says what the screen will not tell you**, copied from the behaviour rather than
+composed — the ratio wording from `RatioBanner`, the funding wording from the funding page, the
+broadcast wording from `BroadcastForm`. A manager who believes the ratio block confirmed they
+are legally covered is worse off than one who never opened the screen, and a summary that
+dropped those sentences would be the one place a reader gets the comfortable version.
+
+**The tab list is checked against `layout.tsx`, not against another list.** `TABS` is exactly
+the hand-maintained list [[conventions]] collects four instances of, and it would fail the same
+silent way. `helpCoverage.test.ts` parses the navigation and asserts both directions.
+Mutation-tested: removing the `/settings` entry fails the named assertion and prints the route.
+It also asserts the parse found more than ten links first, because a restructured `layout.tsx`
+returning nothing would make every other assertion pass vacuously.
+
+**Three buttons were left alone, and that is a finding rather than an omission.** Broadcast's
+Send, the sleep register's Record a check, and `PageActions` all already explain themselves in
+always-visible copy. Putting that behind a `?` would move information from "read this" to "open
+this if curious" — a downgrade dressed as a feature. The child record's section headings were
+the real gap.
+
+**One mistake worth recording**: the first version put the `<details>` *inside* an `<h2>`. That
+is invalid HTML and it folds the whole help paragraph into the heading's accessible name, so a
+screen reader announces the heading as an essay. Caught by reading it back, not by a tool —
+neither typecheck nor lint nor axe would have said a word.
+
+a11y: zero WCAG 2.2 AA violations on `/help` and on a screen with a note open. roles: 17/17,
+with `/help` added to the matrix and to all four navigation lists.
+
+---
+
 2026-08-09 — **A wiki pass that found a defect in the thing it was documenting.** See
 [[privacy-and-retention]], [[parent-self-service]], [[conventions]].
 

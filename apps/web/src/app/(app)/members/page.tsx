@@ -1,6 +1,7 @@
 import { listMembers, listPendingInvitations } from '@ece/api';
 import { requireCapability } from '@/lib/auth';
 import { serverDb } from '@/lib/supabase';
+import { TabHelp } from '../help/TabHelp';
 import { InvitePanel } from './InvitePanel';
 import { MemberRow } from './MemberRow';
 
@@ -14,7 +15,10 @@ export default async function MembersPage() {
 
   return (
     <>
-      <h1>People</h1>
+      <div className="has-help">
+        <h1>People</h1>
+        <TabHelp href="/members" />
+      </div>
       <p className="sub">Who can see and change {ctx.centre.name}.</p>
 
       <div className="card">

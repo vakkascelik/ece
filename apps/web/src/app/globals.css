@@ -715,6 +715,105 @@ button.danger { background: var(--surface); color: var(--danger); border-color: 
   border-radius: 4px;
 }
 
+/* --- Inline help ---------------------------------------------------------- */
+
+/*
+ * The question mark beside a heading or a control. See HelpNote.tsx for why this is a
+ * `<details>` and not a tooltip: a `title` attribute is meaning available only to a
+ * mouse, and this codebase already removed one carrying a child's medical response plan
+ * for that reason.
+ *
+ * `display: inline-block` and `vertical-align: middle` so it sits on the baseline of the
+ * heading it follows rather than dropping the heading's line-height.
+ */
+.help { display: inline-block; vertical-align: middle; margin-left: 0.5rem; }
+
+/*
+ * 44px, from `--target-min`, because WCAG 2.2 AA adds 2.5.8 Target Size and the audit
+ * gates on `wcag22aa`. The glyph is small; the target is not, which is the whole point of
+ * that criterion — the visible circle is 1.5rem and the hit area is the summary box.
+ *
+ * `list-style: none` plus the WebKit pseudo-element: Safari draws a disclosure triangle
+ * on a summary and ignores `list-style` alone, which would put a triangle beside every
+ * question mark.
+ */
+.help-mark {
+  list-style: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--target-min);
+  min-height: var(--target-min);
+  color: var(--muted);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+.help-mark::-webkit-details-marker { display: none; }
+
+/* The circle is drawn on a child-free box so the 44px target stays invisible. */
+.help-mark > span[aria-hidden] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+}
+.help-mark:hover > span[aria-hidden] { color: var(--ink); border-color: var(--ink-muted); }
+
+/*
+ * The panel. Sunken rather than white so it reads as an aside about the thing above it
+ * and not as another card, and `font-weight: 400` because these sit beside headings and
+ * would otherwise inherit their weight.
+ */
+.help-body {
+  font-weight: 400;
+  font-size: var(--text-sm);
+  line-height: 1.55;
+  color: var(--ink);
+  background: var(--surface-sunken);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 0.75rem 1rem;
+  margin-top: 0.5rem;
+  max-width: 46rem;
+  /* Absolute would overlay the page and need dismissing; in flow it pushes content down,
+     which on a touch screen is the behaviour that does not trap anybody. */
+  white-space: normal;
+  text-align: left;
+}
+.help-body p { margin: 0 0 0.5rem; }
+.help-body p:last-child { margin-bottom: 0; }
+.help-body strong { font-weight: 600; }
+
+/*
+ * A heading with its question mark beside it.
+ *
+ * `h1 { display: inline }` so the `<details>` sits on the heading's line rather than
+ * dropping below it, and scoped to this class rather than applied to every `.section-head`
+ * — the other heading rows carry action buttons and a display change there would move
+ * controls on eleven screens to fix a margin on one.
+ *
+ * Opened, the details becomes a block and therefore starts its own line under the heading.
+ * The alternative was an absolutely positioned panel, which overlays whatever is beneath
+ * it and then needs dismissing — on a tablet at the door that is a trap, and it is the
+ * same reasoning that keeps `.help-body` in flow.
+ */
+.has-help > h1, .has-help > h2 { display: inline; }
+.has-help > .help[open] { display: block; margin-left: 0; margin-top: 0.5rem; }
+/* The section headings on the child record carry their own bottom margin, which an
+   inline box drops. Restored on the wrapper so the panels below do not move up. */
+.section > .has-help { display: block; margin-bottom: 0.75rem; }
+
+/* A printed binder should carry the explanation, not a collapsed widget. */
+@media print {
+  .help[open] .help-mark, .help:not([open]) { display: none; }
+  .help-body { border: 0; background: none; padding: 0; }
+}
+
 /* Text for a screen reader and not for the eye.
  *
  * Used for the header of an action column: the visual reader understands that the

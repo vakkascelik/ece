@@ -33,6 +33,7 @@ import {
 } from '@ece/core';
 import { requireCtx } from '@/lib/auth';
 import { serverDb } from '@/lib/supabase';
+import { HelpNote } from '../../HelpNote';
 import { BookingsPanel } from './BookingsPanel';
 import { ConfirmPanel } from './ConfirmPanel';
 import { ArchivePanel } from './ArchivePanel';
@@ -279,7 +280,20 @@ export default async function ChildPage({ params }: { params: Promise<{ id: stri
       */}
       {critical && (
         <div className="section">
-          <h2>Read this first</h2>
+          <div className="has-help">
+            <h2>Read this first</h2>
+            <HelpNote label="Read this first">
+              <p>
+                This block appears only when a child has a condition recorded as
+                anaphylaxis or severe. It repeats the response plan at the top of the
+                record so it is not something anybody has to scroll for.
+              </p>
+              <p>
+                It is not a separate list — it is the same conditions shown under Health,
+                lifted up. Removing a condition there removes it here.
+              </p>
+            </HelpNote>
+          </div>
           {sorted
             .filter((c) => c.severity === 'anaphylaxis' || c.severity === 'severe')
             .map((c) => (
@@ -297,7 +311,21 @@ export default async function ChildPage({ params }: { params: Promise<{ id: stri
       )}
 
       <div className="section">
-        <h2>Health</h2>
+        <div className="has-help">
+          <h2>Health</h2>
+          <HelpNote label="Health">
+            <p>
+              Allergies, conditions, medication and immunisations. Anything marked
+              anaphylaxis or severe is also lifted to the top of this record.
+            </p>
+            <p>
+              Educators can record a condition here, not only the office. Something a
+              family mentions at the door at eight in the morning has to be writable by
+              the person who was told, rather than waiting for somebody with an office
+              login.
+            </p>
+          </HelpNote>
+        </div>
         <HealthPanel
           childId={child.id}
           conditions={sorted}
@@ -319,7 +347,20 @@ export default async function ChildPage({ params }: { params: Promise<{ id: stri
         7am with a sick child should not have to scroll past the consent history.
       */}
       <div className="section">
-        <h2>Booked days</h2>
+        <div className="has-help">
+          <h2>Booked days</h2>
+          <HelpNote label="Booked days">
+            <p>
+              The days this child is expected. Bookings are what the roster is planned
+              against and are separate from attendance, which is what actually happened.
+            </p>
+            <p>
+              A parent sees this panel too and can tell the centre their child will not be
+              in. That records an absence — it does not cancel the booking and it does not
+              change what the family is charged.
+            </p>
+          </HelpNote>
+        </div>
         <div className="card">
           <BookingsPanel bookings={bookings} isParent={ctx.role === 'parent'} />
         </div>
@@ -327,7 +368,21 @@ export default async function ChildPage({ params }: { params: Promise<{ id: stri
 
       {/* Consent second, per the pack — it gates whether a photo may exist at all. */}
       <div className="section">
-        <h2>Consent</h2>
+        <div className="has-help">
+          <h2>Consent</h2>
+          <HelpNote label="Consent">
+            <p>
+              What this family has agreed to — photographs, outings, and the rest. Each
+              decision records who gave it and when, and changing one adds a new decision
+              rather than overwriting the old one, so the history stays readable.
+            </p>
+            <p>
+              This is not paperwork that sits beside the product. A photograph of a child
+              cannot be attached to a post unless a consent decision has been recorded
+              here first.
+            </p>
+          </HelpNote>
+        </div>
         <ConsentPanel
           childId={child.id}
           consents={consents}
@@ -367,7 +422,21 @@ export default async function ChildPage({ params }: { params: Promise<{ id: stri
       </div>
 
       <div className="section">
-        <h2>Whānau</h2>
+        <div className="has-help">
+          <h2>Whānau</h2>
+          <HelpNote label="Whānau">
+            <p>
+              Who this child belongs to, in the order you would ring them, and which of
+              them may collect. A guardian with a login sees this child’s record; one
+              without is a contact card.
+            </p>
+            <p>
+              The confirmation date says when a parent or caregiver last said these
+              details were right. It does not mean nothing has changed since — if a phone
+              number was edited afterwards, that date does not move.
+            </p>
+          </HelpNote>
+        </div>
         <WhanauPanel
           childId={child.id}
           whanau={whanau}
@@ -392,7 +461,20 @@ export default async function ChildPage({ params }: { params: Promise<{ id: stri
       </div>
 
       <div className="section">
-        <h2>Enrolment</h2>
+        <div className="has-help">
+          <h2>Enrolment</h2>
+          <HelpNote label="Enrolment">
+            <p>
+              Start and end dates, the days and the funded hours. These are the figures
+              the funding screen works from, so an enrolment that is wrong here is a
+              funding claim that is wrong there.
+            </p>
+            <p>
+              A child who has left keeps their record until it is archived and, later,
+              purged — leaving is an end date, not a deletion.
+            </p>
+          </HelpNote>
+        </div>
         <EnrolmentPanel
           childId={child.id}
           enrolments={enrolments}
@@ -408,7 +490,20 @@ export default async function ChildPage({ params }: { params: Promise<{ id: stri
       */}
       {canViewCustody && (
         <div className="section">
-          <h2>Custody and court orders</h2>
+          <div className="has-help">
+            <h2>Custody and court orders</h2>
+            <HelpNote label="Custody and court orders">
+              <p>
+                Owners and managers only. Educators and whānau do not see this section at
+                all — not an empty one, not a locked one.
+              </p>
+              <p>
+                That is deliberate. A heading reading “Custody” with nothing under it
+                would tell an educator that a court order exists for this child, which is
+                most of what the restriction is protecting.
+              </p>
+            </HelpNote>
+          </div>
           <CustodyPanel childId={child.id} arrangements={custody} />
         </div>
       )}
@@ -419,7 +514,20 @@ export default async function ChildPage({ params }: { params: Promise<{ id: stri
         name, age and enrolment date that anybody reading in a hurry needs.
       */}
       <div className="section">
-        <h2>Details</h2>
+        <div className="has-help">
+          <h2>Details</h2>
+          <HelpNote label="Details">
+            <p>
+              Name, date of birth and the rest of the identity record. It sits at the
+              bottom because the header above already carries the name, age and enrolment
+              date that anybody reading in a hurry needs.
+            </p>
+            <p>
+              The date of birth decides which ratio band this child counts in, so a
+              correction here changes the figures on the attendance and roster screens.
+            </p>
+          </HelpNote>
+        </div>
         <DetailsForm child={child} readOnly={!canManage} />
       </div>
 

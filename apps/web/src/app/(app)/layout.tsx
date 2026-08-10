@@ -97,6 +97,12 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           )}
           {/* Everyone: this is the user's own account, not the centre's. */}
           <NavLink href="/account">Account</NavLink>
+          {/*
+            Last, and shown to everyone including parents. It documents the screens the
+            reader can actually open — `/help` filters by the same capabilities this nav
+            does, so an educator is not told about the accounts screen they cannot reach.
+          */}
+          <NavLink href="/help">Help</NavLink>
         </nav>
 
         {/* Pinned to the bottom of the rail — see `.side-foot` in globals.css. */}

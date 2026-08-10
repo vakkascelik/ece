@@ -11,6 +11,7 @@ import {
 import { requireCapability } from '@/lib/auth';
 import { dayWindow } from '@/lib/dayWindow';
 import { serverDb } from '@/lib/supabase';
+import { TabHelp } from '../help/TabHelp';
 import { StaffRoster, type RosterRow } from './StaffRoster';
 import { PageActions } from '../PageActions';
 
@@ -75,7 +76,10 @@ export default async function StaffPage() {
 
   return (
     <>
-      <h1>Staff</h1>
+      <div className="has-help">
+        <h1>Staff</h1>
+        <TabHelp href="/staff" />
+      </div>
       <p className="sub">Who works at {ctx.centre.name}, and who is here.</p>
       {can(ctx.role, 'manageMembers') && (
         <PageActions

@@ -1,6 +1,7 @@
 import { listMyNotifications } from '@ece/api';
 import { requireCtx } from '@/lib/auth';
 import { serverDb } from '@/lib/supabase';
+import { TabHelp } from '../help/TabHelp';
 
 const KIND_LABELS: Record<string, string> = {
   post: 'Post',
@@ -28,7 +29,10 @@ export default async function NotificationsPage() {
 
   return (
     <>
-      <h1>Notifications</h1>
+      <div className="has-help">
+        <h1>Notifications</h1>
+        <TabHelp href="/notifications" />
+      </div>
       <p className="sub">Only you can see this list.</p>
 
       <div className="card">
