@@ -4,6 +4,13 @@ Applying the `design_handoff_ece_platform/` pack to the repo: what the tokens al
 on, the four values that diverged, and the one constraint in the master prompt that had to be
 refused.
 
+> **Superseded as current design intent by [[console-handover]] (2026-08-10).** The token work
+> and the reasoning on this page still stand — that handover changes no tokens. What is now out
+> of date is the deviation table below and the claim that every screen in the pack is applied:
+> the shell, the child record, the incident form, the kiosk and three mobile components are
+> restructured there. Read this page for *why the pack says what it says*, and that one for what
+> the screens currently do.
+
 ## Overview
 
 The handoff arrived on 2026-08-05 as a README (self-described as authoritative, with the HTML

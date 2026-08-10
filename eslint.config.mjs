@@ -23,6 +23,9 @@ export default tseslint.config(
       // A design handoff, not project code — it carries its own browser runtime
       // (support.js) so the board opens offline.
       'design_handoff_ece_platform/**',
+      // The second one, same shape and the same support.js. `handover/screens/` under it
+      // holds captures of the built screens, which are not code either.
+      'handover/**',
       '**/*.config.js',
       '**/*.config.mjs',
     ],

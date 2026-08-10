@@ -126,6 +126,9 @@ and [`../schema.md`](../schema.md) for the page template.
 - [[design-system]] — applying the Doorway handoff: the four token values that diverged, the
   one master-prompt constraint that had to be refused, and which of the thirteen screens are
   actually done
+- [[console-handover]] — the second handover, which supersedes the first: structure rather than
+  colour, why the menu button reordered in the DOM instead of with `order:`, and the redirect
+  origin that signs a screenshot run out without saying so
 - [[in-product-help]] — the `?` beside every heading and the page behind it: why a `<details>`
   and not a tooltip, why 186 B of JavaScript is a correctness property rather than a boast, and
   the three buttons that were better off without a question mark

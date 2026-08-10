@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+<link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<style>
+  body { margin: 0; background: #faf9f7; color: #1b1a18; font-family: "Work Sans", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  a { color: #2f6f4f; text-decoration: underline; text-underline-offset: 3px; }
+  a:hover { color: #25583f; }
+  * { box-sizing: border-box; }
+</style>
+</helmet>
+
+<div style="max-width: 1180px; margin: 0 auto; padding: 0 40px 160px; min-width: 0">
+
+  <header style="padding: 120px 0 72px; border-bottom: 1px solid #e3e1dd">
+    <div style="font-family: 'Space Mono', monospace; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: #605d58; margin-bottom: 40px">Design handover · vakkascelik/ece · main</div>
+    <h1 style="font-size: 64px; line-height: 1.02; letter-spacing: -0.03em; font-weight: 600; margin: 0 0 28px; max-width: 15ch; text-wrap: pretty">Making the console and app feel finished</h1>
+    <p style="font-size: 20px; line-height: 1.55; color: #605d58; max-width: 62ch; margin: 0 0 44px; text-wrap: pretty">A build spec for the web admin console, the kiosk and the mobile app. Every change below is written as an instruction against a real file path, so it can be handed to Claude Code and implemented without a second conversation.</p>
+    <div style="display: flex; flex-wrap: wrap; gap: 40px; font-size: 14px; color: #605d58">
+      <div><div style="font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #8b8780; margin-bottom: 6px">Scope</div>Web console · Kiosk · Mobile</div>
+      <div><div style="font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #8b8780; margin-bottom: 6px">Foundations</div>Unchanged — tokens stay generated</div>
+      <div><div style="font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #8b8780; margin-bottom: 6px">Supersedes</div>design_handoff_ece_platform</div>
+    </div>
+  </header>
+
+  <section style="padding: 80px 0 0">
+    <div style="font-family: 'Space Mono', monospace; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: #2f6f4f; margin-bottom: 20px">01 — The short version</div>
+    <h2 style="font-size: 38px; line-height: 1.12; letter-spacing: -0.02em; font-weight: 600; margin: 0 0 32px; max-width: 22ch">Six changes, in the order they should be built</h2>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1px; background: #e3e1dd; border: 1px solid #e3e1dd; border-radius: 10px; overflow: hidden">
+      <div style="background: #ffffff; padding: 28px">
+        <div style="font-family: 'Space Mono', monospace; font-size: 12px; color: #2f6f4f; margin-bottom: 12px">01</div>
+        <div style="font-size: 17px; font-weight: 600; margin-bottom: 10px">Menu button moves to the left</div>
+        <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #605d58">A one-line change with an outsized effect: the control that opens navigation should sit where navigation lives. Also makes it thumb-reachable on a left-held tablet.</p>
+      </div>
+      <div style="background: #ffffff; padding: 28px">
+        <div style="font-family: 'Space Mono', monospace; font-size: 12px; color: #2f6f4f; margin-bottom: 12px">02</div>
+        <div style="font-size: 17px; font-weight: 600; margin-bottom: 10px">Group the 21 nav links</div>
+        <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #605d58">An owner currently sees twenty-one undifferentiated links in one column. Six labelled groups turn a list into a map.</p>
+      </div>
+      <div style="background: #ffffff; padding: 28px">
+        <div style="font-family: 'Space Mono', monospace; font-size: 12px; color: #2f6f4f; margin-bottom: 12px">03</div>
+        <div style="font-size: 17px; font-weight: 600; margin-bottom: 10px">One page header component</div>
+        <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #605d58">Every screen currently assembles its own title, subtitle, help affordance and action row by hand, with different markup each time. One component, one rhythm.</p>
+      </div>
+      <div style="background: #ffffff; padding: 28px">
+        <div style="font-family: 'Space Mono', monospace; font-size: 12px; color: #2f6f4f; margin-bottom: 12px">04</div>
+        <div style="font-size: 17px; font-weight: 600; margin-bottom: 10px">Status becomes a component</div>
+        <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #605d58">Flags, pills, ratio banners and the offline strip all say "state" in slightly different visual languages. Consolidate into one Status primitive with four tones.</p>
+      </div>
+      <div style="background: #ffffff; padding: 28px">
+        <div style="font-family: 'Space Mono', monospace; font-size: 12px; color: #2f6f4f; margin-bottom: 12px">05</div>
+        <div style="font-size: 17px; font-weight: 600; margin-bottom: 10px">Forms get a two-column shell</div>
+        <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #605d58">The incident form is the longest thing anyone fills in under pressure. Explanation on the left, fields on the right, a sticky action bar at the bottom.</p>
+      </div>
+      <div style="background: #ffffff; padding: 28px">
+        <div style="font-family: 'Space Mono', monospace; font-size: 12px; color: #2f6f4f; margin-bottom: 12px">06</div>
+        <div style="font-size: 17px; font-weight: 600; margin-bottom: 10px">Empty and first-run states</div>
+        <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #605d58">A new centre's first hour is currently a series of blank pages. Each list screen gets an empty state that names the next action.</p>
+      </div>
+    </div>
+    <p style="font-size: 15px; line-height: 1.65; color: #605d58; margin: 28px 0 0; max-width: 68ch; text-wrap: pretty">Nothing here touches <span style="font-family: 'Space Mono', monospace; font-size: 13px">packages/core/src/tokens.ts</span>. The palette is generated, its contrast ratios are recomputed at build time and <span style="font-family: 'Space Mono', monospace; font-size: 13px">tokens:check</span> already guards it. Changing colour would be a regression, not a redesign — the product does not look unfinished because of its colours, it looks unfinished because of its structure.</p>
+  </section>
+
+  <section style="padding: 96px 0 0">
+    <div style="font-family: 'Space Mono', monospace; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: #2f6f4f; margin-bottom: 20px">02 — The menu button</div>
+    <h2 style="font-size: 38px; line-height: 1.12; letter-spacing: -0.02em; font-weight: 600; margin: 0 0 20px; max-width: 22ch">Top right to top left</h2>
+    <p style="font-size: 17px; line-height: 1.65; color: #605d58; max-width: 66ch; margin: 0 0 44px; text-wrap: pretty">The drawer opens from the left edge. The control that opens it currently sits at the opposite corner, so the tap and the result happen at two different ends of the screen. Moving it removes that gap and puts it under the thumb of a hand holding a tablet at the door.</p>
+
+    <div>
+      <div style="max-width: 520px">
+        <div style="border: 1px solid #cfe2d7; border-radius: 10px; overflow: hidden; background: #ffffff">
+          <div style="display: flex; align-items: center; gap: 14px; padding: 12px 16px; border-bottom: 1px solid #e3e1dd">
+            <div style="display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; border: 1px solid #cfe2d7; border-radius: 8px; background: #e8f1ec; font-size: 17px; color: #2f6f4f; flex: none">☰</div>
+            <div>
+              <div style="font-size: 15px; font-weight: 600">Little Pearls</div>
+              <div style="font-size: 12px; color: #605d58; margin-top: 2px">owner</div>
+            </div>
+          </div>
+          <div style="padding: 22px 16px 30px; background: #faf9f7">
+            <div style="height: 10px; width: 45%; background: #e3e1dd; border-radius: 3px; margin-bottom: 12px"></div>
+            <div style="height: 8px; width: 80%; background: #eceae6; border-radius: 3px; margin-bottom: 8px"></div>
+            <div style="height: 8px; width: 66%; background: #eceae6; border-radius: 3px"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top: 32px; border: 1px solid #e3e1dd; border-radius: 10px; background: #ffffff; overflow: hidden">
+      <div style="padding: 18px 24px; border-bottom: 1px solid #e3e1dd; font-family: 'Space Mono', monospace; font-size: 13px; color: #605d58">apps/web/src/app/(app)/SideRail.tsx</div>
+      <div style="padding: 24px; display: grid; gap: 18px">
+        <div style="display: grid; grid-template-columns: 24px 1fr; gap: 16px; align-items: start">
+          <div style="font-family: 'Space Mono', monospace; font-size: 12px; color: #8b8780; padding-top: 2px">1</div>
+          <div style="font-size: 15px; line-height: 1.6; color: #1b1a18">Move the <span style="font-family: 'Space Mono', monospace; font-size: 13.5px; background: #f2f1ee; padding: 1px 5px; border-radius: 4px">{{ toggleTag }}</span> above <span style="font-family: 'Space Mono', monospace; font-size: 13.5px; background: #f2f1ee; padding: 1px 5px; border-radius: 4px">{{ identTag }}</span> in the DOM. Reorder the source, do not use <span style="font-family: 'Space Mono', monospace; font-size: 13.5px; background: #f2f1ee; padding: 1px 5px; border-radius: 4px">order:</span> — tab order should follow reading order.</div>
+        </div>
+        <div style="display: grid; grid-template-columns: 24px 1fr; gap: 16px; align-items: start">
+          <div style="font-family: 'Space Mono', monospace; font-size: 12px; color: #8b8780; padding-top: 2px">2</div>
+          <div style="font-size: 15px; line-height: 1.6; color: #1b1a18">In <span style="font-family: 'Space Mono', monospace; font-size: 13.5px; background: #f2f1ee; padding: 1px 5px; border-radius: 4px">globals.css</span>, change <span style="font-family: 'Space Mono', monospace; font-size: 13.5px; background: #f2f1ee; padding: 1px 5px; border-radius: 4px">.side-head</span> from <span style="font-family: 'Space Mono', monospace; font-size: 13.5px; background: #f2f1ee; padding: 1px 5px; border-radius: 4px">justify-content: space-between</span> to <span style="font-family: 'Space Mono', monospace; font-size: 13.5px; background: #f2f1ee; padding: 1px 5px; border-radius: 4px">gap: var(--space-3)</span> with the ident taking the remaining width.</div>
+        </div>
+        <div style="display: grid; grid-template-columns: 24px 1fr; gap: 16px; align-items: start">
+          <div style="font-family: 'Space Mono', monospace; font-size: 12px; color: #8b8780; padding-top: 2px">3</div>
+          <div style="font-size: 15px; line-height: 1.6; color: #1b1a18">Give <span style="font-family: 'Space Mono', monospace; font-size: 13.5px; background: #f2f1ee; padding: 1px 5px; border-radius: 4px">.nav-toggle</span> a fixed <span style="font-family: 'Space Mono', monospace; font-size: 13.5px; background: #f2f1ee; padding: 1px 5px; border-radius: 4px">var(--target-min)</span> square, drop the visible word "Menu" to a <span style="font-family: 'Space Mono', monospace; font-size: 13.5px; background: #f2f1ee; padding: 1px 5px; border-radius: 4px">.visually-hidden</span> span, and keep the glyph <span style="font-family: 'Space Mono', monospace; font-size: 13.5px; background: #f2f1ee; padding: 1px 5px; border-radius: 4px">aria-hidden</span>. The button already has <span style="font-family: 'Space Mono', monospace; font-size: 13.5px; background: #f2f1ee; padding: 1px 5px; border-radius: 4px">aria-expanded</span> and <span style="font-family: 'Space Mono', monospace; font-size: 13.5px; background: #f2f1ee; padding: 1px 5px; border-radius: 4px">aria-controls</span>; nothing about focus return changes.</div>
+        </div>
+        <div style="display: grid; grid-template-columns: 24px 1fr; gap: 16px; align-items: start">
+          <div style="font-family: 'Space Mono', monospace; font-size: 12px; color: #8b8780; padding-top: 2px">4</div>
+          <div style="font-size: 15px; line-height: 1.6; color: #1b1a18">Match it in the drawer: <span style="font-family: 'Space Mono', monospace; font-size: 13.5px; background: #f2f1ee; padding: 1px 5px; border-radius: 4px">.side-drawer-head</span> keeps ✕ on the right so close is not under the same finger that just opened it.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section style="padding: 96px 0 0">
+    <div style="font-family: 'Space Mono', monospace; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: #2f6f4f; margin-bottom: 20px">03 — Navigation</div>
+    <h2 style="font-size: 38px; line-height: 1.12; letter-spacing: -0.02em; font-weight: 600; margin: 0 0 20px; max-width: 24ch">Twenty-one links, no grouping</h2>
+    <p style="font-size: 17px; line-height: 1.65; color: #605d58; max-width: 66ch; margin: 0 0 44px; text-wrap: pretty">The layout renders every capability-filtered link into one flat <span style="font-family: 'Space Mono', monospace; font-size: 15px">&lt;nav&gt;</span>. For an educator that is nine links and workable. For an owner it is twenty-one, and the daily screens sit visually equal to the ones opened twice a year. The order in the source is already thoughtful — the code comments argue each adjacency. Making that reasoning visible is most of the fix.</p>
+
+    <div>
+      <div>
+        <div style="border: 1px solid #cfe2d7; border-radius: 10px; background: #ffffff; padding: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 24px 28px">
+          <sc-for list="{{ groupedNav }}" as="group" hint-placeholder-count="6">
+            <div>
+              <div style="font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #8b8780; padding: 0 10px 8px; border-bottom: 1px solid #e3e1dd; margin-bottom: 8px">{{ group.label }}</div>
+              <div style="display: grid; gap: 1px">
+                <sc-for list="{{ group.items }}" as="item" hint-placeholder-count="4">
+                  <div style="padding: 6px 10px; font-size: 14px; color: #1b1a18; border-radius: 6px">{{ item }}</div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="margin-top: 20px; background: #e8f1ec; border: 1px solid #cfe2d7; border-radius: 10px; padding: 20px 24px">
+          <p style="margin: 0 0 10px; font-size: 15px; line-height: 1.6"><strong style="font-weight: 600">Account, Notifications and Help move to the rail footer</strong>, beside Switch centre and Sign out. They are about the person, not the centre, and they are the only three links a parent and an owner share identically.</p>
+          <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #43594c">A group renders only when at least one of its links survives the capability filter, so an educator sees three headings and a parent sees none — the flat list is still correct for them.</p>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top: 32px; border: 1px solid #e3e1dd; border-radius: 10px; background: #ffffff; overflow: hidden">
+      <div style="padding: 18px 24px; border-bottom: 1px solid #e3e1dd; font-family: 'Space Mono', monospace; font-size: 13px; color: #605d58">apps/web/src/app/(app)/layout.tsx · NavLink.tsx</div>
+      <div style="padding: 24px; display: grid; gap: 18px">
+        <div style="display: grid; grid-template-columns: 24px 1fr; gap: 16px; align-items: start">
+          <div style="font-family: 'Space Mono', monospace; font-size: 12px; color: #8b8780; padding-top: 2px">1</div>
+          <div style="font-size: 15px; line-height: 1.6">Add <span style="font-family: 'Space Mono', monospace; font-size: 13.5px; background: #f2f1ee; padding: 1px 5px; border-radius: 4px">NavGroup.tsx</span> beside <span style="font-family: 'Space Mono', monospace; font-size: 13.5px; background: #f2f1ee; padding: 1px 5px; border-radius: 4px">NavLink.tsx</span>: a server component taking <span style="font-family: 'Space Mono', monospace; font-size: 13.5px; background: #f2f1ee; padding: 1px 5px; border-radius: 4px">label</span> and children, rendering nothing when <span style="font-family: 'Space Mono', monospace; font-size: 13.5px; background: #f2f1ee; padding: 1px 5px; border-radius: 4px">Children.toArray(children).filter(Boolean)</span> is empty.</div>
+        </div>
+        <div style="display: grid; grid-template-columns: 24px 1fr; gap: 16px; align-items: start">
+          <div style="font-family: 'Space Mono', monospace; font-size: 12px; color: #8b8780; padding-top: 2px">2</div>
+          <div style="font-size: 15px; line-height: 1.6">Wrap the existing <span style="font-family: 'Space Mono', monospace; font-size: 13.5px; background: #f2f1ee; padding: 1px 5px; border-radius: 4px">&lt;NavLink&gt;</span> calls in <span style="font-family: 'Space Mono', monospace; font-size: 13.5px; background: #f2f1ee; padding: 1px 5px; border-radius: 4px">layout.tsx</span> per the grouping above. Do not change the <span style="font-family: 'Space Mono', monospace; font-size: 13.5px; background: #f2f1ee; padding: 1px 5px; border-radius: 4px">can()</span> conditions, the hrefs, the labels, or the parent-specific label swaps — and keep the existing explanatory comments attached to the links they explain.</div>
+        </div>
+        <div style="display: grid; grid-template-columns: 24px 1fr; gap: 16px; align-items: start">
+          <div style="font-family: 'Space Mono', monospace; font-size: 12px; color: #8b8780; padding-top: 2px">3</div>
+          <div style="font-size: 15px; line-height: 1.6">Render each group as <span style="font-family: 'Space Mono', monospace; font-size: 13.5px; background: #f2f1ee; padding: 1px 5px; border-radius: 4px">&lt;h3&gt;</span> + <span style="font-family: 'Space Mono', monospace; font-size: 13.5px; background: #f2f1ee; padding: 1px 5px; border-radius: 4px">&lt;ul&gt;</span> inside the one <span style="font-family: 'Space Mono', monospace; font-size: 13.5px; background: #f2f1ee; padding: 1px 5px; border-radius: 4px">&lt;nav&gt;</span>. Six landmarks would be worse than one; a heading list is what lets a screen reader user skim.</div>
+        </div>
+        <div style="display: grid; grid-template-columns: 24px 1fr; gap: 16px; align-items: start">
+          <div style="font-family: 'Space Mono', monospace; font-size: 12px; color: #8b8780; padding-top: 2px">4</div>
+          <div style="font-size: 15px; line-height: 1.6">Update <span style="font-family: 'Space Mono', monospace; font-size: 13.5px; background: #f2f1ee; padding: 1px 5px; border-radius: 4px">apps/web/e2e/roles.spec.ts</span> and <span style="font-family: 'Space Mono', monospace; font-size: 13.5px; background: #f2f1ee; padding: 1px 5px; border-radius: 4px">a11y.spec.ts</span> — anything asserting nav link counts or DOM position will move.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section style="padding: 96px 0 0">
+    <div style="font-family: 'Space Mono', monospace; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: #2f6f4f; margin-bottom: 20px">04 — Page header</div>
+    <h2 style="font-size: 38px; line-height: 1.12; letter-spacing: -0.02em; font-weight: 600; margin: 0 0 20px; max-width: 24ch">One component instead of four spellings</h2>
+    <p style="font-size: 17px; line-height: 1.65; color: #605d58; max-width: 66ch; margin: 0 0 40px; text-wrap: pretty">Attendance wraps its title in <span style="font-family: 'Space Mono', monospace; font-size: 15px">.page-head</span> with an inline margin override. Incidents uses a bare <span style="font-family: 'Space Mono', monospace; font-size: 15px">.has-help</span> with the subtitle outside it. Others use neither. The result is that the top of every screen sits at a slightly different height, which is the single loudest signal that a product was built screen by screen.</p>
+
+    <div style="border: 1px solid #cfe2d7; border-radius: 10px; background: #ffffff; overflow: hidden; margin-bottom: 24px">
+      <div style="padding: 32px 36px 28px; border-bottom: 1px solid #e3e1dd">
+        <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 32px; flex-wrap: wrap">
+          <div style="min-width: 0">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px">
+              <h1 style="font-size: 30px; font-weight: 600; letter-spacing: -0.02em; margin: 0">Incidents</h1>
+              <span style="display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 999px; border: 1px solid #e3e1dd; font-size: 12px; color: #605d58">?</span>
+            </div>
+            <p style="margin: 0; font-size: 14px; color: #605d58">Little Pearls · last 14 days</p>
+          </div>
+          <div style="display: flex; gap: 10px; flex: none">
+            <div style="border: 1px solid #e3e1dd; background: #ffffff; border-radius: 6px; padding: 9px 16px; font-size: 14px">Print or save as PDF</div>
+            <div style="background: #2f6f4f; color: #ffffff; border-radius: 6px; padding: 9px 16px; font-size: 14px; font-weight: 500">New report</div>
+          </div>
+        </div>
+      </div>
+      <div style="padding: 20px 36px; background: #faf9f7; display: flex; gap: 10px; flex-wrap: wrap; align-items: center">
+        <span style="display: inline-flex; align-items: center; gap: 7px; background: #fdf3e0; border: 1px solid #ecd9ae; color: #8a5a00; border-radius: 999px; padding: 5px 13px; font-size: 13px; font-weight: 500">● 2 drafts</span>
+        <span style="display: inline-flex; align-items: center; gap: 7px; background: #fbeae5; border: 1px solid #eccabe; color: #a3341c; border-radius: 999px; padding: 5px 13px; font-size: 13px; font-weight: 500">▲ 1 whānau not told</span>
+        <span style="display: inline-flex; align-items: center; gap: 7px; background: #f2f1ee; border: 1px solid #e3e1dd; color: #605d58; border-radius: 999px; padding: 5px 13px; font-size: 13px">3 awaiting acknowledgement</span>
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px">
+      <div style="border: 1px solid #e3e1dd; border-radius: 10px; background: #ffffff; padding: 26px">
+        <div style="font-size: 16px; font-weight: 600; margin-bottom: 10px">The contract</div>
+        <p style="margin: 0; font-size: 14px; line-height: 1.65; color: #605d58"><span style="font-family: 'Space Mono', monospace; font-size: 13px">PageHeader</span> takes <span style="font-family: 'Space Mono', monospace; font-size: 13px">title</span>, optional <span style="font-family: 'Space Mono', monospace; font-size: 13px">subtitle</span>, optional <span style="font-family: 'Space Mono', monospace; font-size: 13px">helpHref</span>, optional <span style="font-family: 'Space Mono', monospace; font-size: 13px">actions</span>, optional <span style="font-family: 'Space Mono', monospace; font-size: 13px">status</span>. It owns its own bottom margin so no caller writes an inline one.</p>
+      </div>
+      <div style="border: 1px solid #e3e1dd; border-radius: 10px; background: #ffffff; padding: 26px">
+        <div style="font-size: 16px; font-weight: 600; margin-bottom: 10px">Actions, not decoration</div>
+        <p style="margin: 0; font-size: 14px; line-height: 1.65; color: #605d58">At most one filled button per header, always the thing the screen exists to do. Exports and print stay secondary. <span style="font-family: 'Space Mono', monospace; font-size: 13px">PageActions</span> keeps its existing argument about links versus buttons and slots into <span style="font-family: 'Space Mono', monospace; font-size: 13px">actions</span>.</p>
+      </div>
+      <div style="border: 1px solid #e3e1dd; border-radius: 10px; background: #ffffff; padding: 26px">
+        <div style="font-size: 16px; font-weight: 600; margin-bottom: 10px">Status strip</div>
+        <p style="margin: 0; font-size: 14px; line-height: 1.65; color: #605d58">The "what is outstanding" summary Incidents already computes moves out of an ad-hoc <span style="font-family: 'Space Mono', monospace; font-size: 13px">.card</span> and into the header's own strip. Same data, same rule — count what is unresolved, never what happened.</p>
+      </div>
+    </div>
+  </section>
+
+  <section style="padding: 96px 0 0">
+    <div style="font-family: 'Space Mono', monospace; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: #2f6f4f; margin-bottom: 20px">05 — Attendance</div>
+    <h2 style="font-size: 38px; line-height: 1.12; letter-spacing: -0.02em; font-weight: 600; margin: 0 0 20px; max-width: 24ch">The screen that is open all day</h2>
+    <p style="font-size: 17px; line-height: 1.65; color: #605d58; max-width: 66ch; margin: 0 0 40px; text-wrap: pretty">Three things compete for the top of this page: the ratio, the adult count and the roll. The ratio is the only one someone glances at without reading, so it gets the width. Everything else is a list.</p>
+
+    <div style="border: 1px solid #cfe2d7; border-radius: 10px; background: #ffffff; overflow: hidden">
+      <div style="padding: 30px 34px 24px">
+        <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; flex-wrap: wrap; margin-bottom: 24px">
+          <div>
+            <h3 style="font-size: 28px; font-weight: 600; letter-spacing: -0.02em; margin: 0 0 5px">Attendance</h3>
+            <p style="margin: 0; font-size: 14px; color: #605d58">Little Pearls · Monday 10 August</p>
+          </div>
+          <div style="display: flex; gap: 10px">
+            <div style="border: 1px solid #e3e1dd; border-radius: 6px; padding: 9px 16px; font-size: 14px">Wall display</div>
+            <div style="border: 1px solid #e3e1dd; border-radius: 6px; padding: 9px 16px; font-size: 14px">Download roll</div>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; align-items: stretch">
+          <div style="background: #e8f1ec; border: 1px solid #cfe2d7; border-radius: 10px; padding: 26px 30px">
+            <div style="font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #43594c; margin-bottom: 12px">Ratio</div>
+            <div style="font-size: 32px; font-weight: 600; letter-spacing: -0.02em; color: #1b1a18; margin-bottom: 8px">Within ratio</div>
+            <p style="margin: 0; font-size: 15px; color: #43594c; line-height: 1.55">4 adults for 6 under two and 11 over two. One adult spare.</p>
+          </div>
+          <div style="background: #faf9f7; border: 1px solid #e3e1dd; border-radius: 10px; padding: 22px 24px; display: flex; flex-direction: column; justify-content: space-between">
+            <div>
+              <div style="font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #8b8780; margin-bottom: 10px">Adults present</div>
+              <div style="font-size: 32px; font-weight: 600; letter-spacing: -0.02em">4</div>
+            </div>
+            <div style="display: flex; gap: 8px; margin-top: 16px">
+              <div style="flex: 1; height: 44px; border: 1px solid #e3e1dd; border-radius: 8px; background: #ffffff; display: flex; align-items: center; justify-content: center; font-size: 18px">−</div>
+              <div style="flex: 1; height: 44px; border: 1px solid #e3e1dd; border-radius: 8px; background: #ffffff; display: flex; align-items: center; justify-content: center; font-size: 18px">+</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="border-top: 1px solid #e3e1dd; padding: 24px 34px 32px; background: #faf9f7">
+        <div style="display: flex; align-items: baseline; gap: 12px; margin-bottom: 16px">
+          <h4 style="font-size: 17px; font-weight: 600; margin: 0">Here now</h4>
+          <span style="font-size: 14px; color: #605d58">17</span>
+          <span style="margin-left: auto; display: inline-flex; align-items: center; gap: 7px; background: #e9f0f7; border: 1px solid #d3e0ed; color: #2f5d8a; border-radius: 999px; padding: 4px 12px; font-size: 13px">2 waiting to sync</span>
+        </div>
+        <div style="display: grid; gap: 1px; background: #e3e1dd; border: 1px solid #e3e1dd; border-radius: 8px; overflow: hidden">
+          <sc-for list="{{ roll }}" as="row" hint-placeholder-count="4">
+            <div style="background: #ffffff; display: flex; align-items: center; gap: 16px; padding: 12px 18px">
+              <div style="width: 34px; height: 34px; border-radius: 999px; background: #f2f1ee; border: 1px solid #e3e1dd; flex: none"></div>
+              <div style="min-width: 0; flex: 1">
+                <div style="font-size: 15px; font-weight: 500">{{ row.name }}</div>
+                <div style="font-size: 13px; color: #605d58; margin-top: 1px">{{ row.meta }}</div>
+              </div>
+              <sc-if value="{{ row.flag }}" hint-placeholder-val="{{ true }}">
+                <span style="background: #fdf3e0; border: 1px solid #ecd9ae; color: #8a5a00; border-radius: 999px; padding: 3px 11px; font-size: 12.5px; font-weight: 500; flex: none">{{ row.flag }}</span>
+              </sc-if>
+              <div style="border: 1px solid #e3e1dd; border-radius: 6px; padding: 7px 15px; font-size: 14px; background: #ffffff; flex: none">Sign out</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; margin-top: 24px">
+      <div style="border: 1px solid #e3e1dd; border-radius: 10px; background: #ffffff; padding: 26px">
+        <div style="font-size: 16px; font-weight: 600; margin-bottom: 10px">Health flags sit on the row</div>
+        <p style="margin: 0; font-size: 14px; line-height: 1.65; color: #605d58">An allergy or a medication due is only useful at the moment somebody is signing that child in or out. <span style="font-family: 'Space Mono', monospace; font-size: 13px">listHealthByChild</span> is already fetched — render it as a warn-tone flag beside the name rather than leaving it to the child record.</p>
+      </div>
+      <div style="border: 1px solid #e3e1dd; border-radius: 10px; background: #ffffff; padding: 26px">
+        <div style="font-size: 16px; font-weight: 600; margin-bottom: 10px">Queue state is visible, not implied</div>
+        <p style="margin: 0; font-size: 14px; line-height: 1.65; color: #605d58">The outbox already merges into the client roll. Say so: a pending-tone count on the section heading, and a small pending dot on the individual rows that came from the queue.</p>
+      </div>
+      <div style="border: 1px solid #e3e1dd; border-radius: 10px; background: #ffffff; padding: 26px">
+        <div style="font-size: 16px; font-weight: 600; margin-bottom: 10px">Sign-out targets stay at 44px</div>
+        <p style="margin: 0; font-size: 14px; line-height: 1.65; color: #605d58">The 32px in-row button is a reasonable desk compromise elsewhere. Not here — this row is tapped on a tablet in a doorway, so it takes <span style="font-family: 'Space Mono', monospace; font-size: 13px">--target-min</span>.</p>
+      </div>
+    </div>
+  </section>
+
+
+  <section style="padding: 96px 0 0">
+    <div style="font-family: 'Space Mono', monospace; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: #2f6f4f; margin-bottom: 20px">06 — Children</div>
+    <h2 style="font-size: 38px; line-height: 1.12; letter-spacing: -0.02em; font-weight: 600; margin: 0 0 20px; max-width: 24ch">A profile is a working document</h2>
+    <p style="font-size: 17px; line-height: 1.65; color: #605d58; max-width: 66ch; margin: 0 0 40px; text-wrap: pretty">The child record is the longest page in the product and the one a parent, an educator and a manager all open for different reasons. Today it is one continuous scroll. It should be a summary that answers the urgent questions above the fold, then tabs for the rest.</p>
+    <div style="border: 1px solid #cfe2d7; border-radius: 10px; background: #ffffff; overflow: hidden">
+      <div style="padding: 30px 34px 0">
+        <div style="display: flex; align-items: flex-start; gap: 20px; flex-wrap: wrap; margin-bottom: 22px">
+          <div style="width: 64px; height: 64px; border-radius: 999px; background: #f2f1ee; border: 1px solid #e3e1dd; flex: none"></div>
+          <div style="flex: 1; min-width: 200px"><h3 style="font-size: 28px; font-weight: 600; letter-spacing: -0.02em; margin: 0 0 6px">Aroha Tipene</h3><p style="margin: 0; font-size: 14px; color: #605d58">3 years 4 months · Ruma Iti · enrolled March 2024</p></div>
+          <div style="display: flex; gap: 10px; flex: none"><div style="border: 1px solid #e3e1dd; border-radius: 6px; padding: 9px 16px; font-size: 14px">Print record</div><div style="background: #2f6f4f; color: #ffffff; border-radius: 6px; padding: 9px 16px; font-size: 14px; font-weight: 500">Add note</div></div>
+        </div>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 24px"><span style="display: inline-flex; align-items: center; gap: 7px; background: #fbeae5; border: 1px solid #eccabe; color: #a3341c; border-radius: 999px; padding: 5px 13px; font-size: 13px; font-weight: 500">▲ Peanut allergy — EpiPen in office</span><span style="display: inline-flex; align-items: center; gap: 7px; background: #fdf3e0; border: 1px solid #ecd9ae; color: #8a5a00; border-radius: 999px; padding: 5px 13px; font-size: 13px; font-weight: 500">● Immunisation due 12 Sep</span><span style="display: inline-flex; align-items: center; gap: 7px; background: #e8f1ec; border: 1px solid #cfe2d7; color: #2f6f4f; border-radius: 999px; padding: 5px 13px; font-size: 13px; font-weight: 500">Signed in 7:42</span></div>
+        <div style="display: flex; gap: 26px; border-bottom: 1px solid #e3e1dd; flex-wrap: wrap"><div style="padding: 0 0 12px; font-size: 15px; font-weight: 600; color: #2f6f4f; border-bottom: 2px solid #2f6f4f; margin-bottom: -1px">Overview</div><div style="padding: 0 0 12px; font-size: 15px; color: #605d58">Whānau</div><div style="padding: 0 0 12px; font-size: 15px; color: #605d58">Health</div><div style="padding: 0 0 12px; font-size: 15px; color: #605d58">Learning</div><div style="padding: 0 0 12px; font-size: 15px; color: #605d58">Attendance</div><div style="padding: 0 0 12px; font-size: 15px; color: #605d58">Documents</div></div>
+      </div>
+      <div style="padding: 28px 34px 32px; background: #faf9f7; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px"><div style="background: #ffffff; border: 1px solid #e3e1dd; border-radius: 10px; padding: 20px 22px"><div style="font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #8b8780; margin-bottom: 10px">Collected by</div><div style="font-size: 15px; line-height: 1.7">Mere Tipene · mother<br />Hemi Tipene · father</div></div><div style="background: #ffffff; border: 1px solid #e3e1dd; border-radius: 10px; padding: 20px 22px"><div style="font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #8b8780; margin-bottom: 10px">This week</div><div style="font-size: 15px; line-height: 1.7">4 days attended<br />1 incident, resolved</div></div><div style="background: #ffffff; border: 1px solid #e3e1dd; border-radius: 10px; padding: 20px 22px"><div style="font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #8b8780; margin-bottom: 10px">Outstanding</div><div style="font-size: 15px; line-height: 1.7; color: #8a5a00">Immunisation record<br />Excursion consent</div></div></div>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; margin-top: 24px"><div style="border: 1px solid #e3e1dd; border-radius: 10px; background: #ffffff; padding: 26px"><div style="font-size: 16px; font-weight: 600; margin-bottom: 10px">Flags before facts</div><p style="margin: 0; font-size: 14px; line-height: 1.65; color: #605d58">Allergies, medication and anything overdue sit directly under the name in breach and warn tones. Everything else — dates, room, enrolment — is reference material and reads as such.</p></div><div style="border: 1px solid #e3e1dd; border-radius: 10px; background: #ffffff; padding: 26px"><div style="font-size: 16px; font-weight: 600; margin-bottom: 10px">Tabs are routes, not state</div><p style="margin: 0; font-size: 14px; line-height: 1.65; color: #605d58">Use <span style="font-family: 'Space Mono', monospace; font-size: 13px">/children/[id]/[tab]</span> so a manager can link a colleague straight to the health tab. A tab held in <span style="font-family: 'Space Mono', monospace; font-size: 13px">useState</span> cannot be sent to anybody.</p></div><div style="border: 1px solid #e3e1dd; border-radius: 10px; background: #ffffff; padding: 26px"><div style="font-size: 16px; font-weight: 600; margin-bottom: 10px">The parent view is the same page</div><p style="margin: 0; font-size: 14px; line-height: 1.65; color: #605d58">A guardian already reaches this record through a policy that scopes it to their own child. Do not build a second component — hide the tabs their capabilities cannot fill and let the page be one page.</p></div></div>
+  </section>
+
+  <section style="padding: 96px 0 0">
+    <div style="font-family: 'Space Mono', monospace; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: #2f6f4f; margin-bottom: 20px">07 — Incident form</div>
+    <h2 style="font-size: 38px; line-height: 1.12; letter-spacing: -0.02em; font-weight: 600; margin: 0 0 20px; max-width: 24ch">The form filled in under pressure</h2>
+    <p style="font-size: 17px; line-height: 1.65; color: #605d58; max-width: 66ch; margin: 0 0 40px; text-wrap: pretty">An incident report is written by someone who has just dealt with an incident, often on a tablet, often with a child nearby. It is also a legal record that cannot be edited once final. Those two facts pull in opposite directions, and the layout has to hold both: fast to complete, impossible to submit by accident.</p>
+    <div style="border: 1px solid #cfe2d7; border-radius: 10px; background: #ffffff; overflow: hidden">
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr))">
+        <div style="padding: 32px 34px; background: #faf9f7; border-right: 1px solid #e3e1dd"><div style="font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #8b8780; margin-bottom: 10px">New report</div><p style="font-size: 15px; line-height: 1.65; color: #1b1a18; margin: 0">Save a draft at any point. Nothing is sent to whānau until you finalise, and a finalised report can only be corrected by an amendment that keeps the original.</p>
+          <div style="display: grid; gap: 10px; margin-top: 22px"><div style="display: flex; gap: 12px; align-items: baseline"><span style="font-family: 'Space Mono', monospace; font-size: 12px; color: #2f6f4f">1</span><span style="font-size: 14px; color: #605d58">What happened</span></div><div style="display: flex; gap: 12px; align-items: baseline"><span style="font-family: 'Space Mono', monospace; font-size: 12px; color: #8b8780">2</span><span style="font-size: 14px; color: #8b8780">Care given</span></div><div style="display: flex; gap: 12px; align-items: baseline"><span style="font-family: 'Space Mono', monospace; font-size: 12px; color: #8b8780">3</span><span style="font-size: 14px; color: #8b8780">Who was told</span></div></div>
+        </div>
+        <div style="padding: 32px 34px; display: grid; gap: 20px">
+          <div><div style="font-size: 14px; font-weight: 500; margin-bottom: 7px">Child</div><div style="border: 1px solid #e3e1dd; border-radius: 8px; padding: 12px 14px; font-size: 15px; min-height: 44px; display: flex; align-items: center">Aroha Tipene</div></div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px"><div><div style="font-size: 14px; font-weight: 500; margin-bottom: 7px">When</div><div style="border: 1px solid #e3e1dd; border-radius: 8px; padding: 12px 14px; font-size: 15px; min-height: 44px; display: flex; align-items: center">10 Aug, 09:20</div></div><div><div style="font-size: 14px; font-weight: 500; margin-bottom: 7px">Where</div><div style="border: 1px solid #e3e1dd; border-radius: 8px; padding: 12px 14px; font-size: 15px; min-height: 44px; display: flex; align-items: center; color: #8b8780">Outdoor area</div></div></div>
+          <div><div style="font-size: 14px; font-weight: 500; margin-bottom: 7px">Kind</div><div style="display: flex; gap: 8px; flex-wrap: wrap"><div style="border: 1px solid #2f6f4f; background: #e8f1ec; color: #2f6f4f; font-weight: 500; border-radius: 999px; padding: 9px 18px; font-size: 14px">Injury</div><div style="border: 1px solid #e3e1dd; color: #605d58; border-radius: 999px; padding: 9px 18px; font-size: 14px">Illness</div><div style="border: 1px solid #e3e1dd; color: #605d58; border-radius: 999px; padding: 9px 18px; font-size: 14px">Behaviour</div><div style="border: 1px solid #e3e1dd; color: #605d58; border-radius: 999px; padding: 9px 18px; font-size: 14px">Near miss</div></div></div>
+          <div><div style="font-size: 14px; font-weight: 500; margin-bottom: 7px">What happened</div><div style="border: 1px solid #e3e1dd; border-radius: 8px; padding: 12px 14px; font-size: 15px; min-height: 96px; color: #8b8780; line-height: 1.6">Plain language, as it would be said to the parent at the door.</div></div>
+        </div>
+      </div>
+      <div style="border-top: 1px solid #e3e1dd; padding: 18px 34px; background: #ffffff; display: flex; align-items: center; gap: 12px; flex-wrap: wrap"><div style="border: 1px solid #e3e1dd; border-radius: 6px; padding: 11px 20px; font-size: 14px">Save draft</div><div style="background: #2f6f4f; color: #ffffff; border-radius: 6px; padding: 11px 20px; font-size: 14px; font-weight: 500">Finalise and notify whānau</div><span style="font-size: 13px; color: #605d58; margin-left: auto">Finalising cannot be undone</span></div>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; margin-top: 24px"><div style="border: 1px solid #e3e1dd; border-radius: 10px; background: #ffffff; padding: 26px"><div style="font-size: 16px; font-weight: 600; margin-bottom: 10px">Two buttons, two consequences</div><p style="margin: 0; font-size: 14px; line-height: 1.65; color: #605d58">Save draft and Finalise never look alike and never sit adjacent without the warning between them. The existing edit-versus-amend rule already refuses the wrong operation server-side; the layout should make it obvious before the tap.</p></div><div style="border: 1px solid #e3e1dd; border-radius: 10px; background: #ffffff; padding: 26px"><div style="font-size: 16px; font-weight: 600; margin-bottom: 10px">The action bar sticks</div><p style="margin: 0; font-size: 14px; line-height: 1.65; color: #605d58">On a tablet the description field pushes the buttons below the fold, and a half-written report abandoned because the writer could not find Save is the failure mode this screen has. Pin the bar to the bottom of the viewport while the form is open.</p></div><div style="border: 1px solid #e3e1dd; border-radius: 10px; background: #ffffff; padding: 26px"><div style="font-size: 16px; font-weight: 600; margin-bottom: 10px">Amend states its lineage</div><p style="margin: 0; font-size: 14px; line-height: 1.65; color: #605d58">When <span style="font-family: 'Space Mono', monospace; font-size: 13px">?amend=</span> opens the form, the left column says which report is being corrected and what the original said. An amendment written without the original in view is how two records disagree.</p></div></div>
+  </section>
+
+  <section style="padding: 96px 0 0">
+    <div style="font-family: 'Space Mono', monospace; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: #2f6f4f; margin-bottom: 20px">08 — Admin screens</div>
+    <h2 style="font-size: 38px; line-height: 1.12; letter-spacing: -0.02em; font-weight: 600; margin: 0 0 20px; max-width: 24ch">Settings, staff and accounts</h2>
+    <p style="font-size: 17px; line-height: 1.65; color: #605d58; max-width: 66ch; margin: 0 0 40px; text-wrap: pretty">These are read at a desk, infrequently, usually to answer one question. They do not need to be beautiful; they need to be scannable and honest about what is missing. One table pattern, one detail pattern, applied across all three.</p>
+    <div style="border: 1px solid #cfe2d7; border-radius: 10px; background: #ffffff; overflow: hidden">
+      <div style="padding: 26px 30px 20px; display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; flex-wrap: wrap">
+        <div><h3 style="font-size: 24px; font-weight: 600; letter-spacing: -0.02em; margin: 0 0 5px">Staff</h3><p style="margin: 0; font-size: 14px; color: #605d58">9 people · 2 certificates expiring within 60 days</p></div>
+        <div style="display: flex; gap: 10px"><div style="border: 1px solid #e3e1dd; border-radius: 6px; padding: 9px 16px; font-size: 14px">Download CSV</div><div style="background: #2f6f4f; color: #ffffff; border-radius: 6px; padding: 9px 16px; font-size: 14px; font-weight: 500">Add person</div></div>
+      </div>
+      <div style="display: grid; grid-template-columns: minmax(150px, 1.4fr) minmax(100px, 1fr) minmax(130px, 1fr) minmax(110px, 0.9fr); background: #f2f1ee; border-top: 1px solid #e3e1dd; border-bottom: 1px solid #e3e1dd; font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: #605d58"><div style="padding: 12px 16px 12px 30px">Name</div><div style="padding: 12px 16px">Role</div><div style="padding: 12px 16px">Certification</div><div style="padding: 12px 30px 12px 16px">Status</div></div>
+      <sc-for list="{{ staff }}" as="s" hint-placeholder-count="4">
+        <div style="display: grid; grid-template-columns: minmax(150px, 1.4fr) minmax(100px, 1fr) minmax(130px, 1fr) minmax(110px, 0.9fr); border-bottom: 1px solid #e3e1dd; align-items: center">
+          <div style="padding: 14px 16px 14px 30px; font-size: 15px; font-weight: 500">{{ s.name }}</div>
+          <div style="padding: 14px 16px; font-size: 14px; color: #605d58">{{ s.role }}</div>
+          <div style="padding: 14px 16px; font-size: 14px; color: #605d58">{{ s.cert }}</div>
+          <div style="padding: 14px 30px 14px 16px; font-size: 13px; color: #605d58">{{ s.status }}</div>
+        </div>
+      </sc-for>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; margin-top: 24px"><div style="border: 1px solid #e3e1dd; border-radius: 10px; background: #ffffff; padding: 26px"><div style="font-size: 16px; font-weight: 600; margin-bottom: 10px">The header counts what is wrong</div><p style="margin: 0; font-size: 14px; line-height: 1.65; color: #605d58">"9 people" is inventory. "2 certificates expiring" is the reason somebody opened the screen. Every list header carries the outstanding count beside the total, using the same rule the incident register already follows.</p></div><div style="border: 1px solid #e3e1dd; border-radius: 10px; background: #ffffff; padding: 26px"><div style="font-size: 16px; font-weight: 600; margin-bottom: 10px">Settings is sections, not a wall</div><p style="margin: 0; font-size: 14px; line-height: 1.65; color: #605d58">Group the centre settings into Centre details, Hours and rooms, Notifications, Integrations, Data and retention — each a card with its own save. A single form with one save button at the bottom of forty fields is a form nobody finishes.</p></div><div style="border: 1px solid #e3e1dd; border-radius: 10px; background: #ffffff; padding: 26px"><div style="font-size: 16px; font-weight: 600; margin-bottom: 10px">Accounts shows the ledger, not the total</div><p style="margin: 0; font-size: 14px; line-height: 1.65; color: #605d58">A family balance means nothing without the last three movements against it. Every account row expands to its recent transactions in place rather than navigating away.</p></div></div>
+  </section>
+
+  <section style="padding: 96px 0 0">
+    <div style="font-family: 'Space Mono', monospace; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: #2f6f4f; margin-bottom: 20px">09 — Kiosk</div>
+    <h2 style="font-size: 38px; line-height: 1.12; letter-spacing: -0.02em; font-weight: 600; margin: 0 0 20px; max-width: 24ch">A door tablet is not a web page</h2>
+    <p style="font-size: 17px; line-height: 1.65; color: #605d58; max-width: 66ch; margin: 0 0 40px; text-wrap: pretty">This route already has its own stylesheet and its own reasoning about what it deliberately omits. It should also have its own scale: one column, targets at <span style="font-family: 'Space Mono', monospace; font-size: 15px">--target-primary</span>, type at the mobile base and above, and no affordance that leads anywhere else.</p>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 28px; align-items: start">
+      <div style="border: 1px solid #cfe2d7; border-radius: 14px; background: #ffffff; padding: 34px; min-height: 400px; display: flex; flex-direction: column">
+        <div style="font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #8b8780; margin-bottom: 20px">Little Pearls · sign in</div>
+        <h3 style="font-size: 30px; font-weight: 600; letter-spacing: -0.02em; margin: 0 0 26px">Who are you collecting?</h3>
+        <div style="display: grid; gap: 10px; flex: 1">
+          <sc-for list="{{ kiosk }}" as="k" hint-placeholder-count="4">
+            <div style="border: 1px solid #e3e1dd; border-radius: 10px; background: #faf9f7; padding: 0 22px; min-height: 64px; display: flex; align-items: center; justify-content: space-between; gap: 16px">
+              <span style="font-size: 19px; font-weight: 500">{{ k.name }}</span>
+              <span style="font-size: 15px; color: #605d58">{{ k.state }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+      <div style="display: grid; gap: 20px">
+        <div style="border: 1px solid #e3e1dd; border-radius: 10px; background: #ffffff; padding: 26px">
+          <div style="font-size: 16px; font-weight: 600; margin-bottom: 10px">Say the connection out loud</div>
+          <p style="margin: 0; font-size: 14px; line-height: 1.65; color: #605d58">There is no offline queue here, on purpose. So the screen needs a persistent connection strip — quiet when online, breach-tone and blocking when not — rather than letting a tap fail at the moment a parent is standing there.</p>
+        </div>
+        <div style="border: 1px solid #e3e1dd; border-radius: 10px; background: #ffffff; padding: 26px">
+          <div style="font-size: 16px; font-weight: 600; margin-bottom: 10px">One outcome per screen</div>
+          <p style="margin: 0; font-size: 14px; line-height: 1.65; color: #605d58">Pick a child → confirm the adult → enter the PIN → a full-screen confirmation that clears itself after eight seconds. No back link, no partial state left on the tablet for the next person in the queue.</p>
+        </div>
+        <div style="border: 1px solid #e3e1dd; border-radius: 10px; background: #ffffff; padding: 26px">
+          <div style="font-size: 16px; font-weight: 600; margin-bottom: 10px">PIN entry is its own layout</div>
+          <p style="margin: 0; font-size: 14px; line-height: 1.65; color: #605d58">A numeric keypad drawn in the page, not a text input that summons the OS keyboard over the roll. Digits masked, four <span style="font-family: 'Space Mono', monospace; font-size: 13px">--target-primary</span> rows, one clear affordance.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section style="padding: 96px 0 0">
+    <div style="font-family: 'Space Mono', monospace; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: #2f6f4f; margin-bottom: 20px">10 — Mobile</div>
+    <h2 style="font-size: 38px; line-height: 1.12; letter-spacing: -0.02em; font-weight: 600; margin: 0 0 20px; max-width: 24ch">Leave the tab bars alone</h2>
+    <p style="font-size: 17px; line-height: 1.65; color: #605d58; max-width: 66ch; margin: 0 0 40px; text-wrap: pretty">Four labelled tabs, roll first for staff, tamariki first for whānau, no icons. That structure is right and the reasoning in the navigators holds. The work on mobile is inside the screens: the card, the empty state and the offline strip.</p>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 32px; align-items: start">
+      <div style="border: 1px solid #e3e1dd; border-radius: 26px; background: #ffffff; padding: 10px; overflow: hidden">
+        <div style="background: #faf9f7; border-radius: 18px; overflow: hidden">
+          <div style="padding: 20px 20px 0">
+            <div style="font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: #8b8780; margin-bottom: 8px">Roll · Little Pearls</div>
+            <div style="display: flex; align-items: center; gap: 8px; background: #e9f0f7; border: 1px solid #d3e0ed; border-radius: 8px; padding: 9px 12px; margin-bottom: 16px">
+              <span style="width: 7px; height: 7px; border-radius: 999px; background: #2f5d8a; flex: none"></span>
+              <span style="font-size: 13px; color: #2f5d8a">2 sign-ins waiting to send</span>
+            </div>
+          </div>
+          <div style="padding: 0 20px; display: grid; gap: 8px">
+            <sc-for list="{{ roll }}" as="row" hint-placeholder-count="4">
+              <div style="background: #ffffff; border: 1px solid #e3e1dd; border-radius: 10px; padding: 12px 14px; display: flex; align-items: center; gap: 12px">
+                <div style="width: 36px; height: 36px; border-radius: 999px; background: #f2f1ee; flex: none"></div>
+                <div style="flex: 1; min-width: 0">
+                  <div style="font-size: 16px; font-weight: 500">{{ row.name }}</div>
+                  <div style="font-size: 13px; color: #605d58">{{ row.meta }}</div>
+                </div>
+                <div style="width: 44px; height: 44px; border-radius: 10px; background: #e8f1ec; border: 1px solid #cfe2d7; color: #2f6f4f; display: flex; align-items: center; justify-content: center; font-size: 17px; flex: none">↩</div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid #e3e1dd; background: #ffffff; margin-top: 20px">
+            <div style="padding: 12px 0 16px; text-align: center; font-size: 12px; color: #2f6f4f; font-weight: 600; border-top: 2px solid #2f6f4f; margin-top: -1px">Roll</div>
+            <div style="padding: 12px 0 16px; text-align: center; font-size: 12px; color: #605d58">Posts</div>
+            <div style="padding: 12px 0 16px; text-align: center; font-size: 12px; color: #605d58">Messages</div>
+            <div style="padding: 12px 0 16px; text-align: center; font-size: 12px; color: #605d58">Settings</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display: grid; gap: 20px">
+        <div style="border: 1px solid #e3e1dd; border-radius: 10px; background: #ffffff; padding: 26px">
+          <div style="font-size: 16px; font-weight: 600; margin-bottom: 10px">The offline strip earns a fixed slot</div>
+          <p style="margin: 0; font-size: 14px; line-height: 1.65; color: #605d58"><span style="font-family: 'Space Mono', monospace; font-size: 13px">OfflineStrip</span> currently appears and disappears, which reflows the roll under a thumb mid-tap. Reserve its height always: empty and silent when the queue is clear, pending-tone with a count when it is not.</p>
+        </div>
+        <div style="border: 1px solid #e3e1dd; border-radius: 10px; background: #ffffff; padding: 26px">
+          <div style="font-size: 16px; font-weight: 600; margin-bottom: 10px">One sign-in target, not a row of them</div>
+          <p style="margin: 0; font-size: 14px; line-height: 1.65; color: #605d58"><span style="font-family: 'Space Mono', monospace; font-size: 13px">ChildCard</span> should carry a single 44px action whose label is the next state — "Sign in" or "Sign out", never both — with the flag row above it. Two adjacent buttons at arm's length is a mis-tap that changes a legal record.</p>
+        </div>
+        <div style="border: 1px solid #e3e1dd; border-radius: 10px; background: #ffffff; padding: 26px">
+          <div style="font-size: 16px; font-weight: 600; margin-bottom: 10px">Empty states say what happens next</div>
+          <p style="margin: 0; font-size: 14px; line-height: 1.65; color: #605d58"><span style="font-family: 'Space Mono', monospace; font-size: 13px">EmptyState</span> exists — give it a required <span style="font-family: 'Space Mono', monospace; font-size: 13px">action</span> prop and use it on Pānui, Messages and Tamariki. "No posts yet" is a dead end; "Nothing from the centre yet — you'll get a notification" is an answer.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section style="padding: 96px 0 0">
+    <div style="font-family: 'Space Mono', monospace; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: #2f6f4f; margin-bottom: 20px">11 — Build order</div>
+    <h2 style="font-size: 38px; line-height: 1.12; letter-spacing: -0.02em; font-weight: 600; margin: 0 0 32px; max-width: 24ch">What to hand over, in what order</h2>
+
+    <div style="border: 1px solid #e3e1dd; border-radius: 10px; overflow: hidden; background: #ffffff">
+      <div style="display: grid; grid-template-columns: 52px minmax(180px, 1.15fr) minmax(220px, 1.5fr) 104px; gap: 0; background: #f2f1ee; border-bottom: 1px solid #e3e1dd; font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: #605d58">
+        <div style="padding: 14px 0 14px 24px">#</div>
+        <div style="padding: 14px 16px">Change</div>
+        <div style="padding: 14px 16px">Files</div>
+        <div style="padding: 14px 24px 14px 16px">Size</div>
+      </div>
+      <sc-for list="{{ plan }}" as="p" hint-placeholder-count="8">
+        <div style="display: grid; grid-template-columns: 52px minmax(180px, 1.15fr) minmax(220px, 1.5fr) 104px; border-bottom: 1px solid #e3e1dd; align-items: start">
+          <div style="padding: 18px 0 18px 24px; font-family: 'Space Mono', monospace; font-size: 13px; color: #8b8780">{{ p.n }}</div>
+          <div style="padding: 18px 16px; font-size: 15px; font-weight: 500">{{ p.what }}</div>
+          <div style="padding: 18px 16px; font-family: 'Space Mono', monospace; font-size: 12.5px; color: #605d58; line-height: 1.7; word-break: break-word">{{ p.files }}</div>
+          <div style="padding: 18px 24px 18px 16px; font-size: 13px; color: #605d58">{{ p.size }}</div>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="margin-top: 36px; background: #ffffff; border: 1px solid #e3e1dd; border-radius: 10px; padding: 32px 36px">
+      <h3 style="font-size: 20px; font-weight: 600; margin: 0 0 18px">Rules for whoever implements this</h3>
+      <div style="display: grid; gap: 14px">
+        <sc-for list="{{ rules }}" as="r" hint-placeholder-count="6">
+          <div style="display: grid; grid-template-columns: 18px 1fr; gap: 14px; align-items: start">
+            <span style="width: 6px; height: 6px; border-radius: 999px; background: #2f6f4f; margin-top: 9px"></span>
+            <p style="margin: 0; font-size: 15px; line-height: 1.65; color: #1b1a18">{{ r }}</p>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="margin-top: 28px; background: #fdf3e0; border: 1px solid #ecd9ae; border-radius: 10px; padding: 28px 32px">
+      <h3 style="font-size: 17px; font-weight: 600; margin: 0 0 10px; color: #6b4600">Capture the built screens</h3>
+      <p style="margin: 0; font-size: 15px; line-height: 1.65; color: #6b4600; max-width: 70ch">The mockups above are drawn from the source, not captured from a running instance. Once a step is implemented, run the app against the demo seed and capture: the shell at 1440px and 390px, attendance mid-morning with a queue, the incident register with drafts outstanding, the kiosk at rest, and the staff roll on a phone. Drop them into <span style="font-family: 'Space Mono', monospace; font-size: 13.5px">handover/screens/</span> and I will place them beside each section.</p>
+    </div>
+  </section>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:900}}">
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      toggleTag: '<button className="secondary nav-toggle">',
+      identTag: '<div className="side-ident">',
+      flatNav: ['Overview','Children','Posts','Messages','Notifications','Attendance','Incidents','Sleep checks','Site safety','Visitors','Excursions','Staff','Roster','People','Enquiries','Applications','Compliance','Funding','Accounts','Reports','Settings','Emergency broadcast','Account','Help'],
+      groupedNav: [
+        { label: 'Today', items: ['Overview','Attendance','Sleep checks','Visitors'] },
+        { label: 'Tamariki', items: ['Children','Posts','Messages'] },
+        { label: 'Records', items: ['Incidents','Site safety','Excursions'] },
+        { label: 'People', items: ['Staff','Roster','People','Enquiries','Applications'] },
+        { label: 'Money', items: ['Funding','Accounts','Reports'] },
+        { label: 'Centre', items: ['Compliance','Settings','Emergency broadcast'] },
+      ],
+      roll: [
+        { name: 'Aroha Tipene', meta: 'Signed in 7:42 · Ruma Iti', flag: 'Peanut allergy' },
+        { name: 'Manaia Fisher', meta: 'Signed in 8:05 · Ruma Nui', flag: '' },
+        { name: 'Isla Whitcombe', meta: 'Signed in 8:11 · Ruma Nui', flag: 'Medication 12:00' },
+        { name: 'Tama Rewiri', meta: 'Signed in 8:20 · Ruma Iti', flag: '' },
+      ],
+      kiosk: [
+        { name: 'Aroha Tipene', state: 'Here since 7:42' },
+        { name: 'Manaia Fisher', state: 'Here since 8:05' },
+        { name: 'Isla Whitcombe', state: 'Here since 8:11' },
+        { name: 'Tama Rewiri', state: 'Here since 8:20' },
+      ],
+      staff: [
+        { name: 'Ngaire Paterson', role: 'Manager', cert: 'Full · to Mar 2028', status: 'Current' },
+        { name: 'Tui Marsden', role: 'Educator', cert: 'Full · to 19 Sep 2026', status: 'Expiring' },
+        { name: 'Joseph Kereru', role: 'Educator', cert: 'Provisional', status: 'Expiring' },
+        { name: 'Anahera Wells', role: 'Reliever', cert: 'Not required', status: 'Current' },
+      ],
+      plan: [
+        { n: '01', what: 'Menu button to the left', files: '(app)/SideRail.tsx · globals.css', size: 'An hour' },
+        { n: '02', what: 'NavGroup and the six groups', files: '(app)/NavGroup.tsx · layout.tsx · globals.css · e2e/roles.spec.ts', size: 'Half a day' },
+        { n: '03', what: 'PageHeader component', files: '(app)/PageHeader.tsx · every page.tsx under (app)', size: 'A day' },
+        { n: '04', what: 'Status primitive replacing .flag / .pill', files: '(app)/Status.tsx · globals.css · incidents · attendance · compliance', size: 'Half a day' },
+        { n: '05', what: 'Attendance: ratio band, health flags, 44px targets', files: 'attendance/page.tsx · RollClient.tsx · RatioBanner.tsx', size: 'A day' },
+        { n: '06', what: 'Child record: flag row, tabs as routes', files: 'children/[id]/page.tsx · children/[id]/[tab]/page.tsx', size: 'A day' },
+        { n: '07', what: 'Incident form: two-column shell, sticky actions', files: 'incidents/NewIncident.tsx · globals.css', size: 'Half a day' },
+        { n: '08', what: 'Admin screens: one table pattern, sectioned settings', files: 'staff · settings · billing · members page.tsx', size: 'A day' },
+        { n: '09', what: 'Kiosk: one-outcome flow, keypad, connection strip', files: 'kiosk/KioskScreen.tsx · kiosk/kiosk.css', size: 'A day' },
+        { n: '10', what: 'Mobile: card action, fixed strip, empty states', files: 'components/ChildCard.tsx · OfflineStrip.tsx · EmptyState.tsx · screens/*', size: 'A day' },
+      ],
+      rules: [
+        'Nothing in packages/core/src/tokens.ts changes. If a value is missing, add a token and regenerate — never write a literal colour into a component.',
+        'Keep the existing code comments. They record why each decision was made, and several of the arguments in this document are only correct because of them.',
+        'Capability filtering is presentation. The row-level policies in Postgres remain the boundary; no change here should read as relaxing one.',
+        'The first-load CSS budget is a real constraint. New shared styles go in globals.css only if two or more screens use them; a single distinctive screen gets a route-scoped sheet, as the kiosk already does.',
+        'Every target that is touched on a tablet is --target-min or larger. The 32px in-row exception stays limited to desk-only tables.',
+        'Run the a11y and roles e2e suites after steps 02 and 03 — both move DOM structure that the specs assert against.',
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

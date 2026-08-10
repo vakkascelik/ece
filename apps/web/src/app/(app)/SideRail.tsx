@@ -111,7 +111,18 @@ export function SideRail({ head, children }: { head: ReactNode; children: ReactN
   return (
     <aside className="side">
       <div className="side-head">
-        <div className="side-ident">{head}</div>
+        {/*
+          The toggle is FIRST in the source, not last.
+
+          The drawer opens from the left edge, so the control that opens it belongs at the
+          left too — otherwise the tap and its result happen at opposite ends of the screen,
+          and on a tablet held one-handed at the door the button is under the wrong thumb.
+
+          Ordered in the DOM rather than with CSS `order:`, because `order` moves the box
+          and leaves tab order where it was. A keyboard or screen-reader user would then
+          meet the centre's name first and the menu button second, which is not what they
+          are looking at. Reading order and tab order stay the same sequence.
+        */}
         <button
           ref={toggle}
           type="button"
@@ -120,8 +131,15 @@ export function SideRail({ head, children }: { head: ReactNode; children: ReactN
           aria-controls="side-nav"
           onClick={() => setOpen((v) => !v)}
         >
-          <span aria-hidden="true">☰</span> Menu
+          <span aria-hidden="true">☰</span>
+          {/* The word carries the accessible name; the glyph is decoration and is hidden
+              from the tree so the button is not announced as "☰ Menu". A visually hidden
+              text node rather than an `aria-label`, because it is real content — machine
+              translation and the i18n pass both reach it, and neither reliably reaches an
+              ARIA attribute. Nothing visible contradicts it, so 2.5.3 does not apply. */}
+          <span className="visually-hidden">Menu</span>
         </button>
+        <div className="side-ident">{head}</div>
       </div>
 
       {/* Rendered only while it is over the page, so it cannot be tabbed to or clicked at

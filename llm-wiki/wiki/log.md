@@ -5,6 +5,26 @@ says so.*
 
 ---
 
+2026-08-10 — **The menu button moves to the left; step 1 of the second design handover.**
+`apps/web/src/app/(app)/SideRail.tsx`, `globals.css`, `eslint.config.mjs`. See
+[[console-handover]], and the superseded notice now at the top of [[design-system]].
+
+A one-file change, recorded because of what it is a step of rather than what it does. The new
+handover (`handover/ECE Handover.dc.html`) is ten steps of structure with **no token changes at
+all**, which makes it the opposite of the pack it supersedes, and the first thing it asks for is
+the drawer's toggle moved to the edge the drawer opens from.
+
+The instruction that earns a log entry is "reorder the source, do not use `order:`". Both give
+the same screenshot; only one gives the same tab order. That is 1.3.2 and it is invisible to
+every check in this repo — axe reads the DOM, so it sees the sequence the CSS has already lied
+about. The e2e suite passed unchanged (56/56) because the accessible name is unchanged: "Menu"
+moved from a visible text node into a `.visually-hidden` one rather than into an `aria-label`,
+so `getByRole('button', { name: /Menu/ })` still matches. That locator, written for a different
+reason, is what made the change safe to verify.
+
+`handover/` joins `design_handoff_ece_platform/` in the eslint ignore list — same shape, same
+vendored `support.js`, 93 `no-undef` errors that say nothing about this repo.
+
 2026-08-10 — **The plumbing for a te reo Māori interface, deliberately not the interface.**
 `next-intl`, `apps/web/src/i18n/`, `apps/web/src/lib/locale.ts`,
 `apps/web/messages/`, `/account`. See [[i18n]], [[unverified-claims]] §34.
