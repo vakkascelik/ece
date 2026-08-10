@@ -1,9 +1,11 @@
-import { listGuardians, listOutstandingInvoices } from '@ece/api';
+import { listGuardians, listOutstandingInvoices, listPaymentsFor } from '@ece/api';
 import { BUCKETS, formatCents, summariseArrears, todayInZone } from '@ece/core';
 import { requireCapability } from '@/lib/auth';
 import { serverDb } from '@/lib/supabase';
 import { PageHeader } from '../PageHeader';
 import { PageActions } from '../PageActions';
+import { InvoiceRow } from './InvoiceRow';
+import './billing.css';
 
 /**
  * Who owes what, and for how long.
@@ -39,13 +41,49 @@ export default async function BillingPage() {
   const nameOf = new Map(guardians.map((g) => [g.id, g.fullName]));
   const arrears = summariseArrears(outstanding, today);
 
+  // Aged into a bucket that means "late", which `daysOverdue` already decides — rather than
+  // a second definition of overdue written on this page.
+  const overdueCount = arrears.invoices.filter((i) => i.daysOverdue !== null).length;
+
+  /*
+    The movements behind each balance, in one query rather than one per row.
+
+    Fetched after `summariseArrears` so only the invoices actually shown are asked about —
+    an invoice that is settled is not on this screen and its payments are nobody's question
+    here.
+  */
+  const payments = await listPaymentsFor(db, arrears.invoices.map((i) => i.invoiceId));
+  const paymentsByInvoice = new Map<string, typeof payments>();
+  for (const p of payments) {
+    const list = paymentsByInvoice.get(p.invoiceId) ?? [];
+    list.push(p);
+    paymentsByInvoice.set(p.invoiceId, list);
+  }
+
   return (
     <div className="binder">
       <PageHeader
         title="Accounts"
         helpHref="/billing"
+        /*
+          The count, then what is actually late. No single "total outstanding" figure, and
+          that is not an omission: `summariseArrears` deliberately does not compute one,
+          because credits are never netted against arrears and any single number would either
+          do that or need a paragraph explaining why it does not. The count of invoices is
+          inventory; the overdue figure is the reason somebody opened the screen.
+        */
         subtitle={
-          <>What families still owe on invoices this centre has issued, as at {today}.</>
+          <>
+            {arrears.invoices.length} invoice{arrears.invoices.length === 1 ? '' : 's'}{' '}
+            outstanding as at {today}
+            {/*
+              How many are late, not how much — the card below already carries the money, and
+              repeating the same figure in the same words twice on one screen is noise rather
+              than emphasis. The count is the more useful of the two here anyway: it is how
+              many families somebody has to ring.
+            */}
+            {` · ${overdueCount} of them overdue`}
+          </>
         }
         actions={
           <PageActions
@@ -139,32 +177,35 @@ export default async function BillingPage() {
               <th>Due</th>
               <th>Owing</th>
               <th>Age</th>
+              {/* The disclosure column. Named for a screen reader, which would otherwise
+                  announce a blank column heading once per row. */}
+              <th style={{ width: '1%' }}>
+                <span className="visually-hidden">Payments</span>
+              </th>
             </tr>
           </thead>
           <tbody>
             {arrears.invoices.map((i) => (
-              <tr key={i.invoiceId}>
-                <td>{nameOf.get(i.guardianId) ?? <span className="empty">Not on the list</span>}</td>
-                <td>{i.reference}</td>
-                <td>{i.dueOn ?? <span className="empty">none set</span>}</td>
-                <td>
-                  <strong>{formatCents(i.outstandingCents)}</strong>
-                  {i.paidCents > 0 && (
-                    <div className="sub" style={{ fontSize: '0.8125rem' }}>
-                      {formatCents(i.paidCents)} of {formatCents(i.totalCents)} paid
-                    </div>
-                  )}
-                </td>
-                <td>
-                  {i.daysOverdue === null ? (
-                    <span className="flag flag-quiet">{LABELS[i.bucket]}</span>
-                  ) : (
-                    <span className="flag flag-warn">
-                      {'●'} {i.daysOverdue} {i.daysOverdue === 1 ? 'day' : 'days'}
-                    </span>
-                  )}
-                </td>
-              </tr>
+              <InvoiceRow
+                key={i.invoiceId}
+                row={{
+                  invoiceId: i.invoiceId,
+                  family: nameOf.get(i.guardianId) ?? 'Not on the list',
+                  reference: i.reference,
+                  dueOn: i.dueOn,
+                  outstandingCents: i.outstandingCents,
+                  paidCents: i.paidCents,
+                  totalCents: i.totalCents,
+                  daysOverdue: i.daysOverdue,
+                  bucketLabel: LABELS[i.bucket] ?? i.bucket,
+                  payments: (paymentsByInvoice.get(i.invoiceId) ?? []).map((p) => ({
+                    id: p.id,
+                    amountCents: p.amountCents,
+                    paidOn: p.paidOn,
+                    method: p.method,
+                  })),
+                }}
+              />
             ))}
           </tbody>
         </table>

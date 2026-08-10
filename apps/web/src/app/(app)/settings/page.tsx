@@ -1,5 +1,6 @@
 import { requireCapability } from '@/lib/auth';
 import { PageHeader } from '../PageHeader';
+import './settings.css';
 import { SettingsForm } from './SettingsForm';
 
 export default async function SettingsPage() {

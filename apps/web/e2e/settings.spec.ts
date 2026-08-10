@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { visit } from './fixtures/audit';
 
 /**
@@ -14,7 +14,7 @@ async function save(page: import('@playwright/test').Page) {
   const done = page.waitForResponse(
     (r) => new URL(r.url()).pathname === '/settings' && r.request().method() === 'POST',
   );
-  await page.getByRole('button', { name: 'Save' }).click();
+  await practiceSave(page).click();
   await done;
 }
 
@@ -116,7 +116,7 @@ test('a nonsensical interval never reaches the database', async ({ page }) => {
   */
   const interval = page.getByLabel('Minutes between sleep checks');
   await interval.fill('0');
-  await page.getByRole('button', { name: 'Save' }).click();
+  await practiceSave(page).click();
   // No `save()` here on purpose: the browser blocks the submission, so there is no
   // POST to wait for. Waiting for one would hang until the test timed out.
 
@@ -125,3 +125,15 @@ test('a nonsensical interval never reaches the database', async ({ page }) => {
   await page.reload({ waitUntil: 'networkidle' });
   await expect(page.getByLabel('Minutes between sleep checks')).toHaveValue('');
 });
+
+/**
+ * The save button on the Daily practice card.
+ *
+ * Settings became one form per section on 2026-08-11, so there are three buttons named
+ * "Save" and an unscoped locator is a strict-mode violation. Every assertion in this file is
+ * about a daily-practice field — the sleep interval, the drill interval, the ratio source —
+ * so they all press this one. Scoping by the card's heading rather than by position, because
+ * the order of the cards is a layout decision and this is not a test about layout.
+ */
+const practiceSave = (page: Page) =>
+  page.locator('form').filter({ hasText: 'Daily practice' }).getByRole('button', { name: 'Save' });

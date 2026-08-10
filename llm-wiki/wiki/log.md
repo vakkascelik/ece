@@ -5,6 +5,34 @@ says so.*
 
 ---
 
+2026-08-11 — **Admin screens: sectioned settings, expanding account rows; step 8 of the second
+design handover.** `settings/`, `billing/`, `staff/`, `members/`, `packages/api/src/billing.ts`.
+See [[console-handover]].
+
+Settings is one form per card with its own save. `updateCentre` already took a partial patch, so
+a section writes its own columns and no others — the alternative, hidden inputs carrying the
+other sections' values, would make one person's save overwrite another's. Three of the
+handover's five section names have nothing to put in them: no rooms, no opening hours, no
+per-centre notification preferences, no centre-level retention setting. Empty cards would be
+inventing settings.
+
+`listPaymentsFor` is new, and `recordPayment` had been writing rows nothing ever read since
+Phase 5 — a balance with no way to see what it was made of. The read needed no new policy:
+`payments_select` delegates to the invoices policy, so the boundary is the one asserted since
+0019. RLS suite 447/447.
+
+**`bounded-queries.test.ts` caught the first draft**, which was an unpaged select across every
+outstanding invoice at a centre. Truncating at PostgREST's silent 1000-row cap would have dropped
+payments off the end, so a family who had paid would show a balance with nothing behind it —
+precisely the conversation the feature exists to prevent going wrong. This is the check
+[[reading-every-row]] exists for, doing its job on a function written the same day.
+
+Adding outstanding counts to the list headers broke two e2e assertions on strict-mode
+violations, and the tests were right: each header repeated, word for word, a sentence already
+below it. Staff dropped the unlinked-certificate count because the card carries it with the
+remedy attached; Accounts reports how many invoices are overdue rather than repeating the money
+figure.
+
 2026-08-11 — **The incident form gets two columns and keeps having one button; step 7 of the
 second design handover.** `incidents/NewIncident.tsx`, new `incidents/incidents.css`. See
 [[console-handover]].

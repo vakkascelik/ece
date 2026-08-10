@@ -1,0 +1,17 @@
+/*
+ * Accounts, route-scoped. One screen uses it, and `check:bundle` measures the root layout's
+ * stylesheet — so the other twenty-nine do not pay for it.
+ */
+
+/*
+ * The expanded payments panel.
+ *
+ * Sunken rather than white, so an opened row reads as *inside* the row above it rather than
+ * as another row of the table. The left rule does the same job for anybody who cannot see
+ * the tint.
+ */
+.invoice-payments {
+  background: var(--surface-sunken);
+  border-left: 3px solid var(--line);
+}
+.invoice-payments ul { margin: 0; padding: 0; list-style: none; }

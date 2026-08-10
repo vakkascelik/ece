@@ -353,6 +353,59 @@ spent it entirely on pre-filling the fields, so the writer was editing over the 
 screen of what the family actually read. It is now quoted in the left column, visibly not an
 input: not editable, not what will be saved, and it must not look like either.
 
+### Step 8 — admin screens, and three sections that do not exist
+
+**Settings is one form per card, each with its own save.** `updateCentre` already took a partial
+patch and wrote only the keys that were not `undefined`, so a section save touches its own
+columns and no others — which is also what makes two people editing different sections safe. The
+alternative, hidden inputs carrying the other sections' current values, would have made one
+person's save silently overwrite another's. Each card has its own `useActionState`, so a failure
+in one cannot report itself under another's button.
+
+The handover names five sections: Centre details, Hours and rooms, Notifications, Integrations,
+Data and retention. **Three of them have nothing to put in them** — this schema has no rooms and
+no opening hours, no per-centre notification preferences, and no centre-level retention setting.
+Empty cards would be inventing settings, and a settings screen offering a control the product
+does not honour is worse than a short one. So: Centre details, Daily practice, Integrations.
+"Daily practice" is not one of the five names because the fields in it are not hours and not
+rooms, and a card named for something it does not contain is how somebody later fails to find
+the setting they came for.
+
+Integrations keeps its own card for a reason beyond naming: it holds the one control in this
+product that sends data outside it, and a decision to send data offshore should not sit three
+fields below a sleep interval where somebody can agree to it while looking at something else.
+
+**Accounts rows expand to their payments, and the read did not exist.** `recordPayment` has been
+in `packages/api` since Phase 5 and nothing ever read the rows back, so a balance was shown with
+no way to see what it was made of. `listPaymentsFor` is new; `payments_select` in 0019 is
+`exists (select 1 from invoices i where i.id = invoice_id)`, so a caller sees payments for
+exactly the invoices they can already see and the boundary is the invoices policy asserted since
+0019 rather than a second one written for this. RLS suite: 447/447.
+
+**`bounded-queries.test.ts` refused the first draft of that function, and was right to.** It was
+a plain `select` across every outstanding invoice at a centre. A fortnightly biller with a few
+hundred families behind is not a strange case, and truncating at PostgREST's silent 1000-row cap
+would drop payments off the end — so a family who had paid would show a balance with nothing
+behind it, which is exactly the conversation the feature exists to prevent going wrong. Paged
+with `fetchAll()`. This is the check [[reading-every-row]] exists for, catching a function
+written the same day.
+
+### Two headers that said the same thing twice
+
+Adding outstanding counts to the list headers broke `staff.spec.ts` and `billing.spec.ts` on
+strict-mode violations, and the tests were pointing at something real: each header now repeated,
+word for word, a sentence already forty pixels below it. That is not emphasis.
+
+Staff's header dropped the unlinked-certificate count, because the card below carries it *with
+the remedy attached* — link them on Compliance, because nothing guesses which person a
+certificate belongs to — and the copy with the remedy is the one worth keeping. Accounts' header
+reports how many invoices are overdue rather than repeating the money figure, which is the more
+useful of the two anyway: it is how many families somebody has to ring.
+
+Three settings assertions were scoped to the Daily practice card, by heading rather than by
+position, because the order of the cards is a layout decision and those are not tests about
+layout.
+
 ### The footer's three links are a second landmark, and that is what kept a test passing
 
 Account, Notifications and Help moved to `.side-foot`. They went into a
@@ -452,4 +505,4 @@ at its cause.
 - [[in-product-help]] — the `?` affordance that `PageHeader` takes over in step 3
 - [[conventions]] — token generation, and why nothing here regenerates them
 
-*Last updated: 2026-08-11 (steps 1-7 of 10)*
+*Last updated: 2026-08-11 (steps 1-8 of 10)*

@@ -18,7 +18,18 @@ export default async function MembersPage() {
       <PageHeader
         title="People"
         helpHref="/members"
-        subtitle={<>Who can see and change {ctx.centre.name}.</>}
+        /* The total, then what is unfinished — an invitation nobody has accepted is the
+           thing on this screen somebody has to chase. */
+        subtitle={
+          <>
+            {members.length} with access to {ctx.centre.name}
+            {invitations.length > 0
+              ? ` · ${invitations.length} invitation${
+                  invitations.length === 1 ? '' : 's'
+                } not yet accepted`
+              : ''}
+          </>
+        }
       />
 
       <div className="card">

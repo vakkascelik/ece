@@ -1,0 +1,34 @@
+/*
+ * Settings, route-scoped. One screen uses it; `check:bundle` measures the root layout's
+ * stylesheet, so none of this is paid for elsewhere.
+ */
+
+.settings-card h2 {
+  font-size: var(--text-lg);
+  margin: 0 0 4px;
+}
+.settings-card-lede { margin: 0 0 var(--space-5); font-size: var(--text-sm); }
+
+/*
+ * A gap between fields rather than a margin on each, so a field can be moved between cards
+ * without carrying its spacing with it — which is how the single form ended up with four
+ * different bottom margins on otherwise identical blocks.
+ */
+.settings-fields { display: grid; gap: var(--space-5); }
+.settings-hint { font-size: 0.8125rem; margin: 0.25rem 0 0; }
+
+/*
+ * The save, and the message about it, on one row at the end of its own card. Never at the
+ * top of the page: with three saves on one screen, a message that is not beside the button
+ * that produced it is a message about nothing in particular.
+ */
+.settings-save {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--line);
+}
+.settings-save button { min-height: var(--target-min); }

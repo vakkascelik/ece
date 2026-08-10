@@ -79,7 +79,33 @@ export default async function StaffPage() {
       <PageHeader
         title="Staff"
         helpHref="/staff"
-        subtitle={<>Who works at {ctx.centre.name}, and who is here.</>}
+        /*
+          Inventory and then the reason somebody opened the screen. "9 people" is the first
+          and nobody came for it; "2 certificates expiring within 60 days" is the second, and
+          it is the only part of this line that ever changes what a manager does next. Same
+          rule as the incident register's status strip: count what is outstanding.
+
+          `lapsingSoon` is the existing 60-day window from `countCertificated` — this line
+          reports it rather than inventing a second definition of "expiring".
+        */
+        subtitle={
+          <>
+            {roster.length} {roster.length === 1 ? 'person' : 'people'}
+            {certificated.lapsingSoon.length > 0
+              ? ` · ${certificated.lapsingSoon.length} certificate${
+                  certificated.lapsingSoon.length === 1 ? '' : 's'
+                } expiring soon`
+              : ''}
+            {/*
+              Unlinked certificates are NOT repeated here, though they are outstanding too.
+              The card below already names them and — the part that matters — names the fix,
+              which is to link them on Compliance because nothing guesses which person a
+              certificate belongs to. A count in the header and the identical sentence forty
+              pixels below it is not emphasis, it is noise, and the copy with the remedy
+              attached is the one worth keeping.
+            */}
+          </>
+        }
         /*
           The export stays behind `manageMembers`, unchanged — an educator reads this screen
           and signs colleagues in, and the downloadable list of everybody's hours is office

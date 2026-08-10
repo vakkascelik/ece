@@ -537,6 +537,73 @@ export async function recordPayment(
   if (error) throw new Error(`recordPayment: ${error.message}`);
 }
 
+/** One payment against one invoice, as the accounts screen shows it. */
+export interface PaymentRow {
+  id: string;
+  invoiceId: string;
+  amountCents: number;
+  paidOn: string;
+  method: string | null;
+  reference: string | null;
+}
+
+/**
+ * The payments against a set of invoices, most recent first.
+ *
+ * WHY THIS EXISTS, HAVING NOT EXISTED
+ *
+ * `recordPayment` has been here since Phase 5 and nothing ever read the rows back — the
+ * accounts screen showed a balance and no way to see what it was made of. A family balance
+ * means very little without the last few movements against it: "owes $240" and "owes $240,
+ * paid $180 last Tuesday" are different conversations to have with a parent.
+ *
+ * No tenant filter, like everything else in this package. `payments_select` in 0019 is
+ * `exists (select 1 from invoices i where i.id = invoice_id)`, so a caller sees payments for
+ * exactly the invoices they can already see and the boundary is the invoices policy — which
+ * is the one that has been asserted since 0019 rather than a second one written here.
+ *
+ * Batched by invoice ids rather than one query per row, for the reason
+ * [[reading-every-row]] records: a screen that issues a query per row is a screen that
+ * silently changes cost when a centre gets busy.
+ *
+ * PAGED, AND THE BOUNDED-QUERIES TEST IS WHY
+ *
+ * The first draft of this was a plain `select` and `bounded-queries.test.ts` refused it. It
+ * was right to: this is payments across every outstanding invoice at a centre, and a
+ * fortnightly biller with a few hundred families behind is not a strange case. Truncating at
+ * PostgREST's silent 1000-row cap would drop payments off the end of the list — so a family
+ * who had paid would show a balance with nothing behind it, which is precisely the
+ * conversation this function exists to prevent going wrong.
+ */
+export async function listPaymentsFor(db: Db, invoiceIds: string[]): Promise<PaymentRow[]> {
+  if (invoiceIds.length === 0) return [];
+  const data = await fetchAll<PaymentRowShape>('listPaymentsFor', (from, to) =>
+    db
+      .from('payments')
+      .select('id, invoice_id, amount_cents, paid_on, method, reference')
+      .in('invoice_id', invoiceIds)
+      .order('paid_on', { ascending: false })
+      .range(from, to),
+  );
+  return (data as PaymentRowShape[]).map((r) => ({
+    id: r.id,
+    invoiceId: r.invoice_id,
+    amountCents: r.amount_cents,
+    paidOn: r.paid_on,
+    method: r.method,
+    reference: r.reference,
+  }));
+}
+
+interface PaymentRowShape {
+  id: string;
+  invoice_id: string;
+  amount_cents: number;
+  paid_on: string;
+  method: string | null;
+  reference: string | null;
+}
+
 // ---------------------------------------------------------------------------
 // RS7 preparation
 // ---------------------------------------------------------------------------
