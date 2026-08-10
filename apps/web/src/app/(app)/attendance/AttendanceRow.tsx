@@ -28,6 +28,7 @@ export function AttendanceRow({
   unsent,
   eventId,
   critical,
+  healthCount,
   onToggle,
 }: {
   childId: string;
@@ -48,6 +49,14 @@ export function AttendanceRow({
    */
   eventId: number | null;
   critical: { label: string; name: string } | null;
+  /**
+   * Every health condition on this child, critical or not.
+   *
+   * Only rendered when none of them is critical: a row carrying "▲ Anaphylaxis: peanuts"
+   * does not also need "● Health: 2" beside it, and two flags on one name is how the
+   * important one stops being read. Same rule the children list follows.
+   */
+  healthCount: number;
   onToggle: () => void;
 }) {
   const [correcting, setCorrecting] = useState(false);
@@ -83,6 +92,11 @@ export function AttendanceRow({
               <span className="flag flag-critical" role="note">
                 <span aria-hidden="true">{'▲'}</span> {critical.label}: {critical.name}
               </span>
+            )}
+            {!critical && healthCount > 0 && (
+              <Status tone="warn">
+                Health: {healthCount}
+              </Status>
             )}
             {/*
               The SyncChip. A real text node, not a dot and not a greyed row — "Waiting to

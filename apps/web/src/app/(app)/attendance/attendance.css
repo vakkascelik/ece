@@ -1,0 +1,67 @@
+/*
+ * Attendance, route-scoped.
+ *
+ * Here rather than in globals.css because nothing else uses any of it, and the first-load
+ * CSS budget is measured against the root layout's stylesheet only — the same reasoning
+ * that gives the kiosk its own sheet. A rule used by one screen and paid for by every
+ * screen is the cheapest kind of waste to avoid.
+ */
+
+/*
+ * The ratio takes the width; the adult count sits beside it.
+ *
+ * Three things compete for the top of this page and only one of them is glanced at
+ * without being read. The ratio is that one, so it gets the wide column; the adult count
+ * is a number and two buttons and needs no more room than that. Stacked below the tablet
+ * breakpoint, ratio first, because at 390px "beside" is a lie.
+ */
+.ratio-row {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(220px, 1fr);
+  gap: 16px;
+  align-items: stretch;
+  margin-bottom: 1.25rem;
+}
+@media (max-width: 767px) {
+  .ratio-row { grid-template-columns: 1fr; }
+}
+/* The banner carries its own bottom margin for the pages that use it alone. In the row it
+   is a grid item and the gap does that job. */
+.ratio-row > .ratio { margin-bottom: 0; }
+
+.adults {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 0;
+}
+/* The rail's eyebrow, restated here rather than shared: `.section > h2` is scoped to a
+   section heading and this is a label inside a card. Two lines is cheaper than making the
+   global selector list longer for one screen. */
+.adults-eyebrow {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  font-weight: 600;
+}
+.adults-value { font-size: var(--text-2xl); font-weight: 600; line-height: 1.1; }
+.adults-note { margin: 0; font-size: var(--text-sm); }
+
+/*
+ * The steppers. 44px each and equal width, because this is tapped on the same tablet as
+ * the roll and by the same person — the 32px in-row exception is for tables read at a
+ * desk. Pushed to the bottom of the card so the pair sits at a predictable height whether
+ * or not the note above it wraps.
+ */
+.adults-steps { display: flex; gap: 8px; margin-top: auto; }
+.adults-steps button {
+  flex: 1;
+  height: var(--target-min);
+  font-size: var(--text-lg);
+  padding: 0;
+}
+
+/* The heading and its queue count on one baseline. */
+.roll-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.roll-head h2 { margin: 0; }

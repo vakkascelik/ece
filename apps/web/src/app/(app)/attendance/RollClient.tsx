@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   buildRoll,
@@ -17,6 +17,7 @@ import {
 } from '@ece/core';
 import { browserDb } from '@/lib/supabaseBrowser';
 import { flush, enqueue, pending, OUTBOX_EVENT, type OutboxEntry } from '@/lib/outbox';
+import { Status } from '../Status';
 import { AttendanceRow } from './AttendanceRow';
 import { OfflineStrip } from './OfflineStrip';
 import { RatioBanner } from './RatioBanner';
@@ -50,9 +51,19 @@ export function RollClient({
   serverStates,
   healthPairs,
   adultsPresent,
+  adultCount,
   timeZone,
   userId,
 }: {
+  /**
+   * `<AdultCount>`, rendered by the server page and passed down as an element.
+   *
+   * It sits beside the ratio, and the ratio is computed here because it has to include the
+   * browser's queue. Rendering the control here instead would mean this client component
+   * importing a server action's form — passing the finished element is the cheaper half of
+   * the same arrangement.
+   */
+  adultCount: ReactNode;
   /** Not `children`: that name is React's slot prop and this component takes no slot. */
   childList: Child[];
   serverStates: (ServerAttendanceState & { eventId?: number })[];
@@ -157,9 +168,24 @@ export function RollClient({
   */
   const today = todayInZone(timeZone);
 
+  // What is still in the queue among the children this section claims are here. Not
+  // `roll.pendingCount`, which is the whole outbox — a sign-out sitting in the queue
+  // belongs to "Not here" and counting it under "Here now" would say the opposite.
+  const herePending = here.filter((e) => e.pending).length;
+
   return (
     <>
-      <RatioBanner ratio={roll.ratio} />
+      {/*
+        The ratio and the adult count on one row — see attendance.css. The adult count
+        arrives as an element rather than being rendered here, because it is a server
+        component that owns its own action and this file is a client component. Passing
+        it down is what lets the two sit in the same grid without moving either across
+        the boundary.
+      */}
+      <div className="ratio-row">
+        <RatioBanner ratio={roll.ratio} />
+        {adultCount}
+      </div>
 
       <OfflineStrip
         online={online}
@@ -169,7 +195,20 @@ export function RollClient({
       />
 
       <section className="section" aria-labelledby="here-heading">
-        <h2 id="here-heading">Here now — {here.length}</h2>
+        <div className="roll-head">
+          <h2 id="here-heading">Here now — {here.length}</h2>
+          {/*
+            The queue, said out loud on the section it affects. The strip above already
+            reports the whole outbox; this answers the narrower question somebody standing
+            at the door is actually asking — "of the children this screen says are here,
+            how many has the server not been told about".
+          */}
+          {herePending > 0 && (
+            <Status tone="pending">
+              {herePending} waiting to sync
+            </Status>
+          )}
+        </div>
         {here.length === 0 ? (
           <div className="card">
             <p className="empty">Nobody signed in yet.</p>
@@ -230,6 +269,12 @@ function Rows({
                   }
                 : null
             }
+            // `listHealthByChild` was already fetched for the critical check and its
+            // non-critical rows were thrown away. An asthma inhaler or a midday medication
+            // is only useful at the moment somebody is signing that child in or out, which
+            // is this row — leaving it to the child record means it is read by whoever
+            // opens the record, and nobody opens a record at the door.
+            healthCount={conditions.length}
           />
         );
       })}

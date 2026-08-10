@@ -1,5 +1,20 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { tenant, visit } from './fixtures/audit';
+
+/**
+ * The sync chips on the roll, and nothing else on the page.
+ *
+ * These assertions matched the phrase against the whole page until 2026-08-11, when they began
+ * failing on a strict-mode violation with two matches. The second one is the in-product help
+ * note, which quotes the product's own words back at the reader — *"a row that has not been
+ * sent yet says …"* — and lives in a `<details>` that is closed but still in the DOM, so
+ * Playwright counts it.
+ *
+ * Neither the help nor the chip is wrong. The locator was: matching a product string by text,
+ * on a page that now also documents that string, is a locator that breaks the moment the
+ * documentation is good. Scoped to `.roll`, where the chip is and the help is not.
+ */
+const syncChips = (page: Page) => page.locator('.roll').getByText('Waiting to send');
 
 /**
  * The offline path on the web, which is screens 4 and 5 of the design pack.
@@ -75,14 +90,14 @@ test.describe('the roll with no connection', () => {
     // 6. And it lands once the connection is back.
     await context.setOffline(false);
     await page.evaluate(() => window.dispatchEvent(new Event('online')));
-    await expect(page.getByText('Waiting to send')).toBeHidden({ timeout: 15_000 });
+    await expect(syncChips(page)).toBeHidden({ timeout: 15_000 });
     await expect(page.getByRole('region', { name: /Here now/ }).getByText(name)).toBeVisible();
 
     // Now that there is a connection, a reload reads it back from the server rather than from
     // the queue — which is what proves it actually landed rather than merely stopped showing.
     await page.reload();
     await expect(page.getByRole('region', { name: /Here now/ }).getByText(name)).toBeVisible();
-    await expect(page.getByText('Waiting to send')).toHaveCount(0);
+    await expect(syncChips(page)).toHaveCount(0);
     const drained = await page.evaluate(() =>
       JSON.parse(window.localStorage.getItem('ece.outbox.attendance') ?? '[]'),
     );
@@ -123,7 +138,7 @@ test.describe('the roll with no connection', () => {
     await context.setOffline(true);
     await page.evaluate(() => window.dispatchEvent(new Event('offline')));
     await action.click();
-    await expect(page.getByText('Waiting to send')).toBeVisible();
+    await expect(syncChips(page)).toBeVisible();
 
     // The refusal. Not a confirm-and-proceed: there is no way through it that discards the work.
     // `exact`, because every present child's action is also called "Sign out {name}" and the
@@ -146,7 +161,7 @@ test.describe('the roll with no connection', () => {
     // through — the person is not made to press the same button twice.
     await context.setOffline(false);
     await page.evaluate(() => window.dispatchEvent(new Event('online')));
-    await expect(page.getByText('Waiting to send')).toBeHidden({ timeout: 15_000 });
+    await expect(syncChips(page)).toBeHidden({ timeout: 15_000 });
     await page.getByRole('button', { name: 'Sign out', exact: true }).click();
     await expect(page).toHaveURL(/\/login/, { timeout: 15_000 });
 

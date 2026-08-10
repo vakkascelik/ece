@@ -180,6 +180,82 @@ So the honest position: this handover has put `first-load-css` 0.1kB further ove
 already 0.1kB over. That is a number to raise deliberately or to pay down deliberately, and
 `check:bundle` says as much itself. It is not something to keep predicting away.
 
+### Step 5 — attendance, and three tests that were already red
+
+The ratio takes a `minmax(0, 2fr)` column and the adult count sits beside it in `1fr`, stacking
+below 768px. `AdultCount` is rendered by the server page and **passed into `RollClient` as an
+element**: the ratio has to include the browser's queue, so it is computed in the client, while
+the count owns a server action — passing the finished element is what lets them share a grid
+without either crossing the boundary.
+
+The ± controls are one form with two submit buttons. A submitter's own `name`/`value` go into
+the FormData, so each button posts the count it means and `setAdults` still receives an
+**absolute number** — which is what keeps it an event rather than an increment. Two "+1"s
+arriving out of order would otherwise resolve to whichever landed last.
+
+`AdultCount` lost its `<section>` landmark and its "Adults present" heading, which is now the
+card's eyebrow. A landmark over a single card was not earning its place, and the count belongs
+beside the ratio because they are one question.
+
+**Health flags were already fetched and thrown away.** `listHealthByChild` was read for the
+critical check and its non-critical rows discarded. They render now, warn-toned, and only when
+nothing critical is on the row — two flags on one name is how the important one stops being read.
+
+**The route-scoped sheet is the answer to the CSS budget.** `attendance.css` is imported by
+`attendance/page.tsx`, and `check:bundle` measures the root layout's stylesheet only, so this
+step added shared styles and moved `first-load-css` by zero. That is what the handover's rule was
+for, and it is worth stating plainly after steps 2 and 3 each put a little into globals.css
+without asking whether the screen was distinctive enough to pay for itself.
+
+### The pending dot the spec asked for, and why the row keeps its words
+
+The handover asks for "a pending dot on rows that came from the outbox". The row already carries
+a labelled chip reading **Waiting to send**, and the comment beside it argues the case: "a real
+text node, not a dot and not a greyed row … a greyed chip is a state somebody has to learn."
+
+A bare dot would be colour alone, which is the one thing every flag in this product is built to
+avoid — and it would be the exception in a codebase where the same rule is stated three times.
+The chip stays. The section heading gained the count the spec asks for, scoped to the children
+*that section claims are here* rather than to the whole outbox: a queued sign-out belongs to "Not
+here", and counting it under "Here now" would say the opposite of what it means.
+
+### Three e2e failures that were red on `main` before this step touched anything
+
+Running the offline and journey suites — which steps 1 to 4 had no reason to run — turned up
+three failures, and none of them are this handover's. All three have one cause, and it is worth
+recording because the mechanism will recur.
+
+Commit `712ba7d` added an in-product help note to every screen, and that note quotes the
+product's own sentences back at the reader. Two of those quotes are strings the e2e suite matches
+on:
+
+- *"a row that has not been sent yet says 'Waiting to send'"* → `page.getByText('Waiting to
+  send')` now resolves to two elements and fails strict mode. Two tests.
+- *"The ratio figures have not been checked against the regulations by anybody"* →
+  `getByText(/have not been checked.../i).first()` now matches the **hidden help paragraph**
+  instead of the visible ratio caveat.
+
+The second one is the dangerous half. That assertion is a deliberate tripwire — it exists so the
+unverified-ratio caveat cannot be deleted from the banner while the flag stays false. Pointed at
+the help note, it was passing on hidden prose *about* the caveat, and would have gone on passing
+after the caveat itself was removed. **A tripwire that can be satisfied by documentation of
+itself is not a tripwire.**
+
+Both are now scoped — `.roll` for the chips, `.ratio` for the caveat. The general lesson: once a
+product documents its own copy on the same page, matching that copy by text is no longer a way to
+find the thing it describes.
+
+Nobody noticed because the help commit touched no route, no role and no schema, so none of the
+triggers in AGENTS.md §5 fired for the full e2e suite. That gap is real: the suites most likely
+to break on a copy change are the ones nothing tells you to run.
+
+### The offline strip could not count to one
+
+`"1 sign-in are saved on this device"`, and `"1 sign-in on their way"`. Only the noun was
+pluralised. The singular is not the rare case on this strip — it is the **first queued tap**,
+which is the moment somebody is deciding whether to believe a screen about a child in the
+building.
+
 ### The footer's three links are a second landmark, and that is what kept a test passing
 
 Account, Notifications and Help moved to `.side-foot`. They went into a
@@ -279,4 +355,4 @@ at its cause.
 - [[in-product-help]] — the `?` affordance that `PageHeader` takes over in step 3
 - [[conventions]] — token generation, and why nothing here regenerates them
 
-*Last updated: 2026-08-11 (steps 1-4 of 10)*
+*Last updated: 2026-08-11 (steps 1-5 of 10)*

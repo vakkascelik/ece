@@ -83,8 +83,14 @@ test('the ratio is on screen without going to find it', async ({ page }) => {
   // And it says it is unverified, because `RATIO_TABLES_VERIFIED` is false. When that
   // flag flips this assertion is supposed to fail — it is the tripwire that stops the
   // caveat being removed from the code and left in the UI, or vice versa.
+  //
+  // Scoped to the ratio block. Unscoped with `.first()` it silently started matching the
+  // in-product help note instead, which quotes the same caveat inside a closed `<details>`
+  // — so the tripwire was passing on hidden documentation rather than on the visible
+  // warning, and would have gone on passing after the caveat was deleted from the banner.
+  // A tripwire that can be satisfied by prose about itself is not a tripwire.
   await expect(
-    page.getByText(/have not been checked against the regulations/i).first(),
+    page.locator('.ratio').getByText(/have not been checked against the regulations/i),
   ).toBeVisible();
 });
 

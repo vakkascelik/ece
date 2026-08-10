@@ -5,6 +5,40 @@ says so.*
 
 ---
 
+2026-08-11 — **Attendance gets the ratio band and the queue count; step 5 of the second design
+handover — and three e2e tests were already red.** `attendance/` (`page.tsx`, `RollClient.tsx`,
+`AdultCount.tsx`, `AttendanceRow.tsx`, `OfflineStrip.tsx`, new `attendance.css`),
+`e2e/offline.spec.ts`, `e2e/journey.spec.ts`. See [[console-handover]].
+
+The screen work is straightforward: the ratio takes the width, the adult count sits beside it
+with 44px ± controls, the health conditions that were already being fetched and discarded now
+render on the row, and the "Here now" heading carries the queue count for that section. The new
+CSS is route-scoped, and `check:bundle` measures the root layout only — so this step added shared
+styles and moved `first-load-css` by **zero**. That is what the handover's route-sheet rule is
+for, and steps 2 and 3 should have asked the question sooner.
+
+**The finding is the tests.** Running the offline and journey suites — which steps 1 to 4 gave no
+reason to run — turned up three failures, all red on `main` before this step, all with one cause.
+`712ba7d` added in-product help that quotes the product's own sentences, and two of those quotes
+are strings the suite matches on. `getByText('Waiting to send')` now resolves to two elements;
+`getByText(/have not been checked against the regulations/i).first()` now resolves to the
+**hidden help paragraph** rather than the visible ratio caveat.
+
+The second is the one that matters. That assertion is the tripwire that stops the unverified-ratio
+caveat being deleted from the banner while the flag says it is unverified. Pointed at the help
+note, it was passing on hidden prose *about* the caveat and would have kept passing after the
+caveat was removed. A tripwire satisfiable by documentation of itself is not a tripwire. Both are
+scoped now, and the general rule is written down: once a product documents its own copy on the
+same page, matching that copy by text stops being a way to find the thing it describes.
+
+Nobody noticed because the help commit touched no route, no role and no schema, so none of
+AGENTS.md §5's triggers called for the full e2e suite. The suites most likely to break on a copy
+change are the ones nothing tells you to run.
+
+Also: the offline strip said "1 sign-in **are** saved on this device". Only the noun was
+pluralised, and the singular is the first queued tap — the moment somebody decides whether to
+believe the screen about a child in the building.
+
 2026-08-11 — **Status becomes a component; step 4 of the second design handover.**
 `apps/web/src/app/(app)/Status.tsx`, `globals.css`, incidents, attendance, compliance. See
 [[console-handover]].

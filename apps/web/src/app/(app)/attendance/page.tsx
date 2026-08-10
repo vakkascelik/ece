@@ -4,6 +4,7 @@ import { assessRatio, can, splitByAgeBand, todayInZone } from '@ece/core';
 import { requireCapability } from '@/lib/auth';
 import { serverDb } from '@/lib/supabase';
 import { PageHeader } from '../PageHeader';
+import './attendance.css';
 import { AdultCount } from './AdultCount';
 import { RatioBanner } from './RatioBanner';
 import { RollClient } from './RollClient';
@@ -99,31 +100,26 @@ export default async function AttendancePage({
       />
 
       {/*
-        Adults first, then the roll. The ratio itself is rendered inside RollClient, because a
-        queued sign-in has to count toward it and the server cannot see the browser's queue.
-      */}
+        The ratio, the adult count and both roll sections all live in RollClient, because the
+        ratio has to include the browser's queue and the server cannot see it.
 
-      {/*
-        <section> with a name rather than <div>, so a screen reader user can jump
-        between "adults present", "here now" and "not here" instead of walking the
-        whole roll. An unnamed <section> is not exposed as a region at all, which is
-        why each carries aria-labelledby rather than just the element.
-      */}
-      <section className="section" aria-labelledby="adults-heading">
-        <h2 id="adults-heading">Adults present</h2>
-        <AdultCount current={adultsPresent} canEdit={can(ctx.role, 'recordDailyPractice')} />
-      </section>
+        `AdultCount` used to be a section of its own above the roll, with its own "Adults
+        present" heading. It is now a card beside the ratio — the two are one question, and a
+        person reading "within ratio" is reading it *about* that number. Its eyebrow carries
+        the label the heading used to, so nothing is lost from the reading order; the section
+        landmark is, and it was a landmark over a single card.
 
-      {/*
-        The ratio and both roll sections live in RollClient. `serverStates` and the health map
-        are handed over as plain data — a Map cannot cross the boundary, so health arrives as
-        pairs — and the client merges the browser's outbox into them.
+        `serverStates` and the health map are handed over as plain data — a Map cannot cross
+        the boundary, so health arrives as pairs — and the client merges the outbox into them.
       */}
       <RollClient
         childList={children}
         serverStates={states}
         healthPairs={[...healthByChild.entries()]}
         adultsPresent={adultsPresent}
+        adultCount={
+          <AdultCount current={adultsPresent} canEdit={can(ctx.role, 'recordDailyPractice')} />
+        }
         timeZone={ctx.centre.timezone}
         userId={ctx.userId}
       />

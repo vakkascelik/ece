@@ -16,24 +16,70 @@ export function AdultCount({ current, canEdit }: { current: number; canEdit: boo
 
   if (!editing) {
     return (
-      <div className="card">
-        <div className="inline">
-          <strong style={{ fontSize: '1.25rem' }}>{current}</strong>
-          <span className="sub">
-            {current === 0
-              ? 'Nothing recorded today, so the ratio is being calculated against zero adults.'
-              : `${current === 1 ? 'adult' : 'adults'} counting toward the ratio.`}
-          </span>
-          {canEdit && (
-            <button className="secondary small" type="button" onClick={() => setEditing(true)}>
-              {current === 0 ? 'Record the count' : 'Update'}
-            </button>
-          )}
-        </div>
+      <div className="card adults">
+        <div className="adults-eyebrow">Adults present</div>
+        {/*
+          No live region on the number, deliberately. `RatioBanner` is already a
+          `role="status"` and it says "{n} kaiako" — a second one here would announce every
+          change twice, and the ratio is the announcement that matters.
+        */}
+        <div className="adults-value">{current}</div>
+        <p className="adults-note sub">
+          {current === 0
+            ? 'Nothing recorded today, so the ratio is being calculated against zero adults.'
+            : `${current === 1 ? 'adult' : 'adults'} counting toward the ratio.`}
+        </p>
+
         {error && (
           <p className="error" role="alert">
             {error}
           </p>
+        )}
+
+        {canEdit && (
+          <>
+            {/*
+              One form, two submit buttons. A submitter's own name and value go into the
+              FormData, so each button posts the count it means and the action needs no
+              new shape — `setAdults` still receives an absolute number, which is what
+              makes it an event rather than an increment. Two events arriving out of order
+              would otherwise resolve to whichever "+1" landed last.
+
+              The labels state the resulting count rather than the direction: "One more
+              adult" is the gesture, "3 adults present" is what will be true, and a
+              recorded compliance figure should be announced as the figure.
+            */}
+            <form action={action} className="adults-steps">
+              <button
+                className="secondary"
+                type="submit"
+                name="adults"
+                value={Math.max(0, current - 1)}
+                disabled={pending || current === 0}
+                aria-label={`Record ${Math.max(0, current - 1)} adults present`}
+              >
+                <span aria-hidden="true">−</span>
+              </button>
+              <button
+                className="secondary"
+                type="submit"
+                name="adults"
+                value={current + 1}
+                disabled={pending}
+                aria-label={`Record ${current + 1} adults present`}
+              >
+                <span aria-hidden="true">+</span>
+              </button>
+            </form>
+            {/*
+              The typed form stays. A stepper is right for "somebody just walked in" and
+              wrong for "we opened with four and two are on lunch" — and the note is the
+              only place the reason for a count is ever written down.
+            */}
+            <button className="secondary small" type="button" onClick={() => setEditing(true)}>
+              {current === 0 ? 'Record the count' : 'Set a number, with a note'}
+            </button>
+          </>
         )}
       </div>
     );
