@@ -30,10 +30,19 @@ export function OfflineStrip({
   /** A flush is in flight. Distinct from "offline": the work is leaving right now. */
   syncing?: boolean;
 }) {
-  // Nothing queued and a connection: there is nothing true to say, so say nothing. An
-  // "all synced" banner is a permanent line of screen furniture reporting the absence of
-  // news.
-  if (pendingCount === 0 && online) return null;
+  /*
+    Nothing queued and a connection: there is nothing true to say, so it says nothing — an
+    "all synced" banner is a permanent line of screen furniture reporting the absence of news.
+
+    But it keeps its height. It used to return `null`, which meant the roll jumped up and down
+    by a whole strip every time the queue drained or the wifi dropped, under the thumb of
+    somebody already reaching for a child's row. A mis-tap here signs the wrong child in or
+    out, and that is a legal record. Silent and present is the only combination that is both
+    honest and safe.
+  */
+  if (pendingCount === 0 && online) {
+    return <View style={styles.reserved} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" />;
+  }
 
   const sentence = sentenceFor({ online, pendingCount, syncing });
 
@@ -93,4 +102,16 @@ const styles = StyleSheet.create({
     marginBottom: space['3'],
   },
   text: { fontSize: font.size.base, color: color.pending, fontWeight: font.weight.medium },
+  /*
+    The same box with nothing in it, so the list below never moves.
+
+    Its height is the strip's: one line of `font.size.base` at lineHeight 24, plus the strip's
+    own vertical padding and its 1px borders. Written as a number rather than derived, because
+    deriving it would mean rendering invisible text — which a screen reader can still reach,
+    and "↻ Offline" announced on a working connection is worse than a gap.
+  */
+  reserved: {
+    height: 24 + space['3'] * 2 + 2,
+    marginBottom: space['3'],
+  },
 });

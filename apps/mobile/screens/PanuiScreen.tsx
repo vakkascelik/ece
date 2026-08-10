@@ -53,9 +53,17 @@ export function PanuiScreen() {
         </View>
       }
       ListEmptyComponent={
-        // No action, per the pack: there is nothing a parent can do to make kaiako post,
-        // and a button here would imply otherwise. Staff get the one fact they can act on
-        // — posts are written on the web app — for the same reason.
+        /*
+          No button, per the pack: there is nothing a parent can do to make kaiako post, and
+          a button here would imply otherwise. Staff get the one fact they can act on — posts
+          are written on the web app — for the same reason.
+
+          `next` rather than nothing at all, which is the handover's point: "Nothing posted
+          yet" on its own is a dead end. What it must NOT say is the handover's own suggested
+          wording, "you'll get a notification" — push has never run on a real device and is
+          in unverified-claims, so promising it here would be the product asserting something
+          nobody has checked, on the screen a family opens most.
+        */
         <EmptyState
           title="Nothing posted yet"
           body={
@@ -63,6 +71,11 @@ export function PanuiScreen() {
               ? 'Kaiako share moments from the day here.'
               : 'Kaiako share moments from the day here. Posts are written on the web app.'
           }
+          action={{
+            next: isParent
+              ? 'Anything kaiako post during the day appears here. Open the app to check — this product does not send alerts yet.'
+              : 'Write one on the web app and it appears here for whānau.',
+          }}
         />
       }
       renderItem={({ item }) => (

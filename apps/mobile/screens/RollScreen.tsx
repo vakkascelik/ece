@@ -93,6 +93,9 @@ export function RollScreen() {
         <EmptyState
           title="Nobody is enrolled yet"
           body="A manager enrols tamariki on the web app, and the roll starts here tomorrow morning."
+          /* No button: nothing on this phone enrols a child, and the sentence already names
+             who does it and where. */
+          action={{ next: 'Once somebody is enrolled, they appear here and can be signed in.' }}
         />
       }
       renderItem={({ item }) => (

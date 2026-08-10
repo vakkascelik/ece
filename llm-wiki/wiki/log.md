@@ -5,6 +5,35 @@ says so.*
 
 ---
 
+2026-08-11 — **Mobile: a strip that keeps its height, and an empty state that cannot promise
+push; step 10 of the second design handover, and the last.** `apps/mobile/components/`,
+`screens/`. See [[console-handover]].
+
+`ChildCard` needed nothing: `SignInButton` has rendered one button labelled with the next state
+since Phase 2, at 64px rather than the handover's 44, and shrinking the most-tapped control in
+the product to match a spec is the regression [[design-system]] already refused once.
+
+`OfflineStrip` returned `null` when the queue was clear, so the roll jumped by a whole strip
+every time it drained — under the thumb of somebody already reaching for a child's row, where a
+mis-tap signs the wrong child in or out. It keeps its height now, silent, and the reserved box is
+hidden from the accessibility tree rather than filled with invisible text.
+
+`EmptyState.action` is required as asked, and is a union rather than a button: `{ label, onPress }`
+where there is something to press, `{ next }` where there is not. Two of the three screens have
+nothing a reader can do — nothing makes a kaiako post, nothing on a phone enrols a child — and a
+required button would have put one there anyway.
+
+**The handover's own example copy would have shipped a false promise.** It suggests "Nothing from
+the centre yet — you'll get a notification". This product does not send notifications:
+`lib/push.ts` says in its own docblock that none of it has ever run, and it is in
+[[unverified-claims]] for that reason. That sentence, on the screen a family opens most, would
+have been the product asserting a capability nobody has checked — rule 5, in its purest form,
+arriving as a design suggestion rather than as code. The empty states say the opposite instead,
+which is true today and which somebody will have to come back and delete when push works.
+
+Verified with `expo export --platform android` as well as typecheck, because Metro's resolver is
+not TypeScript's.
+
 2026-08-11 — **The kiosk's connection strip stops moving the roll; step 9 of the second design
 handover.** `kiosk/KioskScreen.tsx`, `kiosk/kiosk.css`. See [[console-handover]].
 

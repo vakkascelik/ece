@@ -13,6 +13,7 @@ import { listMessages, listThreads, markThreadRead, sendMessage, type Message, t
 import { color, font, radius, space, target, theme } from '../theme';
 import { useSession } from '../state/SessionProvider';
 import { supabase } from '../lib/supabase';
+import { EmptyState } from '../components/EmptyState';
 
 /**
  * Threads, and one thread at a time.
@@ -160,9 +161,22 @@ export function MessagesScreen() {
       keyExtractor={(t) => t.id}
       ListHeaderComponent={<Text style={theme.h1}>Messages</Text>}
       ListEmptyComponent={
-        <Text style={theme.muted}>
-          No messages yet. A kaiako or a parent can start a conversation on the web app.
-        </Text>
+        /*
+          Was a single line of muted text, which reads as a fault rather than as "nothing has
+          happened yet" — the exact thing `EmptyState` was extracted to stop, on the one
+          screen that never adopted it.
+
+          `next` rather than a button: a conversation is started on the web app, and there is
+          no control on this phone that would do it. Saying where it happens is the answer;
+          drawing a button that navigates nowhere is not.
+        */
+        <EmptyState
+          title="No messages yet"
+          body="Conversations between kaiako and whānau appear here."
+          action={{
+            next: 'A kaiako or a parent starts one on the web app, and it turns up here. Open the app to check — this product does not send alerts yet.',
+          }}
+        />
       }
       renderItem={({ item }) => (
         <Pressable

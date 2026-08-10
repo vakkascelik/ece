@@ -439,6 +439,53 @@ trying to prevent, arrived at from the other side. The strip is now impossible t
 what will happen; the attempt is still made, and a real failure is still reported by the server
 rather than guessed at by the browser.
 
+### Step 10 — mobile, where two of the three asks were already done better
+
+**`ChildCard` needed nothing.** The handover asks for "one 44px action labelled with the next
+state — 'Sign in' or 'Sign out', never both". `SignInButton` has rendered exactly one button
+labelled with the next state since Phase 2, at `target.primary` (64px) rather than 44, and its
+docblock says why: it is tapped by somebody with a child on one hip and a bag in the other, and
+WCAG's floor has nothing to say about that. Shrinking it to 44 to match a spec would be the
+regression [[design-system]] already refused once.
+
+The one difference is that the flag row sits *beside* the action rather than above it. That is
+also a recorded decision — the action used to be a block below the card, "which cost a whole row
+of vertical space per child and put the button nearer the next child's name than to its own".
+Left alone.
+
+**`OfflineStrip` now keeps its height when silent.** It returned `null`, so the roll jumped by a
+whole strip every time the queue drained or the wifi dropped — under the thumb of somebody
+already reaching for a child's row, where a mis-tap signs the wrong child in or out and that is a
+legal record. Silent and present is the only combination that is both honest and safe. The
+reserved box is `accessibilityElementsHidden`, because the alternative — rendering invisible text
+to derive the height — leaves "↻ Offline" reachable by a screen reader on a working connection.
+
+**`EmptyState.action` is required, and it is a union.** The handover asks for it to be required
+so that every empty state names what happens next rather than the absence, and it is right that
+"No posts yet" is a dead end. But two of the three screens have nothing a reader can press:
+nothing makes a kaiako post, and nothing on a parent's phone enrols a child. A required *button*
+would have put one there anyway, which is how a screen comes to offer something that does not
+work — and Pānui's own note already refused exactly that.
+
+So `{ label, onPress }` when there is something to do, and `{ next }` when there is not. Messages
+adopted `EmptyState` at the same time; it was still a single line of muted text, which is the
+thing this component was extracted to stop.
+
+### The handover's own example copy would have shipped a false promise
+
+Its suggested wording is: *"Nothing from the centre yet — you'll get a notification"*.
+
+**This product does not send notifications.** `apps/mobile/lib/push.ts` is written from the
+documented API, typechecks, bundles, and — in its own words — "none of this has ever run", which
+is why it is in [[unverified-claims]]. `/notifications` says the same thing about itself: nothing
+tells a family the page has something new on it.
+
+Putting that sentence on the screen a family opens most would have been the product asserting a
+capability nobody has checked, in the exact form rule 5 exists to prevent. The empty states say
+the opposite instead — "open the app to check — this product does not send alerts yet" — which is
+true today and is a sentence somebody will have to come back and delete when push works, which
+is the right direction for that kind of debt to run.
+
 ### The footer's three links are a second landmark, and that is what kept a test passing
 
 Account, Notifications and Help moved to `.side-foot`. They went into a
@@ -538,4 +585,4 @@ at its cause.
 - [[in-product-help]] — the `?` affordance that `PageHeader` takes over in step 3
 - [[conventions]] — token generation, and why nothing here regenerates them
 
-*Last updated: 2026-08-11 (steps 1-9 of 10)*
+*Last updated: 2026-08-11 (all ten steps)*
