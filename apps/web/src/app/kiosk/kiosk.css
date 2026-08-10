@@ -25,7 +25,7 @@
 .kiosk-sub { color: var(--ink-muted); font-size: var(--text-xl); margin: 0 0 var(--space-5); }
 .kiosk-empty { font-size: var(--text-xl); color: var(--ink-muted); }
 
-.kiosk-offline,
+.kiosk-link,
 .kiosk-problem {
   margin: var(--space-4) 0 0;
   padding: var(--space-4);
@@ -36,6 +36,30 @@
   color: var(--warn);
 }
 .kiosk-problem { background: var(--breach-soft); border-color: var(--breach-border); color: var(--breach); }
+
+/*
+ * The connection strip. Always rendered, so the roll below it never moves when the state
+ * changes — a target that jumps under a finger mid-tap is worse than a target that is
+ * momentarily wrong.
+ *
+ * Quiet when connected: it reports the absence of a problem, so it should not look like one.
+ * Breach-toned when not, and not warn-toned, because there is no offline queue on this screen
+ * and a tap made now is a tap that does nothing. Amber would put it in the same visual class
+ * as "a certificate expires next month".
+ */
+.kiosk-link {
+  background: var(--surface-sunken);
+  border-color: var(--line);
+  color: var(--ink-muted);
+  font-size: var(--text-lg);
+}
+.kiosk-link.is-offline {
+  background: var(--breach-soft);
+  border-color: var(--breach-border);
+  color: var(--breach);
+  font-size: var(--text-xl);
+  font-weight: 600;
+}
 
 /* Auto-fit rather than a fixed column count: a centre with nine children and one
    with sixty get the same rules, and the tile never falls below a thumb. */
@@ -140,7 +164,34 @@
   cursor: pointer;
 }
 
-.kiosk-done p { font-size: var(--text-3xl); margin: 0 0 var(--space-5); }
+/*
+ * The confirmation, over everything.
+ *
+ * `fixed` rather than a panel in the flow, because it has to be readable from where somebody
+ * is standing as they turn to leave — several steps away, not looking straight at the tablet.
+ * Covering the roll is the point rather than the cost: it stops a second family starting a
+ * sign-in on top of a confirmation the first one never saw.
+ */
+.kiosk-done {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-5);
+  padding: var(--space-6);
+  text-align: center;
+  background: var(--ok-soft);
+}
+.kiosk-done p {
+  font-size: var(--text-3xl);
+  margin: 0 0 var(--space-5);
+  max-width: 22ch;
+  color: var(--ok);
+  font-weight: 600;
+}
 .kiosk-done button {
   min-height: var(--target-primary);
   padding: 0 var(--space-6);

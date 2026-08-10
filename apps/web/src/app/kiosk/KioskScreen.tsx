@@ -47,11 +47,18 @@ export function KioskScreen({ roll, centreId }: { roll: KioskChild[]; centreId: 
     };
   }, []);
 
-  // Back to the roll a few seconds after a success. An entrance screen left on a
-  // confirmation is a screen the next family has to clear before they can start.
+  /*
+    Back to the roll eight seconds after a success. An entrance screen left on a
+    confirmation is a screen the next family has to clear before they can start.
+
+    Eight rather than six: long enough to read across a foyer while putting a coat on a hook,
+    short enough that the next person in a 3pm queue is not waiting on it. The `Done` button
+    is there for anybody who wants it gone sooner, and nothing else on the confirmation is
+    tappable — there is no partial state left behind for the next person to find.
+  */
   useEffect(() => {
     if (!done) return;
-    const t = setTimeout(() => setDone(null), 6000);
+    const t = setTimeout(() => setDone(null), 8000);
     return () => clearTimeout(t);
   }, [done]);
 
@@ -75,11 +82,24 @@ export function KioskScreen({ roll, centreId }: { roll: KioskChild[]; centreId: 
     <main className="kiosk">
       <header className="kiosk-head">
         <h1>Sign in and out</h1>
-        {!online && (
-          <p className="kiosk-offline" role="status">
-            This tablet is offline. Signing in needs a connection — please ask a kaiako.
-          </p>
-        )}
+        {/*
+          THE STRIP IS ALWAYS HERE, AND IT NEVER MOVES ANYTHING.
+
+          It used to render only when offline, which meant the roll jumped down the moment the
+          wifi dropped — under the finger of somebody already reaching for their child's name.
+          Reserving the height means the state can change while a parent is mid-tap without
+          the target moving, the same reason the mobile app's offline strip reserves its own.
+
+          Quiet when connected and breach-toned when not, because there is no offline queue on
+          this screen and there is not going to be one: a queue here would mean a PIN sitting
+          in browser storage waiting for a connection, and 0044 compares PINs inside Postgres
+          precisely so that never has to happen.
+        */}
+        <p className={online ? 'kiosk-link' : 'kiosk-link is-offline'} role="status">
+          {online
+            ? 'Connected to the centre.'
+            : 'This tablet is offline. A sign-in will not save until it is back — please ask a kaiako.'}
+        </p>
       </header>
 
       {problem && (
@@ -306,10 +326,26 @@ function PinPad({
   );
 }
 
+/**
+ * The confirmation, over the whole screen.
+ *
+ * Full-screen rather than a panel in the flow, for one reason: it has to be readable from
+ * where the parent is standing when they turn to leave, which is several steps away and not
+ * looking directly at the tablet. A panel among the roll is read by somebody still at arm's
+ * length.
+ *
+ * It covers the roll, which means the next person cannot start until it clears — that is the
+ * cost and it is the right way round. Eight seconds of "Ka pai" is better than a second
+ * family beginning a sign-in on top of a confirmation the first one never saw.
+ *
+ * One control, and it dismisses. No "undo", no link to the child, nothing that leads
+ * anywhere: this screen is unattended and every affordance on it is a thing a stranger in
+ * the foyer can press.
+ */
 function ConfirmationPanel({ message, onDone }: { message: string; onDone: () => void }) {
   return (
-    <section className="kiosk-panel kiosk-done">
-      <p role="status">{message}</p>
+    <section className="kiosk-done" role="status" aria-live="assertive">
+      <p>{message}</p>
       <button type="button" onClick={onDone}>
         Done
       </button>

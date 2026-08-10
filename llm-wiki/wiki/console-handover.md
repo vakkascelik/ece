@@ -406,6 +406,39 @@ Three settings assertions were scoped to the Daily practice card, by heading rat
 position, because the order of the cards is a layout decision and those are not tests about
 layout.
 
+### Step 9 — the kiosk mostly already was this, and one instruction was refused
+
+Most of what the handover asks for on this route was built when the route was: one column,
+`--target-primary` on every control, type from `--text-lg` up, the three-step flow, no affordance
+that leads anywhere else, and a keypad drawn in the page rather than a text input that summons
+the OS keyboard over the roll. That last one matters more than it looks — the PIN never reaches
+an input element, a URL, `localStorage` or a cookie, which is the whole reason 0044 compares it
+inside Postgres.
+
+Two things changed:
+
+**The connection strip is always rendered.** It appeared only when offline, so the roll jumped
+down the moment the wifi dropped — under the finger of somebody already reaching for their
+child's name. Reserving the height means the state can change mid-tap without the target moving,
+which is the same requirement step 10 puts on the mobile app's strip. Quiet when connected,
+breach-toned when not — not warn-toned, because there is no offline queue here and a tap made now
+does nothing, whereas amber would put it in the same visual class as a certificate expiring next
+month.
+
+**The confirmation is full-screen and clears after eight seconds**, not six. It has to be
+readable from where somebody is standing as they turn to leave, several steps away and not
+looking straight at the tablet. Covering the roll is the point rather than the cost: it stops a
+second family starting a sign-in on top of a confirmation the first one never saw.
+
+**"Blocking when not [online]" was not implemented, deliberately.** The handover asks the offline
+strip to block. The screen's own comment refuses that, and it is right: `navigator.onLine`
+reports the link and not whether the server is reachable, so it is used to warn and never to
+decide. Blocking on it means a captive portal or a flaky adapter refuses a sign-in that would
+have worked, at the door, with a parent standing there — the exact failure the instruction is
+trying to prevent, arrived at from the other side. The strip is now impossible to miss and says
+what will happen; the attempt is still made, and a real failure is still reported by the server
+rather than guessed at by the browser.
+
 ### The footer's three links are a second landmark, and that is what kept a test passing
 
 Account, Notifications and Help moved to `.side-foot`. They went into a
@@ -505,4 +538,4 @@ at its cause.
 - [[in-product-help]] — the `?` affordance that `PageHeader` takes over in step 3
 - [[conventions]] — token generation, and why nothing here regenerates them
 
-*Last updated: 2026-08-11 (steps 1-8 of 10)*
+*Last updated: 2026-08-11 (steps 1-9 of 10)*

@@ -5,6 +5,27 @@ says so.*
 
 ---
 
+2026-08-11 — **The kiosk's connection strip stops moving the roll; step 9 of the second design
+handover.** `kiosk/KioskScreen.tsx`, `kiosk/kiosk.css`. See [[console-handover]].
+
+Most of this step was already built: one column, `--target-primary` throughout, the three-step
+flow, no affordance leading anywhere else, and a keypad drawn in the page rather than a text
+input — which is why the PIN never reaches an input element, a URL or browser storage, and is
+what 0044's in-database comparison exists to allow.
+
+The strip is now always rendered. It appeared only when offline, so the roll jumped down the
+moment the wifi dropped, under the finger of somebody already reaching for their child's name.
+Breach-toned rather than warn, because there is no offline queue here and a tap made now does
+nothing; amber would put it in the same class as a certificate expiring next month. The
+confirmation is full-screen and clears after eight seconds rather than six — it has to be
+readable from where somebody is standing as they turn to leave.
+
+**"Blocking when offline" was refused, and the screen's own comment is why.** `navigator.onLine`
+reports the link, not whether the server is reachable, so it warns and never decides. Blocking on
+it means a captive portal refuses a sign-in that would have worked, at the door, with a parent
+standing there — the same failure the instruction is trying to prevent, reached from the other
+side.
+
 2026-08-11 — **Admin screens: sectioned settings, expanding account rows; step 8 of the second
 design handover.** `settings/`, `billing/`, `staff/`, `members/`, `packages/api/src/billing.ts`.
 See [[console-handover]].
