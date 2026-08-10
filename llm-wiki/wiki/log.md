@@ -5,6 +5,22 @@ says so.*
 
 ---
 
+2026-08-11 — **The incident form gets two columns and keeps having one button; step 7 of the
+second design handover.** `incidents/NewIncident.tsx`, new `incidents/incidents.css`. See
+[[console-handover]].
+
+The layout is the easy half: guide left, fields right, sticky action bar. The decision worth
+recording is what was *not* built. The handover asks that Save draft and Finalise never sit
+adjacent without an irreversibility warning between them — and this form has no Finalise button
+at all, because finalising is a control on the register row, pressed by somebody who has read the
+draft back. The form's own docblock made that argument before this handover existed: "a 'save and
+send' would be pressed by somebody standing up holding a crying child". Adding one to match a
+mockup would have undone it. The requirement is met more strongly than the mockup expresses it.
+
+Amend now quotes what the original said. `basedOn` carried the text and spent it entirely on
+pre-filling the fields, so an amendment was written by editing over the only on-screen copy of
+what the family had already read — which is how two records come to disagree.
+
 2026-08-11 — **The child record becomes five routes; step 6 of the second design handover.**
 `children/[id]/` — new `layout.tsx`, `[tab]/page.tsx`, `RecordTabs.tsx`, `tabs.ts`, `record.css`
 — plus six e2e specs. See [[console-handover]].

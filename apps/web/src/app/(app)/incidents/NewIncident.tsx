@@ -90,36 +90,116 @@ export function NewIncident({
     );
   }
 
+  const childName = basedOn ? childOptions.find((c) => c.id === basedOn.childId)?.name : null;
+
   return (
-    <form action={action} className="card" style={{ marginBottom: '1rem' }}>
-      <h2 style={{ marginTop: 0 }}>{basedOn?.mode === 'edit' ? 'Correct this draft' : basedOn ? 'Amend a report' : 'Record an incident'}</h2>
-      {basedOn?.mode === 'amend' && (
-        <>
-          <input type="hidden" name="supersedes" value={basedOn.id} />
-          <p className="sub">
-            This replaces a report that has already been finalised. The original stays on the
-            register and stays readable &mdash; that is what makes freezing it worth anything.
-            This one starts as a draft and has to be finalised and sent like any other.
-          </p>
-        </>
-      )}
-      {basedOn?.mode === 'edit' && (
-        <>
-          <input type="hidden" name="editing" value={basedOn.id} />
-          <p className="sub">
-            Correcting a draft nobody outside the centre can see. It stays a draft &mdash;
-            finalising is a separate, deliberate step.
-          </p>
-        </>
-      )}
+    <form action={action} className="card incident-form" style={{ marginBottom: '1rem' }}>
+      <div className="incident-cols">
+        {/*
+          The left column: what this is, and what it has to end up saying. First in the source
+          as well as on the left, so that when the columns collapse on a narrow tablet somebody
+          filing their first report still reads the explanation before the fields.
+        */}
+        <div className="incident-guide">
+          <div className="incident-eyebrow">
+            {basedOn?.mode === 'edit'
+              ? 'Correcting a draft'
+              : basedOn
+                ? 'Amending a finalised report'
+                : 'New report'}
+          </div>
+          <h2 style={{ marginTop: 0 }}>
+            {basedOn?.mode === 'edit'
+              ? 'Correct this draft'
+              : basedOn
+                ? 'Amend a report'
+                : 'Record an incident'}
+          </h2>
 
-      {state && 'error' in state && (
-        <p className="error" role="alert">
-          {state.error}
-        </p>
-      )}
+          {basedOn?.mode === 'amend' ? (
+            <>
+              <input type="hidden" name="supersedes" value={basedOn.id} />
+              <p>
+                This replaces a report that has already been finalised. The original stays on
+                the register and stays readable &mdash; that is what makes freezing it worth
+                anything. This one starts as a draft and has to be finalised and sent like any
+                other.
+              </p>
+            </>
+          ) : basedOn?.mode === 'edit' ? (
+            <>
+              <input type="hidden" name="editing" value={basedOn.id} />
+              <p>
+                Correcting a draft nobody outside the centre can see. It stays a draft &mdash;
+                finalising is a separate, deliberate step.
+              </p>
+            </>
+          ) : (
+            <p>
+              Save a draft at any point. Nothing reaches whānau until somebody finalises it on
+              the register, and a finalised report can only be corrected by an amendment that
+              keeps the original.
+            </p>
+          )}
 
-      <div className="field">
+          {/*
+            The three things this report has to end up saying — not form steps, and labelled
+            so nobody reads them as a wizard. Two of them are fields below; the third happens
+            on the register after finalising, and saying so here is the point. A person filing
+            their first report otherwise finishes this form believing the family has been told.
+          */}
+          <ol className="incident-steps">
+            <li>
+              <span className="n">1</span>
+              <span>What happened, and where</span>
+            </li>
+            <li>
+              <span className="n">2</span>
+              <span>What care was given</span>
+            </li>
+            <li>
+              <span className="n">3</span>
+              <span className="elsewhere">
+                Who was told &mdash; recorded on the register, after this is finalised
+              </span>
+            </li>
+          </ol>
+
+          {/*
+            AN AMENDMENT WRITTEN WITHOUT THE ORIGINAL IN VIEW IS HOW TWO RECORDS DISAGREE.
+
+            The fields on the right are pre-filled with these same words, so editing over them
+            destroys the only copy on screen of what the family actually read. Shown as a
+            quotation rather than a second set of inputs: it is not editable, it is not what
+            will be saved, and it must not look like either.
+          */}
+          {basedOn && (
+            <div className="incident-original">
+              <div className="incident-eyebrow">
+                {basedOn.mode === 'edit' ? 'The draft as it stands' : 'What the original said'}
+              </div>
+              <div style={{ fontSize: 'var(--text-sm)' }}>
+                {childName ?? 'A child no longer enrolled'} &middot;{' '}
+                {basedOn.occurredWallClock.replace('T', ' ')}
+              </div>
+              <blockquote>{basedOn.description}</blockquote>
+              {basedOn.firstAidGiven && (
+                <div className="sub" style={{ fontSize: 'var(--text-sm)', marginTop: '0.5rem' }}>
+                  First aid: {basedOn.firstAidGiven}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="incident-fields">
+          {state && 'error' in state && (
+            <p className="error" role="alert" style={{ margin: 0 }}>
+              {state.error}
+            </p>
+          )}
+
+          <div className="field">
         <label htmlFor="childId">Child</label>
         <select id="childId" name="childId" required defaultValue={basedOn?.childId ?? ''}>
           <option value="" disabled>
@@ -187,13 +267,39 @@ export function NewIncident({
         </p>
       </div>
 
-      <div className="inline">
+        </div>
+      </div>
+
+      {/*
+        THERE IS NO FINALISE BUTTON HERE, AND THAT IS THE POINT.
+
+        The design handover asks that Save draft and Finalise "never look alike and never sit
+        adjacent without the irreversibility warning between them". This form satisfies that
+        more strongly than a warning could: the two acts are on different screens. Finalising
+        is a control on the register row, pressed by somebody who has read the draft back —
+        not by somebody standing up holding a crying child with a form still open.
+
+        Adding a Finalise button here to match the mockup would be undoing a decision, so it
+        was not added. The sentence on the right says where finalising happens, because a form
+        with only a draft button and no explanation reads like an unfinished form.
+      */}
+      <div className="incident-actions">
         <button type="submit" disabled={pending}>
-          {pending ? 'Saving…' : basedOn?.mode === 'edit' ? 'Save correction' : basedOn ? 'Save amendment as draft' : 'Save as draft'}
+          {pending
+            ? 'Saving…'
+            : basedOn?.mode === 'edit'
+              ? 'Save correction'
+              : basedOn
+                ? 'Save amendment as draft'
+                : 'Save as draft'}
         </button>
         <button className="secondary" type="button" onClick={() => setOpen(false)}>
           Cancel
         </button>
+        <p className="incident-consequence">
+          Saves a draft. Whānau are told when it is finalised on the register, and a finalised
+          report cannot be edited.
+        </p>
       </div>
     </form>
   );

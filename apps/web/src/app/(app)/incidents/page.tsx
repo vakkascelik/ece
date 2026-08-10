@@ -5,6 +5,7 @@ import { dayWindow, shiftLocalDate } from '@/lib/dayWindow';
 import { serverDb } from '@/lib/supabase';
 import { PageHeader } from '../PageHeader';
 import { Status } from '../Status';
+import './incidents.css';
 import { IncidentList, type IncidentRow } from './IncidentList';
 import { NewIncident, type BasedOn } from './NewIncident';
 

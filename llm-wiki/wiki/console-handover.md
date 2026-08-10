@@ -323,6 +323,36 @@ because it happened to touch the screens they cover. The pattern is worth a rule
 matches product copy needs a container**, and the container is what says which of the two
 sentences it means.
 
+### Step 7 — the incident form, and the button that is deliberately absent
+
+Two columns: what this is on the left, what to type on the right, with the guide **first in the
+source** so that when the columns collapse on a narrow tablet somebody filing their first report
+still reads the explanation before the fields. The action bar is `position: sticky; bottom: 0`
+rather than `fixed`, so it stops at the form's own end instead of floating over the register
+underneath once the form is scrolled past.
+
+**There is no Finalise button on this form, and adding one would have been a regression.** The
+handover asks that Save draft and Finalise "never look alike and never sit adjacent without the
+irreversibility warning between them". This form already satisfies that more strongly than a
+warning could: the two acts are on different screens. Finalising is a control on the register
+row, pressed by somebody who has read the draft back — and the form's own docblock says why, in
+words written before this handover existed: *"a 'save and send' would be pressed by somebody
+standing up holding a crying child."*
+
+So the requirement is met and the mockup is not reproduced. What was added instead is the
+sentence saying where finalising happens, because a form with a single draft button and no
+explanation reads like an unfinished form rather than a deliberate one.
+
+The step list is labelled as the three things the report has to end up saying, not as form
+steps — and step 3, "who was told", says on its face that it is recorded on the register after
+finalising. Somebody filing their first report otherwise finishes this form believing the family
+has been told.
+
+**Amend now shows what the original said.** `basedOn` already carried the original's text and
+spent it entirely on pre-filling the fields, so the writer was editing over the only copy on
+screen of what the family actually read. It is now quoted in the left column, visibly not an
+input: not editable, not what will be saved, and it must not look like either.
+
 ### The footer's three links are a second landmark, and that is what kept a test passing
 
 Account, Notifications and Help moved to `.side-foot`. They went into a
@@ -422,4 +452,4 @@ at its cause.
 - [[in-product-help]] — the `?` affordance that `PageHeader` takes over in step 3
 - [[conventions]] — token generation, and why nothing here regenerates them
 
-*Last updated: 2026-08-11 (steps 1-6 of 10)*
+*Last updated: 2026-08-11 (steps 1-7 of 10)*

@@ -1,0 +1,106 @@
+/*
+ * The incident form, route-scoped.
+ *
+ * One screen, so none of it is paid for by the other twenty-nine — `check:bundle` measures
+ * the root layout's stylesheet. Same reasoning as `attendance.css` and `record.css`.
+ */
+
+/*
+ * Two columns: what this is on the left, what to type on the right.
+ *
+ * `auto-fit` with a 300px floor rather than a media query, so a narrow window and a tablet
+ * held in portrait both get one column without either being a special case. The guide comes
+ * first in the source, which is also the order it should be read in when the columns collapse
+ * — somebody who has never filed one of these reads the explanation before the fields.
+ */
+.incident-form {
+  padding: 0;
+  overflow: hidden;
+}
+.incident-cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+.incident-guide {
+  padding: var(--space-6) var(--space-5);
+  background: var(--surface-sunken);
+  border-right: 1px solid var(--line);
+}
+.incident-fields {
+  padding: var(--space-6) var(--space-5);
+  display: grid;
+  gap: var(--space-4);
+  align-content: start;
+}
+.incident-fields .field { margin: 0; }
+
+.incident-eyebrow {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+.incident-guide h2 { margin: 0 0 10px; font-size: var(--text-lg); }
+.incident-guide p { margin: 0 0 var(--space-4); line-height: 1.65; }
+
+/* The three things this report has to end up saying. Not form steps — see the component. */
+.incident-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.incident-steps li { display: flex; gap: 12px; align-items: baseline; font-size: var(--text-sm); }
+.incident-steps .n { color: var(--accent); font-weight: 600; }
+.incident-steps .elsewhere { color: var(--muted); }
+
+/*
+ * What the original said, when this is an amendment.
+ *
+ * A quotation, visibly not an input. The fields to the right are pre-filled with these same
+ * words, so without this the writer is editing over the only copy of what the family already
+ * read — and an amendment written without the original in view is how two records disagree.
+ */
+.incident-original {
+  margin-top: var(--space-5);
+  padding: var(--space-4);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+.incident-original blockquote {
+  margin: 8px 0 0;
+  padding-left: 12px;
+  border-left: 3px solid var(--line);
+  white-space: pre-wrap;
+  font-size: var(--text-sm);
+  line-height: 1.6;
+}
+
+/*
+ * The action bar, pinned to the bottom of the viewport while the form is open.
+ *
+ * On a tablet the description field pushes the buttons below the fold, and a half-written
+ * report abandoned because the writer could not find Save is this screen's actual failure
+ * mode. `position: sticky` rather than `fixed`: sticky stops at the form's own end, so the
+ * bar does not float over the register underneath once the form is scrolled past.
+ */
+.incident-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: var(--space-4) var(--space-5);
+  background: var(--panel);
+  border-top: 1px solid var(--line);
+}
+.incident-actions button { min-height: var(--target-min); }
+/*
+ * The consequence, beside the button that has it. Pushed to the far end on a wide screen and
+ * allowed to wrap under the buttons on a narrow one — it is a sentence about what the tap
+ * does, so it must never be the thing that gets cut off.
+ */
+.incident-consequence { margin: 0; font-size: var(--text-sm); color: var(--muted); }
+@media (min-width: 640px) {
+  .incident-consequence { margin-left: auto; }
+}
