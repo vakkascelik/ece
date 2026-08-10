@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useState } from 'react';
 import { correct, type Result } from './actions';
+import { Status } from '../Status';
 
 /**
  * One child, with the one action that makes sense for their current state.
@@ -64,7 +65,7 @@ export function AttendanceRow({
           <span className="roll-name">{name}</span>
           <span className="roll-meta">
             <span>{age}</span>
-            {underTwo && <span className="flag flag-quiet">under 2</span>}
+            {underTwo && <Status tone="neutral">under 2</Status>}
             {/*
               No `title`. It was carrying the response plan, which is meaning available only to
               a mouse — not to a keyboard, not to a touch screen, and not to a screen reader in
@@ -74,8 +75,13 @@ export function AttendanceRow({
               role=note, per the pack: an aside about the child, read as words.
             */}
             {critical && (
+              /*
+                `role="note"` is why this one is not a `Status`: the role is the point, and
+                a component that accepted arbitrary roles would be a `<span>` with extra
+                steps. The tone and glyph are the same as `Status tone="breach"` renders.
+              */
               <span className="flag flag-critical" role="note">
-                {'▲'} {critical.label}: {critical.name}
+                <span aria-hidden="true">{'▲'}</span> {critical.label}: {critical.name}
               </span>
             )}
             {/*
@@ -83,11 +89,7 @@ export function AttendanceRow({
               send" is what it means, and the pack is explicit that when it lands the chip is
               *removed* rather than greyed out. A greyed chip is a state somebody has to learn.
             */}
-            {unsent && (
-              <span className="flag flag-pending">
-                {'↻'} Waiting to send
-              </span>
-            )}
+            {unsent && <Status tone="pending">Waiting to send</Status>}
           </span>
         </div>
 

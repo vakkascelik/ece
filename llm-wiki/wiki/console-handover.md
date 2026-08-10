@@ -139,6 +139,47 @@ is where this comes back: consolidating four `.flag` spellings into one primitiv
 more than these two steps added, and if it does not, that is a finding rather than a rounding
 error.
 
+### Step 4 — Status, and a prediction that was wrong
+
+`Status` takes a tone and renders the existing `.flag` classes. **The CSS was never the
+ad-hoc part** — `.flag` and its modifiers were already one block. What varied was the *glyph*,
+typed by hand at all 157 call sites: warn appeared as `●` on one screen and `◌` on the next, ok
+as `✓` here and nothing there. A tone whose symbol changes between screens is a tone a reader
+re-learns each time, and the symbol is not decoration — it is the half of 1.4.1 that keeps the
+meaning off colour alone. Binding it to the tone makes that structural instead of a habit.
+
+The glyph is now `aria-hidden`. "Black up-pointing triangle, 1 whānau not told" is worse than the
+sentence, every label is complete without its symbol, and 1.4.1 is about what the eye can
+distinguish. No test depended on the glyphs — checked before changing them.
+
+**Five tones, not four.** The handover names ok / pending / warn / breach, and its own mockup of
+the incidents strip draws a fifth: "3 awaiting acknowledgement" in grey. That is not any of the
+four, and specifically it is not `pending`, which in this product means *waiting to reach the
+server* — the offline queue's blue. Rendering it in that blue would tell an educator three
+reports are stuck in the outbox. So `neutral` exists, carries no symbol, and the four named tones
+mean exactly what the handover says.
+
+`.flag-pending` moved from beside the offline strip, 530 lines up, to sit with its four siblings.
+That distance had a cost: a screen wanting a pending chip reached for `.flag-quiet`, whose
+background is also `--pending-soft` and which therefore looks *almost* right.
+
+Two things kept their hand-written classes, on purpose. `AttendanceRow`'s critical condition
+carries `role="note"`, and a component that accepted arbitrary roles would be a `<span>` with
+extra steps. The two unverified-ratio caveats are `<p className="flag flag-warn">` — block
+paragraphs, not chips, and a primitive that has to be told to stop being inline is not the same
+primitive.
+
+**The prediction in step 3 was wrong and is left standing rather than edited.** That note said the
+CSS budget would come back here. It did not: `first-load-css` is 4.2kB against a 4kB limit,
+unchanged by this step, because the duplication `Status` removed was in TSX and TSX is not in the
+CSS budget. Consolidating the three copies of the eyebrow declaration — `.side h2`, `.side nav h3`
+and `.section > h2` were five identical declarations written out three times — was a genuine
+saving and still did not move a figure reported to one decimal place.
+
+So the honest position: this handover has put `first-load-css` 0.1kB further over a limit it was
+already 0.1kB over. That is a number to raise deliberately or to pay down deliberately, and
+`check:bundle` says as much itself. It is not something to keep predicting away.
+
 ### The footer's three links are a second landmark, and that is what kept a test passing
 
 Account, Notifications and Help moved to `.side-foot`. They went into a
@@ -238,4 +279,4 @@ at its cause.
 - [[in-product-help]] — the `?` affordance that `PageHeader` takes over in step 3
 - [[conventions]] — token generation, and why nothing here regenerates them
 
-*Last updated: 2026-08-11 (steps 1-3 of 10)*
+*Last updated: 2026-08-11 (steps 1-4 of 10)*

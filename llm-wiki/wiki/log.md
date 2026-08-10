@@ -5,6 +5,29 @@ says so.*
 
 ---
 
+2026-08-11 — **Status becomes a component; step 4 of the second design handover.**
+`apps/web/src/app/(app)/Status.tsx`, `globals.css`, incidents, attendance, compliance. See
+[[console-handover]].
+
+The CSS was never the ad-hoc part. `.flag` and its four modifiers were already one block; what
+varied was the **glyph**, typed by hand at every call site — warn as `●` on one screen and `◌` on
+the next, ok as `✓` here and nothing there. That symbol is not decoration, it is the half of
+1.4.1 that keeps the meaning off colour alone, and a tone whose symbol changes between screens is
+one a reader re-learns each time. It is bound to the tone now, and `aria-hidden`, because "black
+up-pointing triangle, 1 whānau not told" is worse than the sentence.
+
+Five tones, not the four specified. The handover's own mockup draws a grey "3 awaiting
+acknowledgement" beside the amber and red ones, and that is not `pending` — pending is the
+offline queue's blue in this product, so rendering it there would say three reports are stuck in
+the outbox.
+
+**A correction to the step 3 entry above: the CSS budget did not come back here, as that entry
+predicted it would.** The duplication `Status` removed lives in TSX, which the CSS budget does
+not measure. Consolidating three identical copies of the eyebrow declaration was a real saving
+and still did not move a figure reported to one decimal place. `first-load-css` is 4.2kB against
+4kB — 0.1kB of that is this handover's, and 0.1kB predates it. That is a number to raise or pay
+down deliberately, not to keep predicting away.
+
 2026-08-11 — **One page header replaces four spellings; step 3 of the second design handover.**
 `apps/web/src/app/(app)/PageHeader.tsx` and every `page.tsx` under `(app)` bar one. See
 [[console-handover]].

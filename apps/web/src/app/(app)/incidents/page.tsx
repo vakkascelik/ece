@@ -4,6 +4,7 @@ import { requireCapability } from '@/lib/auth';
 import { dayWindow, shiftLocalDate } from '@/lib/dayWindow';
 import { serverDb } from '@/lib/supabase';
 import { PageHeader } from '../PageHeader';
+import { Status } from '../Status';
 import { IncidentList, type IncidentRow } from './IncidentList';
 import { NewIncident, type BasedOn } from './NewIncident';
 
@@ -167,7 +168,7 @@ export default async function IncidentsPage({
         status={
           summary.clear ? (
             <>
-              <span className="flag flag-ok">{'✓'} Nothing outstanding</span>
+              <Status tone="ok">Nothing outstanding</Status>
               <span className="sub">
                 Every report in this period is final, sent and acknowledged.
               </span>
@@ -175,19 +176,22 @@ export default async function IncidentsPage({
           ) : (
             <>
               {summary.drafts > 0 && (
-                <span className="flag flag-warn">
-                  {'●'} {summary.drafts} draft{summary.drafts === 1 ? '' : 's'}
-                </span>
+                <Status tone="warn">
+                  {summary.drafts} draft{summary.drafts === 1 ? '' : 's'}
+                </Status>
               )}
               {summary.awaitingNotification > 0 && (
-                <span className="flag flag-critical">
-                  {'▲'} {summary.awaitingNotification} whānau not told
-                </span>
+                <Status tone="breach">{summary.awaitingNotification} whānau not told</Status>
               )}
+              {/*
+                Neutral, not pending. These are waiting on a parent to open a notification,
+                not on the outbox to drain — and pending is the offline queue's blue
+                everywhere else in this product.
+              */}
               {summary.awaitingAcknowledgement > 0 && (
-                <span className="flag flag-quiet">
+                <Status tone="neutral">
                   {summary.awaitingAcknowledgement} awaiting acknowledgement
-                </span>
+                </Status>
               )}
             </>
           )

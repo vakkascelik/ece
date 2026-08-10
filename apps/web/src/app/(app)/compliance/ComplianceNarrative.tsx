@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { generateComplianceNarrative, type NarrativeFigures } from './narrative';
+import { Status } from '../Status';
 
 /**
  * A button that turns the figures above it into two or three sentences.
@@ -81,7 +82,7 @@ export function ComplianceNarrative({ figures }: { figures: NarrativeFigures }) 
             finding.
           */}
           <p style={{ margin: '0 0 0.5rem' }}>
-            <span className="flag flag-quiet">Draft — not a compliance finding</span>
+            <Status tone="neutral">Draft — not a compliance finding</Status>
           </p>
           <p style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{text}</p>
           <p className="sub" style={{ margin: '0.75rem 0 0', fontSize: '0.8125rem' }}>

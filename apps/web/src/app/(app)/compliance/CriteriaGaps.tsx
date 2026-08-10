@@ -1,4 +1,5 @@
 import type { CriteriaSet, Criterion } from '@ece/api';
+import { Status } from '../Status';
 
 /**
  * Which criteria have evidence against them, and which do not.
@@ -25,7 +26,7 @@ export function CriteriaGaps({
     return (
       <div className="card" style={{ background: 'var(--warn-soft)', borderColor: 'var(--warn-border)' }}>
         <p style={{ marginTop: 0 }}>
-          <span className="flag flag-warn">{'◌'} No licensing criteria loaded</span>
+          <Status tone="warn" symbol="◌">No licensing criteria loaded</Status>
         </p>
         <p style={{ marginBottom: '0.5rem' }}>
           This installation has no criteria set, so nothing can be checked against one. That
@@ -61,13 +62,9 @@ export function CriteriaGaps({
       <div className="card">
         <div className="inline" role="status">
           {gaps.length === 0 ? (
-            <span className="flag flag-ok">
-              {'✓'} Every criterion has something filed against it
-            </span>
+            <Status tone="ok">Every criterion has something filed against it</Status>
           ) : (
-            <span className="flag flag-warn">
-              {'●'} {gaps.length} of {criteria.length} criteria have no evidence
-            </span>
+            <Status tone="warn">{gaps.length} of {criteria.length} criteria have no evidence</Status>
           )}
           <span className="sub">
             {set.name}

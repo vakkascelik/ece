@@ -9,6 +9,7 @@ import {
 } from '@ece/core';
 import { recordStaffDocument, retireStaffRecord, sight, type Result } from './actions';
 import { LinkPerson, type PersonOption } from './LinkPerson';
+import { Status } from '../Status';
 
 /**
  * Certificates, vetting and training, worst first.
@@ -112,26 +113,20 @@ function Row({ assessed, people }: { assessed: AssessedRecord; people: PersonOpt
       <td>
         <span className="inline">
           {expiry.status === 'expired' && (
-            <span className="flag flag-critical">
-              {'▲'} Expired {Math.abs(expiry.daysRemaining ?? 0)}d ago
-            </span>
+            <Status tone="breach">Expired {Math.abs(expiry.daysRemaining ?? 0)}d ago</Status>
           )}
           {expiry.status === 'due-soon' && (
-            <span className="flag flag-warn">
-              {'●'} {expiry.daysRemaining}d left
-            </span>
+            <Status tone="warn">{expiry.daysRemaining}d left</Status>
           )}
           {expiry.status === 'current' && (
-            <span className="flag flag-ok">
-              {'✓'} {expiry.daysRemaining}d left
-            </span>
+            <Status tone="ok">{expiry.daysRemaining}d left</Status>
           )}
-          {expiry.status === 'no-expiry' && <span className="flag flag-quiet">no expiry</span>}
+          {expiry.status === 'no-expiry' && <Status tone="neutral">no expiry</Status>}
           {/*
             A separate flag, not a worse expiry status. "We have a certificate number"
             and "somebody looked at the document" are different claims.
           */}
-          {expiry.unsighted && <span className="flag flag-warn">{'●'} not sighted</span>}
+          {expiry.unsighted && <Status tone="warn">not sighted</Status>}
         </span>
       </td>
       <td>

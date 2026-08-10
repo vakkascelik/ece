@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useActionState } from 'react';
 import { INCIDENT_KIND_LABELS, compareIncidentUrgency, type Incident } from '@ece/core';
 import { finalise, markNotified, type Result } from './actions';
+import { Status } from '../Status';
 
 export interface IncidentRow {
   incident: Incident;
@@ -112,17 +113,15 @@ function Row({ row }: { row: IncidentRow }) {
           the failure this column exists to make visible — the family cannot see a
           draft at all, and no policy will tell them so.
         */}
-        {i.status === 'draft' && (
-          <span className="flag flag-warn">{'●'} Draft — whānau cannot see this</span>
-        )}
+        {i.status === 'draft' && <Status tone="warn">Draft — whānau cannot see this</Status>}
         {i.status === 'final' && !row.notifiedLabel && (
-          <span className="flag flag-critical">{'▲'} Whānau not told yet</span>
+          <Status tone="breach">Whānau not told yet</Status>
         )}
         {row.notifiedLabel && !row.acknowledgedLabel && (
-          <span className="flag flag-quiet">Told {row.notifiedLabel} — no reply yet</span>
+          <Status tone="neutral">Told {row.notifiedLabel} — no reply yet</Status>
         )}
         {row.acknowledgedLabel && (
-          <span className="flag flag-ok">{'✓'} Acknowledged {row.acknowledgedLabel}</span>
+          <Status tone="ok">Acknowledged {row.acknowledgedLabel}</Status>
         )}
       </td>
       <td>

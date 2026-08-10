@@ -1,4 +1,5 @@
 import type { BreachPeriod } from '@ece/core';
+import { Status } from '../Status';
 
 /**
  * Seven days of ratio, replayed from the events.
@@ -52,11 +53,9 @@ export function RatioHistory({
                   {day.events === 0 ? (
                     <span className="empty">&mdash;</span>
                   ) : day.breaches.length === 0 ? (
-                    <span className="flag flag-ok">{'✓'} none recorded</span>
+                    <Status tone="ok">none recorded</Status>
                   ) : (
-                    <span className="flag flag-critical">
-                      {'▲'} {day.breaches.length}
-                    </span>
+                    <Status tone="breach">{day.breaches.length}</Status>
                   )}
                 </td>
                 <td>
@@ -65,7 +64,7 @@ export function RatioHistory({
                   ) : day.minutesInBreach === null ? (
                     // Not zero, and not a guess. A breach still open at the last event of
                     // the day has no end time, and inventing one would understate it.
-                    <span className="flag flag-warn">still open at the last event</span>
+                    <Status tone="warn">still open at the last event</Status>
                   ) : (
                     `${day.minutesInBreach} min`
                   )}

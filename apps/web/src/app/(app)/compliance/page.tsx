@@ -17,6 +17,7 @@ import { CriteriaGaps } from './CriteriaGaps';
 import { EvidenceList } from './EvidenceList';
 import { RatioHistory } from './RatioHistory';
 import { StaffRecords } from './StaffRecords';
+import { Status } from '../Status';
 
 /**
  * The compliance dashboard.
@@ -122,29 +123,19 @@ export default async function CompliancePage() {
       >
         <div role="status" className="inline">
           {summary.expired > 0 && (
-            <span className="flag flag-critical">
-              {'▲'} {summary.expired} expired
-            </span>
+            <Status tone="breach">{summary.expired} expired</Status>
           )}
           {summary.unsighted > 0 && (
-            <span className="flag flag-warn">
-              {'●'} {summary.unsighted} never sighted
-            </span>
+            <Status tone="warn">{summary.unsighted} never sighted</Status>
           )}
           {summary.dueSoon > 0 && (
-            <span className="flag flag-warn">
-              {'●'} {summary.dueSoon} due soon
-            </span>
+            <Status tone="warn">{summary.dueSoon} due soon</Status>
           )}
           {breachDays > 0 && (
-            <span className="flag flag-warn">
-              {'●'} ratio breaches on {breachDays} of the last 7 days
-            </span>
+            <Status tone="warn">ratio breaches on {breachDays} of the last 7 days</Status>
           )}
           {summary.clean && breachDays === 0 && (
-            <span className="flag flag-ok">
-              {'✓'} Nothing expired, nothing unsighted, no ratio breaches recorded this week
-            </span>
+            <Status tone="ok">Nothing expired, nothing unsighted, no ratio breaches recorded this week</Status>
           )}
         </div>
         {summary.total === 0 && (
