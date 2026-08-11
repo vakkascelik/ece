@@ -5,6 +5,23 @@ says so.*
 
 ---
 
+2026-08-11 — **A trade mark check was run on "Doorway", and it is good news that is not a
+clearance.** [[unverified-claims]] §19.
+
+The owner ran IPONZ's free Trade Mark Check on the word `doorway` with **no class selected**. 25
+results, closest-matches-first, and the finding is a negative worth having: **no identical
+`DOORWAY` word mark appeared.** The top of a closest-first list was `STAPLES RODWAY`, which is
+the matcher reporting it found nothing nearer — an exact mark would have sorted first. The near
+neighbours are phonetic: `DOO-AWAY / DOOAWAY`, `Deerway`, `QUAI D'ORSAY`, four `NORWAY` marks.
+
+Recorded as a partial result rather than banked as a clearance, because three limits are on the
+tool's own screen rather than invented here: no class was selected and co-existence is decided on
+classes; only the first 8 of 25 results were seen; and this is the free pre-application check,
+which offers a paid IPONZ search as its own next step. The classes this product actually needs
+asked about are 9, 42, 41 and possibly 35, and the same free tool will answer that in a minute.
+
+The companies-register check is still outstanding.
+
 2026-08-11 — **The product is called Doorway everywhere now, and the mark has one source.**
 `packages/core/src/brand.ts`, `apps/web` (`icon.tsx`, `apple-icon.tsx`, `DoorwayMark.tsx`,
 `layout.tsx` ×2, `globals.css`), `apps/site/src/app/layout.tsx`, `apps/mobile/app.json`. See

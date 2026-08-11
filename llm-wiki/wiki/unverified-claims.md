@@ -350,12 +350,37 @@ education services, and it is the mark, not the domain, that can force a rename.
 remaining checks are unchanged and are now behind more exposure than when they were first
 recorded.
 
+**A TRADE MARK CHECK WAS RUN, 2026-08-11 — and it is good news that is not a clearance.**
+
+The owner ran IPONZ's free *Trade Mark Check* on the word **doorway**, with **no goods or
+services class selected**. It returned 25 marks, ordered closest-matches-first, and the result
+that matters is a negative: **no identical `DOORWAY` word mark appeared.** The top of a
+closest-first list was `STAPLES RODWAY`, which is the matcher saying it found nothing nearer —
+an exact mark would have sorted first. The near neighbours are phonetic and visual:
+`DOO-AWAY / DOO AWAY / DOOAWAY` (Jassal Limited), `Deerway` (Quanzhou Newbarlun Sports Goods),
+`QUAI D'ORSAY`, and four unrelated `NORWAY` marks.
+
+That materially lowers the risk. It does not close the item, for three reasons that are on the
+tool's own page rather than invented here:
+
+1. **No class was selected**, and co-existence is decided on classes. IPONZ's own next step on
+   that screen is "Select a goods or service class", and its wording is that a mark "might be
+   able to co-exist if it's for different goods or services". The question this product actually
+   needs asked — *can it co-exist in software and education services* — has not been asked. The
+   classes worth checking are **9** (downloadable software), **42** (software as a service),
+   **41** (education services) and possibly **35** (business administration).
+2. **Only the first 8 of 25 results were seen.** The ordering makes an exact match below them
+   very unlikely; "very unlikely" is not the same claim as "checked".
+3. **This is the free pre-application check**, which offers a paid IPONZ search as its own next
+   step. It is a screen, not an opinion.
+
 | | |
 |---|---|
 | **The claim** | "Doorway" is available to use as a product name in New Zealand |
-| **What is actually verified** | The **domain only**: `doorway.co.nz` was available on 2026-08-11, reported by the owner. Nothing about trade marks or company names |
+| **What is actually verified** | The domain (`doorway.co.nz`, available 2026-08-11), and an **unfiltered** IPONZ Trade Mark Check returning no identical word mark in the closest 8 of 25 results |
+| **Still unverified** | Co-existence in the classes this product sits in, the 17 results not viewed, and the companies register |
 | **Exposure** | Public since 2026-08-07 on `apps/site`; since 2026-08-11 also the console's title, favicon, apple-icon and rail, and the mobile app's name |
-| **To close it** | An IPONZ trade mark search in the relevant classes, and a companies-register check. The domain is done |
+| **To close it** | Re-run the same check with classes 9, 42 and 41 selected — it is the same free tool and takes a minute — and a companies-register search at the Companies Office. Consider the paid IPONZ search before the name goes on anything print or a store listing |
 | **If it has to change** | One edit. `PRODUCT_NAME` in `packages/core/src/brand.ts` is the only place the word is written for the console, the icons and the site masthead — that consolidation was done at the same time as the adoption, and it is the reason a rename is cheap rather than a hunt. Two body-copy sentences on `apps/site` still spell it out, deliberately: they are prose about the product, not a label |
 
 ### 20. The mobile workspace has no unit tests, and the checklist does not say so
