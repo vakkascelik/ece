@@ -640,6 +640,36 @@ wants them to.
 `overflow` explicitly — the rail is a bar there and the drawer is `fixed`, so none of this
 applies and inheriting a stickiness nobody asked for is how a phone layout drifts.
 
+### The captures, and how to make them again
+
+`handover/screens/` holds the six the handover asks for, plus the child record and the incident
+form. All at `deviceScaleFactor: 2`, because a screenshot placed beside a design document at 1×
+is the blurry one.
+
+**Five of them cannot come from the demo seed.** `scripts/seed-demo.ts` creates children,
+enrolments, health, whānau and consents and **no attendance, no incidents and no staff** — so
+there is no roll to photograph, nothing to put in an outbox and no draft to leave outstanding.
+They come from the e2e audit tenant instead, which has a signed-in child, an anaphylaxis flag and
+a draft incident, and which drops itself afterwards.
+
+The harness lives in `e2e/.artifacts/` and is **gitignored**, so it is not in the repo and this
+paragraph is the reproduction instructions:
+
+- `shots.ts` — a standalone tsx script for the demo-seed captures (shell, staff). Signs in with
+  an admin-generated magic link rather than a password, so nothing about a real account changes.
+- `shot.spec.ts` + `capture.config.ts` — the audit-tenant captures. Its own Playwright config,
+  because `playwright.config.ts` deliberately excludes `.artifacts/` after a harness there was
+  collected as a spec and left a draft incident in the shared tenant.
+
+**Two traps, both paid for once.** Under `next start`, `/auth/confirm` builds its redirect from
+`new URL(request.url).origin`, which Next reports as `localhost` regardless of the host the
+request arrived on — so a run pointed at `127.0.0.1` sets cookies on one host, is redirected to
+another, and photographs the login page. And the capture output path was `process.cwd()`, which
+is whatever directory the harness was invoked from: running it from `apps/web` (which its own
+config requires) wrote five captures into `apps/web/handover/screens/`, reported success, and
+moved nothing. It is anchored to this file's own location now. A path that depends on where you
+were standing is not a path.
+
 ### The footer's three links are a second landmark, and that is what kept a test passing
 
 Account, Notifications and Help moved to `.side-foot`. They went into a
