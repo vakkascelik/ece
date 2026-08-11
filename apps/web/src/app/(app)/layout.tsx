@@ -1,8 +1,9 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { can } from '@ece/core';
+import { can, PRODUCT_NAME } from '@ece/core';
 import { requireCtx } from '@/lib/auth';
 import { signOut } from '../login/actions';
+import { DoorwayMark } from '../DoorwayMark';
 import { NavGroup } from './NavGroup';
 import { NavGroupMemory } from './NavGroupMemory';
 import { NavIcon } from './NavIcon';
@@ -42,6 +43,20 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       <SideRail
         head={
           <>
+            {/*
+              The product, then the centre. In that order and with the product much quieter:
+              somebody signed in already knows which product they are in, and the question the
+              rail has to answer first is *which centre am I looking at* — an owner of two
+              sites can send a notice to the wrong one. So the mark is 20px beside a 12px
+              wordmark, and the centre's name keeps the weight it had.
+
+              Not a link. It would only ever navigate to the screen most people are already on,
+              and a logo that goes somewhere is one more thing to hit by accident on a tablet.
+            */}
+            <span className="brand">
+              <DoorwayMark className="brand-mark" />
+              <span className="brand-name">{PRODUCT_NAME}</span>
+            </span>
             {/* Hidden by CSS on a phone: the centre's name does not need a label
                 telling the reader it is a centre. */}
             <h2>Centre</h2>

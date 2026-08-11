@@ -338,12 +338,25 @@ domain, in front of anybody who visits, and it went up before the IPONZ search w
 The risk is small and it is not nil, and it is now asymmetric in a way it was not before: if the
 name has to change, it changes on a customer's live site rather than in a repo.
 
+**UPDATED 2026-08-11 — one of the three checks is now done, and the name was adopted on that
+basis.** The owner confirmed `doorway.co.nz` is available and instructed the product to take the
+name. It now appears in the console's `<title>`, its favicon and home-screen icon, the rail
+above every screen, and the mobile app's display name — where before it was only on the public
+website.
+
+**A domain being free is not a trade mark search.** Availability at the registrar says nothing
+about whether somebody holds a registered mark for "Doorway" in a class covering software or
+education services, and it is the mark, not the domain, that can force a rename. The two
+remaining checks are unchanged and are now behind more exposure than when they were first
+recorded.
+
 | | |
 |---|---|
 | **The claim** | "Doorway" is available to use as a product name in New Zealand |
-| **What is actually verified** | Nothing. The handoff states the check has not been done |
-| **Exposure** | Public, since 2026-08-07 — masthead of every route on `apps/site`, plus two body-copy mentions |
-| **To close it** | IPONZ trade mark search in the relevant classes, a companies-register check, and the domain. This was supposed to happen before any marketing asset; it has not, so it is now overdue rather than pending |
+| **What is actually verified** | The **domain only**: `doorway.co.nz` was available on 2026-08-11, reported by the owner. Nothing about trade marks or company names |
+| **Exposure** | Public since 2026-08-07 on `apps/site`; since 2026-08-11 also the console's title, favicon, apple-icon and rail, and the mobile app's name |
+| **To close it** | An IPONZ trade mark search in the relevant classes, and a companies-register check. The domain is done |
+| **If it has to change** | One edit. `PRODUCT_NAME` in `packages/core/src/brand.ts` is the only place the word is written for the console, the icons and the site masthead — that consolidation was done at the same time as the adoption, and it is the reason a rename is cheap rather than a hunt. Two body-copy sentences on `apps/site` still spell it out, deliberately: they are prose about the product, not a label |
 
 ### 20. The mobile workspace has no unit tests, and the checklist does not say so
 

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Literata } from 'next/font/google';
 import type { ReactNode } from 'react';
+import { MARK, PRODUCT_NAME } from '@ece/core';
 import { CENTRES, CENTRE_FACTS } from '@/lib/centres';
 import { PHOTOS } from '@/lib/photos';
 import { appUrl, siteOrigin } from '@/lib/site';
@@ -219,16 +220,27 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             <a className="signin" href={appUrl()}>
               <svg
                 className="doorway-mark"
-                viewBox="0 0 128 128"
+                viewBox={`0 0 ${MARK.size} ${MARK.size}`}
                 xmlns="http://www.w3.org/2000/svg"
                 aria-hidden="true"
                 focusable="false"
               >
-                <rect width="128" height="128" rx="28" fill="#1b1a18" />
-                <circle cx="64" cy="45" r="19" fill="#fff" />
-                <rect x="28" y="74" width="72" height="23" rx="11.5" fill="#fff" />
+                {/* Read from `@ece/core`, not typed here. This mark is also drawn in the
+                    console's rail and generated into its favicon, and a logo maintained in
+                    three files is a logo that ends up in three slightly different shapes —
+                    the failure `tokens.ts` exists to prevent, applied to identity. */}
+                <rect width={MARK.size} height={MARK.size} rx={MARK.box.radius} fill={MARK.box.fill} />
+                <circle cx={MARK.head.cx} cy={MARK.head.cy} r={MARK.head.r} fill={MARK.head.fill} />
+                <rect
+                  x={MARK.shoulders.x}
+                  y={MARK.shoulders.y}
+                  width={MARK.shoulders.width}
+                  height={MARK.shoulders.height}
+                  rx={MARK.shoulders.radius}
+                  fill={MARK.shoulders.fill}
+                />
               </svg>
-              Sign in to Doorway
+              Sign in to {PRODUCT_NAME}
             </a>
 
             <nav className="nav" aria-label="Main">
@@ -291,7 +303,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                 */}
                 <p className="foot-head foot-head-spaced">For families and kaiako</p>
                 <p>
-                  <a href={appUrl()}>Sign in to Doorway</a>
+                  <a href={appUrl()}>Sign in to {PRODUCT_NAME}</a>
                 </p>
               </div>
             </div>

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { PRODUCT_NAME } from '@ece/core';
 import type { ReactNode } from 'react';
 import { NextIntlClientProvider } from 'next-intl';
 import { getLocale, getMessages } from 'next-intl/server';
@@ -34,8 +35,25 @@ import './globals.css';
  */
 export const dynamic = 'force-dynamic';
 
+/*
+  The product is called Doorway. It said "ECE Platform" until 2026-08-11 — a working label from
+  before the name existed, which meant the tab said one thing, the mobile app said "ECE", and
+  the customer's public website said Doorway. Three names for one product, and the only one a
+  person outside this repo had ever seen was the third.
+
+  `title.template` so a screen names itself first and the product second: a manager with six
+  tabs open is looking for the screen, not for which product it belongs to. The bare `default`
+  is for routes that set no title of their own.
+
+  The name is NOT trade-mark cleared — `doorway.co.nz` was confirmed available on 2026-08-11
+  and that is one check of three. See unverified-claims §19 before it goes on anything
+  expensive to change.
+*/
 export const metadata: Metadata = {
-  title: 'ECE Platform',
+  title: {
+    default: PRODUCT_NAME,
+    template: `%s · ${PRODUCT_NAME}`,
+  },
   description: 'Administration for New Zealand early learning services.',
 };
 

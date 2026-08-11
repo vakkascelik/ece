@@ -225,6 +225,10 @@ export const TERMS = {
 // Children, whānau, enrolment, health and consent
 // ---------------------------------------------------------------------------
 
+/* The product's own name and mark, so the website, the rail and the favicon cannot
+   draw three slightly different logos. See brand.ts. */
+export * from './brand';
+
 export * from './children';
 
 // Regulated ratios. The bands are unverified data with citations — see the file.

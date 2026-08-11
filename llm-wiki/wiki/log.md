@@ -5,6 +5,38 @@ says so.*
 
 ---
 
+2026-08-11 — **The product is called Doorway everywhere now, and the mark has one source.**
+`packages/core/src/brand.ts`, `apps/web` (`icon.tsx`, `apple-icon.tsx`, `DoorwayMark.tsx`,
+`layout.tsx` ×2, `globals.css`), `apps/site/src/app/layout.tsx`, `apps/mobile/app.json`. See
+[[unverified-claims]] §19.
+
+Three names for one product until today: the console's tab said "ECE Platform", the mobile app
+said "ECE", and the only one anybody outside this repo had seen — on a customer's live website —
+said Doorway. The console had **no favicon at all**, which is what a browser tab showing a grey
+globe was reporting.
+
+`PRODUCT_NAME` and `MARK` are in `@ece/core` now, and the console's rail, the console's two
+generated icons and the public site's masthead all read them. Three surfaces drawing the same
+logo from three hand-typed copies is the failure `tokens.ts` exists to prevent, applied to
+identity — and a drifted logo is quieter and more embarrassing than a drifted colour.
+
+The icons are **generated** by `next/og` from that geometry rather than committed as PNGs.
+`apps/site` commits its icon because that is a customer's drawn asset whose bytes are the thing
+to keep; ours is three primitives, and a committed raster would be the fourth copy — the one
+nobody notices going stale, because nobody diffs a PNG in review. `next/og` ships inside `next`,
+so no dependency, which the design handover forbids anyway.
+
+**The name is adopted, not cleared.** The owner confirmed `doorway.co.nz` is available and said
+to proceed; that is one check of three. A free domain says nothing about a registered mark in a
+class covering software or education services, and it is the mark that can force a rename. §19
+is updated rather than closed, and now records that a rename is one edit — `PRODUCT_NAME` — which
+is the reason the consolidation was worth doing on the same day the name went into four more
+places.
+
+Also corrected a comment on `.side` in `globals.css` that still said collapsing the groups had
+been rejected. They collapse; the comment was left over from the reasoning corrected two entries
+below.
+
 2026-08-11 — **The nav groups collapse after all, and the entry below was wrong about why they
 could not.** `apps/web/src/app/(app)/NavGroup.tsx`, `NavGroupMemory.tsx`, `navGroups.ts`,
 `navGroups.server.ts`, `layout.tsx`, `globals.css`, `e2e/a11y.spec.ts`. See
