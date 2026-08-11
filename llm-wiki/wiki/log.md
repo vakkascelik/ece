@@ -5,6 +5,35 @@ says so.*
 
 ---
 
+2026-08-11 — **Icons in the rail, drawn rather than installed; and the rail scrolls itself
+rather than collapsing.** `apps/web/src/app/(app)/NavIcon.tsx`, `NavLink.tsx`, `layout.tsx`,
+`globals.css`. See [[console-handover]].
+
+Twenty-four hand-authored inline SVGs. No package: this is a few kilobytes of path data against
+a library that ships several hundred and updates on somebody else's schedule, and they are
+server-rendered so they cost nothing on either budget — `first-load-css` 3.5kB → 3.6kB.
+
+Not text glyphs, unlike the flags, and the distinction is worth keeping straight. `▲` and `✓`
+are text over there because they must survive a copy-paste into an email. A nav glyph from a
+font renders as colour emoji on Windows and something else on macOS; it needs to look the same
+on every tablet in the centre, which is a different requirement with a different answer.
+
+`icon` is a prop on `NavLink`, not part of `children`, so an icon cannot be passed instead of a
+label — an icon-only link has no accessible name, and the type forbids the one arrangement that
+breaks. 116/116 unchanged is the evidence.
+
+**The dropdown question was measured, then declined.** At 1440×900 with an owner the rail was
+1536px tall against a 900px viewport, Sign out began 1299px down, and the page scrolled 636px to
+reach it — on `/attendance` that scrolled the roll away. Real problem; grouping had made it
+worse by about 80px net. The fix is `position: sticky` plus the rail's own `overflow-y`: rail
+900px, page scroll 0.
+
+Collapsing was rejected on this product's terms, not on taste. Attendance is opened dozens of
+times a day on a tablet at the door and a collapsed group puts a tap in front of it; the state
+has to be remembered per person or it re-collapses on every navigation, which is worse than not
+having it; and remembering it makes the rail a client component with storage on every screen,
+against a JS budget already 6.9kB over. Scrolling costs nothing and hides nothing.
+
 2026-08-11 — **The CSS budget paid down rather than raised, and two defects the handover never
 mentioned.** `apps/web/src/app/globals.css`, `attendance/attendance.css`,
 `children/[id]/record.css`, `(app)/page.tsx`, `(app)/children/page.tsx`. See

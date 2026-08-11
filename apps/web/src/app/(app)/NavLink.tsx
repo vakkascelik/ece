@@ -16,13 +16,30 @@ import { usePathname } from 'next/navigation';
  * reader is on `/children/[id]`… and it must, since that is still the Children section.
  * `/` is the only one that needs an exact test, or it would be current everywhere.
  */
-export function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
+export function NavLink({
+  href,
+  icon,
+  children,
+}: {
+  href: string;
+  /**
+   * The row's glyph, from `NavIcon`. Optional in the type and present on every caller.
+   *
+   * A separate prop rather than something a caller folds into `children`, so the label
+   * cannot be replaced by the icon: `aria-hidden` on the glyph means an icon-only link would
+   * have no accessible name at all, and this is a rail a screen reader user navigates by
+   * reading. The one arrangement the type forbids is the one that breaks.
+   */
+  icon?: React.ReactNode;
+  children: React.ReactNode;
+}) {
   const pathname = usePathname();
   const current = href === '/' ? pathname === '/' : pathname.startsWith(href);
 
   return (
     <Link href={href} aria-current={current ? 'page' : undefined}>
-      {children}
+      {icon}
+      <span>{children}</span>
     </Link>
   );
 }

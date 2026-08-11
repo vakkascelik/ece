@@ -42,6 +42,30 @@ a { color: var(--accent); }
  */
 .shell { display: flex; min-height: 100vh; max-width: 1280px; margin: 0 auto; }
 
+/*
+ * The rail scrolls itself, rather than making the page scroll to reach Sign out.
+ *
+ * Measured on 2026-08-11 with an owner signed in at 1440×900: the rail was **1536px tall**,
+ * the nav alone 1134px, and `.side-foot` — Switch centre and Sign out — began 1299px down a
+ * 900px viewport. Reaching Sign out meant scrolling the *page*, which on `/attendance` also
+ * scrolled the roll away. Twenty-four links and six headings do not fit on a laptop and were
+ * never going to.
+ *
+ * `sticky` and its own `overflow-y`, so the rail is a column that scrolls independently and
+ * the footer is always one short scroll away inside it. `100dvh` rather than `100vh` because
+ * a mobile browser's toolbars make `vh` taller than the visible area, which would put the
+ * bottom of the rail under the chrome — and this rule is scoped above the phone breakpoint
+ * anyway, where the rail is a bar and none of this applies.
+ *
+ * REJECTED: COLLAPSING THE GROUPS
+ *
+ * The obvious fix is a disclosure per group, which is what comparable consoles do. It is the
+ * wrong trade here. Attendance is opened dozens of times a day on a tablet at the door, and a
+ * collapsed group puts a tap in front of it every time; the state then has to be remembered
+ * per person or it re-collapses on every navigation, which is worse than not having it; and
+ * remembering it makes this rail a client component with storage on every screen in the
+ * product. Scrolling costs nothing and hides nothing.
+ */
 .side {
   width: 14rem;
   flex: 0 0 14rem;
@@ -50,6 +74,10 @@ a { color: var(--accent); }
   padding: 20px 16px;
   display: flex;
   flex-direction: column;
+  position: sticky;
+  top: 0;
+  max-height: 100dvh;
+  overflow-y: auto;
 }
 
 /*
@@ -94,8 +122,30 @@ a { color: var(--accent); }
   text-decoration: none;
   color: var(--ink);
   font-size: var(--text-base);
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
+/*
+ * The icon.
+ *
+ * 18px on a 15px label — a shade larger than the cap height, which is what stops a stroked
+ * glyph reading as lighter than the word beside it. `flex: none` so a long label wraps
+ * against the rail's edge rather than squeezing the icon into an ellipse.
+ *
+ * It inherits `currentColor`, so the current row's accent applies to the glyph and the word
+ * together and there is no second colour to keep in step. That is the same reason the current
+ * item is styled off `aria-current` rather than a class.
+ */
+.nav-icon { width: 18px; height: 18px; flex: none; }
+/*
+ * Muted until the row is current or hovered. The icon is a landmark for finding a row again,
+ * not a thing to read, and twenty-four glyphs at full ink weight compete with the words they
+ * are meant to be helping somebody scan.
+ */
+.side nav a .nav-icon { color: var(--muted); }
+.side nav a:hover .nav-icon,
+.side nav a[aria-current='page'] .nav-icon { color: inherit; }
 .side nav a:hover { background: var(--surface-sunken); }
 /*
  * The current page, carried by aria-current rather than a class — so the styling and
@@ -173,6 +223,13 @@ a { color: var(--accent); }
     border-right: 0;
     border-bottom: 1px solid var(--line);
     padding: 10px 16px;
+    /* The desktop rail's own scroll container means nothing here — this is one row, and the
+       drawer is `position: fixed` and escapes it either way. Reset explicitly so the phone
+       bar behaves exactly as it did before the rail became scrollable, rather than
+       inheriting a stickiness nobody asked for. */
+    position: static;
+    max-height: none;
+    overflow-y: visible;
   }
 
   /* Name and role on one line with the menu button, so the closed bar is one row. */

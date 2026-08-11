@@ -534,6 +534,61 @@ the plan as text. The roll was the last place the old pattern survived, which is
 quietly becomes a preference. The flag still names the condition and its severity, which is what
 decides whether somebody opens the record; the record is one tap away and prints the whole thing.
 
+### Icons in the rail, drawn rather than installed — and the rail scrolls itself
+
+Asked for after the ten steps, against a comparable admin console that has them.
+
+**Twenty-four hand-authored inline SVGs, no package.** The handover forbids an icon
+dependency and is right to here: this is a few kilobytes of path data against a library that
+ships several hundred and updates on somebody else's schedule. Server-rendered into the HTML,
+so nothing lands on the JavaScript budget and nothing on the CSS one — `first-load-css` went
+3.5kB → 3.6kB, still comfortably inside 4kB.
+
+Not text glyphs either, unlike the flags. `▲` and `✓` are text over there on purpose, because
+they survive a copy-paste into an email; a *navigation* glyph drawn from a font renders as
+colour emoji on Windows and as something else on macOS, at a size nobody chose. State needs to
+survive being copied. A nav icon needs to look the same on every tablet in the centre.
+
+Every one is `aria-hidden` and `focusable="false"`, and `icon` is a separate prop on `NavLink`
+rather than something a caller folds into `children` — so an icon cannot be passed *instead of*
+a label. An icon-only link would have no accessible name at all, and the type forbids the one
+arrangement that breaks. The 116-test suite passing unchanged is the evidence: every
+`getByRole('link', { name: 'Attendance', exact: true })` still matches.
+
+Worth being honest about what icons buy. Attendance, Messages and Settings have shapes
+everybody already knows; Compliance, Site safety and Enquiries do not. For those the glyph is
+a position marker — useful for finding the same row twice, not for working out what it means
+the first time — which is why the labels stayed at full size rather than shrinking now that
+there is a picture beside them.
+
+### The rail scrolls itself, and the groups do not collapse
+
+The question that came with the icon request was whether the groups should become dropdowns.
+Measured first, at 1440×900 with an owner signed in:
+
+| | before | after |
+|---|---|---|
+| rail height | **1536px** | 900px |
+| page scroll | **636px** | 0 |
+| `.side-foot` top | 1299px | inside the rail's own scroll |
+
+So the problem behind the question was real: twenty-four links and six headings do not fit on a
+laptop, Sign out was 400px below the fold, and reaching it scrolled the *page* — which on
+`/attendance` scrolled the roll away too. Worth owning that grouping made this worse: six
+headings added about 210px and moving three links to the footer gave back about 130.
+
+The fix is `position: sticky` with the rail's own `overflow-y`, not a disclosure per group.
+**Collapsing was rejected on this product's own terms:** Attendance is opened dozens of times a
+day on a tablet at the door, and a collapsed group puts a tap in front of it every time; the
+open/closed state then has to be remembered per person or it re-collapses on every navigation,
+which is worse than not having it; and remembering it makes the rail a client component with
+storage on every screen in the product, against a first-load JS budget already 6.9kB over.
+Scrolling costs nothing and hides nothing.
+
+`100dvh` rather than `100vh`, and the phone breakpoint resets `position`, `max-height` and
+`overflow` explicitly — the rail is a bar there and the drawer is `fixed`, so none of this
+applies and inheriting a stickiness nobody asked for is how a phone layout drifts.
+
 ### The footer's three links are a second landmark, and that is what kept a test passing
 
 Account, Notifications and Help moved to `.side-foot`. They went into a

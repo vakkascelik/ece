@@ -4,6 +4,7 @@ import { can } from '@ece/core';
 import { requireCtx } from '@/lib/auth';
 import { signOut } from '../login/actions';
 import { NavGroup } from './NavGroup';
+import { NavIcon } from './NavIcon';
 import { NavLink } from './NavLink';
 import { SideRail } from './SideRail';
 import { SignOutControl } from './SignOutControl';
@@ -51,16 +52,16 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
         */}
         <nav>
           <NavGroup label="Today">
-            <NavLink href="/">Overview</NavLink>
+            <NavLink href="/" icon={<NavIcon name="overview" />}>Overview</NavLink>
             {can(ctx.role, 'recordDailyPractice') && (
-              <NavLink href="/attendance">Attendance</NavLink>
+              <NavLink href="/attendance" icon={<NavIcon name="attendance" />}>Attendance</NavLink>
             )}
-            {can(ctx.role, 'recordDailyPractice') && <NavLink href="/sleep">Sleep checks</NavLink>}
+            {can(ctx.role, 'recordDailyPractice') && <NavLink href="/sleep" icon={<NavIcon name="sleep" />}>Sleep checks</NavLink>}
             {/* Its own link, not a section of Site safety: used dozens of times a day at
                 the door, and burying the frequent thing under the weekly one is how it
                 stays a spiral notebook. Grouped under Today rather than beside Site safety
                 for the same reason — this is a thing that happens at the door this morning. */}
-            {can(ctx.role, 'recordDailyPractice') && <NavLink href="/visitors">Visitors</NavLink>}
+            {can(ctx.role, 'recordDailyPractice') && <NavLink href="/visitors" icon={<NavIcon name="visitors" />}>Visitors</NavLink>}
           </NavGroup>
 
           <NavGroup label="Tamariki">
@@ -69,11 +70,11 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
               the policy on `children` keys on guardianship, so the same link is a
               roll for staff and a single record for a parent.
             */}
-            <NavLink href="/children">
+            <NavLink href="/children" icon={<NavIcon name="children" />}>
               {ctx.role === 'parent' ? 'Your tamariki' : 'Children'}
             </NavLink>
-            <NavLink href="/posts">{ctx.role === 'parent' ? 'Pānui' : 'Posts'}</NavLink>
-            <NavLink href="/messages">Messages</NavLink>
+            <NavLink href="/posts" icon={<NavIcon name="posts" />}>{ctx.role === 'parent' ? 'Pānui' : 'Posts'}</NavLink>
+            <NavLink href="/messages" icon={<NavIcon name="messages" />}>Messages</NavLink>
           </NavGroup>
 
           <NavGroup label="Records">
@@ -89,14 +90,14 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
                 files, and the three things filed on the same shift are now beside each other
                 instead. If that proves wrong in use, the fix is to move Incidents into Today,
                 not to dissolve the groups. */}
-            {can(ctx.role, 'recordDailyPractice') && <NavLink href="/incidents">Incidents</NavLink>}
+            {can(ctx.role, 'recordDailyPractice') && <NavLink href="/incidents" icon={<NavIcon name="incidents" />}>Incidents</NavLink>}
             {/* The building rather than the children. Educators included: the person who
                 spots a loose paving stone is the person walking on it. */}
             {can(ctx.role, 'recordDailyPractice') && (
-              <NavLink href="/facilities">Site safety</NavLink>
+              <NavLink href="/facilities" icon={<NavIcon name="facilities" />}>Site safety</NavLink>
             )}
             {can(ctx.role, 'recordDailyPractice') && (
-              <NavLink href="/excursions">Excursions</NavLink>
+              <NavLink href="/excursions" icon={<NavIcon name="excursions" />}>Excursions</NavLink>
             )}
           </NavGroup>
 
@@ -104,40 +105,40 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
             {/* Beside People because both are about who works here, and distinct from it:
                 People is who has a LOGIN, Staff is who works here — a reliever is on one
                 list and not the other, which is the whole point of 0038. */}
-            {can(ctx.role, 'recordDailyPractice') && <NavLink href="/staff">Staff</NavLink>}
+            {can(ctx.role, 'recordDailyPractice') && <NavLink href="/staff" icon={<NavIcon name="staff" />}>Staff</NavLink>}
             {/* Directly under Staff, because it is the same list read forwards. Every other
                 screen here answers what happened or what is happening; this one answers the
                 only version of the question somebody can still act on. */}
-            {can(ctx.role, 'recordDailyPractice') && <NavLink href="/roster">Roster</NavLink>}
-            {can(ctx.role, 'manageMembers') && <NavLink href="/members">People</NavLink>}
+            {can(ctx.role, 'recordDailyPractice') && <NavLink href="/roster" icon={<NavIcon name="roster" />}>Roster</NavLink>}
+            {can(ctx.role, 'manageMembers') && <NavLink href="/members" icon={<NavIcon name="people" />}>People</NavLink>}
             {/* Beside Applications because both are queues of strangers asking for something,
                 and neither is a record of anybody at the centre yet. */}
-            {can(ctx.role, 'manageCentre') && <NavLink href="/enquiries">Enquiries</NavLink>}
+            {can(ctx.role, 'manageCentre') && <NavLink href="/enquiries" icon={<NavIcon name="enquiries" />}>Enquiries</NavLink>}
             {/* Next to People because both are about who works here — but a separate capability, for
                 the reason recorded on `manageRecruitment` in @ece/core. */}
             {can(ctx.role, 'manageRecruitment') && (
-              <NavLink href="/applications">Applications</NavLink>
+              <NavLink href="/applications" icon={<NavIcon name="applications" />}>Applications</NavLink>
             )}
           </NavGroup>
 
           <NavGroup label="Money">
-            {can(ctx.role, 'manageCentre') && <NavLink href="/funding">Funding</NavLink>}
+            {can(ctx.role, 'manageCentre') && <NavLink href="/funding" icon={<NavIcon name="funding" />}>Funding</NavLink>}
             {/* Beside Funding because both are money, and distinct from it: Funding is what
                 the Crown owes this centre, Accounts is what families do. */}
-            {can(ctx.role, 'manageCentre') && <NavLink href="/billing">Accounts</NavLink>}
+            {can(ctx.role, 'manageCentre') && <NavLink href="/billing" icon={<NavIcon name="accounts" />}>Accounts</NavLink>}
             {/* After the money screens because it is derived from them and from attendance:
                 a report is what you read once the day-to-day is recorded, not instead of it. */}
-            {can(ctx.role, 'manageCentre') && <NavLink href="/reports">Reports</NavLink>}
+            {can(ctx.role, 'manageCentre') && <NavLink href="/reports" icon={<NavIcon name="reports" />}>Reports</NavLink>}
           </NavGroup>
 
           <NavGroup label="Centre">
-            {can(ctx.role, 'manageCentre') && <NavLink href="/compliance">Compliance</NavLink>}
-            {can(ctx.role, 'manageCentre') && <NavLink href="/settings">Settings</NavLink>}
+            {can(ctx.role, 'manageCentre') && <NavLink href="/compliance" icon={<NavIcon name="compliance" />}>Compliance</NavLink>}
+            {can(ctx.role, 'manageCentre') && <NavLink href="/settings" icon={<NavIcon name="settings" />}>Settings</NavLink>}
             {/* Its own link rather than a Settings tab — a distinct, consequential action
                 (send once, reach everyone, no undo), and burying it costs the one moment
                 somebody actually needs to find it fast. */}
             {can(ctx.role, 'broadcastEmergency') && (
-              <NavLink href="/broadcast">Emergency broadcast</NavLink>
+              <NavLink href="/broadcast" icon={<NavIcon name="broadcast" />}>Emergency broadcast</NavLink>
             )}
           </NavGroup>
         </nav>
@@ -158,11 +159,11 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
             <ul>
               {/* Everyone: this is the user's own account, not the centre's. */}
               <li>
-                <NavLink href="/account">Account</NavLink>
+                <NavLink href="/account" icon={<NavIcon name="account" />}>Account</NavLink>
               </li>
               {/* Everyone's own inbox — 0057, and the first thing that ever reads this table. */}
               <li>
-                <NavLink href="/notifications">Notifications</NavLink>
+                <NavLink href="/notifications" icon={<NavIcon name="notifications" />}>Notifications</NavLink>
               </li>
               {/*
                 Last, and shown to everyone including parents. It documents the screens the
@@ -170,7 +171,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
                 does, so an educator is not told about the accounts screen they cannot reach.
               */}
               <li>
-                <NavLink href="/help">Help</NavLink>
+                <NavLink href="/help" icon={<NavIcon name="help" />}>Help</NavLink>
               </li>
             </ul>
           </nav>
