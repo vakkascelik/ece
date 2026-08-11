@@ -46,6 +46,16 @@ confirmed in the shipped HTML, where the anchor is `/` and the script beside it 
 It sits in a `login/layout.tsx` because `page.tsx` is `'use client'` and cannot read a non-public
 variable, and a `NEXT_PUBLIC_` twin would be two variables for one fact.
 
+**And the two of them interact, which checking the live deploy is the only reason anybody knows.**
+On the console's own Railway hostname the back-link is a loop: `/` is caught by the new redirect,
+sent to `/portal`, and lands on `/portal/login` — the page it was clicked from. Recorded rather than
+fixed, because it cannot be fixed by host detection (through the proxy the console sees its own
+hostname in both `Host` and `X-Forwarded-Host`, which is exactly why `ECE_ALLOWED_ORIGINS` exists),
+because on that hostname there is no website to return to so the label is wrong and the destination
+harmless, and because clearing `ECE_PORTAL_MOUNT` removes the redirect and the link in one move. The
+lesson is smaller than the paragraph: **two changes shipped together need testing together**, and
+neither of these was wrong on its own.
+
 **Verified rather than inferred, including the bit a layout could have broken.** Wrapping `/login` in
 a layout is exactly the change that could kill the sign-in flow, so the action was posted through the
 proxy with the real `$ACTION_ID`: the response carries `Those details are not right.`, meaning the

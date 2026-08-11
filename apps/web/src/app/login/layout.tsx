@@ -40,6 +40,24 @@ import type { ReactNode } from 'react';
  * Scoped to `/login` deliberately. It is the page the website links to and the page somebody lands
  * on by mistake. `/forgot-password`, `/reset-password` and `/no-access` are each one file away if
  * they turn out to need it, and guessing that they do is how four files start drifting.
+ *
+ * KNOWN LIMITATION, FOUND BY CHECKING THE LIVE DEPLOY RATHER THAN BY REASONING
+ *
+ * On the console's **own** Railway hostname this link is a loop: `/` there is caught by the
+ * `basePath: false` redirect in next.config.ts and sent to `/portal`, which sends you to
+ * `/portal/login` — the page you were already on. Two changes made in one commit, interacting.
+ *
+ * It is left as it is, for a reason rather than out of laziness. There is genuinely no website to
+ * go back to on that hostname, so the label is wrong there but the destination is harmless. And it
+ * cannot be fixed by detecting the host: through the proxy the console sees its **own** hostname in
+ * `Host` and `X-Forwarded-Host` either way — that is precisely why `ECE_ALLOWED_ORIGINS` had to be
+ * set for writes to work at all — so there is no header that distinguishes "reached directly" from
+ * "reached through the mount".
+ *
+ * What actually resolves it is the thing already on the roadmap: once Doorway has a domain, the
+ * mount goes away, `ECE_PORTAL_MOUNT` is cleared, and this link stops rendering. Until then the raw
+ * Railway hostname is not a supported entry point — `site_url` points at the mount and the website
+ * links to the mount, so the only people who reach it directly are the ones who deployed it.
  */
 const mounted = Boolean((process.env.ECE_PORTAL_MOUNT ?? '').trim());
 

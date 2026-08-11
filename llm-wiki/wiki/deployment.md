@@ -299,6 +299,19 @@ is `/portal/_next/…` — basePath applied to one and deliberately escaped by t
 cannot read a non-public environment variable; a `NEXT_PUBLIC_` twin of `ECE_PORTAL_MOUNT` would have
 been two variables for one fact.
 
+**Those last two changes interact, and the defect is recorded rather than fixed.** On the console's
+own Railway hostname the back-link is a loop: `/` there is caught by the redirect above and sent to
+`/portal`, which sends you to `/portal/login` — the page you were on. Found by checking the live
+deploy, not by reasoning about it.
+
+It cannot be fixed by detecting the host. Through the proxy the console sees its **own** hostname in
+both `Host` and `X-Forwarded-Host` — that is the whole reason `ECE_ALLOWED_ORIGINS` is required for
+writes — so no header separates "arrived directly" from "arrived through the mount". It is left
+alone because on that hostname there is no website to return to, so the label is wrong and the
+destination is harmless; and because clearing `ECE_PORTAL_MOUNT` when Doorway gets a domain removes
+both the redirect and the link together. Until then the raw Railway hostname is not a supported
+entry point: `site_url` and the website both point at the mount.
+
 **The public URL is used, not `ece.railway.internal`.** Railway's private network is IPv6-only and
 `next start` binds `0.0.0.0`, so the internal name would refuse every connection and each console
 request would 502 while the marketing pages rendered fine. Nothing here has ever used Railway's
