@@ -68,11 +68,29 @@ a { color: var(--accent); }
  * works whether or not anybody ever collapses a group; collapsing is a preference somebody
  * opts into. The two are complementary, which is why both are here.
  */
+/*
+ * SUNKEN, NOT DARK, AND THE NUMBERS DECIDED IT
+ *
+ * The rail was `--panel` — white — against a `--bg` page, so navigation was *lighter* than the
+ * content beside it and the only thing separating them was a hairline. Sunk below the page
+ * instead, the two read as chrome and content without a single new value.
+ *
+ * A dark rail was the obvious alternative and is what comparable consoles do. Measured against
+ * this palette it fails, and not marginally: white on `--ink` is 17.39:1, but `--ink-muted` is
+ * **2.65:1** and `--accent` is **2.90:1**. The accent is the current-page colour — the most
+ * important state in the whole rail — so a dark rail would need a second accent and a second
+ * muted that exist only here. That is a parallel palette for one region, and this repo has
+ * already paid for one of those: `globals.css` used to restate the tokens and the two diverged
+ * silently, with the contrast test asserting the copy nobody rendered.
+ *
+ * On `--surface-sunken` every foreground that was already there still passes AA — ink 15.40,
+ * muted 5.80, accent 5.30 — so nothing was added and nothing needed re-measuring.
+ */
 .side {
   width: 14rem;
   flex: 0 0 14rem;
   border-right: 1px solid var(--line);
-  background: var(--panel);
+  background: var(--surface-sunken);
   padding: 20px 16px;
   display: flex;
   flex-direction: column;
@@ -143,7 +161,7 @@ a { color: var(--accent); }
   list-style: none;
 }
 .nav-group > summary::-webkit-details-marker { display: none; }
-.nav-group > summary:hover { background: var(--surface-sunken); }
+.nav-group > summary:hover { background: var(--surface); }
 
 /*
  * The chevron points right when closed and down when open, off the element's own `[open]`
@@ -195,14 +213,25 @@ a { color: var(--accent); }
 .side nav a .nav-icon { color: var(--muted); }
 .side nav a:hover .nav-icon,
 .side nav a[aria-current='page'] .nav-icon { color: inherit; }
-.side nav a:hover { background: var(--surface-sunken); }
+/* Hover was `--surface-sunken`, which is now the rail's own colour and so was invisible. */
+.side nav a:hover { background: var(--surface); }
 /*
  * The current page, carried by aria-current rather than a class — so the styling and
  * the thing a screen reader announces cannot drift apart. Weight and colour together,
  * never colour alone.
  */
 .side nav a[aria-current='page'] {
-  background: var(--accent-soft);
+  /*
+    White, not `--accent-soft`. The pale green was chosen against a white rail; on the sunken
+    one it is within a few percent of the background and the current row stopped reading as
+    current at a glance. Lifted to `--surface` instead, which inverts the old relationship — the
+    row you are on is the one raised out of the rail rather than tinted into it.
+
+    Colour is still not carrying this alone, which is the rule the original comment states: the
+    accent text and the 600 weight are both still here, and the raised surface is a third
+    signal that survives being printed or read by somebody who cannot separate the green.
+  */
+  background: var(--surface);
   color: var(--accent);
   font-weight: 600;
 }
@@ -332,7 +361,9 @@ a { color: var(--accent); }
      */
     width: min(300px, 70vw);
     padding: 16px;
-    background: var(--panel);
+    /* The same surface as the rail it stands in for — a drawer that is a different colour from
+       the bar that opened it reads as a different thing. */
+    background: var(--surface-sunken);
     border-right: 1px solid var(--line);
     overflow-y: auto;
     transform: translateX(-100%);

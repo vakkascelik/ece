@@ -670,6 +670,62 @@ config requires) wrote five captures into `apps/web/handover/screens/`, reported
 moved nothing. It is anchored to this file's own location now. A path that depends on where you
 were standing is not a path.
 
+### After the handover — the overview, and a rail that is chrome
+
+**The overview said nothing about today.** It rendered a count of who has a login and a card
+explaining that under-5 records are sensitive. Neither is a thing anybody signs in to find out,
+and it was the screen every person in the product lands on. A manager opening the app at 9am
+wants the ratio and what is unfinished; they were being shown an inventory of accounts.
+
+It now carries the ratio band — the same `RatioBanner` the attendance screen uses, not a smaller
+copy — and a **Needs attention** list assembled from `summariseIncidents`, `summariseHazards`,
+`assessAll` and `drillStatuses`. Every figure is the same call the screen it links to makes, so a
+count here cannot disagree with the page it points at; a dashboard that computes its own version
+of a figure is one that eventually does, and the number people believe is whichever they saw
+last. Each item links to the screen that fixes it.
+
+The rule is the register's: **count what is outstanding, never what happened.** When there is
+nothing, it says so in one line rather than listing zeroes — a screen that takes as long to read
+when everything is fine as when it is not is a screen somebody stops reading.
+
+Reads are gated by the capability that owns each destination, not for secrecy — the policies
+decide what comes back — but because an educator should not pay for a compliance query to render
+a card they are not shown. A parent gets none of it: their overview is their own child's record.
+
+`drillStatuses` returns `overdue: boolean | null` and `facilities.ts` warns callers about it —
+`null` means the centre has stated no interval, which is a third state and not a late drill. The
+filter is `=== true` rather than a truthiness check, so a centre that has declined to state an
+interval does not appear here as permanently overdue against a rule it never set.
+
+### The rail is sunken, not dark, and the numbers decided it
+
+The rail was white against a `--bg` page — navigation *lighter* than the content beside it, with
+a hairline between them. That is the flatness, and it is a contrast problem rather than a hue
+one.
+
+A dark rail was the obvious fix and is what comparable consoles do. Measured against this
+palette it fails, and not marginally:
+
+| on `#1b1a18` | ratio | |
+|---|---|---|
+| `--ink-inverse` | 17.39:1 | passes |
+| `--ink-muted` | **2.65:1** | fails |
+| `--accent` | **2.90:1** | fails |
+
+`--accent` is the current-page colour — the most important state in the rail. A dark rail needs a
+second accent and a second muted that exist only there, which is a parallel palette for one
+region, and this repo has already paid for one of those: `globals.css` used to restate the tokens
+and the two diverged silently, with the contrast test asserting the copy nobody rendered.
+
+On `--surface-sunken` every foreground already present still passes AA — ink 15.40, muted 5.80,
+accent 5.30. Nothing added, nothing re-measured. The current item lifts to `--surface` instead of
+its old `--accent-soft`, which on the sunken rail was within a few percent of the background;
+colour still is not carrying it alone, because the accent text and the 600 weight are both still
+there and a raised surface is a third signal.
+
+**No state colour was spent on any of this.** Green, amber, red and blue still mean one thing
+each, which is the only reason a red flag on a roll means a child could stop breathing.
+
 ### The footer's three links are a second landmark, and that is what kept a test passing
 
 Account, Notifications and Help moved to `.side-foot`. They went into a
