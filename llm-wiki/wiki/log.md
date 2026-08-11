@@ -5,6 +5,42 @@ says so.*
 
 ---
 
+2026-08-11 — **The CSS budget paid down rather than raised, and two defects the handover never
+mentioned.** `apps/web/src/app/globals.css`, `attendance/attendance.css`,
+`children/[id]/record.css`, `(app)/page.tsx`, `(app)/children/page.tsx`. See
+[[console-handover]] and [[unverified-claims]] §35.
+
+`first-load-css` ended the handover at 4.2kB against a 4kB limit. It is **3.5kB** now — 0.6kB
+below where it stood before any of this work began — and the limit was not touched. The ratio
+block, the roll, the wall display, the offline strip and the child record's header moved out of
+`globals.css` into the two route sheets that now exist. Each is used by exactly one route, and
+`check:bundle` measures the root layout's stylesheet, so every screen was downloading the wall
+display's 88px numerals.
+
+That is the handover's own route-sheet rule applied backwards to the CSS that predated it, and
+the rule turned out to be worth more than the steps written against it: applying it retroactively
+recovered about three times what steps 2 and 3 had added. The comments moved with the rules —
+a rule that arrives in a new file without its argument is a rule somebody deletes.
+
+`.healthcard*` was deleted rather than moved: step 6 removed its only user. `.eyebrow` is equally
+dead and was **left alone**, because it predates this work and the rule is to remove only the
+orphans a change creates — named in `globals.css` so the next person starts there.
+
+**Two defects, neither in the handover.** `/` told every owner on sign-in that "enrolment,
+attendance and daily records are not built", years after they were — a placard from before the
+product did its job, on the one screen everybody lands on. And `/children` carried a child's
+anaphylaxis response plan in a `title` attribute: mouse-only meaning, on the roll an educator
+scans on a tablet. `AttendanceRow` lost the same pattern in Phase 6; this was the last place it
+survived, which is how a rule quietly becomes a preference.
+
+The insurance clause the overview card carried is [[unverified-claims]] §35 rather than a silent
+deletion. The product now asserts neither that professional indemnity cover exists nor that it
+does not, and that is the honest position rather than the comfortable one.
+
+Whole suite green afterwards: 116/116, including the wall display's computed-font-size assertions
+— which is what proves a route sheet that failed to load would fail loudly rather than pass as a
+smaller screen.
+
 2026-08-11 — **A screenshot harness in `e2e/.artifacts/` was being collected as a test, and it
 poisoned the shared tenant.** `apps/web/playwright.config.ts`, `e2e/narrative.spec.ts`.
 

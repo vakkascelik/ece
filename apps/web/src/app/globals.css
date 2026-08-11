@@ -330,93 +330,21 @@ button.danger { background: var(--surface); color: var(--danger); border-color: 
 .error { color: var(--danger); }
 .center { max-width: 24rem; margin: 6rem auto; padding: 0 1.5rem; }
 
-/* --- The ratio block (design handoff, screens 2 and 3) -------------------- */
-
 /*
- * A persistent region, never a toast: toasts expire and a breach does not. The tint
- * changes with the state, and so do the pill's glyph and words — the colour is the
- * second signal, never the only one (WCAG 1.4.1).
+ * The ratio block, the roll, the wall display, the offline strip and the child record used
+ * to live here. They moved to `attendance/attendance.css` and `children/[id]/record.css` on
+ * 2026-08-11: each is used by exactly one route, and `check:bundle` measures the root
+ * layout's stylesheet, so every screen in the product was paying for them.
+ *
+ * That is the console handover's own rule — a single distinctive screen gets a route-scoped
+ * sheet, as the kiosk already did — applied backwards to the CSS that predated it. The
+ * comments moved with the rules; they are the expensive part.
+ *
+ * `.eyebrow` a little further down has no users at all and is NOT mine to delete: it
+ * predates this work. Named here so the next person removing dead CSS starts with it.
  */
-.ratio {
-  border: 1px solid;
-  border-radius: var(--radius-md);
-  padding: 18px 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-bottom: 1.25rem;
-}
-.ratio-ok { background: var(--ok-soft); border-color: var(--ok-border); color: var(--ok); }
-.ratio-limit { background: var(--warn-soft); border-color: var(--warn-border); color: var(--warn); }
-.ratio-breach { background: var(--breach-soft); border-color: var(--breach-border); color: var(--breach); }
 
-.ratio-head { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
 
-/* White, so it lifts off whichever tint it is sitting on. */
-.ratio-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  background: var(--surface);
-  color: inherit;
-  font-size: var(--text-base);
-  font-weight: 600;
-  padding: 7px 14px;
-  border-radius: var(--radius-pill);
-  white-space: nowrap;
-}
-
-/* The numbers in ink, not the state colour: they are facts, the tint is the verdict. */
-.ratio-counts { font-size: var(--text-xl); font-weight: 600; color: var(--ink); }
-.ratio-detail { font-size: var(--text-base); font-weight: 500; color: inherit; }
-
-.ratio-track {
-  height: 14px;
-  border-radius: var(--radius-pill);
-  background: var(--surface);
-  overflow: hidden;
-  display: flex;
-}
-.ratio-fill { height: 100%; border-radius: var(--radius-pill); background: currentColor; }
-/*
- * Breach only: a detached segment past a full track, so "over" is visible as overflow
- * and not merely as a bar that has stopped growing.
- */
-.ratio-over {
-  height: 14px;
-  width: 56px;
-  border-radius: var(--radius-pill);
-  background: currentColor;
-  opacity: 0.45;
-  flex: 0 0 56px;
-}
-.ratio-overflow-wrap { display: flex; gap: 6px; align-items: center; }
-.ratio-overflow-wrap .ratio-track { flex: 1; }
-
-.ratio-note { font-size: var(--text-sm); color: inherit; margin: 0; }
-
-/* --- Offline strip and SyncChip (design handoff, screens 4 and 5) --------- */
-
-/*
- * Pending-blue, never amber. A queued write in a concrete-walled centre is normal, and amber
- * here would train educators to ignore amber — the next amber thing they ignore is a ratio
- * breach. Above the list and never over it: a strip that floats covers a child, and the one it
- * covers is the one nobody signs in.
- */
-.offline-strip {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-  background: var(--pending-soft);
-  border: 1px solid var(--pending-border);
-  border-radius: var(--radius-md);
-  padding: 12px 14px;
-  margin-bottom: 1.25rem;
-}
-.offline-strip-text { margin: 0; color: var(--pending); font-size: var(--text-base); font-weight: 500; }
-.offline-retry { height: var(--target-min); padding: 0 14px; border-radius: var(--radius-sm); }
 
 /* --- The refusal dialog (design handoff, screen 5) ------------------------ */
 
@@ -464,52 +392,6 @@ button.danger { background: var(--surface); color: var(--danger); border-color: 
 .dialog-actions button { height: 48px; padding: 0 18px; border-radius: var(--radius-sm); font-size: var(--text-base); font-weight: 600; }
 .dialog-actions button.secondary { height: var(--target-min); font-weight: 500; }
 
-/* --- Wall display (design handoff, screen 13) ----------------------------- */
-
-/*
- * The ratio, readable from three metres, on a tablet mounted by the door.
- *
- * THE SIZES ARE A CALCULATION, NOT A TASTE
- *
- * The pack sizes this so the status line subtends the same angle at 3m as 15px body text
- * does at 40cm. 3 ÷ 0.4 = 7.5, and 15 × 7.5 ≈ 112px of cap height on a 10.5in panel — which
- * is where the pack's 88px counts and 44px pill and detail come from. They are not "big";
- * they are the sizes at which somebody walking past reads this without stopping.
- *
- * The ink bezel is deliberate too: a wall-mounted tablet shows a rectangle of light in a
- * room, and a dark frame stops the panel bleeding into the wall.
- *
- * What is NOT reproduced: the pack's two 112px "Sign a child in" / "Sign a child out"
- * buttons. Those imply a child-picker flow that does not exist — a generic "sign a child in"
- * has to ask *which* child, and inventing that interaction is a feature, not a restyle.
- * The roll's own per-child buttons remain the way attendance is recorded.
- */
-.wall-frame {
-  background: var(--ink);
-  border-radius: 24px;
-  padding: 18px;
-  margin-bottom: 1.25rem;
-}
-
-.ratio-wall { border-radius: 18px; padding: 32px 36px; gap: 20px; margin: 0; }
-.ratio-wall .ratio-pill { font-size: 44px; padding: 14px 32px; gap: 16px; }
-.ratio-wall .ratio-counts { font-size: 88px; line-height: 1; }
-.ratio-wall .ratio-detail { font-size: 44px; }
-.ratio-wall .ratio-track, .ratio-wall .ratio-over { height: 32px; }
-.ratio-wall .ratio-over { width: 96px; flex: 0 0 96px; }
-.ratio-wall .ratio-note { font-size: 24px; }
-/* The unverified-ratio caveat scales too. A compliance disclaimer that shrinks while the
-   number it qualifies grows is a disclaimer nobody reads — which is the whole failure mode
-   `RATIO_TABLES_VERIFIED` exists to prevent. */
-.ratio-wall .flag { font-size: 24px; padding: 8px 16px; }
-
-@media (max-width: 767px) {
-  /* A phone is not a wall. Fall back to the ordinary block rather than rendering 88px
-     numerals in a 358px column. */
-  .ratio-wall .ratio-counts { font-size: var(--text-xl); }
-  .ratio-wall .ratio-pill, .ratio-wall .ratio-detail { font-size: var(--text-base); }
-  .ratio-wall { padding: 18px 20px; }
-}
 
 /* --- Roll lists (design handoff, screen 2) -------------------------------- */
 
@@ -566,120 +448,7 @@ button.danger { background: var(--surface); color: var(--danger); border-color: 
  */
 .page-status { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 0.75rem; }
 
-/* --- Child record (design handoff, screen 6) ------------------------------ */
 
-/* 760px. A record read under pressure should not be a line of text a metre wide. */
-.record { max-width: 760px; }
-
-.record-head { display: flex; gap: 16px; align-items: center; margin-bottom: var(--space-5); }
-.record-initials {
-  width: 56px;
-  height: 56px;
-  flex: 0 0 56px;
-  border-radius: var(--radius-pill);
-  background: var(--surface-sunken);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: var(--text-lg);
-  font-weight: 600;
-  color: var(--muted);
-}
-.record-who { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.record-who h1 { font-size: var(--text-2xl); font-weight: 600; margin: 0; line-height: 1.2; }
-.record-meta { font-size: var(--text-sm); color: var(--muted); margin: 0; }
-/* Pushed to the far end of the header row, per the board. */
-.record-status { margin-left: auto; flex: 0 0 auto; }
-
-/*
- * HealthCard: a tinted block with a glyph, a 15/600 line naming the thing, and a 13px
- * line saying what to do about it. The glyph is aria-hidden — the words carry it, which
- * is the whole point of the pack's rule against colour-only and dot-only states.
- */
-.healthcard {
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
-  border-radius: var(--radius-sm);
-  padding: 12px 14px;
-}
-.healthcard + .healthcard { margin-top: 8px; }
-.healthcard-critical { background: var(--breach-soft); color: var(--breach); }
-.healthcard-warn { background: var(--warn-soft); color: var(--warn); }
-.healthcard-title { font-size: var(--text-base); font-weight: 600; }
-.healthcard-detail { font-size: var(--text-sm); line-height: 1.6; }
-
-@media (max-width: 767px) {
-  .record-head { flex-wrap: wrap; }
-  .record-status { margin-left: 0; }
-}
-
-/* --- RollRow (design handoff, screen 2) ----------------------------------- */
-
-/*
- * A list, not a table, because the pack describes these as lists and because the row is
- * no longer four columns of comparable data: age and room fold into a line under the
- * name, leaving name / time / action. A `<table>` whose rows are restyled as grids also
- * loses its row semantics in some engines, which is a bad trade for a layout.
- *
- * `position: relative` for the same reason `.card` has it — the action buttons carry a
- * visually-hidden child name, and an absolutely positioned descendant with no positioned
- * ancestor stretches the page.
- */
-.roll {
-  list-style: none;
-  margin: 0 0 1.25rem;
-  padding: 0;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-md);
-  position: relative;
-}
-.roll > li + li { border-top: 1px solid var(--line); }
-
-.roll-row {
-  display: grid;
-  grid-template-columns: var(--target-min) 1fr auto auto;
-  gap: 16px;
-  align-items: center;
-  padding: 14px 18px;
-}
-
-/* Initials rather than a photograph. A roll that shows children's faces is a roll that
-   cannot be screenshared, held up in a room, or left open on a wall-mounted tablet. */
-.roll-initials {
-  width: var(--target-min);
-  height: var(--target-min);
-  border-radius: var(--radius-pill);
-  background: var(--surface-sunken);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: var(--text-base);
-  font-weight: 600;
-  color: var(--muted);
-}
-
-.roll-who { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.roll-name { font-size: var(--text-lg); font-weight: 600; }
-.roll-meta {
-  display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
-  font-size: var(--text-sm); color: var(--muted);
-}
-.roll-time { font-size: var(--text-sm); color: var(--muted); white-space: nowrap; }
-.roll-action { display: flex; gap: 8px; align-items: center; }
-.roll-action button { height: var(--target-min); padding: 0 16px; border-radius: var(--radius-sm); font-size: var(--text-base); }
-.roll-correct { padding: 0 18px 14px; }
-
-/*
- * On a phone the four columns become two, with the time and the action tucked under the
- * name rather than squeezed beside it. The initials column keeps its own track so the
- * rows still align down the list.
- */
-@media (max-width: 767px) {
-  .roll-row { grid-template-columns: var(--target-min) 1fr; row-gap: 10px; }
-  .roll-time, .roll-action { grid-column: 2; }
-}
 
 /* --- Auth screens (design handoff, screen 1) ------------------------------ */
 

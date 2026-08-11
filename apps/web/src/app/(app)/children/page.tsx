@@ -152,9 +152,28 @@ function ChildRow({
       <td>{enrolment ? formatDays(enrolment.days) : <span className="empty">Not enrolled</span>}</td>
       <td>
         <span className="inline">
+          {/*
+            NO `title`, AND THIS WAS THE LAST ONE.
+
+            It carried the response plan — where the EpiPen is kept, whether to ring 111 —
+            in a `title` attribute, which is meaning available to a mouse and to nothing
+            else: not a keyboard, not a touch screen, and not most screen readers. This is
+            the roll an educator scans on a tablet, so it was mouse-only meaning on the
+            surface with no mouse.
+
+            `AttendanceRow` had exactly this and it was removed there in Phase 6; the child
+            record's header now prints the plan as text beside the condition. This row was
+            the one place the old pattern survived, which is how a rule quietly becomes a
+            preference.
+
+            The plan is not printed here instead. A roll of forty rows cannot carry forty
+            response plans and stay scannable, and the flag already names the condition and
+            its severity — which is the part that decides whether somebody opens the record.
+            The record is one tap away and prints the whole thing.
+          */}
           {/* Symbol and word together — never colour alone. */}
           {critical ? (
-            <span className="flag flag-critical" title={worst?.responsePlan ?? undefined}>
+            <span className="flag flag-critical">
               ▲ {worst?.severity === 'anaphylaxis' ? 'Anaphylaxis' : 'Severe'}: {worst?.name}
             </span>
           ) : health.length > 0 ? (

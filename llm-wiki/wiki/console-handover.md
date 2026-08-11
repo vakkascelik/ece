@@ -486,6 +486,54 @@ the opposite instead — "open the app to check — this product does not send a
 true today and is a sentence somebody will have to come back and delete when push works, which
 is the right direction for that kind of debt to run.
 
+### After the ten steps — the budget was paid down rather than raised
+
+`first-load-css` finished the handover at 4.2kB against a 4kB limit. It is **3.5kB** now, and
+that is 0.6kB *below* where it stood before any of this work started.
+
+Nothing was deleted to get there and the limit was not touched. The ratio block, the roll, the
+wall display, the offline strip and the child record's header all moved out of `globals.css` and
+into `attendance/attendance.css` and `children/[id]/record.css` — each is used by exactly one
+route, and `check:bundle` measures the root layout's stylesheet, so every screen in the product
+was downloading the wall display's 88px numerals.
+
+That is the handover's own rule — *a single distinctive screen gets a route-scoped sheet, as the
+kiosk already does* — applied backwards to the CSS that predated it. The rule turned out to be
+worth more than the steps that were written against it: steps 5 to 9 each added shared styles for
+nothing because they followed it, and applying it retroactively recovered three times what those
+steps would have cost.
+
+The comments moved with the rules. They are the expensive part, and a rule that arrives in a new
+file without the argument for it is a rule somebody deletes.
+
+**`.healthcard*` was deleted rather than moved.** It styled the "Read this first" block that step
+6 removed — the anaphylaxis conditions are in the record's header now, on every tab — so it had
+no users left. An orphan this work created, and therefore this work's to remove.
+
+**`.eyebrow` is dead and was left alone.** It has no users either, but it predates this work, and
+the rule is to remove only the orphans a change creates. Named in `globals.css` so the next person
+clearing dead CSS starts there.
+
+The wall display's e2e test is what proves the move worked: it asserts computed font sizes at 88px
+and 44px, so a route sheet that failed to load would fail that assertion rather than pass quietly
+as a smaller screen.
+
+### Two defects the handover did not ask about
+
+**The overview told every owner the product does less than it does.** `/` rendered "Nothing holds
+child data yet — enrolment, attendance and daily records are not built" on sign-in, unconditionally,
+long after all three were built. Corrected to what is actually held, in AGENTS.md §1's wording.
+The clause it carried about professional indemnity insurance is now item 35 in
+[[unverified-claims]] rather than quietly deleted: the product asserts neither that cover exists
+nor that it does not, and removing a caution is a decision rather than a tidy-up.
+
+**A child's anaphylaxis response plan was in a `title` attribute** on `/children` —
+where the EpiPen is kept, whether to ring 111 — which is meaning available to a mouse and to
+nothing else. `AttendanceRow` had exactly this and lost it in Phase 6; the child record now prints
+the plan as text. The roll was the last place the old pattern survived, which is how a rule
+quietly becomes a preference. The flag still names the condition and its severity, which is what
+decides whether somebody opens the record; the record is one tap away and prints the whole thing.
+
 ### The footer's three links are a second landmark, and that is what kept a test passing
 
 Account, Notifications and Help moved to `.side-foot`. They went into a

@@ -5,9 +5,8 @@
  * none of this is paid for by the other twenty-nine screens. Same reasoning as
  * `attendance.css` and `kiosk.css`.
  *
- * `.record`, `.record-head`, `.record-initials`, `.record-who` and `.record-meta` are still
- * in globals.css from the first design pack — they were there before this file existed and
- * moving them is a separate change from adding to them.
+ * `.record`, `.record-head`, `.record-initials`, `.record-who` and `.record-meta` came over
+ * from globals.css on 2026-08-11 — see the block at the end of this file.
  */
 
 /*
@@ -88,3 +87,46 @@
   margin-bottom: 8px;
 }
 .record-summary-body { font-size: var(--text-base); line-height: 1.7; }
+
+/* ==========================================================================
+ * Moved from globals.css on 2026-08-11.
+ *
+ * Used by this route and no other, and the first-load budget measures the root layout's
+ * stylesheet — so every screen in the product was paying for the child record's header.
+ * Rules and comments unchanged; only the file differs.
+ *
+ * `.healthcard*` did NOT come with them. It styled the "Read this first" block that step 6
+ * of the handover removed — the anaphylaxis conditions are in the record's header now, on
+ * every tab — so it had no users left. An orphan this work created, and therefore this
+ * work's to delete.
+ * ========================================================================== */
+
+/* --- Child record (design handoff, screen 6) ------------------------------ */
+
+/* 760px. A record read under pressure should not be a line of text a metre wide. */
+.record { max-width: 760px; }
+
+.record-head { display: flex; gap: 16px; align-items: center; margin-bottom: var(--space-5); }
+.record-initials {
+  width: 56px;
+  height: 56px;
+  flex: 0 0 56px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-sunken);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--muted);
+}
+.record-who { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.record-who h1 { font-size: var(--text-2xl); font-weight: 600; margin: 0; line-height: 1.2; }
+.record-meta { font-size: var(--text-sm); color: var(--muted); margin: 0; }
+/* Pushed to the far end of the header row, per the board. */
+.record-status { margin-left: auto; flex: 0 0 auto; }
+
+@media (max-width: 767px) {
+  .record-head { flex-wrap: wrap; }
+  .record-status { margin-left: 0; }
+}

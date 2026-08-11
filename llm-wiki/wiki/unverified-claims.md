@@ -636,6 +636,36 @@ currently wired to read either file, and continuing through the rest of the app 
 way `daily-registers.md` became three narrower pages rather than one: page by page, checked
 each time rather than assumed.
 
+### 35. Whether professional indemnity insurance is in place — the overview no longer says
+
+Added 2026-08-11, when the overview card asserting the opposite was corrected.
+
+Until then, `/` told every owner on sign-in: *"Nothing holds child data yet. Enrolment,
+attendance and daily records are **not built**. Under-5 records are among the most sensitive
+personal information in New Zealand, and nothing here should hold them before a written
+services agreement and professional indemnity insurance are in place."*
+
+The first half had been false for several phases — this product holds names, dates of birth,
+allergies, medication doses, custody arrangements and attendance records, and had done for a
+long time. A placard left over from before a product did its job is worse than no placard,
+because the one screen everybody lands on was telling them the product does less than it
+does. It was rewritten to say what is actually held, in AGENTS.md §1's own wording.
+
+**The clause that went with it is what this item is about.** The old sentence made two
+claims at once: that a written services agreement should be in place, and that professional
+indemnity insurance should be. AGENTS.md §1 says an agreement exists. Nothing in this repo
+says anything about insurance, one way or the other.
+
+So the product now asserts **neither**, and that is the honest position rather than a
+comfortable one. What it must not do is quietly assume the answer is yes because the sentence
+warning about it was deleted — which is precisely why removing a caution is recorded here
+instead of disappearing into a diff.
+
+**To close it:** the owner confirms whether professional indemnity cover is held for this
+service. If it is not, that is a business decision about a live product holding under-5
+records and belongs somewhere more prominent than a card on the overview — not a sentence
+nobody reads on the screen they skip past.
+
 ## See Also
 
 - [[kiosk-and-pins]] — the door tablet, and what it can and cannot know
