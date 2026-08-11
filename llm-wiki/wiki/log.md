@@ -5,6 +5,41 @@ says so.*
 
 ---
 
+2026-08-11 — **Configuring a mailer is now one scripted command, and the stock template would have
+broken it.** `scripts/deploy-auth-config.ts`. See [[password-recovery]].
+
+Asked how to configure SMTP. The answer is `npm run deploy:auth -- --smtp`, which sets the mailer,
+raises `rate_limit_email_sent` from **2** to 30, and installs a recovery template — in one reviewable
+change rather than a sequence of clicks, which is the reason that script exists at all.
+
+**Behind a flag, deliberately.** Every other setting there is derived or constant, so re-running is
+idempotent. These come from the environment, and an absent variable is indistinguishable from a
+deliberate blank — so a routine `deploy:auth --domain …` on a machine without the SMTP variables
+would have quietly **unset a working mailer** and taken password recovery down. Credentials are read
+from `.env.local` rather than passed as arguments, and `smtp_pass` is redacted where it is displayed,
+because a credential on a command line ends up in shell history, a scrollback, and — this repo has
+now done it once today — a chat transcript.
+
+**The template is the part a setup guide would not mention.** Supabase's stock recovery email uses
+`{{ .ConfirmationURL }}`, the PKCE `?code=` shape, which [[password-recovery]] measured as working
+*only in the browser that asked for the reset*. A kaiako requests one on the centre's tablet and
+opens her email on her phone; that link fails, and it fails **safely**, so it reads as expired and
+she tries again to the same effect. Configuring a mailer without fixing this would have shipped a
+reset flow broken for most of the people who need it. The template now builds the `token_hash` URL,
+which needs no verifier — and `{{ .SiteURL }}` already carries the `/portal` mount, so it is the
+exact URL verified end to end against production earlier today.
+
+**One bug found by running it, invisible in the code.** The first version gated on `args.smtp`, but
+`args` in that script is the raw `process.argv` **array** — `--dry-run` and `--domain` are read with
+`includes` and `indexOf`. So `--smtp` did nothing and reported "Nothing to change". `onboard.ts` in
+the same directory parses argv into an object, and the two read identically at a glance. Verified
+both paths afterwards: with no variables it refuses and names all six; with throwaway values the
+patch is correct and the password shows as `<redacted>`.
+
+**Still unconfigured, so still unverified.** No credential has been supplied and this project has
+never delivered an email. The mechanism is in place; the claim in [[unverified-claims]] stands until
+a real reset arrives in a real inbox.
+
 2026-08-11 — **Password recovery was broken on Railway from the first deploy, and making a real
 person a manager is what found it.** `apps/web/src/lib/origin.ts`,
 `apps/web/src/app/auth/confirm/route.ts`, `apps/web/src/app/forgot-password/actions.ts`,

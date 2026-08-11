@@ -108,7 +108,11 @@ against the old check.
   acceptance, change and reset. Ten characters minimum, no composition rules.
 - **Whether reset emails actually deliver is unverified** — see [[unverified-claims]]. The
   project has no custom SMTP; Supabase's built-in mailer is rate-limited to a handful of
-  messages an hour.
+  messages an hour. **UPDATED 2026-08-11: configuring one is now a scripted step, not a
+  dashboard visit** — `npm run deploy:auth -- --smtp` sets the mailer, raises
+  `rate_limit_email_sent` from 2 to 30, and installs the cross-browser recovery template. It
+  remains **unconfigured and therefore still unverified**: the mechanism exists, no credential
+  has been supplied, and no email has ever been delivered by this project.
 
 ## Details
 
@@ -160,6 +164,39 @@ says: a `redirectTo` that is not on `uri_allow_list` is **silently** replaced wi
 A link generated with `redirectTo` of `http://localhost:3100/...` came back pointing at the
 production origin. No error, no warning. Only ports 3000 and the production origin are on the
 list.
+
+### The mailer is scripted, and the stock template would have broken it anyway
+
+`deploy:auth --smtp` sets `smtp_host/port/user/pass`, the sender identity, `rate_limit_email_sent`
+and the recovery template in one reviewable change. Behind a flag, and the flag is not politeness:
+every other setting in that script is derived or constant, so a routine `deploy:auth --domain …` on a
+machine without the SMTP variables would otherwise **unset a working mailer** and take recovery down.
+An absent environment variable and a deliberate blank are indistinguishable, so the opt-in removes
+that whole class of accident. Credentials come from `.env.local`, never from arguments — a live
+password on a command line ends up in shell history, a scrollback and, as this repo has now managed
+once, a chat transcript. `smtp_pass` is redacted at the point of display rather than by asking the
+operator not to look.
+
+**The template had to change in the same commit, and this is the part a setup guide would miss.**
+Supabase's stock recovery email uses `{{ .ConfirmationURL }}`, which is the PKCE `?code=` shape — the
+one measured above as working *only in the browser that requested the reset*. A kaiako asks on the
+centre's tablet and opens her email on her phone; a parent asks on a laptop and reads it on a phone.
+The link fails, and it fails **safely** — back to `/forgot-password?expired=1` — so it reads as an
+expired link and they try again, forever. So the template now builds
+`{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery&next=/reset-password`, the
+branch that needs no verifier. `{{ .SiteURL }}` already carries the `/portal` mount, so it produces
+exactly the URL proven end to end against production.
+
+`rate_limit_email_sent` goes from **2** to 30, and only alongside a real mailer. Two per hour is
+right for a shared sender and absurd for a service where two kaiako forgetting a password in one hour
+is an ordinary Tuesday — and the third gets a failure the form is deliberately unable to distinguish
+from success.
+
+Found while building it, worth recording because nothing looked wrong: the first version read
+`args.smtp`, but `args` in that script is the raw `process.argv` **array** — `--dry-run` and
+`--domain` are read with `includes` and `indexOf`. So `--smtp` silently did nothing and reported
+"Nothing to change". `onboard.ts` in the same directory *does* parse argv into an object, and the two
+read identically at a glance. Caught by running it, not by reading it.
 
 ### The handoff's master prompt asks for this feature to be deleted
 

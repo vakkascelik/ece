@@ -37,6 +37,7 @@
  *   npm run deploy:auth -- --domain https://ece-production.up.railway.app
  *   npm run deploy:auth                      # hardening only, no URL change
  *   npm run deploy:auth -- --dry-run --domain https://…
+ *   npm run deploy:auth -- --smtp             # mailer, rate limit and recovery template
  */
 
 interface AuthConfig {
@@ -45,7 +46,81 @@ interface AuthConfig {
   password_min_length?: number;
   disable_signup?: boolean;
   mailer_autoconfirm?: boolean;
+  smtp_host?: string;
+  smtp_port?: number;
+  smtp_user?: string;
+  smtp_pass?: string;
+  smtp_admin_email?: string;
+  smtp_sender_name?: string;
+  rate_limit_email_sent?: number;
+  mailer_subjects_recovery?: string;
+  mailer_templates_recovery_content?: string;
 }
+
+/**
+ * The mailer, behind `--smtp`, and the flag is not politeness.
+ *
+ * Every other setting here is derived or constant, so re-running is idempotent. These come from the
+ * environment, and an absent variable is indistinguishable from a deliberate blank — so without an
+ * explicit opt-in, a routine `deploy:auth --domain …` run on a machine that happens not to have the
+ * SMTP variables would quietly *unset* a working mailer and take password recovery down. Opt-in
+ * costs one word and removes that whole class of accident.
+ *
+ * Read from `.env.local` rather than passed as arguments, because `smtp_pass` is a live credential
+ * and an argument ends up in shell history, in a scrollback, and — this repo has now done it once —
+ * in a chat transcript. It is consumed by Supabase, not by the app, so it never needs to become a
+ * Railway variable and never enters an image layer.
+ */
+const SMTP_ENV = [
+  'SMTP_HOST',
+  'SMTP_PORT',
+  'SMTP_USER',
+  'SMTP_PASS',
+  'SMTP_SENDER_EMAIL',
+  'SMTP_SENDER_NAME',
+] as const;
+
+/**
+ * Emails per hour. The default is **2**, which is right for Supabase's shared built-in mailer and
+ * absurd for a real one: two kaiako forgetting their passwords in the same hour is a Tuesday, and
+ * the third gets a silent failure that the form is deliberately unable to distinguish from success.
+ * Thirty is generous for a two-centre service and still a ceiling rather than an open tap.
+ */
+const EMAIL_PER_HOUR = 30;
+
+/**
+ * The recovery email, and the reason it is not Supabase's stock template.
+ *
+ * The default uses `{{ .ConfirmationURL }}`, which produces the PKCE `?code=` shape — and that link
+ * **only works in the browser that asked for the reset**, because the verifier lives in a cookie set
+ * at request time. See llm-wiki/wiki/password-recovery.md, where this was measured.
+ *
+ * That is not an edge case here. A kaiako asks for a reset on the centre's tablet and opens her
+ * email on her phone; a parent does the same between a laptop and a phone. The link fails, and it
+ * fails *safely* — straight back to `/forgot-password?expired=1` — so it reads as "the link
+ * expired" and the person tries again, getting the same result. Configuring a mailer without fixing
+ * this would ship a reset flow that is broken for most of the people who need it.
+ *
+ * `{{ .TokenHash }}` is the shape `/auth/confirm` can actually read from a query string, needs no
+ * verifier, and therefore works in any browser. `{{ .SiteURL }}` already carries the `/portal` mount,
+ * so the URL it builds is the one verified end to end against production.
+ *
+ * `next` stays app-relative: the route prefixes the base itself, and a mount here would be applied
+ * twice.
+ */
+const RECOVERY_SUBJECT = 'Reset your Doorway password';
+const RECOVERY_TEMPLATE = `<h2>Reset your password</h2>
+
+<p>Somebody asked to reset the password for this address at Doorway. If that was you, use the link
+below. It can be used once, and it expires.</p>
+
+<p><a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&amp;type=recovery&amp;next=/reset-password">Set a new password</a></p>
+
+<p>If it was not you, nothing has changed and you can ignore this email. Your current password still
+works.</p>
+
+<p>Doorway does not ask for your password by email, and nobody at your centre will ask you for it.</p>
+`;
 
 /** The app's own minimum, in `apps/web/src/lib/password.ts`. Kept in step deliberately. */
 const APP_PASSWORD_MIN = 10;
@@ -110,11 +185,61 @@ async function main() {
   console.log(`    uri_allow_list       ${JSON.stringify(current.uri_allow_list)}`);
   console.log(`    password_min_length  ${current.password_min_length}`);
   console.log(`    disable_signup       ${current.disable_signup}`);
+  // The mailer is shown whether or not --smtp was passed, because "is there a mailer at all" is the
+  // question somebody debugging a reset that never arrived needs answered first.
+  console.log(`    smtp_host            ${JSON.stringify(current.smtp_host ?? null)}`);
+  console.log(`    rate_limit_email_sent ${current.rate_limit_email_sent}`);
 
   const patch: AuthConfig = {};
 
   if (current.password_min_length !== APP_PASSWORD_MIN) {
     patch.password_min_length = APP_PASSWORD_MIN;
+  }
+
+  /*
+   * `args` in this script is the raw `process.argv` array, not a parsed object — `--dry-run` and
+   * `--domain` are read with `includes` and `indexOf` above. The first version of this block asked
+   * for `args.smtp`, which on an array is always `undefined`, so `--smtp` silently did nothing and
+   * the run reported "Nothing to change". Caught by running it; nothing about the code looked wrong,
+   * because `onboard.ts` in the same directory *does* parse into an object and the two read
+   * identically at a glance.
+   */
+  if (args.includes('--smtp')) {
+    const missing = SMTP_ENV.filter((k) => !(process.env[k] ?? '').trim());
+    if (missing.length > 0) {
+      die(
+        `--smtp needs these in .env.local and they are absent: ${missing.join(', ')}\n  ` +
+          `SMTP_PASS is a live credential — put it in the file rather than on the command line.`,
+      );
+    }
+    const port = Number(process.env.SMTP_PORT);
+    if (!Number.isInteger(port) || port < 1 || port > 65535) {
+      die(`SMTP_PORT must be a port number, got "${process.env.SMTP_PORT}".`);
+    }
+    const sender = (process.env.SMTP_SENDER_EMAIL ?? '').trim();
+    if (!sender.includes('@')) die(`SMTP_SENDER_EMAIL must be an email address, got "${sender}".`);
+
+    patch.smtp_host = (process.env.SMTP_HOST ?? '').trim();
+    patch.smtp_port = port;
+    patch.smtp_user = (process.env.SMTP_USER ?? '').trim();
+    patch.smtp_pass = process.env.SMTP_PASS ?? '';
+    patch.smtp_admin_email = sender;
+    patch.smtp_sender_name = (process.env.SMTP_SENDER_NAME ?? '').trim();
+
+    // Raised together with the mailer, never on its own: 30/hour against Supabase's shared sender
+    // would be a promise the service does not keep, and the failure is silent by design here.
+    if (current.rate_limit_email_sent !== EMAIL_PER_HOUR) {
+      patch.rate_limit_email_sent = EMAIL_PER_HOUR;
+    }
+
+    // The cross-browser template. Set in the same change as the mailer because a working mailer with
+    // the stock template is a reset flow that fails whenever the email is opened on another device.
+    if (current.mailer_templates_recovery_content !== RECOVERY_TEMPLATE) {
+      patch.mailer_templates_recovery_content = RECOVERY_TEMPLATE;
+    }
+    if (current.mailer_subjects_recovery !== RECOVERY_SUBJECT) {
+      patch.mailer_subjects_recovery = RECOVERY_SUBJECT;
+    }
   }
 
   if (origin) {
@@ -137,8 +262,28 @@ async function main() {
     return;
   }
 
+  /*
+   * `smtp_pass` must never reach the terminal, and the template must not bury the diff.
+   *
+   * The plain version of this loop printed every value verbatim, which for a mailer means printing a
+   * live credential into a scrollback and a CI log — the same failure mode the `--smtp` flag reads
+   * from `.env.local` to avoid. Redacting at the point of display rather than trusting the caller not
+   * to look is the only version of that which holds.
+   *
+   * The recovery template is a few hundred bytes of HTML and would push the settings that matter off
+   * the screen, so it is shown as a length. It is in this file, reviewable in a diff, which is where
+   * a reader should be checking it.
+   */
+  const forDisplay = (k: string, v: unknown): string => {
+    if (k === 'smtp_pass') return '<redacted>';
+    if (typeof v === 'string' && v.length > 60) return `<${v.length} chars — see this script>`;
+    return JSON.stringify(v);
+  };
+
   console.log('\n  change:');
-  for (const [k, v] of Object.entries(patch)) console.log(`    ${k.padEnd(20)} ${JSON.stringify(v)}`);
+  for (const [k, v] of Object.entries(patch)) {
+    console.log(`    ${k.padEnd(34)} ${forDisplay(k, v)}`);
+  }
 
   if (dryRun) {
     console.log('\n  --dry-run, nothing sent.\n');
@@ -153,6 +298,8 @@ async function main() {
   console.log(`    site_url             ${JSON.stringify(after.site_url)}`);
   console.log(`    uri_allow_list       ${JSON.stringify(after.uri_allow_list)}`);
   console.log(`    password_min_length  ${after.password_min_length}`);
+  console.log(`    smtp_host            ${JSON.stringify(after.smtp_host ?? null)}`);
+  console.log(`    rate_limit_email_sent ${after.rate_limit_email_sent}`);
 
   if (origin) {
     console.log(
