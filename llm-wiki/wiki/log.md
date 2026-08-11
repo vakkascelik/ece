@@ -5,6 +5,43 @@ says so.*
 
 ---
 
+2026-08-11 — **The overview answers a question, and the rail becomes chrome.**
+`apps/web/src/app/(app)/page.tsx`, `globals.css`. See [[console-handover]].
+
+The overview rendered a count of who has a login and a card about data sensitivity. Neither is
+something anybody signs in to find out, and it was the screen every person in the product lands
+on. It now carries the ratio band — the same `RatioBanner` the roll uses, not a smaller copy —
+and a **Needs attention** list built from `summariseIncidents`, `summariseHazards`, `assessAll`
+and `drillStatuses`, each item linking to the screen that fixes it. Every figure is the same call
+its destination makes, so a count here cannot disagree with the page it points at.
+
+`drillStatuses` returns `overdue: boolean | null` and `facilities.ts` warns callers: `null` means
+no interval stated, which is a third state and not a late drill. The filter is `=== true`, so a
+centre that declined to state an interval does not appear permanently overdue against a rule it
+never set.
+
+**The rail is sunken, not dark, and the numbers chose it.** On `--ink`: white 17.39:1, but
+`--ink-muted` 2.65:1 and `--accent` **2.90:1** — and `--accent` is the current-page colour. A
+dark rail needs a second accent and a second muted existing only there, which is a parallel
+palette for one region, and this repo has already paid for one of those. On `--surface-sunken`
+every foreground already present still passes AA. **No state colour was spent**: green, amber,
+red and blue still mean one thing each, which is the only reason a red flag on a roll means a
+child could stop breathing.
+
+2026-08-11 — **Every handover capture refreshed against the current shell.**
+`handover/screens/`. See [[console-handover]].
+
+Five console screenshots were taken before icons, collapsible groups and the Doorway mark landed
+— they showed a rail the product no longer has, which for images whose whole job is to show what
+was built is worse than having none. All eight refreshed at `deviceScaleFactor: 2`.
+
+Two traps, both now in [[console-handover]]. The capture output path was `process.cwd()`, so
+running the harness from `apps/web` — which its own Playwright config requires — wrote five
+captures into `apps/web/handover/screens/`, reported success and moved nothing. A path that
+depends on where you were standing is not a path. And the harness needed its own Playwright
+config, because the main one now excludes `e2e/.artifacts/`; both live there and are gitignored,
+so the wiki carries the reproduction steps.
+
 2026-08-11 — **The offline drill stopped needing a human's password, and passed 10/10.**
 `scripts/offline-drill.ts`, `README.md`. See [[offline-outbox]].
 

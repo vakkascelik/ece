@@ -148,4 +148,20 @@ section headings of the child record were the real gap and got the eight notes i
 - [[offline-outbox]] — the hydration failure that argued for no JavaScript
 - [[unverified-claims]] — the caveats the `limit` field repeats
 
-*Last updated: 2026-08-10*
+## The `?` moved into `PageHeader`, 2026-08-11
+
+Every screen used to write its own `<div className="has-help"><h1>…</h1><TabHelp href="…" /></div>`.
+`PageHeader` owns that now and takes a `helpHref` — see [[console-handover]].
+
+**`helpHref` is not a link, and it must never become one.** The name comes from the design
+handover's prop list and its mockup draws a `?` beside the title, which reads exactly like an
+anchor to `/help`. It is the route key `TabHelp` looks a doc up by, and what renders is the
+`<details>` disclosure this page argues for: server-rendered, no JavaScript, operable before
+React hydrates.
+
+Turning it into an anchor would undo everything above and break the audit that clicks
+`summary.help-mark` and expects `.help-body` — so the trap is named in `PageHeader`'s own
+docblock as well as here, because the prop name invites the mistake and the person making it
+will be reading the component rather than this page.
+
+*Last updated: 2026-08-11 (the `?` is a `PageHeader` prop now)*

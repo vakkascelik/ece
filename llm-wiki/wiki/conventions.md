@@ -574,4 +574,4 @@ The only exception is a commit that touches nothing but `llm-wiki/`.
 - [[unverified-claims]]
 - [[offline-outbox]]
 
-*Last updated: 2026-08-09*
+*Last updated: 2026-08-11 (two corrections: the midnight clamp, and a reused stale server)*

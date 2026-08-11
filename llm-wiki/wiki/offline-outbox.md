@@ -308,11 +308,34 @@ somebody hits it — recorded so the next person does not rediscover it as a bug
 
 `npm run drill:offline` replays exactly what the outbox does — keys fixed up front, reused on
 retry, a flush repeated — against the real database through the same `recordAttendance` the
-app calls. 10/10 as at 2026-08-04, including that the times survived the outage and that two
+app calls. 10/10 as at 2026-08-11, including that the times survived the outage and that two
 clients agree.
 
 **It does not exercise `expo-sqlite`.** A real airplane-mode drill on a tablet is still
 required. See [[unverified-claims]].
+
+### It no longer needs anybody's password, 2026-08-11
+
+The drill signed in as a named person and demanded `ECE_DRILL_PASSWORD`. That made it
+**unrunnable by anybody who is not them** — Supabase stores `auth.users.encrypted_password` as a
+bcrypt hash and no key, service role or PAT returns it, so the credential can only be reset,
+never recovered. It also could never have run in CI, which is most of what a drill is for, and it
+would break silently the day that password changed.
+
+It provisions its own account now: a `.invalid` address that cannot receive mail (RFC 2606, the
+convention `seed-demo.ts` already uses), an **educator** membership on the demo centre, and a
+fresh random password set per run and stored nowhere. `ECE_DRILL_PASSWORD` and `ECE_DRILL_EMAIL`
+still override for anybody wanting to drill as a real person. Educator rather than owner, because
+`recordDailyPractice` is everything the drill exercises and a drill account with more rights than
+the act it drills is a standing invitation.
+
+**A defect the change surfaced, worth knowing before anybody debugs it again.** The second-device
+client called `signInWithPassword` and never checked the error, so a stale credential left it
+*anonymous* — and the failure appeared three lines later as
+`permission denied for table staff_count_events`. That reads like an RLS defect and is nothing of
+the kind: `anon` has `revoke all` on that table, so the **grant** refuses before any policy is
+consulted and the message never mentions sign-in. Anybody meeting it would start by reading 0010
+and find nothing wrong there.
 
 ### WAL, and why
 
@@ -325,4 +348,4 @@ it. An educator tapping during a flush must not see a lock.
 - [[unverified-claims]] — the missing device drill
 - [[conventions]]
 
-*Last updated: 2026-08-09*
+*Last updated: 2026-08-11 (the drill no longer needs a human credential)*

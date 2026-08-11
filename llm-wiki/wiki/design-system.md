@@ -615,4 +615,4 @@ Nothing on this page should be read as claiming the product now looks like the b
 - [[unverified-claims]] — the unchecked product name
 - [[mobile-app]] — why the mobile screens are a separate surface sharing only tokens
 
-*Last updated: 2026-08-06 (all thirteen screens)*
+*Last updated: 2026-08-11 (superseded as current design intent — see the notice at the top)*
