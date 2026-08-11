@@ -149,4 +149,28 @@ export const STATIC_SECURITY_HEADERS: ReadonlyArray<readonly [string, string]> =
   // Two years, subdomains included. Deliberately without `preload`: preloading is
   // effectively irreversible and is not a commitment to make before a domain is chosen.
   ['Strict-Transport-Security', 'max-age=63072000; includeSubDomains'],
+  /*
+   * Not a security header, and in this list anyway — because it belongs on every response
+   * this app sends, and this array is the only place that is true of *and* that the
+   * end-to-end suite can assert against.
+   *
+   * FOUND BY ASKING WHERE THE CONSOLE WOULD BE INDEXED, AND FINDING NOTHING STOPPING IT.
+   * This app had no robots.txt and no `noindex` of any kind. That was survivable while its
+   * only hostname was an unlinked `*.up.railway.app` address. It stopped being survivable
+   * the moment the console was mounted at `/portal` on a website that is linked, published
+   * and — after the domain cutover — indexed.
+   *
+   * UNCONDITIONAL, unlike apps/site's version of this header, and the asymmetry is the
+   * point. That app decides per request from the hostname, because it has pages that should
+   * be indexed and a preview that should not. This app has no page that should ever appear
+   * in a search result: every route is behind a session except `/login` and `/no-access`,
+   * and neither is any use to somebody arriving from Google. So there is no condition to
+   * get wrong and no variable to key it on — the first version of the site's rule was keyed
+   * on an environment variable and was wrong as soon as that variable's meaning changed.
+   *
+   * The `Disallow: /portal` in apps/site's robots.txt is the other half and does a different
+   * job: that one stops the crawl, this one stops the indexing. A disallowed URL can still
+   * be listed from an external link; a `noindex` response cannot.
+   */
+  ['X-Robots-Tag', 'noindex, nofollow'],
 ];

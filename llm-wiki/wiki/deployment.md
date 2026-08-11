@@ -15,7 +15,15 @@ to put this container on the internet (a key that bypasses every policy).
 ## Key Points
 
 - **One service, every centre.** Nothing about a centre is in the build — no tenant in an
-  environment variable, no centre id in the bundle, no hostname that means anything.
+  environment variable, no centre id in the bundle. **CORRECTED 2026-08-11: "no hostname that
+  means anything" has stopped being true.** The console has no domain of its own, so it is now
+  proxied onto Little Pearls' website hostname at `/portal`. The *build* is still tenant-free —
+  `ECE_PORTAL_MOUNT` is a path, not a customer — but the address families arrive at belongs to one
+  customer. See [[#the-console-has-no-domain-so-it-borrows-a-customers]].
+- **That mount is dated, and the date is customer #2.** Supabase's `site_url` is a single value for
+  the whole project, so while it points at the mount, *every* tenant's invitation and
+  password-reset links land on Little Pearls' hostname. Doorway needs a domain before a second
+  centre signs up, not before go-live.
 - **The Railway service is not a backend.** There are no API endpoints in it beyond a health check;
   it is React Server Components and server actions.
 - **The container must hold the service-role key**, so the blast radius of the Railway environment
@@ -199,6 +207,75 @@ without going through that form was held to six. Raised to 10.
 Both are handled by `npm run deploy:auth`, which is a script rather than a dashboard visit because
 configuration that exists only as a sequence of clicks cannot be reviewed, repeated or restored.
 
+### The console has no domain, so it borrows a customer's
+
+`doorway.co.nz` was recorded as available and then found to be registered and lapsing — see
+[[unverified-claims]] §19. So the console had two addresses available to it: a
+`*.up.railway.app` hostname nobody would type, or somebody else's domain. It now answers at
+`/portal` on the Little Pearls website's hostname.
+
+**Railway routes by hostname, not by path.** One address cannot be split across two services at the
+platform level, so one of the two containers has to forward, and it must be the one that owns the
+hostname families arrive at — the website. `apps/site/next.config.ts` rewrites `/portal/*` to the
+console service; `apps/web` runs with `basePath` set to the same prefix.
+
+Four places store that prefix or that hostname, and each one fails differently:
+
+| Where | Wrong or missing gives you |
+|---|---|
+| `ECE_PORTAL_MOUNT` on **both** services | prefix disagreement → 404 on every console page |
+| `healthcheckPath` in `railway.json` | probe 404s → replica never healthy → deploy fails while the container serves fine |
+| `ECE_ALLOWED_ORIGINS` on the console | every page renders, **every write is refused** |
+| Supabase `site_url` | invitations land on the old host, and off-allowlist redirects are silently rewritten |
+
+**`basePath` is what makes one origin work, and stripping the prefix at the proxy would not.** Both
+apps otherwise serve their assets from `/_next/`, so the website's chunks would answer the console's
+requests — a page that renders and then dies in hydration. `basePath` prefixes the routes *and* the
+asset path, which is the whole reason it is the mechanism here.
+
+Five traps, four found by reading rather than by deploying:
+
+1. **`basePath` moves `/api/health`.** Railway hits the literal path in `railway.json`, so the probe
+   had to be prefixed or the deploy would have failed its health check with a container that was
+   serving the app perfectly — the same shape as the canonical-redirect failure in
+   [[public-website]], caught earlier this time.
+2. **The website's middleware had to stop running on `/portal`.** Middleware runs *before*
+   `next.config` rewrites, so it would have stamped its own nonce'd CSP onto the proxied response
+   alongside the console's. Two policies intersect rather than override, and a nonce from a
+   different response matches nothing — a blank page on every console route at once.
+3. **`rewrites()` is baked into `routes-manifest.json` at build time.** Setting the destination on a
+   running service does nothing; it needs a redeploy. Quiet, unlike the others.
+4. **Excluding `/portal` from that matcher removed the only `X-Robots-Tag` covering it**, and the
+   site's `robots.txt` said `allow: /`. So the console would have been *invited* into search results.
+   `apps/web` had no robots handling of any kind — no `robots.txt`, no `noindex` — which was
+   survivable only while its hostname was unlinked. It now sends `X-Robots-Tag: noindex, nofollow`
+   unconditionally, and the site disallows `/portal`. Both, because `Disallow` stops the crawl and
+   `noindex` stops the indexing; a disallowed URL is still listed from an external link.
+   A robots route inside `apps/web` would have been published at `/portal/robots.txt` and read by
+   nobody — crawlers fetch `/robots.txt` from the host.
+5. **The one found by deploying, locally.** `export ECE_PORTAL_MOUNT=/portal` in Git Bash reached
+   `next build` as `C:/Program Files/Git/portal` — MSYS2 rewrites POSIX-looking values when it
+   spawns a native process. Both builds failed loudly and correctly. A leading slash is now optional
+   so a Windows developer can write `portal` and avoid the conversion; Railway is Linux and never
+   saw the problem.
+
+**The public URL is used, not `ece.railway.internal`.** Railway's private network is IPv6-only and
+`next start` binds `0.0.0.0`, so the internal name would refuse every connection and each console
+request would 502 while the marketing pages rendered fine. Nothing here has ever used Railway's
+private network. Moving to it needs `HOSTNAME=::` and a test, and buys one round trip.
+
+**Two things this arrangement costs, stated rather than discovered later.**
+
+It crosses the boundary `railway.site.json` was written to draw. That image still holds no database
+credential, but authenticated console traffic and Supabase session cookies now pass through the
+public, unauthenticated container.
+
+And **the e2e suite does not cover the mount.** Playwright resolves `page.goto('/login')` with
+`new URL()`, so a leading slash discards any prefix on `baseURL` — exercising the mounted config
+would mean rewriting every navigation in about twenty spec files. The suite proves the app still
+works *unmounted*. The mount's only coverage is the manual pass: health, a page render, and a real
+write through the proxy.
+
 ## See Also
 
 - [[tenancy-and-rls]] — the boundary that makes one deployment safe
@@ -206,4 +283,4 @@ configuration that exists only as a sequence of clicks cannot be reviewed, repea
 - [[invitations]] — why the container needs the service-role key
 - [[unverified-claims]] — CI has still never run
 
-*Last updated: 2026-08-05*
+*Last updated: 2026-08-11*

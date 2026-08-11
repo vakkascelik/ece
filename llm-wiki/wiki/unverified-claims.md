@@ -340,9 +340,9 @@ name has to change, it changes on a customer's live site rather than in a repo.
 
 **UPDATED 2026-08-11 — one of the three checks is now done, and the name was adopted on that
 basis.** The owner confirmed `doorway.co.nz` is available and instructed the product to take the
-name. It now appears in the console's `<title>`, its favicon and home-screen icon, the rail
-above every screen, and the mobile app's display name — where before it was only on the public
-website.
+name. **That premise was false — see the correction below.** It now appears in the console's
+`<title>`, its favicon and home-screen icon, the rail above every screen, and the mobile app's
+display name — where before it was only on the public website.
 
 **A domain being free is not a trade mark search.** Availability at the registrar says nothing
 about whether somebody holds a registered mark for "Doorway" in a class covering software or
@@ -374,13 +374,74 @@ tool's own page rather than invented here:
 3. **This is the free pre-application check**, which offers a paid IPONZ search as its own next
    step. It is a screen, not an opinion.
 
+**CORRECTED 2026-08-11, later the same day — `doorway.co.nz` is *not* available, and the one
+check this entry recorded as done was the one that was wrong.**
+
+A registrar's search page returned `doorway.co.nz is unavailable`. The .nz registry agrees, and
+says considerably more than the registrar's page did. From `whois.srs.net.nz`, queried directly:
+
+```
+Domain Name:      doorway.co.nz
+Registrar:        1st Domains Limited
+Creation Date:    2024-07-04     Original Created: 2006-06-02
+Updated Date:     2026-07-04
+Domain Status:    pendingDelete, redemptionPeriod, serverHold,
+                  serverRenewProhibited, serverUpdateProhibited
+Name Server:      ns1.afternic.com, ns2.afternic.com
+```
+
+Three things follow, and they do not all point the same way.
+
+1. **It is registered today, so the check recorded above as verified was not.** How the earlier
+   "available" reading was obtained is not known; it is not what the registry says.
+2. **It is in the drop cycle, not in use.** `redemptionPeriod` and `pendingDelete` are the states
+   a lapsed name passes through, `serverHold` means it is delegated nowhere, and the Updated Date
+   of 2026-07-04 is when it lapsed. .nz holds an expired name for a pending-release period before
+   it is released first-come-first-served — **90 days is the figure to check, not one this repo
+   has confirmed**, which would put release in the first days of October 2026. Verify with a
+   registrar or the Domain Name Commission before anyone plans around it.
+3. **The holder is not a business called Doorway, so this does not raise the trade mark risk.**
+   The nameservers are Afternic — GoDaddy's aftermarket. The name was listed for sale, did not
+   sell, and was not renewed. `Original Created: 2006-06-02` against `Creation Date: 2024-07-04`
+   says it has already dropped once and been caught by a reseller. A parked domain is evidence
+   of a speculator, not of a competing user of the word.
+
+**`doorway.nz` is registered and is not a business.** Registered 2020-11-17 through Webcentral
+(AU), on Cloudflare nameservers, locked `clientDelete/Transfer/UpdateProhibited`. An earlier
+draft of this paragraph said "somebody is using it" and called it the thing worth looking into,
+on the reasoning that a locked domain on real nameservers is closer to a trading name than a
+parking page. **That inference was wrong, and fetching the site is what settled it.** `https://doorway.nz`
+returns 384 bytes: a `<frameset>` pointing at `jsp.netregistry.net/theBizCard.jsp`, with an empty
+`<title>` and empty keywords and description. That is Netregistry's default placeholder. MX is
+`mx2/mx3.partnerconsole.net`, the same registrar's default mail. Six years registered, nothing
+built.
+
+So **no identical name is in commercial use in New Zealand on either domain** — one is a
+speculator's lapsed inventory, the other is a registrar's default page. That is not a trade mark
+clearance and does not substitute for the class search below; a registered mark need not own a
+website. But the specific worry that somebody is already trading as Doorway is answered: no.
+
+**`doorwayy.co.nz` was reported unavailable and the registry says otherwise** — `Not found`, i.e.
+unregistered. Recorded because the disagreement is the point. A registrar's search page was
+consulted three times on 2026-08-11 and disagreed with the registry twice: it called
+`doorwayy.co.nz` taken when it is free, and `doorway.nz` free when it has been registered since
+2020 and answers HTTP 200. **Ask the registry, or the Domain Name Commission's own lookup — not a
+seller's search box.** For `doorway.nz` the registry record, an SOA, live A records at Cloudflare
+and a 200 response are four independent signals and they agree; a registrar showing "available"
+against that is either a second-level-`.nz` parsing bug or a brokerage listing, which is a
+different claim wearing the same word.
+
+Also `Not found` at 2026-08-11: `doorway.net.nz`, `doorway.org.nz`, `doorway.kiwi.nz`, and
+`getdoorway` / `usedoorway` / `doorwayapp` / `doorwayece` / `trydoorway` / `doorwayhq` `.co.nz`.
+Listed as fact, not as a recommendation — none has been checked against anything but the registry.
+
 | | |
 |---|---|
 | **The claim** | "Doorway" is available to use as a product name in New Zealand |
-| **What is actually verified** | The domain (`doorway.co.nz`, available 2026-08-11), and an **unfiltered** IPONZ Trade Mark Check returning no identical word mark in the closest 8 of 25 results |
-| **Still unverified** | Co-existence in the classes this product sits in, the 17 results not viewed, and the companies register |
+| **What is actually verified** | An **unfiltered** IPONZ Trade Mark Check returning no identical word mark in the closest 8 of 25 results. **The domain is no longer part of this row**: `doorway.co.nz` is registered and lapsing, `doorway.nz` is registered and live |
+| **Still unverified** | Co-existence in the classes this product sits in, the 17 results not viewed, the companies register, and **when `doorway.co.nz` is actually released** |
 | **Exposure** | Public since 2026-08-07 on `apps/site`; since 2026-08-11 also the console's title, favicon, apple-icon and rail, and the mobile app's name |
-| **To close it** | Re-run the same check with classes 9, 42 and 41 selected — it is the same free tool and takes a minute — and a companies-register search at the Companies Office. Consider the paid IPONZ search before the name goes on anything print or a store listing |
+| **To close it** | Re-run the same check with classes 9, 42 and 41 selected — it is the same free tool and takes a minute — and a companies-register search at the Companies Office. Look at what is served at `doorway.nz`. Consider the paid IPONZ search before the name goes on anything print or a store listing |
 | **If it has to change** | One edit. `PRODUCT_NAME` in `packages/core/src/brand.ts` is the only place the word is written for the console, the icons and the site masthead — that consolidation was done at the same time as the adoption, and it is the reason a rename is cheap rather than a hunt. Two body-copy sentences on `apps/site` still spell it out, deliberately: they are prose about the product, not a label |
 
 ### 20. The mobile workspace has no unit tests, and the checklist does not say so

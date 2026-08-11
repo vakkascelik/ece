@@ -284,7 +284,7 @@ details and a coarse age band, which staff promote to `waitlist` by hand.
 - [[consent-gated-media]] — why no photograph of a child appears here
 - [[unverified-claims]] — and `apps/site/CONTENT-GAPS.md`, its equivalent for site content
 
-*Last updated: 2026-08-06*
+*Last updated: 2026-08-11*
 
 
 ## Their own photographs, and the four that are not here
@@ -561,6 +561,16 @@ the minimum number of staff required by the Ministry") remain off the site entir
 The masthead carries the mark plus "Sign in to Doorway", promoted from a line of footer body text.
 For a family or a kaiako already at the centre this is the most-used link on the site, and it was in
 small print below ten pages of marketing copy.
+
+**UPDATED 2026-08-11: that link no longer leaves the site.** The console has no domain of its own,
+so it is proxied onto this site's hostname at `/portal` and `SITE_APP_URL` points at
+`/portal/login`. This app is now a reverse proxy as well as a website — `next.config.ts` forwards
+`/portal/*` to the console service, and `middleware.ts` deliberately does **not** run on that path,
+because it would overwrite the console's per-request CSP nonce and blank every console page. Two
+consequences belong on this page: `robots.txt` carries `Disallow: /portal`, and authenticated
+console traffic now passes through this container — the one `railway.site.json` separated out
+precisely because it is the public, unauthenticated surface. It still holds no database credential.
+Mechanism and the full list of traps in [[deployment]].
 
 **This creates an exposure that did not exist before.** [[unverified-claims]] #19 recorded that the
 product name has not been trademark- or domain-checked and that "nothing in this repo uses it yet —

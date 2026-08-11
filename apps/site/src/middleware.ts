@@ -151,7 +151,27 @@ export const config = {
   // the number of assets on the page for no benefit — a PNG needs no script policy.
   // `\\.` not `\.`: this is a string, so `\.` collapses to a bare `.` and would match any
   // character where a literal dot was meant.
+  //
+  // `portal` IS EXCLUDED, AND SKIPPING IT IS THE WHOLE REASON THE MOUNT WORKS.
+  //
+  // Middleware runs *before* the rewrites in next.config.ts, so without this it would run on
+  // every console request. Two things then go wrong, and the first is fatal on every page at
+  // once: this middleware mints its own nonce and sets its own Content-Security-Policy, which
+  // would land on the proxied response alongside the console's — and a nonce that belongs to a
+  // different response is a nonce that matches none of the scripts in this one. Two policies
+  // intersect rather than override, so the result is a blank page with a console error on
+  // every console route. Exactly the failure both apps' header comments already describe,
+  // arrived at from a new direction.
+  //
+  // The second is the canonical-host redirect, which has no business bouncing an authenticated
+  // POST to a sign-in form.
+  //
+  // Hardcoded rather than read from ECE_PORTAL_MOUNT because a matcher is a build-time literal
+  // and cannot read the environment. With no mount configured there is no such route and the
+  // exclusion costs nothing — but if that variable is ever set to anything other than
+  // `/portal`, this line has to move with it. `portal(?:/|$)` and not `portal` so a future page
+  // legitimately called something like `portals` is not silently stripped of its headers.
   matcher: [
-    '/((?!_next/static|_next/image|favicon\\.ico|robots\\.txt|sitemap\\.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
+    '/((?!portal(?:/|$)|_next/static|_next/image|favicon\\.ico|robots\\.txt|sitemap\\.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
   ],
 };

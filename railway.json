@@ -62,9 +62,24 @@
       "Checks that the container booted with its configuration, not that Supabase is up.",
       "A missing environment variable is the most likely way this deploy fails, and without",
       "this the symptom is a 500 on whichever page somebody opens first, minutes after the",
-      "deploy reported success. See apps/web/src/app/api/health/route.ts."
+      "deploy reported success. See apps/web/src/app/api/health/route.ts.",
+      "",
+      "PREFIXED, AND COUPLED TO ECE_PORTAL_MOUNT. `basePath` moves every route in the app,",
+      "API routes included, so with the console mounted at /portal the health route is at",
+      "/portal/api/health and nothing answers at /api/health. Railway hits exactly the path",
+      "named here, so leaving it unprefixed means the probe 404s, the replica never becomes",
+      "healthy, and the deploy fails while the container itself logged `Ready` and is serving",
+      "the app perfectly. This was found by reading, before the first deploy, rather than by",
+      "eight failed health checks — which is how the same class of mistake was found in",
+      "apps/site's canonical redirect.",
+      "",
+      "The coupling runs both ways and there is no way to express it in this file: Railway's",
+      "config cannot read an environment variable. So if ECE_PORTAL_MOUNT is ever cleared —",
+      "when Doorway gets a domain of its own and the console moves back to its own root — this",
+      "path must lose the prefix in the SAME change, or the deploy that removes the mount will",
+      "fail its health check. Loud, but only if somebody reads this."
     ],
-    "healthcheckPath": "/api/health",
+    "healthcheckPath": "/portal/api/health",
     "healthcheckTimeout": 100,
 
     "//restart": [

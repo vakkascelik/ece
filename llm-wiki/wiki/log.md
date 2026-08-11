@@ -5,6 +5,95 @@ says so.*
 
 ---
 
+2026-08-11 — **The console has no domain, so it is served from the customer's website at
+`/portal`.** `apps/web/next.config.ts`, `apps/site/next.config.ts`, `apps/site/src/middleware.ts`,
+`apps/site/src/app/robots.ts`, `apps/web/src/lib/securityHeaders.ts`, `railway.json`. See
+[[deployment]].
+
+The alternative was sending families to `ece-production-fc07.up.railway.app`. A subdomain of
+`littlepearls.org.nz` was the cheaper answer and was dropped on instruction — `portal.` does not
+resolve and the website is still on its Railway hostname — so the only remaining way to reach the
+console from one address is a path mount. **Railway routes by hostname, not by path**, so the
+marketing container proxies `/portal/*` to the console service and `apps/web` runs with `basePath`
+set to the same prefix.
+
+`basePath` rather than stripping the prefix at the proxy, and the reason is not style: both apps
+otherwise serve assets from `/_next/`, and the website's chunks answering the console's requests is
+a page that renders and then dies in hydration. Verified rather than argued — the console's HTML
+now contains no unprefixed `/_next/` reference at all, and both apps' chunks return 200 on one
+origin.
+
+**Four traps found by reading, one by running.** `basePath` moves `/api/health`, so `railway.json`
+had to name the prefixed path or the deploy would have failed its health check with a container
+serving perfectly — `:3001/api/health` returning 404 locally is the proof it was needed. The
+website's middleware had to stop matching `/portal`, because middleware runs *before* the config
+rewrites and would have stamped a second CSP, with a nonce from a different response, onto every
+console page. `rewrites()` is baked into `routes-manifest.json` at build time, so setting the
+destination on a running service does nothing. And excluding `/portal` from that matcher removed
+the only `X-Robots-Tag` covering it while `robots.txt` said `allow: /` — the console would have
+been *invited* into search results, and `apps/web` had no robots handling of any kind.
+
+**A comment was deleted for asserting a constraint that does not exist.** There were two rewrite
+rules, the second on the assumption that `:path*` would not match the bare `/portal`. The generated
+manifest disagreed — the segment group is optional — and a running proxy confirmed `/portal` 307s
+to `/portal/login` with one rule. The extra rule was harmless; its comment was not, because a wrong
+comment outlives the code it explains.
+
+**The Windows trap in `CLAUDE.md` fired twice in one session, in two different tools.**
+`export ECE_PORTAL_MOUNT=/portal` in Git Bash reached `next build` as `C:/Program Files/Git/portal`
+and both builds failed; the identical conversion then wrote that same string into **both Railway
+services** through the CLI, where it was caught only by reading the values back. MSYS2 rewrites
+POSIX-looking values whenever it spawns a native process, and `railway.exe` is as native as
+`next build`. A leading slash on the mount is now optional so a value with no slash can be used on
+Windows, but the durable lesson is the readback: **set a variable, then print it.**
+
+**Two gates could not be run at first, and one still cannot be trusted to this change.** The
+Supabase PAT in `.env.local` was dead — `GET /v1/projects` returned 401 — and `SUPABASE_DB_URL`
+was empty, so `test:rls` and `review:security` had no credential at all. With a fresh PAT both
+pass: 447/447 isolation assertions, 16/16 security checks. `check:bundle` fails, `apps/web`
+first-load JS 112.9kB against a 106kB budget — and that is **not this change**: reverting both
+`apps/web` files and rebuilding gave the identical 112.9kB, so it belongs to the uncommitted root
+layout and brand-mark work in the tree, which is left uncommitted here.
+
+**The e2e suite does not cover the mount**, and saying so is the point. Playwright resolves
+`page.goto('/login')` with `new URL()`, so a leading slash discards any prefix on `baseURL`;
+covering the mounted config would mean rewriting every navigation in about twenty spec files. The
+suite proves the app unmounted. The mount's coverage is manual.
+
+**One debt, with a date on it.** Supabase's `site_url` is a single value for the whole project, so
+while it points at this mount, *every* tenant's invitation and password-reset links land on Little
+Pearls' hostname. Doorway needs a domain before customer #2 — not before go-live.
+
+2026-08-11 — **Correction: `doorway.co.nz` is not available, and never was on the day the name
+was adopted.** `llm-wiki/wiki/unverified-claims.md` §19. See [[unverified-claims]].
+
+The entry recorded the domain check as the one of three that was *done*. It was the one that was
+wrong. The .nz registry (`whois.srs.net.nz`, queried directly rather than through a registrar's
+search page) has `doorway.co.nz` registered through 1st Domains, delegated to `ns1/ns2.afternic.com`,
+and carrying `pendingDelete`, `redemptionPeriod` and `serverHold` since 2026-07-04.
+
+Read that carefully, because it cuts two ways. It is registered, so the claim was false. But
+Afternic is GoDaddy's aftermarket and those statuses are a lapse, not a business — and
+`Original Created: 2006-06-02` against `Creation Date: 2024-07-04` says the name already dropped
+once and was caught by a reseller who has now failed to sell it and stopped paying. **A parked
+domain is a speculator, not a competing user of the word, so this does not move the trade mark
+risk that §19 exists to track.** The IPONZ result from earlier the same day stands untouched.
+
+`doorway.nz` was briefly written up here as the real threat — registered since 2020, Cloudflare
+nameservers, fully locked, so presumably somebody's business. **Fetching it took thirty seconds
+and killed that reading.** It serves 384 bytes of `<frameset>` pointing at
+`jsp.netregistry.net/theBizCard.jsp`, empty title, empty description; MX is `partnerconsole.net`.
+Both are Netregistry defaults. Six years registered, nothing built. Locked-and-delegated is what
+a registrar does by default, not evidence of a going concern, and treating it as evidence was the
+same mistake in miniature as trusting the registrar's search page.
+
+Two smaller things, both recorded because they are about method. The registrar page also
+reported `doorwayy.co.nz` unavailable; the registry returns `Not found`, i.e. it is free. So a
+registrar's search was wrong in both directions inside one day. **Ask the registry.** And the
+90-day .nz pending-release period, which would put `doorway.co.nz`'s release in early October
+2026, is written into §19 as a figure to check rather than a figure checked — it came from
+knowledge of .nz policy, not from anything queried.
+
 2026-08-11 — **The overview answers a question, and the rail becomes chrome.**
 `apps/web/src/app/(app)/page.tsx`, `globals.css`. See [[console-handover]].
 
