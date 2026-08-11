@@ -5,6 +5,29 @@ says so.*
 
 ---
 
+2026-08-11 — **`deploy:auth` threw away the path, which would have sent every invitation to the
+marketing homepage.** `scripts/deploy-auth-config.ts`. See [[deployment]].
+
+Found by reading the script before running it against the live project, which is the only reason it
+was found at all. It set `site_url` from `new URL(domain).origin`, and `origin` discards everything
+after the host. That was right while the console owned its hostname and became wrong the moment it
+was mounted at `/portal`: **every invitation and password-reset link lands on `site_url`**, so a new
+kaiako would have clicked their invitation and arrived at ten pages of marketing copy with an auth
+token attached to a page that cannot use it. No error, no log line, and a symptom that reads as a
+broken email rather than a missing path segment.
+
+The path is kept now, and `uri_allow_list` inherits it, which is a tightening rather than a side
+effect — a redirect target outside the console should never have been permitted. Verified with
+`--dry-run` first, then applied: `site_url` is
+`https://little-pearls-production.up.railway.app/portal`.
+
+Two things about the old value that make this urgent rather than tidy. It was
+`https://ece-production-fc07.up.railway.app`, and that root **now 404s**, because `basePath` moved
+every route in the app — so any invitation issued before today is already dead, not merely pointing
+somewhere stale. And the PAT in `.env.local` had expired, so the whole Supabase half of this work
+was unreachable until it was replaced; the token is account-wide and listed a second, unrelated
+project, which is the hazard `deploy-railway.md` already describes.
+
 2026-08-11 — **The console has no domain, so it is served from the customer's website at
 `/portal`.** `apps/web/next.config.ts`, `apps/site/next.config.ts`, `apps/site/src/middleware.ts`,
 `apps/site/src/app/robots.ts`, `apps/web/src/lib/securityHeaders.ts`, `railway.json`. See

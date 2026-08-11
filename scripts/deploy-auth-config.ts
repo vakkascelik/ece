@@ -75,7 +75,25 @@ async function main() {
     }
     // http would mean auth cookies over plaintext, and the app sends HSTS.
     if (parsed.protocol !== 'https:') die('--domain must be https.');
-    origin = parsed.origin;
+    /*
+     * THE PATH IS KEPT, AND IT USED TO BE THROWN AWAY.
+     *
+     * This was `parsed.origin`, which drops everything after the host. That was correct
+     * while the console was the only thing on its hostname, and became wrong the moment it
+     * was mounted under a path: Doorway has no domain of its own, so it is served at
+     * `/portal` on the Little Pearls website's hostname with `basePath` set to match.
+     *
+     * With the path discarded, `site_url` would have been the bare host — and **every
+     * invitation and password-reset link in this product lands on `site_url`**. So a new
+     * kaiako would click their invitation and arrive at the marketing homepage, with the
+     * token fragment attached to a page that has no idea what to do with it. The failure
+     * looks like a broken email rather than a missing path segment, and nothing in the app
+     * would have logged a thing.
+     *
+     * The allow-list below inherits the path too, which is a tightening rather than a side
+     * effect: a redirect target outside the console has no business being permitted.
+     */
+    origin = (parsed.origin + parsed.pathname).replace(/\/+$/, '');
   }
 
   const base = `https://api.supabase.com/v1/projects/${ref}/config/auth`;

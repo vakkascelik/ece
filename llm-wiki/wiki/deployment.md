@@ -228,6 +228,21 @@ Four places store that prefix or that hostname, and each one fails differently:
 | `ECE_ALLOWED_ORIGINS` on the console | every page renders, **every write is refused** |
 | Supabase `site_url` | invitations land on the old host, and off-allowlist redirects are silently rewritten |
 
+**`deploy:auth` dropped the path, and that was a fifth silent failure.** It set `site_url` from
+`new URL(domain).origin`, which discards everything after the host — correct while the console owned
+its hostname, wrong the moment it was mounted under one. `site_url` would have become the bare host,
+and since every invitation and password-reset link lands on `site_url`, a new kaiako would have
+arrived at the **marketing homepage** with an auth token attached to a page that has no idea what to
+do with it. It reads as a broken email, not a missing path segment, and nothing would have logged
+it. The script now keeps the path, and `uri_allow_list` inherits it — a tightening, since a redirect
+target outside the console has no business being allowed. Live value is now
+`https://little-pearls-production.up.railway.app/portal`.
+
+Worth knowing while this mount stands: the **old** `site_url` was
+`https://ece-production-fc07.up.railway.app`, whose root now 404s because `basePath` moved every
+route. So any invitation issued before this change is already dead and must be reissued — the
+script says so, and here the usual "still points at the old host" is worse than usual.
+
 **`basePath` is what makes one origin work, and stripping the prefix at the proxy would not.** Both
 apps otherwise serve their assets from `/_next/`, so the website's chunks would answer the console's
 requests — a page that renders and then dies in hydration. `basePath` prefixes the routes *and* the
