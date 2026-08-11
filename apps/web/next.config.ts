@@ -117,6 +117,38 @@ const config: NextConfig = {
 
   ...(portalMount ? { basePath: portalMount } : {}),
 
+  /*
+   * The bare hostname stops being a 404.
+   *
+   * REPORTED, NOT PREDICTED. Setting `basePath` moved every route in this app, so
+   * `ece-production-fc07.up.railway.app/` — the address anybody who has ever opened this
+   * service has bookmarked — began returning Next's 404. The console had not gone anywhere;
+   * it was at `/portal/login` on the same host. But "where did it go" is the correct
+   * reaction to a 404, and an app that answers only on a path nobody was told about is an
+   * app that looks broken.
+   *
+   * `basePath: false` is the whole trick: with a basePath set, a request outside it is not
+   * routed at all, and a redirect declared here is one of the few things that still sees the
+   * unprefixed path. So `/` is caught before routing and sent to the mount.
+   *
+   * ONLY THE ROOT, and that restriction is load-bearing. A tempting `/:path*` would match
+   * the *raw* path, `/portal/login` included, and redirect it to `/portal/portal/login` —
+   * a loop, on the one route that has to work. The root is what people type and what a
+   * bookmark holds; anything deeper is a link that already carries the prefix.
+   *
+   * 307 rather than 308, for the reason apps/site's middleware has written up at length: a
+   * permanent redirect is cached by browsers for the life of the profile, so getting one
+   * wrong cannot be fixed by deploying. This one is temporary by nature anyway — it exists
+   * only until Doorway has a domain and the mount goes away.
+   */
+  ...(portalMount
+    ? {
+        async redirects() {
+          return [{ source: '/', destination: portalMount, permanent: false, basePath: false }];
+        },
+      }
+    : {}),
+
   ...(extraOrigins.length > 0
     ? { experimental: { serverActions: { allowedOrigins: extraOrigins } } }
     : {}),

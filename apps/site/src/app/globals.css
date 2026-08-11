@@ -309,13 +309,55 @@ a:hover { text-decoration-thickness: 2px; }
  *
  * A style preference can be restored without restoring the defect that shared a commit with it.
  */
+/*
+ * THE FOOTER IS CORAL, WHICH IS THEIR OWN BRAND COLOUR AND THEIR OWN CURRENT SITE'S FOOTER.
+ *
+ * Asked for directly: "make footer background color same as current one; pinkish". It was `--sand`.
+ * `--coral` is `#ff6565`, read out of their existing stylesheet rather than sampled from a
+ * screenshot, so this is the same colour their footer has today.
+ *
+ * WHAT COULD NOT COME WITH IT IS THE WHITE TEXT.
+ *
+ * Their current footer is white on coral, and `tokens.ts` has recorded since it was written that
+ * white on coral measures **2.88:1** — against the 4.5:1 WCAG 2.2 AA asks of body text. That file's
+ * whole point is that none of their brand colours can carry text. So the background is theirs and
+ * the text is not: measured with the repo's own `contrastRatio` before anything was changed —
+ *
+ *     #1b1a18 on coral   6.05:1  PASS   <- chosen
+ *     white   on coral   2.88:1  FAILS  <- what their site does today
+ *     --ink   on coral   2.44:1  FAILS  <- what this footer's body text was
+ *     --teal-ink on coral 2.01:1 FAILS  <- what .foot-head was
+ *
+ * So **both** colours already in this footer fail on the new background, which is why this is more
+ * than a one-line change and why the overrides below are not decoration. A background swap that
+ * left the text alone would have shipped two contrast failures on every page of a compliance
+ * product, and it would have looked completely fine.
+ *
+ * The rejected alternative, recorded because it is the obvious one: `--coral-ink` (#c12727) takes
+ * white text at 5.85:1 and would have matched their *arrangement* — white on red. It is a deep
+ * brick, not the pinkish coral that was asked for, so it loses on the actual request. Available in
+ * one line if the dark text reads wrong on screen.
+ *
+ * Links keep the footer's text colour rather than `--teal-ink`, which is safe here only because
+ * nothing on this site removes underlines: the underline carries the affordance, so WCAG 1.4.1 is
+ * not relying on hue. See the `a:hover` note above — the same reasoning that stopped links being a
+ * second accent.
+ */
 .foot {
-  background: var(--sand);
+  background: var(--coral);
+  color: #1b1a18;
   /* No border-top. It was `--aqua` — a cool line under a warm block, and the only place on the
-     site where a hairline was a colour rather than a tone. Sand against shell is the edge. */
+     site where a hairline was a colour rather than a tone. Coral against shell is the edge, and it
+     is a far harder edge than sand was: the block now announces itself. */
   padding: var(--space-6) 0;
   font-size: var(--text-base);
 }
+/*
+ * (0,2,0) to outrank the global `a { color: var(--teal-ink) }`, which is (0,1,0) and measures
+ * 2.01:1 on coral. Every link in this footer is caught: two phone numbers, two addresses, the
+ * social column and the sign-in link.
+ */
+.foot a { color: #1b1a18; }
 .foot-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
@@ -326,9 +368,29 @@ a:hover { text-decoration-thickness: 2px; }
   letter-spacing: 0.06em;
   text-transform: uppercase;
   font-size: var(--text-sm);
-  color: var(--teal-ink);
+  /* Was `--teal-ink`, which is 2.01:1 on coral — the worst pair in the footer. The label stays
+     distinguishable from its values by weight, uppercase and letter-spacing, all of which it
+     already had; the colour was never what separated them. */
+  color: #1b1a18;
 }
 .foot p { margin: 0 0 var(--space-1); }
+/*
+ * The social column. A list, stripped of its marker and indent — the semantics are the reason it is
+ * a `<ul>` (see layout.tsx), and the bullets are not.
+ *
+ * `var(--space-1)` between items rather than the `line-height` doing it: these are link targets, and
+ * two underlined words stacked at natural leading are two things a thumb cannot reliably separate.
+ * This does not reach the 24px of WCAG 2.5.8 on its own for the text itself, which is the same
+ * position every other inline link in this footer is in — the addresses and phone numbers included —
+ * so it is consistent rather than a new exception, and it is recorded here as not fixed rather than
+ * claimed as fixed.
+ */
+.foot-social {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.foot-social li { margin: 0 0 var(--space-1); }
 /*
  * ORDER MATTERS BELOW, and it is the same class of bug that ate the credit's margin last time.
  * Both selectors are (0,2,0), so source order decides — and `.foot .foot-head` uses the `margin`
@@ -361,7 +423,15 @@ a:hover { text-decoration-thickness: 2px; }
   max-width: none;
   margin: var(--space-6) 0 0;
   padding-top: var(--space-4);
-  border-top: 1px solid var(--teal);
+  /*
+   * Was `1px solid var(--teal)`. Teal on coral is 1.19:1 — not a contrast failure, because a
+   * divider is decoration rather than a UI component under WCAG 1.4.11, but invisible, which is
+   * worse for the one job it has. The note above says this hairline earns being a colour rather
+   * than a tone; on coral it cannot, so it becomes a tone of the text instead. Translucent rather
+   * than solid #1b1a18: at full strength a 1px near-black rule on a saturated ground reads as a
+   * seam between two blocks, and this one divides content inside one.
+   */
+  border-top: 1px solid rgba(27, 26, 24, 0.3);
   font-size: var(--text-sm);
 }
 .foot-credit a {

@@ -128,6 +128,33 @@ export const CENTRE_FACTS = {
 } as const;
 
 /**
+ * Their social accounts, as supplied by the owner and carried over from their current site.
+ *
+ * TEXT LINKS AND NOT ICONS, WHICH IS A DEPARTURE FROM THEIR CURRENT FOOTER.
+ *
+ * Theirs is four circular glyphs with no visible text. Three reasons this is words instead. The
+ * `img-src` policy is `'self' data:`, so every icon would have to be a committed asset or an
+ * inlined path — and the inlined route is the one the developer credit's comment already refuses
+ * for somebody else's mark, because a drawn logo is one `fill` away from being recoloured against
+ * its own guidelines. Four platform marks is four of that problem. Second, an icon-only link needs
+ * an accessible name supplied separately, and a name that exists only for screen readers is a name
+ * nobody proofreads. Third, this site is typographic the whole way down; a row of logo bubbles is
+ * the one place it would stop being.
+ *
+ * The account names are deliberately not abbreviated to handles. "Instagram" is what somebody is
+ * looking for; `@littlepearlsnz` is what they find when they get there.
+ *
+ * `x.com` is recorded as supplied. Their current footer still shows a bird, so the icon is a
+ * generation out of date — another small argument for words, which do not go stale.
+ */
+export const SOCIAL_LINKS = [
+  { name: 'Facebook', href: 'https://www.facebook.com/LittlePearlsEducareCentre' },
+  { name: 'Instagram', href: 'https://www.instagram.com/littlepearlsnz/' },
+  { name: 'X', href: 'https://x.com/littlepearls_nz' },
+  { name: 'Flickr', href: 'https://www.flickr.com/people/littlepearls/' },
+] as const;
+
+/**
  * The rooms, with the ratios **their site publishes**.
  *
  * Quoted as the centre's own statement, never as a regulatory figure. The platform's own ratio

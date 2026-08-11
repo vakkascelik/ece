@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Literata } from 'next/font/google';
 import type { ReactNode } from 'react';
 import { MARK, PRODUCT_NAME } from '@ece/core';
-import { CENTRES, CENTRE_FACTS } from '@/lib/centres';
+import { CENTRES, CENTRE_FACTS, SOCIAL_LINKS } from '@/lib/centres';
 import { PHOTOS } from '@/lib/photos';
 import { appUrl, siteOrigin } from '@/lib/site';
 import { NavLink } from './NavLink';
@@ -305,6 +305,35 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                 <p>
                   <a href={appUrl()}>Sign in to {PRODUCT_NAME}</a>
                 </p>
+              </div>
+              {/*
+                Their social accounts, which the current site has and this one did not.
+
+                A fourth grid column rather than a row of icons under the credit. `.foot-grid` is
+                `auto-fit, minmax(16rem, 1fr)`, so a fourth item costs nothing and reflows to two-up
+                and then one-up on its own — no media query, and no fixed column count to get wrong
+                when a fifth thing arrives.
+
+                `<ul>` and not four `<p>`s: it is a list of four equivalent things, and a screen
+                reader announcing "list, 4 items" is the difference between hearing the shape and
+                hearing four sentences. The bullets and indent come off in CSS.
+
+                No `target="_blank"`. Opening in a new tab is a decision made for the reader about
+                their own browser, and WCAG 3.2.5 treats an unrequested new window as a change of
+                context; anybody who wants one has a middle-click. `rel="noreferrer"` would be
+                redundant against this site's `strict-origin-when-cross-origin` policy, which
+                already sends the origin and nothing more — so it is left off rather than added as
+                cargo, and the policy is the single place that decision lives.
+              */}
+              <div>
+                <p className="foot-head">Follow us</p>
+                <ul className="foot-social">
+                  {SOCIAL_LINKS.map((social) => (
+                    <li key={social.name}>
+                      <a href={social.href}>{social.name}</a>
+                    </li>
+                  ))}
+                </ul>
               </div>
             </div>
 

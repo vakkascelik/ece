@@ -657,6 +657,63 @@ The sign-in link is deliberately in both the masthead and the footer now. The ma
 that gets used; somebody who has scrolled to the bottom looking for it should not have to scroll back
 up.
 
+### The footer is coral now, and it could not bring their white text with it
+
+Asked for directly: make the footer the same pinkish colour as their current site. It was `--sand`.
+It is `--coral` — `#ff6565`, which [[design-system]] read out of their own 2018 stylesheet, so this is
+their footer colour rather than something sampled off a screenshot.
+
+**The background was the easy half.** `packages/core/src/tokens.ts` has said since it was written that
+none of their brand colours can carry text, and it has the numbers: white on coral is **2.88:1**
+against the 4.5:1 WCAG 2.2 AA wants. Their live footer is white on coral. So the colour came across
+and the text arrangement did not.
+
+Measured with the repo's own `contrastRatio` before anything changed, which is what turned a one-line
+change into a real one:
+
+| on `#ff6565` | ratio | |
+|---|---|---|
+| `#1b1a18` | **6.05:1** | chosen |
+| white | 2.88:1 | fails — what their site does today |
+| `--ink` `#595959` | 2.44:1 | fails — what this footer's body text *was* |
+| `--teal-ink` `#416d6d` | 2.01:1 | fails — what `.foot-head` *was* |
+
+**Both colours already in the footer failed on the new background.** That is the part worth keeping:
+a background swap that touched only `background` would have shipped two contrast failures onto every
+page of a compliance product, and it would have looked completely fine in a screenshot. `.foot`,
+`.foot a` and `.foot-head` all move to `#1b1a18`, and the `--teal` hairline above the credit — 1.19:1
+on coral, not a violation because a divider is not a UI component, just invisible — becomes a
+translucent tone of the text.
+
+Two things that made this cheap rather than fiddly. The pair `#1b1a18` on coral was **already** an
+asserted entry in `LITTLE_PEARLS_CONTRAST_PAIRS`, so the colour this now depends on cannot regress
+without a unit test failing. And `npm run audit:site` exists, so the claim is a measurement: 20 page
+views, 10 routes, 390px and 1440px, no violations and no horizontal overflow.
+
+The rejected alternative, because it is the obvious one: `--coral-ink` `#c12727` takes white text at
+5.85:1 and would have matched their *arrangement*. It is a deep brick rather than a pinkish coral, so
+it loses on what was actually asked for. One line if the dark text reads wrong on screen.
+
+### Their social accounts are on the site, as words
+
+Facebook, Instagram, X and Flickr, a fourth column in the footer grid. `.foot-grid` is
+`auto-fit, minmax(16rem, 1fr)`, so a fourth item reflows on its own — no media query and no column
+count to correct when a fifth thing arrives. The URLs live in `lib/centres.ts` next to
+`CENTRE_FACTS`, because they are site content rather than configuration.
+
+**Text links, where theirs are icon bubbles**, and three reasons. `img-src` is `'self' data:`, so
+every icon is either a committed asset or an inlined path — and the developer credit two sections
+down already refuses the inlined route for somebody else's mark, on the grounds that a drawn logo is
+one `fill` away from breaching its own guidelines; four platform marks is four of that argument. An
+icon-only link needs its accessible name supplied separately, and a name that exists only for screen
+readers is a name nobody proofreads. And their current footer still shows a bird for X, which is a
+neat demonstration that a glyph goes stale where a word does not.
+
+No `target="_blank"`: an unrequested new window is a change of context under WCAG 3.2.5, and anybody
+who wants one has a middle-click. No `rel="noreferrer"` either — the site's
+`strict-origin-when-cross-origin` policy already sends the origin and nothing more, so adding it
+would be cargo, and the policy stays the single place that decision lives.
+
 ### Two CSS specificity bugs in one footer, both the same shape
 
 Both were invisible in the diff and obvious in a screenshot, and both are the kind that read as a

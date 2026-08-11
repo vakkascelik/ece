@@ -274,6 +274,31 @@ Five traps, four found by reading rather than by deploying:
    so a Windows developer can write `portal` and avoid the conversion; Railway is Linux and never
    saw the problem.
 
+**The bare console hostname was a 404, and that was reported rather than predicted.** `basePath`
+moves *every* route, so `ece-production-fc07.up.railway.app/` — the address anybody who has opened
+this service has bookmarked — started returning Next's 404 while the console sat perfectly happily at
+`/portal/login` on the same host. A `redirects()` entry with **`basePath: false`** catches it: with a
+basePath set, a request outside it is not routed at all, and a redirect declared in the config is one
+of the few things that still sees the unprefixed path. Root only — a tempting `/:path*` would match
+the *raw* `/portal/login` and send it to `/portal/portal/login`, a loop on the one route that has to
+work. 307 and not 308, for the reason [[public-website]] records at length: a permanent redirect is
+cached for the life of a browser profile, so a wrong one cannot be fixed by deploying.
+
+**The console gets a way back out, and it carries no tenant.** The ask was for the Little Pearls
+footer on the sign-in page — coral, both addresses, the phone numbers, the social links. That would
+put one customer's address book into the pooled build, show it to the second centre that signs up,
+and require a console deploy whenever a phone number changes. What went in instead is one line,
+`← Back to the website`, linking to **`/`** — relative, so it is Little Pearls on this mount and
+centre #2's own site on theirs, with nothing tenant-shaped compiled in.
+
+The load-bearing detail is that it is a plain `<a>` and never `next/link`: `Link` prepends `basePath`,
+so `<Link href="/">` resolves to `/portal` and a link meant to leave the console would return to its
+own front door. Verified in the shipped HTML, where the anchor is `/` while the script tag beside it
+is `/portal/_next/…` — basePath applied to one and deliberately escaped by the other. It lives in a
+`login/layout.tsx` rather than the page because `page.tsx` is `'use client'` and a client component
+cannot read a non-public environment variable; a `NEXT_PUBLIC_` twin of `ECE_PORTAL_MOUNT` would have
+been two variables for one fact.
+
 **The public URL is used, not `ece.railway.internal`.** Railway's private network is IPv6-only and
 `next start` binds `0.0.0.0`, so the internal name would refuse every connection and each console
 request would 502 while the marketing pages rendered fine. Nothing here has ever used Railway's

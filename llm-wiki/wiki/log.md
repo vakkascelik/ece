@@ -5,6 +5,54 @@ says so.*
 
 ---
 
+2026-08-11 — **The footer is their coral, the social accounts are on the site, and the bare console
+hostname stopped being a 404.** `apps/site/src/app/globals.css`, `apps/site/src/app/layout.tsx`,
+`apps/site/src/lib/centres.ts`, `apps/web/next.config.ts`, `apps/web/src/app/login/layout.tsx`,
+`apps/web/src/app/globals.css`. See [[public-website]] and [[deployment]].
+
+Four requests, and the interesting part is that two of them were one-line changes that were not.
+
+**The footer background was asked for as "same as current one; pinkish" and the colour was the easy
+half.** `--coral` is `#ff6565`, already in the tokens from their own stylesheet. But `tokens.ts` has
+recorded from the beginning that none of their brand colours can carry text, and both colours already
+in that footer fail on coral — body `--ink` at 2.44:1 and `.foot-head`'s `--teal-ink` at 2.01:1, the
+worst pair on the page. Their live site puts white on it, at 2.88:1. So `background` alone would have
+shipped two contrast failures onto every page of a compliance product and looked perfect doing it.
+All the footer text moves to `#1b1a18` (6.05:1), and the `--teal` hairline — 1.19:1 on coral, not a
+violation but invisible — becomes a tone of the text. `#1b1a18` on coral was **already** an asserted
+pair, so this cannot regress silently, and `audit:site` makes the claim a measurement: 20 page views,
+10 routes, two widths, no violations. `--coral-ink` was rejected: it takes white at 5.85:1 and would
+have matched their arrangement, but it is a brick, not the pink that was asked for.
+
+**The social links are words, not icon bubbles.** `img-src` is `'self' data:`, so each icon is a
+committed asset or an inlined path — and the developer credit already refuses inlining somebody
+else's mark because it is one `fill` from breaching their guidelines. An icon-only link also needs a
+name supplied separately, which is a name nobody proofreads. Their current footer still shows a bird
+for X, which makes the point on its own.
+
+**`ece-production-fc07.up.railway.app/` was a 404 and that was reported, not predicted.** `basePath`
+moves every route, so the bookmarked address broke while the console was fine at `/portal/login`. A
+`redirects()` entry with `basePath: false` sees the unprefixed path and sends `/` to the mount. Root
+only: `/:path*` would match the raw `/portal/login` and loop it to `/portal/portal/login`. 307, for
+the sticky-308 reason already written up twice in this repo.
+
+**The console footer was the request worth refusing as specified.** Little Pearls' coral footer on the
+sign-in page would compile one customer's address book into a build that serves every centre — the
+first Key Point in [[deployment]] is that nothing about a centre is in it. A relative
+`<a href="/">Back to the website</a>` needs none of that: `/` on the host it was served from *is* the
+customer's site, whoever they are. The trick is that it must be a plain anchor and never `next/link`,
+which prepends `basePath` and would send somebody trying to leave straight back to `/portal` —
+confirmed in the shipped HTML, where the anchor is `/` and the script beside it is `/portal/_next/…`.
+It sits in a `login/layout.tsx` because `page.tsx` is `'use client'` and cannot read a non-public
+variable, and a `NEXT_PUBLIC_` twin would be two variables for one fact.
+
+**Verified rather than inferred, including the bit a layout could have broken.** Wrapping `/login` in
+a layout is exactly the change that could kill the sign-in flow, so the action was posted through the
+proxy with the real `$ACTION_ID`: the response carries `Those details are not right.`, meaning the
+server action ran, reached Supabase and came back. The e2e suite was **not** run — with the mount
+unset the layout renders nothing at all, so its unmounted behaviour is unchanged by construction, and
+the mounted path is not something Playwright can reach without rewriting every navigation.
+
 2026-08-11 — **`deploy:auth` threw away the path, which would have sent every invitation to the
 marketing homepage.** `scripts/deploy-auth-config.ts`. See [[deployment]].
 

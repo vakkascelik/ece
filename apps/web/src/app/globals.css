@@ -673,6 +673,31 @@ button.danger { background: var(--surface); color: var(--danger); border-color: 
 .auth-note { margin: 0; font-size: var(--text-base); color: var(--ink-muted); line-height: 1.6; }
 .auth-note a { color: var(--accent); }
 
+/*
+ * The way back to the website, below the sign-in card and outside it. Only rendered when the console
+ * is mounted under a website's hostname — see app/login/layout.tsx.
+ *
+ * Matched to `.auth`'s own box (520px, `auto` margins, 48px of side padding) so the link sits on the
+ * card's left edge rather than floating in the middle of the viewport. Aligned, not centred: it is a
+ * secondary escape hatch, and centring it under a centred card makes it read as a second action of
+ * equal weight to Sign in.
+ *
+ * No margin-top. `.auth` already carries `margin: 4rem auto`, so the gap above this is the card's
+ * own bottom margin — one number deciding the spacing instead of two that have to agree, and no
+ * negative margin to be undone by a future change to the card.
+ *
+ * `--accent` because that is what `.auth-note a` above already uses on this same background, so this
+ * introduces no colour pair that has not already been through the a11y pass on this page.
+ */
+.auth-back {
+  width: 100%;
+  max-width: 520px;
+  margin: 0 auto 4rem;
+  padding: 0 48px;
+  font-size: var(--text-sm);
+}
+.auth-back a { color: var(--accent); }
+
 /* 44px outline, the handoff's secondary height, on the waiting-room and reset panels. */
 .auth-secondary {
   height: var(--target-min);
