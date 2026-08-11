@@ -155,6 +155,44 @@ test.describe('staff screens', () => {
     await auditPage(page, '/children');
   });
 
+  /**
+   * A collapsed nav group stays collapsed after navigating.
+   *
+   * This is the whole feature. Collapsing itself is native `<details>` and cannot really
+   * break; what breaks is the memory of it, because the state lives in a cookie written by
+   * one small client component and read by the server on the next request. If that link
+   * fails, the groups silently spring open on every page load and the disclosure becomes an
+   * irritation rather than a preference — which is worse than not having built it.
+   *
+   * Nothing else would notice. Every existing assertion opens a page fresh, where the
+   * default is open and a broken cookie looks exactly like a working one.
+   */
+  test('a collapsed nav group is still collapsed after navigating', async ({ page }) => {
+    await visit(page, '/');
+
+    const money = page.locator('details[data-group="money"]');
+    const funding = page.getByRole('link', { name: 'Funding', exact: true });
+
+    // Default is open, and deliberately so: shipping the rail collapsed would put a tap in
+    // front of the most-used screen in the product for everybody.
+    await expect(money).toHaveAttribute('open', '');
+    await expect(funding).toBeVisible();
+
+    await money.locator('summary').click();
+    await expect(funding).toBeHidden();
+
+    // The part that needs the cookie. A full navigation, not a client-side re-render.
+    await page.goto('/children', { waitUntil: 'networkidle' });
+    await expect(
+      page.locator('details[data-group="money"]'),
+      'the group sprang back open on navigation — the cookie is not being written or not being read',
+    ).not.toHaveAttribute('open', '');
+    await expect(page.getByRole('link', { name: 'Funding', exact: true })).toBeHidden();
+
+    // And the groups nobody touched are untouched.
+    await expect(page.locator('details[data-group="today"]')).toHaveAttribute('open', '');
+  });
+
   test('child record — the densest screen in the product', async ({ page }) => {
     const t = tenant();
     await visit(page, `/children/${t.childId}`);

@@ -561,7 +561,57 @@ a position marker — useful for finding the same row twice, not for working out
 the first time — which is why the labels stayed at full size rather than shrinking now that
 there is a picture beside them.
 
-### The rail scrolls itself, and the groups do not collapse
+### The groups do collapse, and the reason they did not was wrong
+
+**Correcting the section below rather than editing it.** It argued that collapsing would make
+the rail a client component with storage on every screen, against a JavaScript budget already
+6.9kB over. That was the load-bearing reason, and it was **false**: `<details>`/`<summary>`
+collapses with no JavaScript at all — focusable, operable with Enter and Space, announced as
+expanded or collapsed, working before React hydrates. This codebase already depends on exactly
+that; it is why `HelpNote` is a `<details>` and why the kiosk draws its own keypad. The argument
+was available in two files in the same directory and was not consulted.
+
+The other two objections survive as design constraints rather than refusals, and shaped what
+was built:
+
+- **Default open, never default closed.** Attendance is opened dozens of times a day on a
+  tablet at the door. Shipping the rail collapsed would put a tap in front of the most-used
+  screen in the product for everybody, to tidy it for the few who want it tidy. Collapsing is
+  opt-in; somebody who never touches it never pays for it.
+- **It has to be remembered.** A disclosure that resets on every navigation is worse than none
+  — you close Money, click Attendance, and Money is back. So a cookie, read on the server so
+  the `<details>` arrives in the right state rather than flashing open and collapsing on every
+  page load.
+
+The cookie stores **what is closed**, not what is open, so the default with no cookie — a new
+person, a cleared browser, a shared tablet — is every group open. A stored list of open groups
+would default to a rail with nothing in it, and the failure mode of a preference must never be
+"the navigation disappeared".
+
+One client component, `NavGroupMemory`, mounted once beside the nav — `NavGroup` stays a server
+component. It listens in the **capture** phase because `toggle` does not bubble, and re-derives
+the whole list from the DOM on each toggle rather than tracking state, so what is stored cannot
+drift from what is on screen.
+
+`navGroups.ts` / `navGroups.server.ts` is split for the reason `locale.ts` /`locale.server.ts`
+already was: a Client Component needs the cookie's *name*, and importing that from a module
+which calls `cookies()` pulls a server-only API into the client bundle. The build refuses,
+which is the good outcome — but it is the second time this exact split has been needed, so it
+is written down twice now.
+
+**The chevron is `aria-hidden`.** `<details>` already announces expanded or collapsed; a glyph
+in the accessible name would say it twice. It rotates off the element's own `[open]` state in
+CSS, so there is no second source of truth — the same reason the current nav item is styled off
+`aria-current` rather than a class.
+
+**`e2e` asserts the memory, not the collapsing.** Native `<details>` cannot really break; the
+cookie link can, and if it does the groups spring open on every page load and the feature
+becomes an irritation. Nothing else would notice — every other assertion opens a page fresh,
+where the default is open and a broken cookie looks identical to a working one. Mutation-tested
+by removing `NavGroupMemory`: fails on the right assertion, with the message that names the
+cause.
+
+### What the scrolling rail was for, and what was wrongly rejected with it
 
 The question that came with the icon request was whether the groups should become dropdowns.
 Measured first, at 1440×900 with an owner signed in:
@@ -577,13 +627,14 @@ laptop, Sign out was 400px below the fold, and reaching it scrolled the *page* �
 `/attendance` scrolled the roll away too. Worth owning that grouping made this worse: six
 headings added about 210px and moving three links to the footer gave back about 130.
 
-The fix is `position: sticky` with the rail's own `overflow-y`, not a disclosure per group.
-**Collapsing was rejected on this product's own terms:** Attendance is opened dozens of times a
-day on a tablet at the door, and a collapsed group puts a tap in front of it every time; the
-open/closed state then has to be remembered per person or it re-collapses on every navigation,
-which is worse than not having it; and remembering it makes the rail a client component with
-storage on every screen in the product, against a first-load JS budget already 6.9kB over.
-Scrolling costs nothing and hides nothing.
+The fix is `position: sticky` with the rail's own `overflow-y`, and it is still the right fix —
+a rail that scrolls hides nothing, and it works whether or not anybody ever collapses a group.
+
+What was wrong was rejecting the disclosure *as well*, on the grounds quoted in the section
+above: that remembering the state would make the rail a client component with storage on every
+screen. It does not. `<details>` is native and the memory is one cookie. The two changes are
+complementary and both shipped — the rail scrolls, and the groups collapse for anybody who
+wants them to.
 
 `100dvh` rather than `100vh`, and the phone breakpoint resets `position`, `max-height` and
 `overflow` explicitly — the rail is a bar there and the drawer is `fixed`, so none of this
@@ -688,4 +739,4 @@ at its cause.
 - [[in-product-help]] — the `?` affordance that `PageHeader` takes over in step 3
 - [[conventions]] — token generation, and why nothing here regenerates them
 
-*Last updated: 2026-08-11 (all ten steps)*
+*Last updated: 2026-08-11 (all ten steps, plus icons and collapsible groups)*

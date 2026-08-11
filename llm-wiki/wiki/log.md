@@ -5,6 +5,44 @@ says so.*
 
 ---
 
+2026-08-11 — **The nav groups collapse after all, and the entry below was wrong about why they
+could not.** `apps/web/src/app/(app)/NavGroup.tsx`, `NavGroupMemory.tsx`, `navGroups.ts`,
+`navGroups.server.ts`, `layout.tsx`, `globals.css`, `e2e/a11y.spec.ts`. See
+[[console-handover]].
+
+**This corrects the entry immediately below.** It refused collapsible groups partly because
+remembering the state "makes the rail a client component with storage on every screen, against a
+JS budget already 6.9kB over". That was the load-bearing reason and it was false.
+`<details>`/`<summary>` collapses with **no JavaScript at all** — focusable, Enter and Space,
+announced as expanded or collapsed, working before hydration. This repo already depends on
+exactly that: it is why `HelpNote` is a `<details>` and why the kiosk draws its own keypad. The
+counter-argument was sitting in two files in the same directory and was not consulted, and it
+was used to decline something somebody had asked for twice.
+
+What survives from that entry are constraints, not refusals, and they shaped the build. Default
+**open**, never closed — Attendance is opened dozens of times a day at the door and shipping it
+behind a tap would charge everybody to tidy the rail for a few. And it has to be **remembered**,
+or you close Money, click Attendance, and Money is back; so a cookie, read on the server, so the
+`<details>` arrives right rather than flashing open and collapsing on every load.
+
+The cookie stores what is **closed**. With no cookie every group is open, so the failure mode of
+a preference is never "the navigation disappeared".
+
+`navGroups.ts` / `navGroups.server.ts` split for the reason `locale.ts` / `locale.server.ts`
+already did — a Client Component needs the cookie's name, and importing it from a module calling
+`cookies()` pulls a server-only API into the client bundle. **The build refused, which is the
+good outcome**, but it is the second occurrence of this exact split so it is now written down
+twice.
+
+`NavGroupMemory` listens in the **capture** phase, because `toggle` does not bubble, and
+re-derives the closed list from the DOM rather than tracking state — what is stored cannot drift
+from what is on screen. One component beside the nav; `NavGroup` stays a server component.
+
+The e2e test asserts the **memory**, not the collapsing: native `<details>` cannot really break,
+the cookie link can, and nothing else would notice because every other assertion opens a page
+fresh where the default is open. Mutation-tested by deleting `NavGroupMemory` — fails on the
+right assertion with the message that names the cause. 117/117 afterwards.
+
 2026-08-11 — **Icons in the rail, drawn rather than installed; and the rail scrolls itself
 rather than collapsing.** `apps/web/src/app/(app)/NavIcon.tsx`, `NavLink.tsx`, `layout.tsx`,
 `globals.css`. See [[console-handover]].

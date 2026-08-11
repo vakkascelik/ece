@@ -4,10 +4,13 @@ import { can } from '@ece/core';
 import { requireCtx } from '@/lib/auth';
 import { signOut } from '../login/actions';
 import { NavGroup } from './NavGroup';
+import { NavGroupMemory } from './NavGroupMemory';
 import { NavIcon } from './NavIcon';
 import { NavLink } from './NavLink';
 import { SideRail } from './SideRail';
 import { SignOutControl } from './SignOutControl';
+import { groupKey } from './navGroups';
+import { closedGroups } from './navGroups.server';
 
 /**
  * The signed-in shell. Every page under (app) is authenticated and scoped to one
@@ -25,6 +28,9 @@ import { SignOutControl } from './SignOutControl';
  */
 export default async function AppLayout({ children }: { children: ReactNode }) {
   const ctx = await requireCtx();
+  // Which groups this person has collapsed. Rendered into the `open` attribute on the
+  // server, so the rail arrives in the state they left it in rather than flashing open.
+  const closed = await closedGroups();
 
   return (
     <div className="shell">
@@ -51,7 +57,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           nothing renders nothing at all.
         */}
         <nav>
-          <NavGroup label="Today">
+          <NavGroup label="Today" open={!closed.has(groupKey('Today'))}>
             <NavLink href="/" icon={<NavIcon name="overview" />}>Overview</NavLink>
             {can(ctx.role, 'recordDailyPractice') && (
               <NavLink href="/attendance" icon={<NavIcon name="attendance" />}>Attendance</NavLink>
@@ -64,7 +70,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
             {can(ctx.role, 'recordDailyPractice') && <NavLink href="/visitors" icon={<NavIcon name="visitors" />}>Visitors</NavLink>}
           </NavGroup>
 
-          <NavGroup label="Tamariki">
+          <NavGroup label="Tamariki" open={!closed.has(groupKey('Tamariki'))}>
             {/*
               Shown to parents too, where it lists their own child and nothing else —
               the policy on `children` keys on guardianship, so the same link is a
@@ -77,7 +83,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
             <NavLink href="/messages" icon={<NavIcon name="messages" />}>Messages</NavLink>
           </NavGroup>
 
-          <NavGroup label="Records">
+          <NavGroup label="Records" open={!closed.has(groupKey('Records'))}>
             {/* Beside Attendance because it is the same shift and the same tablet — not under
                 Compliance, which is where the binder is assembled rather than where the day is
                 recorded. `recordDailyPractice` includes educators, who are the people who file
@@ -101,7 +107,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
             )}
           </NavGroup>
 
-          <NavGroup label="People">
+          <NavGroup label="People" open={!closed.has(groupKey('People'))}>
             {/* Beside People because both are about who works here, and distinct from it:
                 People is who has a LOGIN, Staff is who works here — a reliever is on one
                 list and not the other, which is the whole point of 0038. */}
@@ -121,7 +127,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
             )}
           </NavGroup>
 
-          <NavGroup label="Money">
+          <NavGroup label="Money" open={!closed.has(groupKey('Money'))}>
             {can(ctx.role, 'manageCentre') && <NavLink href="/funding" icon={<NavIcon name="funding" />}>Funding</NavLink>}
             {/* Beside Funding because both are money, and distinct from it: Funding is what
                 the Crown owes this centre, Accounts is what families do. */}
@@ -131,7 +137,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
             {can(ctx.role, 'manageCentre') && <NavLink href="/reports" icon={<NavIcon name="reports" />}>Reports</NavLink>}
           </NavGroup>
 
-          <NavGroup label="Centre">
+          <NavGroup label="Centre" open={!closed.has(groupKey('Centre'))}>
             {can(ctx.role, 'manageCentre') && <NavLink href="/compliance" icon={<NavIcon name="compliance" />}>Compliance</NavLink>}
             {can(ctx.role, 'manageCentre') && <NavLink href="/settings" icon={<NavIcon name="settings" />}>Settings</NavLink>}
             {/* Its own link rather than a Settings tab — a distinct, consequential action
@@ -142,6 +148,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
             )}
           </NavGroup>
         </nav>
+        <NavGroupMemory />
 
         {/* Pinned to the bottom of the rail — see `.side-foot` in globals.css. */}
         <div className="side-foot">

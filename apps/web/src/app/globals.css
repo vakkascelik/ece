@@ -107,14 +107,61 @@ a { color: var(--accent); }
  * the navigation, so the headings are doing the most work they ever do.
  */
 .side nav h3 {
-  /* The group separation. On the heading rather than on the `nav` gap, because the gap
-     applies between a heading and its own list too, which would detach every label from
-     what it labels. */
-  margin: var(--space-4) 0 var(--space-1);
+  margin: 0;
   /* Aligned with the link text, not with the link box's outer edge. */
-  padding: 0 10px;
+  padding: 0;
 }
-.side nav > h3:first-child { margin-top: 0; }
+
+/*
+ * The collapsible group.
+ *
+ * The separation is on the group rather than on the `nav` gap, because a gap applies between a
+ * summary and its own list too, which would detach every label from what it labels.
+ */
+.nav-group + .nav-group { margin-top: var(--space-4); }
+
+/*
+ * The summary is the control, so it is sized like one: full width, `--target-min` tall, and
+ * tappable across its whole row rather than only on the words. A 12px uppercase label is a
+ * small target, and this rail is used on a tablet.
+ *
+ * `list-style: none` plus the `::-webkit-details-marker` rule removes the browser's own
+ * triangle — the chevron on the right is this product's, and two disclosure arrows pointing
+ * different directions is worse than either alone. Same removal `.help-mark` already does.
+ */
+.nav-group > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: var(--target-min);
+  padding: 0 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  list-style: none;
+}
+.nav-group > summary::-webkit-details-marker { display: none; }
+.nav-group > summary:hover { background: var(--surface-sunken); }
+
+/*
+ * The chevron points right when closed and down when open, off the element's own `[open]`
+ * state — so there is no second source of truth to keep in step with the disclosure, the same
+ * reason the current nav item is styled off `aria-current` rather than a class.
+ */
+.nav-group-chevron {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  color: var(--muted);
+  transition: transform var(--motion-fast) var(--motion-ease);
+}
+.nav-group[open] > summary .nav-group-chevron { transform: rotate(90deg); }
+
+/* The drawer opens dozens of times a day and vestibular disorders are common — the same
+   reason the drawer itself stops sliding. The chevron still turns; it just arrives. */
+@media (prefers-reduced-motion: reduce) {
+  .nav-group-chevron { transition: none; }
+}
 .side nav ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
 .side nav a {
   padding: 9px 10px;
