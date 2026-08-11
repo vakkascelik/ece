@@ -5,6 +5,33 @@ says so.*
 
 ---
 
+2026-08-11 — **The offline drill stopped needing a human's password, and passed 10/10.**
+`scripts/offline-drill.ts`, `README.md`. See [[offline-outbox]].
+
+It signed in as a named person and demanded `ECE_DRILL_PASSWORD`. That is unrunnable by anybody
+who is not them — Supabase stores `auth.users.encrypted_password` as a bcrypt hash and no key,
+service role or PAT returns it — and it could never have run in CI, which is most of what a
+drill is for. It now provisions its own account: a `.invalid` address (RFC 2606, the convention
+`seed-demo.ts` already uses), an **educator** membership on the demo centre, and a fresh random
+password set per run and stored nowhere. `ECE_DRILL_PASSWORD` still overrides for anybody who
+wants to drill as a real person.
+
+Educator rather than owner: `recordDailyPractice` is everything the drill exercises, and a drill
+account with more rights than the act it drills is a standing invitation.
+
+**A defect the change surfaced, and it had been there all along.** The second-device client
+called `signInWithPassword` and never checked the error. With a stale credential it stayed
+*anonymous*, and the failure surfaced three lines later as
+`permission denied for table staff_count_events` — which reads like a policy defect and is
+nothing of the kind: `anon` has `revoke all` on that table, so the grant refuses before any
+policy is consulted and the message never mentions sign-in. Checked now, and named in a comment,
+because the next person to see that error will start by reading 0010.
+
+10/10 with the outbox contract intact: three events land, keys are reused without duplicating, an
+event keeps the time it happened rather than the time it was sent, two devices agree, and a
+20-day-old event is refused with a code the outbox treats as permanent. Still not covered — the
+`expo-sqlite` queue itself, which needs a device. A real airplane-mode drill remains required.
+
 2026-08-11 — **A trade mark check was run on "Doorway", and it is good news that is not a
 clearance.** [[unverified-claims]] §19.
 

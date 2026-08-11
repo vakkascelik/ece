@@ -577,8 +577,14 @@ and fixes, rather than silently assuming yesterday's staffing.
 ### The offline drill
 
 ```bash
-ECE_ALLOW_DEMO_SEED=yes ECE_DRILL_PASSWORD=... npm run drill:offline
+ECE_ALLOW_DEMO_SEED=yes npm run drill:offline
 ```
+
+No credential needed. The drill provisions its own `.invalid` educator account on the demo
+centre and sets a fresh random password each run — it used to demand `ECE_DRILL_PASSWORD`, a
+named person's real account password, which cannot be recovered from Supabase (passwords are
+bcrypt hashes) and could never have run in CI. Set `ECE_DRILL_PASSWORD` and `ECE_DRILL_EMAIL` to
+drill as a real person instead.
 
 Replays what the outbox does — keys fixed up front, the same keys reused, a flush
 repeated — against the real database, and checks that exactly three events land, keep

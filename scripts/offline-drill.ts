@@ -51,7 +51,29 @@ if (!url || !anonKey || !serviceKey) die('Supabase env vars are required. See .e
 if (process.env.ECE_ALLOW_DEMO_SEED !== 'yes') {
   die('This writes attendance events. Set ECE_ALLOW_DEMO_SEED=yes to confirm.');
 }
-if (!password) die('Set ECE_DRILL_PASSWORD to the owner password for the demo centre.');
+/*
+  NO HUMAN CREDENTIAL IS REQUIRED, AND THAT USED TO BE THE BLOCKER.
+
+  This script signed in as `vakkascelik@gmail.com` and demanded `ECE_DRILL_PASSWORD` — a named
+  person's real account password. Three things wrong with that, and the first is the one that
+  stopped it running today:
+
+    • A password cannot be fetched. Supabase stores `auth.users.encrypted_password` as a bcrypt
+      hash and no key, service role or PAT returns it, so anybody without that person's password
+      simply cannot run the drill.
+    • It cannot run in CI at all, which is most of what a drill is for.
+    • It breaks the day that person changes their password or leaves, and the failure reads as
+      "the offline path is broken" rather than "the credential is stale".
+
+  So the drill provisions its own account: a `.invalid` address that cannot receive mail (RFC
+  2606, the convention `seed-demo.ts` already uses), an educator membership on the demo centre,
+  and a fresh random password set on each run and never stored. `ECE_DRILL_PASSWORD` still works
+  as an override for anybody who wants to drill as a real person.
+
+  It is an educator, not an owner. `recordDailyPractice` is everything this drill needs, and a
+  drill account with more rights than the act it is drilling is a standing invitation.
+*/
+const DRILL_EMAIL = process.env.ECE_DRILL_EMAIL ?? 'drill.kaiako@littlepearls.invalid';
 
 const results: boolean[] = [];
 function check(ok: boolean, label: string) {
@@ -111,12 +133,55 @@ async function main() {
   if (!centreRow) die('Expected the demo-mt-albert centre. Run `npm run seed:demo` first.');
   const centre = centreRow as { id: string; name: string; timezone: string };
 
+  /*
+    Find or make the drill's own account, then sign in as it through the anon key — the drill
+    has to go through RLS exactly as the app does, which is why it does not simply use the
+    service role it already holds.
+
+    `generateLink({ type: 'invite' })` errors when the address already exists, and `recovery`
+    then returns the existing user. That is the same find-or-create shape `seed-demo.ts` uses
+    for the demo parent; it is not elegant and it is the documented way to ask "does this user
+    exist" through the admin API without listing every user in the project.
+  */
+  const drillPassword = password ?? `Drill!${randomUUID().slice(0, 18)}`;
+  let drillUserId: string;
+  const invite = await admin.auth.admin.generateLink({ type: 'invite', email: DRILL_EMAIL });
+  if (invite.error) {
+    const recovery = await admin.auth.admin.generateLink({ type: 'recovery', email: DRILL_EMAIL });
+    if (recovery.error || !recovery.data?.user) {
+      die(`Could not resolve the drill account: ${recovery.error?.message}`);
+    }
+    drillUserId = recovery.data.user.id;
+  } else {
+    drillUserId = invite.data.user.id;
+  }
+
+  if (!password) {
+    // Reset on every run, so nothing has to be stored anywhere and a leaked value is dead by
+    // the next drill. Skipped when somebody supplied their own — theirs is not ours to change.
+    await admin.auth.admin.updateUserById(drillUserId, {
+      password: drillPassword,
+      email_confirm: true,
+    });
+  }
+
+  // Educator: `recordDailyPractice` is everything the drill exercises. Upserted rather than
+  // inserted so a re-run is a no-op, and `revoked_at: null` so a previously revoked drill
+  // account comes back rather than failing at the first policy.
+  const membership = await admin
+    .from('memberships')
+    .upsert(
+      { centre_id: centre.id, user_id: drillUserId, role: 'educator', revoked_at: null },
+      { onConflict: 'centre_id,user_id' },
+    );
+  if (membership.error) die(`Could not give the drill account access: ${membership.error.message}`);
+
   const staff = createAnonClient(url!, anonKey!);
   const signIn = await staff.auth.signInWithPassword({
-    email: 'vakkascelik@gmail.com',
-    password: password!,
+    email: DRILL_EMAIL,
+    password: drillPassword,
   });
-  if (signIn.error) die(`Sign-in failed: ${signIn.error.message}`);
+  if (signIn.error) die(`Sign-in failed for ${DRILL_EMAIL}: ${signIn.error.message}`);
 
   const children = (await listChildren(staff, centre.id)).filter((c) => c.lastName === 'Demo-Seed');
   if (children.length < 3) die('Need at least three demo children. Run `npm run seed:demo`.');
@@ -196,7 +261,20 @@ async function main() {
 
   console.log('\n  --- a second device sees the same thing ---');
   const other = createAnonClient(url!, anonKey!);
-  await other.auth.signInWithPassword({ email: 'vakkascelik@gmail.com', password: password! });
+  /*
+    The same account, a second session — a second tablet in the same room, not a second person.
+
+    Its error is checked, which it was not before. `signInWithPassword` resolves rather than
+    throwing, so a failed sign-in here left `other` as an *anonymous* client and the failure
+    surfaced three lines later as `permission denied for table staff_count_events` — which reads
+    like a policy defect and is a stale credential. `anon` has `revoke all` on that table, so the
+    grant refuses before any policy is consulted, and the message never mentions sign-in.
+  */
+  const otherSignIn = await other.auth.signInWithPassword({
+    email: DRILL_EMAIL,
+    password: drillPassword,
+  });
+  if (otherSignIn.error) die(`Second-device sign-in failed: ${otherSignIn.error.message}`);
   await recordAdultsPresent(other, { centreId: centre.id, adults: 2, clientUuid: randomUUID() });
 
   const [statesA, statesB] = await Promise.all([
