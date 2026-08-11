@@ -12,7 +12,7 @@ import {
 import { MEMBER_ROLES, type MemberRole } from '@ece/core';
 import { requireCapability } from '@/lib/auth';
 import { hashInviteToken, inviteExpiry, newInviteToken } from '@/lib/inviteToken';
-import { originOf } from '@/lib/origin';
+import { publicAppBase } from '@/lib/origin';
 import { serverDb } from '@/lib/supabase';
 
 /** The link is returned once and never stored — see `invite` below. */
@@ -134,7 +134,14 @@ export async function invite(_prev: unknown, form: FormData): Promise<InviteResu
   }
 
   revalidatePath('/members');
-  return { ok: true, email, link: `${await originOf()}/invite/${token}` };
+  /*
+   * `publicAppBase()`, not `originOf()`. This link is read off a screen and pasted into a message to
+   * a kaiako or a parent, so it has to be the address the world can reach — which under the `/portal`
+   * mount means carrying the prefix, and behind the proxy means coming from configuration rather than
+   * from a header the proxy has already overwritten. Without it the invitation pointed at
+   * `…/invite/<token>` with no `/portal`, which is the marketing site's 404.
+   */
+  return { ok: true, email, link: `${await publicAppBase()}/invite/${token}` };
 }
 
 export async function withdrawInvite(_prev: unknown, form: FormData) {

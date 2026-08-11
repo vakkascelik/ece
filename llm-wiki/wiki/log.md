@@ -5,6 +5,77 @@ says so.*
 
 ---
 
+2026-08-11 — **Password recovery was broken on Railway from the first deploy, and making a real
+person a manager is what found it.** `apps/web/src/lib/origin.ts`,
+`apps/web/src/app/auth/confirm/route.ts`, `apps/web/src/app/forgot-password/actions.ts`,
+`apps/web/src/app/(app)/members/actions.ts`, `scripts/onboard.ts`. See [[password-recovery]] and
+[[deployment]].
+
+`taner@littlepearls.org.nz` was asked for as an admin. There is no `admin` role — the enum is
+`owner, manager, educator, parent` — so on instruction he is **manager at both Little Pearls
+centres**, one account and two memberships, verified by query rather than by the script's own
+output. That output needed checking: it printed `[new account]` twice, because re-issuing an invite
+for an unconfirmed user succeeds and takes the same branch again. One user id, two rows. The label
+now says `new or not yet confirmed`.
+
+**Then he had no way to set a password, and the reason was three faults stacked.**
+
+`/auth/confirm` built its redirects from `request.url`. Railway addresses the container internally,
+so `url.origin` is `https://localhost:8080` — the person was sent to their own machine, on both the
+success and the expired path. **Reproduced on the console's own hostname with the proxy out of the
+picture, so this was never the mount's doing**; it had been broken since the first deploy and
+survived because no reset had ever been completed in production.
+
+The mount added the second: every route is under `/portal`, and `NextResponse.redirect(new URL(...))`
+gets no `basePath` where `redirect()` from `next/navigation` does. That asymmetry is why
+`/portal/reset-password` redirected correctly and its neighbour did not.
+
+The third was `onboard.ts` printing `generateLink`'s `action_link`, which [[password-recovery]] had
+already measured as a dead end — the tokens arrive in a fragment and no fragment reaches a server.
+That page recorded the fix as available, cheap and "not yet applied". It stayed that way until it
+locked a real manager out, which is a fair verdict on deferring it.
+
+**The fix needed a configured value, which the code it replaces exists to avoid.** Behind the mount
+the app cannot know its own public address: the website proxies `/portal/*` by fetching this
+service's Railway hostname, so `x-forwarded-host` is always *this* service's host, never what the
+browser typed — the same fact that forces `ECE_ALLOWED_ORIGINS`. A header-derived link points at
+`ece-production-fc07…`, which is off `uri_allow_list`, and an off-allowlist redirect is **silently**
+replaced with `site_url`. So `publicAppBase()` reads `ECE_PUBLIC_URL` and falls back to
+headers-plus-mount when unset. Three call sites moved onto it, including the invitation link, which
+had been pointing at `…/invite/<token>` with no prefix — the marketing site's 404.
+
+**Verified by consuming real tokens, not by reading.** The success path sets a session cookie and
+lands on `…/portal/reset-password`. And the open-redirect protection survives the change from
+`new URL()` to concatenation: `/%5Cevil.com`, `//evil.com` and `https://evil.com/x` all fall back and
+stay on the origin — the backslash bypass this repo already got caught by once. The first attempt at
+that test proved nothing, because a heredoc ate the backslash and it silently became a benign
+`/evil.com`; percent-encoding the value is what made it a real test.
+
+**A password was set by hand, and `onboard.ts`'s header now describes a rule with one exception.**
+Asked what his password was, the answer was that there wasn't one: that script has never set or
+printed one on purpose — "a password this script generated would exist in a terminal buffer, a
+scrollback, and probably a chat message". The owner then asked for one to be created, which is his
+call about his own staff, so it was: 144 bits of `randomBytes` as four hyphenated groups, set with
+`admin.updateUserById` together with `email_confirm`, because the account had been created by an
+invite link he never opened and `email_confirmed_at` was null.
+
+Two parts of that are worth keeping. It was **delivered to a file rather than into the chat**, which
+is the specific harm the script's comment names — the principle was about where a credential ends up,
+not about who is allowed to ask. And it was **verified by using it**: signing in with it on a
+throwaway anon client succeeded, and the same password with a character appended was refused, so
+"password set" is a measurement rather than the absence of an error.
+
+The standing rule still holds for the script. What changed is that an operator did once, knowingly,
+what the script declines to do automatically — and the difference between those two is the whole
+point.
+
+**"The system should allow users to change their password" already did.** `/account` carries
+`ChangePasswordForm` and an action that re-verifies the **current** password on a throwaway anon
+client before changing anything, then `signOut({ scope: 'others' })`. Nothing was built for this; it
+was verified and left alone. Worth noting that the flows around it use `redirect()` from
+`next/navigation`, which is basePath-aware, so they were never touched by the mount — unlike
+`/auth/confirm` next to them.
+
 2026-08-11 — **The footer is their coral, the social accounts are on the site, and the bare console
 hostname stopped being a 404.** `apps/site/src/app/globals.css`, `apps/site/src/app/layout.tsx`,
 `apps/site/src/lib/centres.ts`, `apps/web/next.config.ts`, `apps/web/src/app/login/layout.tsx`,

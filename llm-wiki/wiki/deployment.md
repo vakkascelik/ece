@@ -299,6 +299,42 @@ is `/portal/_next/…` — basePath applied to one and deliberately escaped by t
 cannot read a non-public environment variable; a `NEXT_PUBLIC_` twin of `ECE_PORTAL_MOUNT` would have
 been two variables for one fact.
 
+### The mount cannot learn its own address, and that broke every outbound link
+
+Found by making a real person a manager and discovering he had no way to set a password.
+
+**The pre-existing half.** `auth/confirm/route.ts` built its redirects from `request.url`. Railway
+addresses the container internally, so `url.origin` is `https://localhost:8080` — both the success
+and the expired path redirected the person to their own machine. Reproduced on the console's **own**
+hostname with the website's proxy out of the picture, so it predates the mount by every deploy there
+has been. It survived only because no password reset had ever been completed in production.
+
+**The mount's half.** Every route now lives under `/portal`, and a link built from a bare origin
+omits it. `NextResponse.redirect(new URL(path, origin))` gets no `basePath`, while `redirect()` from
+`next/navigation` does — which is exactly why `/portal/reset-password` redirected correctly and its
+neighbour did not. Worth knowing before adding another route handler that redirects.
+
+**Why a configured value, when `originOf()` exists specifically to avoid one.** Because behind the
+mount the app genuinely cannot know its public address. The website proxies `/portal/*` by fetching
+this service's Railway hostname, so `x-forwarded-host` here is *this* service's host in both cases,
+never what the browser typed. That is the same fact that forces `ECE_ALLOWED_ORIGINS` to exist. A
+header-derived link would point at `ece-production-fc07…/portal/auth/confirm`, which is **not** on
+`uri_allow_list` — and an off-allowlist redirect is silently replaced with `site_url`, so the person
+lands on the sign-in page having done nothing, with no error anywhere.
+
+So `publicAppBase()` reads **`ECE_PUBLIC_URL`** and falls back to headers-plus-mount when it is
+unset, which is correct for a direct deploy and for localhost. Three call sites moved onto it: the
+reset `redirectTo`, the `/auth/confirm` redirects, and the invitation link in `members/actions.ts` —
+that last one had been pointing at `…/invite/<token>` with no prefix, which is the marketing site's
+404. `originOf()` stays, used only for the same-origin comparison in `sameOriginPath`, which needs a
+bare origin or every `next` silently collapses to the fallback.
+
+Verified by consuming real tokens against the running app, not by reading: the success path sets a
+session cookie and lands on `…/portal/reset-password`, and `/%5Cevil.com`, `//evil.com` and an
+absolute `https://evil.com/x` all fall back to `/reset-password` and stay on the origin — the
+backslash bypass [[password-recovery]] documents is still blocked under the change from
+`new URL(…)` to string concatenation.
+
 **Those last two changes interact, and the defect is recorded rather than fixed.** On the console's
 own Railway hostname the back-link is a loop: `/` there is caught by the redirect above and sent to
 `/portal`, which sends you to `/portal/login` — the page you were on. Found by checking the live
