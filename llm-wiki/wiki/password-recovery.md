@@ -34,9 +34,16 @@ childcare centre.
   fails safe, back to `/forgot-password?expired=1`. The route also accepts
   `?token_hash=…&type=recovery` so a customised template (`{{ .TokenHash }}`) works
   cross-browser if that trade is ever wanted.
-- **A link from `admin.generateLink` cannot sign anybody into this app**, and that is not a
-  property of this feature but of the existing onboarding script. Measured, not reasoned —
-  see "Two redirect shapes" below.
+- **`generateLink`'s `action_link` cannot sign anybody into this app** — the tokens come back in a
+  fragment and no fragment reaches a server. Measured, not reasoned. **UPDATED 2026-08-11:
+  `scripts/onboard.ts` no longer prints it.** It builds the `token_hash` form against
+  `/auth/confirm` instead, which is the fix this page recorded as pending; see "Two redirect
+  shapes" below.
+- **Recovery was broken end to end on Railway, and had been since the first deploy.**
+  `/auth/confirm` built its redirects from `request.url`, and Railway addresses the container
+  internally, so `url.origin` is `https://localhost:8080` — the person was redirected to their own
+  machine. It survived because nobody had completed a reset in production until the centre's own
+  manager needed one. Fixed with `publicAppBase()`; see [[deployment]].
 - **The flow is drilled end to end against live Postgres and real JWTs**, on a disposable
   account: link → session → short password refused → mismatch refused → new password set → new
   password signs in, old one does not, link cannot be replayed.
@@ -128,8 +135,25 @@ to open it. The tokens arrive in the fragment, and nothing in the web app reads 
 `detectSessionInUrl` never runs. The link therefore lands on `site_url` and leaves the person
 signed out, with no error to act on. The fix is available and cheap now that `/auth/confirm`
 exists: print `{origin}/auth/confirm?token_hash={properties.hashed_token}&type=recovery` instead
-of `action_link`, which is the branch that needs no verifier and works in any browser. **Not yet
-applied** — it changes how a tenant is onboarded and deserves its own commit.
+of `action_link`, which is the branch that needs no verifier and works in any browser.
+
+> **APPLIED 2026-08-11, and it took a real person to force it.** This paragraph said "Not yet
+> applied — it changes how a tenant is onboarded and deserves its own commit", and it kept that
+> status until `taner@littlepearls.org.nz` was attached as manager to both Little Pearls centres and
+> the script printed exactly the dead link described above. The working one had to be hand-built
+> before he could get in, which is a reasonable definition of "cheap fix that is no longer optional".
+>
+> It did get its own commit, as this page asked. Two details the original note did not anticipate:
+> the base URL has to be **given** (`--app-url` or `ECE_PUBLIC_URL`) because a script has no request
+> to read a host from and the app is now served under a path on a hostname it does not own — and the
+> `type` follows whichever branch issued the token, `invite` for a new account and `recovery` for an
+> existing one, rather than always `recovery`.
+>
+> A third thing surfaced while checking the result: the script reported `[new account]` **twice** for
+> the same person. Re-issuing an invite for a user who exists but has never confirmed *succeeds*, so
+> that branch is taken again and returns the same user id. It read as two accounts having been
+> created; a membership query showed one user id and two rows. The label is now
+> `new or not yet confirmed`.
 
 A third thing fell out of the same measurement, confirming what `deploy-auth-config.ts` already
 says: a `redirectTo` that is not on `uri_allow_list` is **silently** replaced with `site_url`.
@@ -181,4 +205,4 @@ a password.
 - [[mobile-app]] — why none of this lives in the mobile app
 - [[unverified-claims]] — email delivery is on it
 
-*Last updated: 2026-08-05*
+*Last updated: 2026-08-11*

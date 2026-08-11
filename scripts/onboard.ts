@@ -17,7 +17,12 @@
  *   npx tsx scripts/onboard.ts --name "Little Pearls Mt Albert" \
  *                              --slug little-pearls-mt-albert \
  *                              --owner manager@example.co.nz \
- *                              [--moe 12345] [--existing-centre <uuid>] [--role manager]
+ *                              [--moe 12345] [--existing-centre <uuid>] [--role manager] \
+ *                              [--app-url https://host/portal]
+ *
+ * `--app-url` (or `ECE_PUBLIC_URL`) is where the sign-in link points. Required to print one,
+ * because a script has no request to read a host from and the app is served under a path on a
+ * hostname it does not own — see the long note where the link is built.
  *
  * `--role` covers the other person this script legitimately attaches: a manager,
  * which its own comments call the common case. It stops there — educators and
@@ -120,14 +125,25 @@ async function main() {
   //    account" is a normal path, not an error. For them `recovery` is also the
   //    correct artefact: they need to get in, not to be invited again.
   let userId: string;
-  let actionLink: string | null;
+  let hashedToken: string | null;
+  let linkType: 'invite' | 'recovery';
   let note: string;
 
   const asInvite = await db.auth.admin.generateLink({ type: 'invite', email: owner });
   if (!asInvite.error) {
     userId = asInvite.data.user.id;
-    actionLink = asInvite.data.properties?.action_link ?? null;
-    note = 'new account';
+    hashedToken = asInvite.data.properties?.hashed_token ?? null;
+    linkType = 'invite';
+    /*
+     * "new or unconfirmed", not "new".
+     *
+     * This said `new account`, and it lied the second time it was run for the same person:
+     * re-issuing an invite for a user who exists but has never set a password **succeeds**, so this
+     * branch is taken again and the same user id comes back. Onboarding somebody to their second
+     * centre therefore printed "new account" twice, which reads like two accounts were created.
+     * Caught by checking the memberships afterwards and finding one user id, not two.
+     */
+    note = 'new or not yet confirmed';
   } else {
     const alreadyExists =
       asInvite.error.status === 422 || /already.*registered/i.test(asInvite.error.message);
@@ -138,7 +154,8 @@ async function main() {
       die(`${owner} already has an account but no sign-in link could be issued: ${recovery.error?.message ?? 'no user returned'}`);
     }
     userId = recovery.data.user.id;
-    actionLink = recovery.data.properties?.action_link ?? null;
+    hashedToken = recovery.data.properties?.hashed_token ?? null;
+    linkType = 'recovery';
     note = 'existing account';
   }
   console.log(`  owner       ${owner}  [${note}]`);
@@ -156,11 +173,49 @@ async function main() {
   if (memberError) die(`Attaching the ${role} failed: ${memberError.message}`);
   console.log(`  role        ${role}`);
 
+  /*
+   * THIS PRINTED A LINK THAT COULD NOT SIGN ANYBODY IN, AND HAD SINCE THE SCRIPT WAS WRITTEN.
+   *
+   * It printed `properties.action_link` — GoTrue's own `/verify` URL. Measured on 2026-08-05 and
+   * written up in llm-wiki/wiki/password-recovery.md: for a link from `generateLink`, `/verify`
+   * responds `303` to `…#access_token=…`, and **a fragment is never sent to the server**. Nothing in
+   * `apps/web` reads one — `browserDb()` exists and is called from nowhere, so `detectSessionInUrl`
+   * never runs. The person landed on `site_url`, signed out, with nothing to act on.
+   *
+   * That page recorded the fix as available, cheap and "not yet applied". It is applied here,
+   * because onboarding Little Pearls' manager produced exactly the dead link it describes and the
+   * working one had to be hand-built to get him in.
+   *
+   * `token_hash` is the branch `/auth/confirm` can actually read: no PKCE verifier, so it works in
+   * any browser, which is the right property for a link that gets pasted into a message.
+   *
+   * WHY THE BASE URL HAS TO BE GIVEN RATHER THAN GUESSED
+   *
+   * A script has no request to read a host from, and the app is served under `/portal` on somebody
+   * else's hostname — so there is no default that is right more often than it is wrong. Guessing
+   * would reintroduce the same failure one level up: a plausible link that goes nowhere. It reads
+   * `ECE_PUBLIC_URL`, the variable the app itself now uses for outbound links, so there is one
+   * answer to "where do people reach this" rather than two that drift.
+   */
+  const appUrl = (typeof args['app-url'] === 'string' ? args['app-url'] : process.env.ECE_PUBLIC_URL ?? '').trim().replace(/\/+$/, '');
+
+  if (!hashedToken) {
+    console.log(`\n  No sign-in link was issued. They will need a password reset from the app.\n`);
+    return;
+  }
+  if (!appUrl) {
+    console.log(
+      `\n  Attached, but no link was printed: this script cannot know the public URL.\n` +
+        `  Set ECE_PUBLIC_URL or pass --app-url https://host/portal and re-run — it is\n` +
+        `  idempotent, and re-running issues a fresh token.\n`,
+    );
+    return;
+  }
+
+  const link = `${appUrl}/auth/confirm?token_hash=${hashedToken}&type=${linkType}&next=/reset-password`;
   console.log(
-    actionLink
-      ? `\n  Send them this to set a password. Single use, and it expires —\n` +
-          `  re-run this command to issue another.\n\n  ${actionLink}\n`
-      : `\n  No sign-in link was issued. They will need a password reset from the app.\n`,
+    `\n  Send them this to set a password. Single use, and it expires —\n` +
+      `  re-run this command to issue another.\n\n  ${link}\n`,
   );
 }
 
