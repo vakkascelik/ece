@@ -6032,6 +6032,58 @@ begin
 end $$;
 
 /*
+ * AND EVERY ONE OF THEM CAN ACTUALLY BE ATTRIBUTED TO A CENTRE.
+ *
+ * The assertion above checks a trigger EXISTS. That is not the same claim as "this table is
+ * audited", and for three tables the two disagreed from the day they shipped: `shifts` and
+ * `staff_leave` (0041) and `post_strands` (0058) hang off `staff_member_id` and `post_id`, which
+ * `audit_trigger()` could not resolve. It fell through to `if v_centre is null then return`, wrote
+ * nothing, and this suite went on reporting audit coverage as complete — as did check 11 of
+ * `review:security`, whose success message claims no consequential table can be changed without a
+ * record of who changed it.
+ *
+ * So the trigger fired on every roster change and recorded none of them, while the roster feeds the
+ * ratio forecast. Fixed in 0059; this is the assertion that stops it recurring, because the next
+ * table to hang off something new will fail here rather than pass quietly.
+ *
+ * Catalogue-driven, for the same reason the `security_invoker` assertion below is: a behavioural
+ * test can pass for a reason other than the one its label claims.
+ */
+do $$
+declare
+  unattributable text[];
+begin
+  select array_agg(c.relname order by c.relname) into unattributable
+    from pg_class c
+    join pg_namespace n on n.oid = c.relnamespace
+   where n.nspname = 'public'
+     and c.relkind = 'r'
+     and exists (
+       select 1 from pg_trigger t
+        where t.tgrelid = c.oid
+          and not t.tgisinternal
+          and t.tgname = c.relname || '_audit'
+     )
+     -- `centres` is attributed from its own `id`, which is the one branch not keyed on a column
+     -- name shared with other tables.
+     and c.relname <> 'centres'
+     and not exists (
+       select 1 from pg_attribute a
+        where a.attrelid = c.oid
+          and a.attnum > 0
+          and not a.attisdropped
+          and a.attname in ('centre_id', 'child_id', 'invoice_id', 'guardian_id',
+                            'staff_member_id', 'post_id')
+     );
+
+  perform pg_temp.expect(
+    unattributable is null,
+    'every audited table can be attributed to a centre, so its trigger writes a row'
+      || coalesce(' — CANNOT: ' || array_to_string(unattributable, ', '), '')
+  );
+end $$;
+
+/*
  * EVERY VIEW RUNS AS ITS CALLER.
  *
  * A Postgres view runs as its OWNER unless declared `security_invoker`, and the owner

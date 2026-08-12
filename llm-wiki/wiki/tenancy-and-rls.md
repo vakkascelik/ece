@@ -122,6 +122,43 @@ request is a safety problem, not a convenience.
 
 All three were invisible to `typecheck`, to `next build`, and to reading the migrations.
 
+### An audit trigger that fires and writes nothing, on three tables, reported as covered
+
+Found by an audit on 2026-08-12, fixed in `0059_audit_attributable.sql`.
+
+`audit_trigger()` resolves the tenant from `centre_id`, then `child_id`, then `invoice_id`, then
+`guardian_id`, then the `centres` table itself, and otherwise gives up quietly:
+
+```sql
+if v_centre is null then
+  return coalesce(new, old);
+end if;
+```
+
+`shifts` and `staff_leave` (0041) hang off `staff_member_id`. `post_strands` (0058) hangs off
+`post_id`. None of the three carries any resolvable key, so the trigger fired on every write and
+inserted nothing. `select count(*) from audit_events where entity = 'shifts'` was 0 from the day
+0041 shipped.
+
+**Both guards passed, and that is the part worth keeping.** The class assertion in this suite looked
+for a `pg_trigger` row named `<table>_audit`; check 11 of `review:security` did the same. "Has a
+trigger" and "is audited" are different claims, and for three tables they disagreed for months —
+while check 11 printed *"no consequential table can be changed without a record of who changed which
+column, and when"*.
+
+The roster is not bookkeeping: `shifts` and `staff_leave` feed the ratio forecast, and UPDATE is
+granted on both. 0041's own comment argues that a roster somebody can erase "cannot show that
+Tuesday was short before anybody noticed". It could not show it either way.
+
+**The near-miss is instructive.** 0044 added the `guardian_id` branch for `guardian_pins`, described
+this exact failure mode in its header, and said the fix was verified complete "by inspection of the
+catalogue". That inspection asked *which tables carry `guardian_id`*. The question that finds these
+three is the inverse — *which audited tables carry none of the keys* — and nothing was asking it.
+
+So 0059 adds two joins and, more usefully, an assertion that every audited table has an attributable
+column. It runs at migration time and again in this suite. Nothing is backfilled: the rows were
+never written and inventing plausible actors would be worse than the gap.
+
 ### Mutation testing
 
 Phase 1's suite passed 63/63 first run, which was not trusted. The child policy was
@@ -134,4 +171,4 @@ restored. A test that cannot fail is not a test — worth repeating for any new 
 - [[compliance-and-evidence]] — where an educator's own record is readable by them
 - [[unverified-claims]]
 
-*Last updated: 2026-08-08*
+*Last updated: 2026-08-12*
