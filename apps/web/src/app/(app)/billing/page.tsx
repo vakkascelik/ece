@@ -6,6 +6,7 @@ import { PageHeader } from '../PageHeader';
 import { PageActions } from '../PageActions';
 import { InvoiceRow } from './InvoiceRow';
 import './billing.css';
+import { appPath } from '@/lib/origin';
 
 /**
  * Who owes what, and for how long.
@@ -87,7 +88,7 @@ export default async function BillingPage() {
         }
         actions={
           <PageActions
-            csvHref="/billing/export.csv"
+            csvHref={appPath('/billing/export.csv')}
             hint="The spreadsheet has the same figures as plain numbers, so a column can be summed. The Xero file covers last month's issued invoices and leaves the account code and tax rate blank — those are your chart of accounts, not ours."
           >
             {/*
@@ -97,7 +98,7 @@ export default async function BillingPage() {
               was wrong for both — an accounting import must not contain a balance, and an
               arrears report must not be limited to one month.
             */}
-            <a className="btn secondary" href="/billing/xero.csv">
+            <a className="btn secondary" href={appPath('/billing/xero.csv')}>
               Download for Xero
             </a>
           </PageActions>

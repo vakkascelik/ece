@@ -26,6 +26,33 @@ function mount(): string {
 }
 
 /**
+ * An app-relative path turned into one the browser can use — `/billing/export.csv` becomes
+ * `/portal/billing/export.csv` under the mount.
+ *
+ * FOR THE HREFS NEXT DOES NOT REWRITE, WHICH IS A SHORTER LIST THAN IT SOUNDS AND WAS STILL MISSED.
+ *
+ * `<Link>`, `redirect()` from `next/navigation` and `NavLink` (which wraps `Link`) all prepend
+ * `basePath` themselves, so ordinary navigation was never affected. A bare `<a href="/…">` does not,
+ * and every CSV download in this app is a bare anchor **on purpose**: these routes are route
+ * handlers returning a file, and `<Link>` would attempt a client-side navigation to them.
+ *
+ * So the six download links and one stray in-app anchor all pointed at the marketing site's 404
+ * from the moment the mount went live. The check that missed them looked at what the framework
+ * emits — `/_next/*` chunks, redirect targets, the routes manifest — and never at the hrefs written
+ * by hand, which is the one category the framework does not touch. Found by an audit, not by the
+ * verification that claimed the mount was sound.
+ *
+ * Server-only, like everything else here: `ECE_PORTAL_MOUNT` is not a `NEXT_PUBLIC_` variable and
+ * must not become one, because a second variable naming the same fact is how the two drift. Every
+ * call site is a Server Component; the one client component that had a bare anchor was changed to
+ * `<Link>`, which is the right tool for in-app navigation anyway.
+ */
+export function appPath(path: string): string {
+  if (!path.startsWith('/')) throw new Error(`appPath needs an absolute app path, got "${path}"`);
+  return `${mount()}${path}`;
+}
+
+/**
  * Where the world reaches this app, including any mount path and with no trailing slash.
  *
  * TWO BUGS MADE THIS NECESSARY, AND ONLY ONE OF THEM WAS THE MOUNT'S FAULT.

@@ -6,7 +6,21 @@
  */
 
 const DEFAULT_ORIGIN = 'https://www.littlepearls.org.nz';
-const DEFAULT_APP_URL = 'https://ece-production-fc07.up.railway.app/login';
+/*
+ * THE FALLBACK POINTED AT A PATH THAT NO LONGER EXISTS, WHICH IS WORSE THAN POINTING AT NOTHING.
+ *
+ * It was `https://ece-production-fc07.up.railway.app/login`. Mounting the console at `/portal` moved
+ * every route in it, so that URL became a 404 — and this value is used precisely when `SITE_APP_URL`
+ * is **unset**, which the runbook recommends as the safe default. So "Sign in to Doorway", the
+ * most-used link on this site, 404'd for anybody whose deployment had not set the variable.
+ *
+ * The mounted path on this site's own hostname now, because that is where the console actually is
+ * and because a link that stays on one origin is the whole point of the mount. It is a same-origin
+ * path written absolutely rather than as `/portal/login`, because `urlFromEnv` validates this as a
+ * URL and a bare path is not one — see the recovery logic below, which exists because a value with
+ * no scheme is resolved as *relative* and silently landed on this site's own 404 once already.
+ */
+const DEFAULT_APP_URL = 'https://little-pearls-production.up.railway.app/portal/login';
 
 /**
  * An environment variable used as a URL, checked before it is used as one.

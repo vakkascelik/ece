@@ -1,7 +1,10 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { appUrl, isUnusableUrl, siteOrigin, urlFromEnv } from '../site';
 
-const DEFAULT_APP = 'https://ece-production-fc07.up.railway.app/login';
+// Tracks DEFAULT_APP_URL in ../site. It changed when the console moved to /portal: the old value
+// named a path basePath had deleted, so the fallback — used exactly when SITE_APP_URL is unset —
+// was a 404.
+const DEFAULT_APP = 'https://little-pearls-production.up.railway.app/portal/login';
 
 afterEach(() => {
   delete process.env.SITE_APP_URL;
@@ -25,7 +28,9 @@ describe('urlFromEnv', () => {
 
   it('upgrades a bare host, because that is the recoverable mistake', () => {
     // Somebody pasting a hostname without the scheme meant the right thing and made a relative URL.
-    process.env.SITE_APP_URL = 'ece-production-fc07.up.railway.app/login';
+    // Deliberately the same host and path as DEFAULT_APP: the assertion below only means something
+    // if the recovered value and the fallback are identical.
+    process.env.SITE_APP_URL = 'little-pearls-production.up.railway.app/portal/login';
     expect(appUrl()).toBe(DEFAULT_APP);
     // Recovered rather than rejected, so this is NOT reported as unusable — the link works. This
     // assertion is the one that caught the first implementation, which reported trouble by comparing

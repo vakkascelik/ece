@@ -13,6 +13,7 @@ import { dayWindow } from '@/lib/dayWindow';
 import { serverDb } from '@/lib/supabase';
 import { PageHeader } from '../PageHeader';
 import { PageActions } from '../PageActions';
+import { appPath } from '@/lib/origin';
 
 /**
  * RS7 preparation.
@@ -82,7 +83,7 @@ export default async function FundingPage({
           */
           actions={
             <PageActions
-              csvHref={`/funding/export.csv?from=${from}&to=${to}`}
+              csvHref={appPath(`/funding/export.csv?from=${from}&to=${to}`)}
               hint="The spreadsheet covers the dates above, and names the unresolved days on each row — a file loses the banner it came with."
             />
           }

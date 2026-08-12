@@ -18,6 +18,7 @@ import {
 import { requireCtx } from '@/lib/auth';
 import { serverDb } from '@/lib/supabase';
 import { PageHeader } from '../PageHeader';
+import { appPath } from '@/lib/origin';
 
 /**
  * The roll.
@@ -67,7 +68,7 @@ export default async function ChildrenPage() {
               {/* Owner and manager only, which is stricter than this page: an educator and a
                   parent both READ it, and the policy decides how many rows each gets. A file
                   is different — it leaves the product and sits in a downloads folder. */}
-              <a className="btn" href="/children/export.csv">
+              <a className="btn" href={appPath('/children/export.csv')}>
                 Download list
               </a>
               <Link href="/children/new">

@@ -47,6 +47,17 @@ export function PageActions({
   children,
 }: {
   csvHref?: string;
+  /**
+   * MUST ALREADY CARRY THE MOUNT. Pass `appPath('/x/export.csv')`, never a bare `/x/export.csv`.
+   *
+   * This renders a plain `<a>`, deliberately — these hrefs are route handlers returning a file, and
+   * `<Link>` would try to navigate to them client-side. The cost of that correct choice is that
+   * Next does **not** prepend `basePath`, so every caller here pointed at the marketing site's 404
+   * for as long as the /portal mount had been live. This component cannot fix it for them: it is a
+   * client component and `ECE_PORTAL_MOUNT` is server-only, on purpose — a `NEXT_PUBLIC_` twin would
+   * be a second variable naming one fact. Every caller is a Server Component and can call
+   * `appPath()` itself.
+   */
   csvLabel?: string;
   printLabel?: string;
   hint?: string;

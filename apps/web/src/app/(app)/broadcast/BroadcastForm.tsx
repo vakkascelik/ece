@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useActionState, useEffect, useState } from 'react';
 import { send, type Result } from './actions';
 
@@ -25,7 +26,11 @@ export function BroadcastForm({ recipientCount }: { recipientCount: number }) {
       <p className="sub" style={{ fontSize: '0.8125rem' }}>
         Reaches every current staff member and family at {recipientCount === 1 ? 'this centre — 1 person' : `this centre — ${recipientCount} people`} right now, ignoring quiet hours.
         Today that means: an entry each of them can read on their own{' '}
-        <a href="/notifications">Notifications</a> page. It does not yet send a push
+        {/* `Link`, not a bare `<a>`: this is a client component, so it cannot read the mount, and a
+            root-relative anchor is not rewritten by `basePath` — under /portal it walked the reader
+            out of the console and onto the marketing site's 404. `Link` prepends the prefix itself,
+            and in-app navigation is what it is for. */}
+        <Link href="/notifications">Notifications</Link> page. It does not yet send a push
         notification or an email — neither is wired up to this product yet.
       </p>
 

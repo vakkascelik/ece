@@ -14,6 +14,7 @@ import { serverDb } from '@/lib/supabase';
 import { PageHeader } from '../PageHeader';
 import { StaffRoster, type RosterRow } from './StaffRoster';
 import { PageActions } from '../PageActions';
+import { appPath } from '@/lib/origin';
 
 /**
  * The people who work here, and which of them are in the building.
@@ -114,7 +115,7 @@ export default async function StaffPage() {
         actions={
           can(ctx.role, 'manageMembers') ? (
             <PageActions
-              csvHref="/staff/export.csv"
+              csvHref={appPath('/staff/export.csv')}
               csvLabel="Download staff list"
               hint="Today’s first and last events per person. Not a timesheet — it does not subtract breaks or resolve a missing sign-out."
             />

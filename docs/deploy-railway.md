@@ -180,7 +180,9 @@ adopt anything.
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | no, by design | **build and runtime** | Shipped to every browser; RLS is what protects the data, not this key |
 | `SUPABASE_SERVICE_ROLE_KEY` | **yes** | runtime | See below |
 | `NEXT_PUBLIC_SENTRY_DSN` | no | optional | Without it error reporting is inert, which is a valid choice |
-| `ECE_ALLOWED_ORIGINS` | no | optional | Only if writes fail after deploy — see step 5 |
+| `ECE_ALLOWED_ORIGINS` | no | optional | Only if writes fail after deploy — see step 5. **Required while the console is mounted**, because the proxy hides the browser's host |
+| `ECE_PORTAL_MOUNT` | no | **build and runtime** | The path the console is served under, e.g. `/portal`. Empty means its own root. Next inlines it into the client bundle as `basePath`, so a runtime-only value serves pages at `/portal` whose scripts are fetched from `/` — every asset 404s while the HTML looks perfect |
+| `ECE_PUBLIC_URL` | no | runtime | Where the world reaches the console, **including the mount** — `https://little-pearls-production.up.railway.app/portal`. Every password-reset and invitation link is built from it. Behind the proxy the app cannot derive this from headers, which is why it is configured rather than detected |
 
 The two `NEXT_PUBLIC_` values must be present **at build time**, not only at runtime. Next
 inlines them into the client bundle, so a deploy that sets them as runtime-only variables
@@ -254,12 +256,21 @@ agree, and the service is the one that cannot be bypassed.
 The first four are one command each. The fifth is the one that actually matters.
 
 ```bash
+# P is ECE_PORTAL_MOUNT, or empty when the console is served at its own root.
 D=https://<your-service>.up.railway.app
+P=/portal
 
-curl -s $D/api/health                        # {"ok":true}
-curl -sI $D/login | grep -iE 'content-security-policy|strict-transport|x-frame|referrer'
-curl -s -o /dev/null -w '%{http_code}\n' $D/ # 307 → /login when signed out
+curl -s $D$P/api/health                          # {"ok":true}
+curl -sI $D$P/login | grep -iE 'content-security-policy|strict-transport|x-frame|x-robots'
+curl -s -o /dev/null -w '%{http_code}\n' $D$P/   # 307 → $P/login when signed out
+curl -s -o /dev/null -w '%{http_code}\n' $D/     # 307 → $P, and never a 404
 ```
+
+> **Every command here asserted an output the console could not produce, for as long as the mount
+> had been live.** `basePath` moves *every* route, `/api/health` and `/login` included, so the
+> unprefixed forms return Next's 404 — and this page read as a failed deploy on a perfectly healthy
+> one. The last line is the redirect that stops the bare hostname 404ing for anybody with the old
+> address bookmarked. With no mount configured, set `P=` and the block is what it always was.
 
 1. **Health.** `{"ok":true}`.
 2. **Security headers on the public origin.** CSP with a `nonce-`, `X-Frame-Options: DENY`,
@@ -355,7 +366,7 @@ Service → Settings → **Config-as-code** → `railway.site.json`.
 |---|---|---|
 | `SITE_CANONICAL_HOST` | optional | `www.littlepearls.org.nz` |
 | `SITE_ORIGIN` | recommended | `https://www.littlepearls.org.nz` |
-| `SITE_APP_URL` | optional | `https://ece-production-fc07.up.railway.app/login` |
+| `SITE_APP_URL` | optional | `https://little-pearls-production.up.railway.app/portal/login` |
 
 Notes on those three:
 

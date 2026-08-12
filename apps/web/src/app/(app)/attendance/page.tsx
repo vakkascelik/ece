@@ -8,6 +8,7 @@ import './attendance.css';
 import { AdultCount } from './AdultCount';
 import { RatioBanner } from './RatioBanner';
 import { RollClient } from './RollClient';
+import { appPath } from '@/lib/origin';
 
 /**
  * The room, right now.
@@ -92,7 +93,7 @@ export default async function AttendancePage({
             <Link className="btn secondary" href="/attendance?wall=1">
               Wall display
             </Link>
-            <a className="btn" href="/attendance/export.csv">
+            <a className="btn" href={appPath('/attendance/export.csv')}>
               Download roll
             </a>
           </div>
