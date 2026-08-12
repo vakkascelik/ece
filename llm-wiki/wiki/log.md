@@ -5,6 +5,49 @@ says so.*
 
 ---
 
+2026-08-12 — **The first build this repo has ever produced, and three things in the way of it that
+nobody knew were there.** `apps/mobile/eas.json`, `apps/mobile/app.json`, `scripts/mobile-icons.ts`.
+See [[unverified-claims]] items 15 and 16, and `docs/store-listing.md`.
+
+Asked for an Android AAB for the Play Store. The app bundles — `expo export --platform android`,
+1078 modules, 3.2MB of Hermes bytecode — which is AGENTS.md's own mobile gate and had never been
+run in this session. Everything after that was a blocker.
+
+**`eas.json` had never been valid.** It carried this repo's `"//"` comment arrays, and EAS validates
+its schema strictly: `"//" is not allowed`, on every profile and on the root. `eas init` refused
+before doing anything. Railway tolerates unknown keys, which is where the habit came from, and the
+file had never been executed — so its invalidity was invisible and it was described in the wiki as
+"configuration and not progress". It was configuration nothing could read. The reasoning moved to
+`docs/store-listing.md`, which is the one place it can now live.
+
+**The production profile had no `env`, which is a crash and not a misconfiguration.**
+`lib/supabase.ts` calls `required()` at module load and **throws** on a missing value. EAS builds on
+Expo's servers and never sees the gitignored `.env.local`, so a production AAB would have shipped an
+app that dies on launch, for every user, before a screen renders — not one pointing at `undefined`.
+The file's own comment said "the anon key belongs here" and no profile had ever carried it.
+
+**No icons existed at all.** `app.json` listed them as "MISSING AND REQUIRED BEFORE ANY STORE
+SUBMISSION", so a build would have shipped Expo's default. They are generated from `MARK` by
+`npm run icons:mobile` rather than drawn: `apps/web/src/app/icon.tsx` argues at length against
+committing a raster of a mark that lives in `@ece/core`, and that argument is right and does not
+survive contact with Android, where `app.json` resolves file paths at build time and there is no
+renderer to call. Derived and committed, with one command to regenerate.
+
+One thing that mattered and looked done: the first `icon.png` was **opaque in every pixel and still
+had an alpha channel**, because sharp carries the input's channels through. App Store validation
+rejects an icon that *has* an alpha channel, not one that uses it — a different property from the
+one being checked. Caught by reading `hasAlpha` back off the written file instead of trusting the
+render.
+
+**A signing key now exists and it is not on this machine.** No `keytool` locally, so EAS generated
+an upload keystore in the cloud. That key is the identity Play uses to accept an update: lost
+without Play App Signing, the listing can only be replaced under a new package name. Written up in
+`docs/store-listing.md` with the command to export it.
+
+Still true, and worth saying plainly against a green build: **the app has never run on anything.**
+An artefact is not an execution. The airplane-mode drill, push delivery, cold-start time and the
+chunked SecureStore path are all exactly as unverified as they were yesterday.
+
 2026-08-12 — **A 14-agent audit of the whole codebase found 23 real defects, and four of them were
 mine from the day before.** Everything below is fixed except one migration, which is blocked. See
 [[deployment]], [[password-recovery]] and [[tenancy-and-rls]].

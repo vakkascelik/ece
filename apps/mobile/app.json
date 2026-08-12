@@ -30,10 +30,22 @@
         "No `permissions` array. expo-notifications adds POST_NOTIFICATIONS itself, and",
         "a hand-written list here would drift from what the plugins actually need. There",
         "is no location, camera, microphone, contacts or storage permission in this app."
+      ],
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#1b1a18"
+      },
+      "//adaptiveIcon": [
+        "backgroundColor is MARK.box.fill. The box is the OUTER layer here, not drawn into the",
+        "foreground, because Android masks the foreground to the launcher's shape and a mark with",
+        "its own corners baked in comes out with those corners sliced off."
       ]
     },
     "extra": {
-      "//": "One binary serves every centre. The tenant is resolved at sign-in, never baked into the build — which is the whole reason this platform is pooled rather than one deployment per customer."
+      "//": "One binary serves every centre. The tenant is resolved at sign-in, never baked into the build — which is the whole reason this platform is pooled rather than one deployment per customer.",
+      "eas": {
+        "projectId": "6df0b4d4-e4d5-4057-b2e6-66eadf431e77"
+      }
     },
     "plugins": [
       "expo-sqlite",
@@ -41,19 +53,29 @@
       "expo-notifications"
     ],
     "//": [
-      "MISSING AND REQUIRED BEFORE ANY STORE SUBMISSION. Listed here rather than",
-      "referenced as file paths that do not exist — a config pointing at a missing icon",
-      "fails the build with an error about a file, not about the decision:",
+      "Icons are GENERATED from MARK by `npm run icons:mobile` — see scripts/mobile-icons.ts for why",
+      "these are committed rasters when the web renders the same geometry at request time.",
       "",
-      "  • icon, 1024×1024, no transparency and no pre-rounded corners (Apple rejects both)",
-      "  • android.adaptiveIcon, foreground plus background, 108dp with a 66dp safe circle",
-      "  • a splash screen via expo-splash-screen",
-      "  • an Android notification icon, or the system draws a grey square",
+      "STILL MISSING BEFORE A STORE SUBMISSION:",
+      "",
+      "  • a splash screen via expo-splash-screen — not a blocker for either store, and a decision",
+      "    about the first thing a kaiako sees at 7am rather than something to add with an icon",
       "",
       "docs/store-listing.md holds everything else a submission needs, including the Play",
       "Data Safety answers and Apple's privacy questionnaire — both written out there,",
       "because both are declarations about children's data and both are easy to answer",
       "carelessly."
-    ]
+    ],
+    "icon": "./assets/icon.png",
+    "notification": {
+      "icon": "./assets/notification-icon.png",
+      "color": "#1b1a18"
+    },
+    "//notification": [
+      "Android draws the ALPHA CHANNEL of this file in white and ignores every colour in it, so the",
+      "asset is a silhouette. Supplying the full-colour icon here is how you get a solid white square",
+      "in the status bar — the grey-square failure below, one step further along."
+    ],
+    "owner": "vakkascelik"
   }
 }

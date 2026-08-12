@@ -1,7 +1,8 @@
 # Store submission
 
 Everything a submission needs, written down before there is an account to submit with.
-**Nothing here has been submitted, and no build exists.**
+**Nothing here has been submitted.** As at 2026-08-12 an Android production AAB exists — the first
+build ever produced from this repo — and it has been submitted nowhere and installed on nothing.
 
 Two of these sections are declarations about children's personal information under oath,
 more or less — Google's Data Safety form and Apple's privacy questionnaire. Both are easy
@@ -12,7 +13,7 @@ rather than typed into a web form at midnight.
 
 | Blocked | On |
 |---|---|
-| Any build at all | An Expo account and `npx eas build:configure` |
+| ~~Any build at all~~ | Done 2026-08-12: project `@vakkascelik/ece`, production AAB built on EAS |
 | iOS build | Apple Developer Program, US$99/year |
 | Android build | Play Console, US$25 once |
 | Airplane-mode drill | A development build on a device |
@@ -22,6 +23,56 @@ rather than typed into a web form at midnight.
 The privacy policy URL is the one people forget: **both stores require a publicly
 reachable URL**, and [privacy-statement](privacy-statement.md) is a file in a repository.
 It has to be hosted somewhere before either submission can be completed.
+
+## The build configuration, and why it holds no comments
+
+`eas.json` is plain JSON with no `"//"` keys, which is the opposite of every other config in this
+repo. That is not a lapse: **EAS validates its schema strictly and rejects them.** The file carried
+comment arrays in this repo's house style from the day it was written, and `eas init` refused before
+doing anything —
+
+```
+eas.json is not valid.
+- "build.production.//" is not allowed
+- "//" is not allowed
+```
+
+Railway ignores unknown keys, which is where the habit came from and why nothing caught it: the file
+had never been executed, so its invalidity was invisible. It was described in the wiki as
+"configuration and not progress"; it was in fact configuration nothing could read. The reasoning it
+used to carry lives here instead.
+
+**The profiles.** `development` is a dev client for internal distribution — the one that unblocks the
+airplane-mode drill. `preview` is internal distribution for the pilot centre, APK rather than AAB on
+Android so a tablet can sideload without Play. `production` is store submission with
+`autoIncrement`, because a rejected build number is the most tedious way to fail a submission.
+
+**Every profile carries `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY`, and their
+absence is a crash rather than a degraded app.** `lib/supabase.ts` calls `required()` at module load
+and throws on a missing value, so a build without them ships an app that dies on launch, for every
+user, before a screen renders. EAS builds on Expo's servers and never sees the gitignored
+`.env.local`, so the original `production` profile — which had no `env` block at all — was exactly
+that build.
+
+They are committed rather than held as EAS secrets, and only because of what these two values are:
+Expo inlines every `EXPO_PUBLIC_*` into the binary, so both are readable by anyone who downloads the
+app and unzips it, and both are already in the web client bundle served to every browser. A secret
+store would imply a secrecy neither has. The service-role key is a different thing and must never
+appear in that file.
+
+**Still declared and still inert:** both profiles name an update `channel` while `expo-updates` is
+not installed, so EAS warns on every build. Either install it and run `eas update:configure`, or
+drop the channels. Leaving it is choosing a warning on every build forever.
+
+## The signing key now exists, and it is not on this machine
+
+The first Android build generated an **upload keystore in the cloud**, because no `keytool` was
+available locally. Expo holds it. That key is the identity Google Play uses to accept an update to
+this app: lose it without Play App Signing enrolled and the listing cannot be updated, only replaced
+under a new package name.
+
+Back it up before the first submission — `eas credentials` exports it — and store it somewhere that
+is not the same account as the thing it protects.
 
 ## Listing copy
 

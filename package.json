@@ -39,7 +39,8 @@
     "sweep:audit": "node --env-file-if-exists=.env.local --import tsx scripts/sweep-audit-tenants.ts",
     "deploy:auth": "node --env-file-if-exists=.env.local --import tsx scripts/deploy-auth-config.ts",
     "drill:rowcap": "node --env-file-if-exists=.env.local --import tsx scripts/drill-rowcap.ts",
-    "audit:site": "node --import tsx scripts/audit-site.ts"
+    "audit:site": "node --import tsx scripts/audit-site.ts",
+    "icons:mobile": "tsx scripts/mobile-icons.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",

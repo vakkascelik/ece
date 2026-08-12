@@ -1,60 +1,38 @@
 {
-  "//": [
-    "EAS build configuration. PREPARED, NOT RUN — no build has ever been produced, so",
-    "nothing in this file has been executed. It is here because the airplane-mode drill",
-    "and push delivery are both blocked on a build, and because the profile choices",
-    "below are decisions worth recording rather than re-deriving at the keyboard.",
-    "",
-    "Requires: an Expo account, `npx eas login`, and `npx eas build:configure` to create",
-    "the project ID. The first iOS build also needs an Apple Developer account (US$99/yr)",
-    "and the first Android build a Play Console account (US$25 once)."
-  ],
   "cli": {
     "version": ">= 12.0.0",
     "appVersionSource": "remote"
   },
   "build": {
     "development": {
-      "//": [
-        "A dev client, so the app can be run on a real device against Metro. This is the",
-        "profile that unblocks the airplane-mode drill: three sign-ins with the radios",
-        "off, then reconnect, then confirm exactly three events landed and no duplicates",
-        "after a forced double flush. That drill has been run against the database by a",
-        "script; it has never been run on a device, which is the only place the SQLite",
-        "outbox and a real network transition both exist."
-      ],
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "//": "EXPO_PUBLIC_* values are compiled into the bundle. The anon key belongs here; the service-role key must never appear in any profile in this file."
+        "EXPO_PUBLIC_SUPABASE_URL": "https://qdgforljvddgrxxymtug.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFkZ2ZvcmxqdmRkZ3J4eHltdHVnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg5NDIxNzMsImV4cCI6MjA5NDUxODE3M30.IWFgsEzinCYbRS9LuYhIBTGi6men_0yN_BiW2DHpmfo"
       }
     },
     "preview": {
-      "//": [
-        "Internal distribution for the pilot centre: TestFlight on iOS, an internal",
-        "testing track on Play. Educators install this before it is in a store at all.",
-        "APK rather than AAB on Android so a tablet can sideload it without Play."
-      ],
       "distribution": "internal",
       "android": {
         "buildType": "apk"
       },
-      "channel": "preview"
+      "channel": "preview",
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://qdgforljvddgrxxymtug.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFkZ2ZvcmxqdmRkZ3J4eHltdHVnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg5NDIxNzMsImV4cCI6MjA5NDUxODE3M30.IWFgsEzinCYbRS9LuYhIBTGi6men_0yN_BiW2DHpmfo"
+      }
     },
     "production": {
-      "//": "Store submission. Auto-increment, because a rejected build number is the most tedious way to fail a submission.",
       "autoIncrement": true,
-      "channel": "production"
+      "channel": "production",
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://qdgforljvddgrxxymtug.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFkZ2ZvcmxqdmRkZ3J4eHltdHVnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg5NDIxNzMsImV4cCI6MjA5NDUxODE3M30.IWFgsEzinCYbRS9LuYhIBTGi6men_0yN_BiW2DHpmfo"
+      }
     }
   },
   "submit": {
-    "production": {
-      "//": [
-        "Left empty deliberately. Filling in ascAppId, appleTeamId and a service-account",
-        "key path before those accounts exist would put placeholder credentials in a",
-        "committed file, and a placeholder that looks like a configuration is worse than",
-        "a blank that obviously is not one."
-      ]
-    }
+    "production": {}
   }
 }
