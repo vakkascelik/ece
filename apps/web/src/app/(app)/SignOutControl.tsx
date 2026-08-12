@@ -128,9 +128,24 @@ export function SignOutControl({
       await flush(browserDb(), userId);
       const now = snapshot(userId);
       setQueue(now);
-      // Emptied: the thing they were being held for is done, so leave rather than making them
-      // press it again.
-      if (describeSignOut(now).allowed) {
+      /*
+       * THE SAME TEST `attempt` WAS FIXED FOR, LEFT WRONG IN THE SIBLING PATH — AND THIS IS THE
+       * PATH WHERE IT IS MOST LIKELY TO BITE, BECAUSE THE FLUSH IS WHAT CREATES DEAD ENTRIES.
+       *
+       * This read `describeSignOut(now).allowed` alone. A queue holding only dead entries is
+       * `allowed: true` **with a warning**, so an entry that the flush a few lines above had just
+       * marked permanently refused went straight to `go()` — which calls `discardDead()`. The
+       * record was destroyed, the dialog naming it never rendered because `setAsking(false)` ran
+       * first, and nobody was told. A child signed in on a wall tablet then exists nowhere: absent
+       * from the roll, absent from the ratio, and present in the building.
+       *
+       * "Emptied: the thing they were being held for is done" was the reasoning, and it is wrong
+       * after a partial flush: unsent reaching zero is not the same as everything having landed.
+       * The condition now matches `attempt` — leave immediately only when there is nothing left to
+       * say. Otherwise fall through with the dialog still open, so the warning branch renders.
+       */
+      const verdict = describeSignOut(now);
+      if (verdict.allowed && verdict.warning === null) {
         setAsking(false);
         await go();
       }

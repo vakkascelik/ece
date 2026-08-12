@@ -5,6 +5,95 @@ says so.*
 
 ---
 
+2026-08-12 — **A 14-agent audit of the whole codebase found 23 real defects, and four of them were
+mine from the day before.** Everything below is fixed except one migration, which is blocked. See
+[[deployment]], [[password-recovery]] and [[tenancy-and-rls]].
+
+Seven dimensions swept in parallel, every finding then attacked by a skeptic told to refute and to
+default to refuted when unsure. 23 confirmed, 8 refuted — and the refutations did real work: one
+reviewer quoted 5.40:1 for a contrast pair that measures ~16.2:1, and another was answered by the
+comment it was standing next to.
+
+**THE FOUR I CAUSED, AND WHY MY OWN VERIFICATION MISSED THEM.**
+
+Mounting the console at `/portal` broke every CSV export in the product — six of them — plus one
+in-app link. I had checked `/_next/*` chunks, redirect targets and the routes manifest, and reported
+the mount sound. All of those are things the **framework** emits. A bare `<a href="/…">` is written
+by hand, and it is the one category `basePath` does not touch. `<Link>`, `NavLink` and `redirect()`
+all prefix correctly, which is exactly why the gap was invisible: ordinary navigation worked.
+
+The other two were worse for being known. `DEFAULT_APP_URL` still named `/login`, a path `basePath`
+had deleted, and that fallback is used precisely when `SITE_APP_URL` is unset — which the runbook
+recommends. I noticed this the previous evening, said it should change, and did not change it. And
+`docs/deploy-railway.md` went 541 lines without the word `portal`: its verification block asserted
+outputs the mounted console cannot produce, so the runbook read as a failed deploy on a healthy one.
+
+**THE WORST FINDING WAS NOT MINE.** `shifts`, `staff_leave` (0041) and `post_strands` (0058) each
+carry an `_audit` trigger that can never write a row: `audit_trigger()` resolves a tenant from
+`centre_id`, `child_id`, `invoice_id` or `guardian_id`, and those tables carry none of them. Every
+roster change has been unaudited since 0041 shipped, while the RLS suite and `review:security` both
+reported coverage complete — because both check only that a trigger **exists**. Check 11's success
+message reads "no consequential table can be changed without a record of who changed which column",
+which was false. The roster feeds the ratio forecast, and UPDATE is granted on both tables.
+
+0044's header describes this exact failure mode for `guardian_pins` and says the fix was verified
+"by inspection of the catalogue". That inspection asked which tables carry `guardian_id`. It never
+asked which audited tables carry **none** of the keys — which is the question that finds these three.
+0059 adds the two joins and, more importantly, an assertion that every audited table is
+attributable, in the migration and in the suite.
+
+**THREE COMPLIANCE DEFECTS, ALL IN THE DIRECTION THAT FLATTERS THE CENTRE.** The opening-adults
+lookback had no lower bound, so a day nobody recorded staffing replayed against a number typed on
+some earlier day — reporting a staffed day where the record says nothing was staffed. It also ran
+for `derived` centres, blending a typed count into a replay 0040 forbids. Both gone: the comment
+justifying the query described an opening-hours window this code has not had for some time, and with
+`dayWindow` running midnight to midnight every count is already inside it.
+
+The binder's caveat about days using a different source **could never render** — every replay is
+handed `ctx.centre.ratioSource`, so the condition is false by construction. It promised those days
+"are marked in the ratio history below" and nothing was ever marked. `ratio_source` is a single
+current column, so the product genuinely cannot say which source produced a past day; the page now
+says that instead of implying a protection it does not have.
+
+And the roster banner printed "✓ The next 7 days are covered" for a week whose bookings all lacked
+hours: no segment is assessed, so `worstShortfall` stays 0. A forward-looking figure is the one a
+manager acts on by *not* calling a reliever.
+
+**THE REST, BRIEFLY.** `sendNow` discarded an outbox entry that died during its own flush, with no
+dialog — the identical bug the file documents as fixed twenty lines above, surviving in the sibling
+path. Every credit line in the Xero export shipped as `'-45.00`, because `xeroAmount` returns a
+string and the formula guard exempted only `number`; positive amounts were untouched, so any export
+without a credit looked perfect. Two paginated reads in `readFundingPeriod` had **no `ORDER BY` at
+all**, beside a third whose comment explains at length why paging needs a total order — a child
+could be counted twice in a funding claim or dropped from it. An invitation token, which is a bearer
+credential, was shipped to Sentry in the request URL. Sentry's ingest origin was missing from
+`connect-src`, so configuring a DSN would have blocked every report silently. `release` and
+`environment` were read from `VERCEL_*` variables on a Railway deploy, tagging every production
+error as development.
+
+**AND THE GUARD THAT WAS NOT GUARDING.** `RESOLVED_ELSEWHERE` in the localDates test is keyed by
+path and looked up as `RESOLVED_ELSEWHERE[rel]`, so its single entry exempted **every line** of
+`packages/core/src/children.ts` — the file that owns every date helper in the product. Its own
+docblock says it is keyed by `path:line-content-fragment`; the code never implemented that. Exactly
+one line needs the exemption. Now it is required to appear in the line.
+
+**One removal.** `readRoll` was an exported second assembly of the roll and ratio, called from
+nowhere in the entire repository, computing the ratio without the offline queue — the precise
+omission `buildRoll` exists to prevent. Deleted rather than annotated, because the danger was the
+name.
+
+**A guard exposed by deleting unrelated code.** Removing the opening-adults query broke
+`bounded-queries`, which then flagged `staff_attendance_events`. That read had never been bounded or
+listed: the deleted query's `.limit(1)` sat close enough below it for a proximity-based scanner to
+credit the bound to the wrong `.from()`. Surfaced, not introduced.
+
+**BLOCKED.** 0059 and 0060 are written and cannot be applied: `migrate` refuses because
+`0058_curriculum_strands.sql` was edited after being applied — it was applied on 08-09 from an
+uncommitted working copy and committed on 08-10. The live schema was compared against the file
+column by column, policy by policy, grant by grant, and agrees, so the edit was to comments.
+Re-recording the checksum needs the owner's approval and was declined by the permission layer, which
+is the right place for that decision to sit.
+
 2026-08-11 — **Configuring a mailer is now one scripted command, and the stock template would have
 broken it.** `scripts/deploy-auth-config.ts`. See [[password-recovery]].
 

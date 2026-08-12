@@ -11,7 +11,9 @@
  * child in and an educator signing the room in call the same function.
  */
 
-import { assessRatio, splitByAgeBand, type RatioAssessment } from '@ece/core';
+// The ratio imports went with `readRoll` — see the note where it was removed. This module now
+// reads attendance and nothing else; the ratio is assembled by `buildRoll` in @ece/core, which is
+// the only assembly that merges the offline queue.
 import type { Db } from './index';
 
 export type AttendanceKind = 'in' | 'out';
@@ -252,51 +254,21 @@ export async function recordAdultsPresent(
 // ---------------------------------------------------------------------------
 // The ratio
 // ---------------------------------------------------------------------------
-
-export interface PresentChild {
-  id: string;
-  dateOfBirth: string;
-  since: string;
-}
-
-export interface RollState {
-  present: PresentChild[];
-  absent: string[];
-  ratio: RatioAssessment;
-}
-
-/**
- * The whole live picture: who is here, and whether the room is legal.
+/*
+ * `readRoll`, `RollState` and `PresentChild` were removed here.
  *
- * `adultsPresent` is a parameter and not derived from anything, because nothing in
- * this system knows it. Staff attendance is not modelled — Phase 2 signs *children*
- * in — so the number comes from whoever is looking at the screen. Inferring it from
- * `memberships` would be worse than asking: it would count an educator who is on
- * leave and produce a ratio that is confidently wrong.
+ * A second, exported assembly of the roll and its ratio, called from nowhere — no app, no script,
+ * no test, one occurrence in the whole repository, its own definition. It was not merely unused:
+ * it computed the ratio from database state alone, with no merge of the offline queue, which is
+ * the precise omission `buildRoll` in `@ece/core` exists to prevent. A future caller reaching for
+ * the obvious-sounding name would have got a ratio that silently ignores every sign-in still
+ * waiting on a wall tablet.
+ *
+ * Its docblock had also stopped being true. It said "staff attendance is not modelled — Phase 2
+ * signs *children* in", which 0038 and 0041 falsified: `staff_members` and `staff_attendance_events`
+ * exist, and the derived ratio source is built on them. So it documented an architecture the
+ * product had moved past, in a function nobody called.
+ *
+ * Deleted rather than annotated because the danger was the name. It is in the history if the
+ * assembly is ever wanted back.
  */
-export async function readRoll(
-  db: Db,
-  input: { centreId: string; timeZone?: string; adultsPresent: number },
-  children: { id: string; dateOfBirth: string }[],
-): Promise<RollState> {
-  const states = await listAttendanceToday(db, input.centreId);
-  const byChild = new Map(states.map((s) => [s.childId, s]));
-
-  const present: PresentChild[] = [];
-  const absent: string[] = [];
-  for (const child of children) {
-    const state = byChild.get(child.id);
-    if (state?.kind === 'in') {
-      present.push({ id: child.id, dateOfBirth: child.dateOfBirth, since: state.at });
-    } else {
-      absent.push(child.id);
-    }
-  }
-
-  const { underTwo, twoAndOver } = splitByAgeBand(present, input.timeZone);
-  return {
-    present,
-    absent,
-    ratio: assessRatio({ underTwo, twoAndOver, adultsPresent: input.adultsPresent }),
-  };
-}

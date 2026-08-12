@@ -40,6 +40,9 @@ export async function middleware(request: NextRequest) {
   const csp = contentSecurityPolicy({
     nonce,
     supabaseUrl: url,
+    // Without this, configuring a DSN would make every browser-side report fail the app's own
+    // connect-src — silently, because a CSP violation is a console entry and not an exception.
+    sentryDsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
     dev: process.env.NODE_ENV !== 'production',
   });
 

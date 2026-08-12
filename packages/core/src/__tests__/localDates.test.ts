@@ -59,6 +59,18 @@ const UTC_DATE_PART =
  * exemption to different code. An entry here is an argument that the Date being formatted was
  * built from components already resolved in the centre's zone — never that the call site is
  * "probably fine".
+ *
+ * THAT IS WHAT THIS DOCBLOCK SAID WHILE THE CODE DID SOMETHING ELSE.
+ *
+ * The lookup was `RESOLVED_ELSEWHERE[rel]` — keyed on the **path alone**, so a single entry
+ * exempted every line of the file. The file in question is `packages/core/src/children.ts`, which
+ * owns every date helper in the product: all 409 lines of the one file this guard exists to watch
+ * were permanently outside it, and any future `toISOString().slice(0, 10)` added there would have
+ * passed silently. Exactly one line in it actually needs the exemption.
+ *
+ * The fragment is now required to appear in the line, which is the design the paragraph above
+ * described all along. Move `shiftLocalDate` and the exemption does not follow it; write a
+ * different UTC extraction beside it and the guard fires.
  */
 const RESOLVED_ELSEWHERE: Record<string, string> = {
   /*
@@ -72,8 +84,23 @@ const RESOLVED_ELSEWHERE: Record<string, string> = {
     refused a second exemption and the function moved instead, which is the whole
     argument for keeping the list short enough to notice.
   */
-  'packages/core/src/children.ts': 'arithmetic on an already-resolved date, via explicit Date.UTC components',
+  'packages/core/src/children.ts:Date.UTC(y, m - 1, d + deltaDays)':
+    'arithmetic on an already-resolved date, via explicit Date.UTC components',
 };
+
+/**
+ * Exempt only when the line itself carries the fragment the entry names.
+ *
+ * `startsWith(rel + ':')` and then a substring test, rather than an exact line match: line numbers
+ * churn on every edit above them, and an allowlist that has to be renumbered is one somebody
+ * renumbers without reading.
+ */
+function isResolvedElsewhere(rel: string, code: string): boolean {
+  const prefix = `${rel}:`;
+  return Object.keys(RESOLVED_ELSEWHERE).some(
+    (key) => key.startsWith(prefix) && code.includes(key.slice(prefix.length)),
+  );
+}
 
 function walk(dir: string, out: string[] = []): string[] {
   let entries;
@@ -112,7 +139,7 @@ describe('no calendar day is taken from UTC', () => {
         // Comments explaining the trap are how this repo documents it. Only code counts.
         const code = line.replace(/\/\/.*$/, '').replace(/^\s*\*.*$/, '');
         if (!UTC_DATE_PART.test(code)) return;
-        if (RESOLVED_ELSEWHERE[rel]) return;
+        if (isResolvedElsewhere(rel, code)) return;
         offenders.push(`${rel}:${i + 1}  ${line.trim()}`);
       });
     }

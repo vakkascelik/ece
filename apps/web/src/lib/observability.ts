@@ -98,10 +98,25 @@ export function initObservability(): void {
       // and for this app the default is wrong.
       sendDefaultPii: false,
 
-      // A release marker so a stack trace can be tied to a commit, when one is
-      // available. Absent locally.
-      release: process.env.VERCEL_GIT_COMMIT_SHA,
-      environment: process.env.VERCEL_ENV ?? 'development',
+      /*
+       * A release marker so a stack trace can be tied to a commit, when one is available.
+       *
+       * THESE NAMED A PLATFORM THIS PRODUCT HAS NEVER RUN ON. `VERCEL_GIT_COMMIT_SHA` and
+       * `VERCEL_ENV` are set by Vercel; this deploys to Railway, which sets neither. So `release`
+       * was always undefined and `environment` always fell through to `'development'` — every
+       * production error report from the live console was tagged as development, with no commit to
+       * tie it to. Nothing failed, which is why it survived: the reports arrive, they are just
+       * labelled wrong, and the label is what you filter on when something is burning.
+       *
+       * Railway's equivalents first, Vercel's kept as a fallback so a preview deploy elsewhere still
+       * works, and an explicit `ECE_ENV` ahead of both for the case where neither is right.
+       */
+      release: process.env.RAILWAY_GIT_COMMIT_SHA ?? process.env.VERCEL_GIT_COMMIT_SHA,
+      environment:
+        process.env.ECE_ENV ??
+        process.env.RAILWAY_ENVIRONMENT_NAME ??
+        process.env.VERCEL_ENV ??
+        'development',
 
       beforeSend(event) {
         if (event.message) event.message = scrub(event.message);
@@ -115,14 +130,36 @@ export function initObservability(): void {
           }
         }
 
-        // Request data: keep the route, drop everything that carries content. The
-        // pathname holds a child's uuid, which identifies a row without describing
-        // a person, so it stays — a query string might hold anything, so it does not.
+        /*
+         * Request data: keep the route, drop everything that carries content.
+         *
+         * The reasoning was that a pathname holds a child's uuid, which identifies a row without
+         * describing a person. That is true of `/children/<uuid>` and false of two routes:
+         *
+         *   /invite/<token>        a live, single-use invitation credential
+         *   /auth/confirm?…        a recovery token — in the query string, already dropped below
+         *
+         * An invitation token in a pathname is not an identifier, it is a **bearer credential**:
+         * anybody holding it can accept the invitation and join a centre. Shipping it to a
+         * third-party error service — retained, indexed, readable by anyone with Sentry access —
+         * turns any error on that page into a handed-over key. The route is still worth keeping for
+         * diagnosis, so the token is replaced rather than the URL discarded.
+         *
+         * Rewritten rather than allowlisted: a new route carrying a secret in its path would
+         * otherwise be exposed until somebody remembered this file. Matching on the shape of the
+         * segment after `/invite/` keeps working when the route moves under `/portal`.
+         */
         if (event.request) {
           delete event.request.data;
           delete event.request.cookies;
           delete event.request.headers;
           delete event.request.query_string;
+          if (event.request.url) {
+            event.request.url = event.request.url.replace(
+              /\/invite\/[^/?#]+/gi,
+              '/invite/<redacted>',
+            );
+          }
         }
 
         // Breadcrumbs replay what the user did, including form values.

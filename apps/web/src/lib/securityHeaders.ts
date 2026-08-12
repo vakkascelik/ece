@@ -76,16 +76,37 @@ export interface CspInput {
   nonce: string;
   /** The Supabase project origin. Requests, realtime and storage all live here. */
   supabaseUrl: string | undefined;
+  /**
+   * The Sentry ingest origin, derived from `NEXT_PUBLIC_SENTRY_DSN`. Undefined when unset, which
+   * is the current state and the reason this was never noticed.
+   *
+   * `connect-src` is `'self'` plus Supabase. Sentry's browser SDK posts to
+   * `https://<id>.ingest.<region>.sentry.io`, so the moment a DSN is configured **every**
+   * browser-side error report would be refused by this app's own policy — silently, because a CSP
+   * violation is a console entry, not an exception. The reports would simply never arrive, and the
+   * conclusion would be that the client had no errors.
+   *
+   * Passed in rather than read here, so this function stays pure and testable — the same shape
+   * `supabaseUrl` already has.
+   */
+  sentryDsn?: string | undefined;
   /** Relaxed in development, where Next uses eval for hot reloading. */
   dev: boolean;
 }
 
-export function contentSecurityPolicy({ nonce, supabaseUrl, dev }: CspInput): string {
+export function contentSecurityPolicy({ nonce, supabaseUrl, sentryDsn, dev }: CspInput): string {
   // Derive the origin rather than trusting the whole configured string: a stray path or
   // query on the env var would end up inside a CSP directive, where it is silently
   // ignored and the resulting policy blocks every request to Supabase.
   let supabase = '';
   let supabaseWs = '';
+  /*
+    The Sentry ingest origin, derived rather than trusted whole, for the same reason the Supabase
+    one is: a DSN carries a public key and a project path, and pasting the lot into a CSP directive
+    yields a source expression the browser ignores — which would fail closed, blocking every report
+    while looking configured. Empty when no DSN is set, and `.filter(Boolean)` drops it.
+  */
+  let sentry = '';
   if (supabaseUrl) {
     try {
       const u = new URL(supabaseUrl);
@@ -94,6 +115,15 @@ export function contentSecurityPolicy({ nonce, supabaseUrl, dev }: CspInput): st
     } catch {
       // A malformed URL is a configuration error the app will fail on anyway. Leaving
       // the directive empty is better than emitting a broken source expression.
+    }
+  }
+
+  if (sentryDsn) {
+    try {
+      sentry = new URL(sentryDsn).origin;
+    } catch {
+      // Same reasoning as above. A DSN that will not parse is a deployment fault; emitting
+      // nothing is better than emitting something the browser silently discards.
     }
   }
 
@@ -115,7 +145,7 @@ export function contentSecurityPolicy({ nonce, supabaseUrl, dev }: CspInput): st
     'img-src': ["'self'", 'data:', 'blob:', supabase].filter(Boolean),
     'font-src': ["'self'", 'data:'],
     // The list that matters. A script that did run could reach nowhere else.
-    'connect-src': ["'self'", supabase, supabaseWs].filter(Boolean),
+    'connect-src': ["'self'", supabase, supabaseWs, sentry].filter(Boolean),
     'media-src': ["'self'", 'blob:', supabase].filter(Boolean),
     'worker-src': ["'self'", 'blob:'],
     'manifest-src': ["'self'"],
