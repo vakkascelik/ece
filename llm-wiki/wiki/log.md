@@ -44,9 +44,38 @@ an upload keystore in the cloud. That key is the identity Play uses to accept an
 without Play App Signing, the listing can only be replaced under a new package name. Written up in
 `docs/store-listing.md` with the command to export it.
 
+**THE FIRST AAB WAS GREEN AND UNUSABLE, AND INSPECTING IT IS THE ONLY REASON ANYBODY KNOWS.**
+
+EAS reported `finished` and produced a signed 57MB bundle with `BundleConfig.pb`, a Hermes bundle
+and seventeen launcher-icon entries. Unzipping it and reading the bundle found the variable **name**
+`EXPO_PUBLIC_SUPABASE_URL` present as a string and **neither value** anywhere — the project ref and
+the key prefix both absent.
+
+The cause was not `eas.json` and not the build environment. `lib/supabase.ts` read
+`(process.env as any)[name]`, a **computed** access, and Metro only substitutes *static*
+`process.env.EXPO_PUBLIC_X` member expressions. Nothing was ever inlined, so every build this repo
+could produce threw `Missing EXPO_PUBLIC_SUPABASE_URL` at module load and died before a screen
+rendered. It survived because the only way this app had ever been run is a dev server, which
+populates `process.env` at runtime — correct in development, and **only** in development.
+
+**The first diagnosis was wrong, and the wrongness is the lesson.** The build metadata said commit
+`421684f`, which predates the `eas.json` env fix, so the obvious story was that EAS had archived git
+HEAD and dropped the uncommitted work. A mean-RGB comparison of the shipped launcher icon appeared
+to confirm it. That test was simply the wrong instrument: our own icon is a dark box with a *white*
+figure, so its mean sits far above the box colour, and "not 27" proved nothing. Comparing corner
+pixels settled it in one line — the shipped icon's corner is `27,26,24`, byte-identical to
+`MARK.box.fill`. The build *had* included the working tree. The icons were ours. A plausible
+mechanism and a bad measurement had agreed with each other, which is the most convincing way to be
+wrong.
+
+Settled empirically instead, in thirty seconds rather than another twenty-minute build:
+`expo export --platform android` with both variables set in the environment, then grep the `.hbc`.
+Before, both absent and the name present. After the fix, both found.
+
 Still true, and worth saying plainly against a green build: **the app has never run on anything.**
 An artefact is not an execution. The airplane-mode drill, push delivery, cold-start time and the
-chunked SecureStore path are all exactly as unverified as they were yesterday.
+chunked SecureStore path are all exactly as unverified as they were yesterday — and the first
+artefact that existed turned out to be one that could not have started.
 
 2026-08-12 — **A 14-agent audit of the whole codebase found 23 real defects, and four of them were
 mine from the day before.** Everything below is fixed except one migration, which is blocked. See
