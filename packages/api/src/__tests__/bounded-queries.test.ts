@@ -56,6 +56,18 @@ const BOUNDED_BY_REASON: Record<string, string> = {
   // at a time, and the binder reads seven days as seven separate queries.
   'compliance.ts:attendance_events': 'one day at a time; ~2 events per child per day',
   'compliance.ts:staff_count_events': 'one day at a time; a handful of adult counts',
+  /*
+    Surfaced, not introduced, when the cross-day `staff_count_events` lookback was deleted from
+    `readDayRatio`. That query ended in `.limit(1)`, and it sat close enough below this read for the
+    scanner to credit the bound to the wrong `.from()` — so this one had been unbounded and unlisted
+    since it was written, and the guard reported clean.
+
+    Worth keeping as a note on the guard itself: a proximity-based parser can be satisfied by a
+    bound belonging to somebody else, and deleting unrelated code is what exposes it. The structural
+    reason below is the same one its two siblings carry.
+  */
+  'compliance.ts:staff_attendance_events':
+    'one day at a time, one centre; a handful of adults, two events each',
   'compliance.ts:children': 'per centre; a licence caps the roll',
 
   // The forecast's children read is the same one `compliance.ts` makes, for the same reason.

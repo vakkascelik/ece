@@ -531,22 +531,37 @@ export async function readDayRatio(
     throw new Error(`readDayRatio (staff attendance): ${staffAttendance.error.message}`);
   }
 
-  /**
-   * The adult count in force when the day began.
+  /*
+   * THERE IS NO OPENING COUNT, AND THE QUERY THAT USED TO FETCH ONE WAS WRONG TWICE OVER.
    *
-   * The last count recorded *before* this window, because a centre that set the number
-   * at 7:30 and did not touch it again has no event inside a window starting at 8:00 —
-   * and defaulting to zero would manufacture a breach for the first hour of every day.
+   * It read the last `staff_count_events` row strictly before the window, justified by a comment
+   * that said "a centre that set the number at 7:30 and did not touch it again has no event inside
+   * a window starting at 8:00". **That window does not exist.** `dayWindow()` returns local midnight
+   * to local midnight, so a 7:30 event is inside it and is already in `adults.data`. The comment
+   * describes an opening-hours window this code has not had for some time, and it kept a query
+   * alive that could only ever reach across days.
+   *
+   * With no lower bound, "the last count before midnight" is the last count *ever* — so a day on
+   * which nobody recorded an adult count replayed against a number typed on some earlier day,
+   * possibly weeks earlier. For a compliance product that is the wrong direction to be wrong in: it
+   * reports a staffed day where the record says nothing was staffed, and the binder then prints
+   * that as evidence.
+   *
+   * It also ran unconditionally — including for a centre whose `ratio_source` is `derived`, which
+   * blends a typed number into a replay that 0040 says must never mix the two. The comment fifteen
+   * lines below states the rule the query was breaking: "One source or the other, chosen by the
+   * centre — never both, and never a fallback from one to the other."
+   *
+   * So it is gone rather than bounded. `openingAdults` is documented on `replayDay` as "adults
+   * already present when the day's first event occurred. Usually 0", and at local midnight a closed
+   * centre has nobody on site: 0 is not a fallback here, it is the true value. Every count recorded
+   * during the day is inside the window already.
+   *
+   * The visible consequence is deliberate and matches what the derived source is for: between the
+   * first child sign-in and the first adult count, staffing is genuinely unrecorded, and the replay
+   * now says so instead of carrying a stale number over it. Before the first sign-in nobody is
+   * present, so no breach is manufactured.
    */
-  const { data: opening } = await db
-    .from('staff_count_events')
-    .select('adults')
-    .eq('centre_id', input.centreId)
-    .lt('at', input.fromUtc)
-    .order('at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
   return replayDay({
     date: input.date,
     attendance: (
@@ -597,6 +612,7 @@ export async function readDayRatio(
       id: r.id,
       dateOfBirth: r.date_of_birth,
     })),
-    openingAdults: (opening as { adults: number } | null)?.adults ?? 0,
+    // No `openingAdults`: it defaults to 0, which at local midnight is the true count and not a
+    // fallback. See the note above the return for why the query that used to supply it is gone.
   });
 }

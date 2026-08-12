@@ -149,15 +149,30 @@ export default async function BinderPage() {
               document.
             </li>
           )}
-          {replays.some((r) => r.adultSource !== ctx.centre.ratioSource) && (
-            <li>
-              <strong>
-                Some days in this period used a different source for the adult count from the
-                one in force now.
-              </strong>{' '}
-              Those days are marked in the ratio history below.
-            </li>
-          )}
+          {/*
+            THE CAVEAT THIS REPLACES COULD NEVER RENDER, AND IT WAS THE ONE THAT MATTERED.
+
+            It read `replays.some((r) => r.adultSource !== ctx.centre.ratioSource)`. Every replay on
+            this page is handed `adultSource: ctx.centre.ratioSource` sixty lines above, so the two
+            are equal by construction and the condition is always false. It promised that days using
+            a different source "are marked in the ratio history below", and nothing was ever marked.
+
+            The underlying gap is real and is not fixable here: `ratio_source` is a single current
+            column on `centres` (0040). The product does not record which source produced any given
+            day, so a centre that switches setting silently reinterprets every day already printed —
+            the exact provenance drift the comment above says is "worse than asserting none".
+
+            So the page states the limitation instead of implying a protection it does not have,
+            which is AGENTS.md §5: if it cannot be sourced, make the product say so. Recording the
+            source per day is the actual fix and needs a schema change; deriving it retrospectively
+            from `audit_events` was rejected because a wrong provenance claim in a compliance binder
+            is worse than an acknowledged absence.
+          */}
+          <li>
+            The source above is the one in force now. This product does not record which source
+            produced each past day, so if the setting was changed during this period, earlier days
+            are shown as though the current setting had always applied.
+          </li>
           <li>
             Where a certificate is listed as sighted, a named person has recorded that they
             saw the original document. Where it is not, only the details have been entered.

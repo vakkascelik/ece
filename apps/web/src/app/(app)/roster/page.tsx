@@ -77,6 +77,20 @@ export default async function RosterPage({
 
   const roster = currentStaff(members, today);
   const anyShortfall = days.some((d) => d.worstShortfall > 0);
+  /*
+   * "Covered" USED TO MEAN "NOTHING SAID OTHERWISE", WHICH IS NOT THE SAME CLAIM.
+   *
+   * `worstShortfall` can only exceed 0 on a segment that was assessed, and a booking with no hours
+   * produces no segment — `ratioForecast` counts those separately as `bookingsWithoutTimes`. So a
+   * day with children booked, nobody rostered, and no times on any booking assessed **nothing**,
+   * reported `worstShortfall: 0`, and this banner printed "✓ The next 7 days are covered".
+   *
+   * That is the worst direction for this screen to be wrong in: a forward-looking figure is the one
+   * a manager acts on by *not* calling a reliever, as the notice below already says. The per-day
+   * text was honest all along — `summariseForecast` returns "Nothing booked or rostered." — and only
+   * the week summary conflated "found no shortfall" with "checked and found none".
+   */
+  const unassessableDays = days.filter((d) => d.bookingsWithoutTimes > 0).length;
 
   return (
     <>
@@ -88,9 +102,13 @@ export default async function RosterPage({
 
       <div className="card" style={{ marginBottom: '1rem' }}>
         <p className="inline" style={{ margin: 0 }}>
-          <span className={`flag ${anyShortfall ? 'flag-warn' : 'flag-ok'}`}>
-            {anyShortfall ? '●' : '✓'}{' '}
-            {anyShortfall ? 'Short in the next 7 days' : 'The next 7 days are covered'}
+          <span className={`flag ${anyShortfall || unassessableDays > 0 ? 'flag-warn' : 'flag-ok'}`}>
+            {anyShortfall || unassessableDays > 0 ? '●' : '✓'}{' '}
+            {anyShortfall
+              ? 'Short in the next 7 days'
+              : unassessableDays > 0
+                ? `${unassessableDays} of the next 7 days cannot be checked`
+                : 'The next 7 days are covered'}
           </span>
         </p>
 
