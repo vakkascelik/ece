@@ -45,7 +45,19 @@ describe('toCsv', () => {
     // A cell beginning = + - @ tab or CR is executed by Excel and Google Sheets, and
     // every one of these fields is typed by somebody — a name, an incident note, a
     // payment reference.
-    for (const dangerous of ['=1+1', '+1', '-1', '@SUM(A1)', '\tx', '\rx']) {
+    /*
+      `-1+1` rather than `-1`, and the change is not cosmetic.
+
+      This list asserted that a cell beginning `-` is always neutralised, while the test below
+      asserts that an ordinary negative amount must reach the file intact. Both cannot hold, and
+      the file proved it: `xeroAmount()` produces `"-45.00"` as a string, so every credit line in
+      the Xero export was written as `'-45.00`. The guard now exempts a plain decimal, because
+      `-45.00` has no cell reference, no operator and no function call in it.
+
+      So the coverage for the `-` prefix stays, using a value that genuinely is a formula. `+1`
+      keeps its place unchanged: a leading `+` is the phone-number case and Excel does evaluate it.
+    */
+    for (const dangerous of ['=1+1', '+1', '-1+1', '@SUM(A1)', '\tx', '\rx']) {
       it(`neutralises a cell starting with ${JSON.stringify(dangerous[0])}`, () => {
         const out = body([{ name: dangerous, amount: 1, note: null }]);
         // The apostrophe goes immediately before the dangerous character, wherever the
@@ -80,6 +92,30 @@ describe('toCsv', () => {
       // Because that one did come from a person, or from a field this product does not
       // control the type of.
       expect(body([{ name: '-1 see note', amount: 1, note: null }])).toContain("'-1 see note");
+    });
+
+    it('does NOT guard a plain decimal that arrived as a string, which is what Xero gets', () => {
+      /*
+        The test above was read as covering this and does not: `-1 see note` is prose that
+        begins with a minus, and a formatted amount is not.
+
+        `xeroAmount()` returns `(cents / 100).toFixed(2)` — a string, because the column has
+        to read `65.00` and not `65` — so every credit line in the Xero export arrived here
+        as `"-45.00"` and left as `'-45.00`: text, in the amount column, in a file a
+        bookkeeper imports. Positive amounts never matched the guard, so an export without a
+        credit in it looked perfect.
+      */
+      expect(body([{ name: '-45.00', amount: 1, note: null }])).toContain('-45.00,');
+      expect(body([{ name: '-45.00', amount: 1, note: null }])).not.toContain("'-45.00");
+      // Still a number, still untouched, with and without decimals.
+      expect(body([{ name: '-4500', amount: 1, note: null }])).not.toContain("'-4500");
+    });
+
+    it('keeps guarding the things that only look numeric', () => {
+      // A leading + is the phone-number case, and it is exactly what Excel evaluates.
+      expect(body([{ name: '+6421 555 0100', amount: 1, note: null }])).toContain("'+6421");
+      // An operator after the digits is a formula, not an amount.
+      expect(body([{ name: '-1+1', amount: 1, note: null }])).toContain("'-1+1");
     });
   });
 

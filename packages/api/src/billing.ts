@@ -582,7 +582,15 @@ export async function listPaymentsFor(db: Db, invoiceIds: string[]): Promise<Pay
       .from('payments')
       .select('id, invoice_id, amount_cents, paid_on, method, reference')
       .in('invoice_id', invoiceIds)
+      /*
+        `paid_on` is a DATE, so a centre recording several payments on one day gives every one
+        of them the same sort key — and this pages. Two rows sharing a key may come back in
+        either order per request, so one can land on both pages and another on neither: a
+        payment counted twice against an invoice, or a payment silently missing from the
+        arrears a family is chased for. `id` breaks the tie and makes the ordering total.
+      */
       .order('paid_on', { ascending: false })
+      .order('id', { ascending: false })
       .range(from, to),
   );
   return (data as PaymentRowShape[]).map((r) => ({
@@ -661,8 +669,16 @@ export async function readFundingPeriod(
    * the one calculation whose whole design principle is that nothing is estimated.
    */
   const [children, events, enrolments] = await Promise.all([
+    /*
+      Ordered, for the reason spelled out on `attendance_events` below — which is the whole
+      point: that lesson was learned, written down, and applied to one of the three reads in
+      this very `Promise.all`. These two had NO `ORDER BY` at all, so past 1,000 rows their
+      pages were not a partition of the table but two arbitrary samples of it. A child could
+      appear on both pages, counting their hours twice in a funding claim, or on neither,
+      dropping them from it. `id` is the primary key, so the order is total.
+    */
     fetchAll<{ id: string }>('readFundingPeriod (children)', (from, to) =>
-      db.from('children').select('id').eq('centre_id', input.centreId).range(from, to),
+      db.from('children').select('id').eq('centre_id', input.centreId).order('id').range(from, to),
     ),
     fetchAll<AttendanceRow>('readFundingPeriod (events)', (from, to) =>
       db
@@ -684,6 +700,10 @@ export async function readFundingPeriod(
         .from('enrolments')
         .select('child_id, twenty_hours_ece, start_date, end_date')
         .eq('centre_id', input.centreId)
+        // Same reason as `children` above. `id` is not selected because nothing here needs it;
+        // it is ordered on regardless, because paging needs a total order and not a column the
+        // caller happens to want.
+        .order('id')
         .range(from, to),
     ),
   ]);

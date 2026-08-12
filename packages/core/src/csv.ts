@@ -65,8 +65,30 @@ function cell(raw: string | number | null | undefined): string {
 
   let text = raw;
 
+  /*
+    AND A DECIMAL NUMBER THAT ARRIVED AS A STRING IS NOT A FORMULA EITHER.
+
+    The rule above protected numbers typed as `number` and missed the case it was written
+    about. `xeroAmount()` returns `(cents / 100).toFixed(2)` — a **string**, because the
+    column must read `65.00` rather than `65` — so every credit line reached here as
+    `"-45.00"`, matched `FORMULA_START` on the minus, and went into Xero's import file as
+    `'-45.00`: text, in the amount column, in an accounting import. Positive amounts were
+    untouched, so the corruption was invisible in any export without a credit.
+
+    `^-?\d+(\.\d+)?$` cannot express a formula. There is no cell reference, no operator and
+    no function call in it — Excel parses it as a negative number, which is the intent.
+    Anything else keeps the guard: `+6421 555 0100` is still prefixed, because a phone
+    number beginning `+` is exactly what a spreadsheet will try to evaluate, and
+    `=1+1` and `-1+cmd|' /c calc'!A0` are untouched by this and still caught.
+
+    Deliberately narrow. It does not accept a leading `+`, thousands separators, currency
+    symbols, exponents or surrounding whitespace — every one of those is a value somebody
+    typed rather than one this product computed.
+  */
+  const PLAIN_DECIMAL = /^-?\d+(\.\d+)?$/;
+
   // Before quoting, not after: the apostrophe has to be inside the quoted field.
-  if (FORMULA_START.test(text)) text = `'${text}`;
+  if (FORMULA_START.test(text) && !PLAIN_DECIMAL.test(text)) text = `'${text}`;
 
   // A field needs quoting if it contains a quote, a comma, or a line break. Quotes
   // inside are doubled — the RFC's escape, and the one every reader implements.
