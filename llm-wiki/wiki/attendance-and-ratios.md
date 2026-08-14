@@ -109,6 +109,8 @@ cascades from the children.
 ## See Also
 
 - [[offline-outbox]] — the queue that feeds this
+- [[attendance-verification]] — the family's signature on these events, and why `created_at`
+  rather than `at` decides whether an approval has gone stale
 - [[compliance-and-evidence]] — where the history becomes evidence
 - [[staff-as-people]] — the same arithmetic run forwards, over the planned roster
 - [[unverified-claims]] — the ratio bands

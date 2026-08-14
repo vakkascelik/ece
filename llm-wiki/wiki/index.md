@@ -31,6 +31,10 @@ and [`../schema.md`](../schema.md) for the page template.
 
 - [[attendance-and-ratios]] — append-only sign-in, a ratio that warns *before* a breach, and
   why the adult count is an event rather than a setting
+- [[attendance-verification]] — the family's signature the record never had: why the status is
+  derived and the competition stores it, the state no stored status can express, the snapshot
+  that was not needed because of a decision made four phases earlier, and the three tests that
+  passed while proving nothing
 - [[compliance-and-evidence]] — staff records with expiry, criteria that ship empty on
   purpose, and a binder that never claims compliance
 - [[curriculum-strands]] — Tier 4's lowest-priority item, a `FOR ALL` policy that

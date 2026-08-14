@@ -7,6 +7,68 @@ itself, and from the wiki pages, which hold the durable *why*. This file is the 
 
 ---
 
+## 2026-08-14 — §6-3 attendance verification: built, tested, and stopped at the door of the database
+
+The session that turned competitor research into a migration. Little Pearls' manager listed the
+five systems the centre actually runs (Infocare, VisTab, KindyNow, Educa, 1Place); chasing what
+"MoE-accredited" really means led to ECE Funding Handbook §6-3 and its twelve criteria for
+electronic attendance verification — and to the finding that this product records attendance but
+has never once recorded that a family agreed with it. That is the legally load-bearing gap, so it
+went first.
+
+### What was built (`0061`, uncommitted)
+
+`is_authorised_signatory` on `child_guardians` (default **false**, criterion 7's reasoning
+applied to criterion 4), `caller_signatory_ward_ids()`, and `attendance_verifications` —
+append-only, no `centre_id`, dispute-requires-comment, paper-requires-evidence. Status is
+**derived, not stored**: `summariseVerification()` in `@ece/core`, which is what makes
+`superseded` expressible — an approval the record has moved under. Juniorlogs, the approved SMS
+whose EAV flow is the published parity bar, stores its status and structurally cannot say that.
+
+Wiki first, per the standing rule: new page `attendance-verification`, item 36 in
+unverified-claims (the criteria wording came through an automated extraction, not a person's
+eyes), item 3 narrowed (the 7 years is now sourced to §6-3; the *anchor date* is still an
+assumption), and a dated correction in funding-and-billing — the "Ministry is not accepting
+applications" claim had quietly expired: the page it came from promised a capacity review in
+July 2026, which is now behind us, and "50 services" reads at least as naturally as capability
+as it does customer count. An enquiry to `ELI.queries@education.govt.nz` was drafted to resolve
+both instead of re-reading the same sentence harder.
+
+### What fought back
+
+**Three tests passed while proving nothing.** `isAfter()` compares ISO timestamps as instants
+because Postgres renders `+00:00` where JavaScript renders `Z`. The first tests for it used
+timestamps whose *date parts differed* — the date dominates a string comparison, so mutating the
+implementation back to `>` changed nothing. 19/19 green, and vacuous. Caught only because AGENTS
+§4.2 says mutation-test anything that passes first try. Rewritten with `+12:00` offsets (what a
+Pacific/Auckland session actually emits) chosen so string and instant comparison give opposite
+answers; the mutation now fails 3 tests, each on the right assertion. The episode is written into
+the wiki page because it is the repo's clearest demonstration yet that a green suite is a claim
+about the tests, not the code.
+
+**The chase-window boundary mutation** (`>=` → `>`) failed 2 tests on the right lines.
+
+### What could not run, and why nothing was asserted about it
+
+`SUPABASE_DB_URL` is unset and the PAT in `.env.local` answers **401 to `GET /v1/projects`** —
+dead token, not wrong scope. So: migration not applied, `test:rls` not run, `review:security`
+not run, and the live mutation test (drop the signatory predicate, watch Quinn's assertion fail)
+not run. Everything that does not need the database is green and is listed as such —
+typecheck ×5, lint, 419 core tests (19 new), tokens, docs links, web build.
+
+**Nothing is committed.** AGENTS §5 says a change is done when the gates pass; the gate that
+matters most here has not run. The tree holds the work; the commit waits for a live PAT or a
+`SUPABASE_DB_URL`.
+
+### Found along the way
+
+The under-2 ratio table in `ratios.ts` **matches** the myece.org.nz reproduction of Schedule 2
+(1–5→1, stepped, thereafter 1:5) — the "1:3" figure circulating in search results is staged
+future policy, not current law. Item 1 stays open (that was a secondary source), but the bands
+survived their first contact with one. Also: `ratios.ts` models all-day centre-based only, and
+the sessional over-2 table (1–8→1, 9–30→2, 31–45→3) is required the moment the ELI capability
+reading matters — data, not logic, because `RatioTable` was parameterised from the start.
+
 ## 2026-08-04 — Phases 0–3, in one day
 
 The repo went from empty to a working platform across four pieces of work. Everything below

@@ -75,9 +75,42 @@ is floored again after summing so it cannot creep above the sum of its parts.
 ### What cannot be built: submission
 
 Submitting a funding return requires being a Ministry-approved student management system integrated
-with ELI. The Ministry is not accepting integration applications, and approval requires supporting
-**50 services before you may apply**. That is the one thing the regulatory position genuinely
-forecloses.
+with ELI.
+
+**CORRECTED 2026-08-14 — this paragraph asserted two things as settled that are not.** It read:
+*"The Ministry is not accepting integration applications, and approval requires supporting 50
+services before you may apply. That is the one thing the regulatory position genuinely
+forecloses."*
+
+Both halves came from one reading of one page, and the page says something narrower.
+
+1. **The closure had an expiry date that has passed.** The Ministry's integration page says *"We
+   are not accepting integration applications in 2025. We will review our capacity to support
+   new integration applications in July 2026."* It is now August 2026. Whether the review
+   happened, and what it concluded, is **unknown** — the page may simply be stale. "Not
+   accepting applications" is no longer a fact this wiki can assert.
+
+2. **"50 services" is ambiguous and was read in the pessimistic direction.** The page says the
+   system *"must support a minimum of 50 services"* across centre-based, home-based, sessional
+   and all-day licensed models, listed among development requirements alongside *"must have all
+   intended functionalities"*. That reads at least as naturally as a **capability** requirement
+   — the system must be able to serve 50 services across those licence types — as it does a
+   customer count. This repo assumed the customer count, which is the reading under which the
+   whole thing is foreclosed.
+
+The distinction decides whether ELI integration is a year away or unreachable, so it is being
+resolved by asking rather than by re-reading: an enquiry to `ELI.queries@education.govt.nz`
+covering both points, plus a request for the ELI and NSI specification documents, which are
+available on request only.
+
+What is **not** in doubt: this product cannot submit today, and everything it produces is a
+preparation export. That has not changed and nothing below it depends on the corrected
+sentences.
+
+One consequence worth naming: the capability reading requires supporting **sessional and
+home-based** services, and `ratios.ts` models all-day centre-based only. See
+[[unverified-claims]] item 1 — the tables are parameterised, so that gap is data rather than
+logic, but it is a gap.
 
 So the output is a **preparation export**: figures a manager keys into ELI Web. Every label says
 "preparation" and none say "return", "submit" or "file". That is not pedantry — a screen that looks
@@ -331,6 +364,8 @@ claim only what it actually proves.
 ## See Also
 
 - [[attendance-and-ratios]] — where the events come from
+- [[attendance-verification]] — the signature that makes those events evidence rather than
+  a centre's own arithmetic
 - [[unverified-claims]] — the caps, and the absence of rates
 - [[compliance-and-evidence]] — the other thing attendance is evidence for
 

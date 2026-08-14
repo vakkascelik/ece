@@ -27,7 +27,11 @@ Nothing here is a bug. They are known gaps with known closures.
 - **No licensing criteria are loaded, and none are seeded.** The criteria-gap feature
   cannot function until somebody imports a checked set. Deliberate — see
   [[compliance-and-evidence]].
-- **The seven-year retention default is an assumption**, not a citation.
+- **The seven-year retention window is now sourced; what it is measured *from* is not.**
+  §6-3 gives the 7 years. Whether the clock starts when a child leaves — which is what the
+  purge function does — is still an assumption. Item 3, narrowed 2026-08-14.
+- **The twelve §6-3 criteria were extracted from a web page by a tool, not read by a
+  person.** The verification feature is built on them. Item 36.
 - **No airplane-mode drill has been run on a real device.** The contract the outbox relies
   on is tested; `expo-sqlite` is not.
 - **Push notification delivery has never run once.** The data model and the quiet-hours logic
@@ -116,6 +120,22 @@ leaves.
 It is a **parameter rather than a constant** precisely so it can be corrected without a
 migration. **To close it:** check the current ECE Funding Handbook and either confirm 7 or
 change the default, recording the source in the migration comment.
+
+**NARROWED 2026-08-14 — the number is sourced; the anchor still is not.** ECE Funding
+Handbook §6-3 states *"Attendance records must be kept for 7 years"*, and its criterion 10
+repeats it for electronic records: *"Electronic attendance records must be retained for 7
+years without any loss of integrity."* Retrieved 2026-08-14, subject to item 36's caveat
+about how.
+
+So **7 is no longer a guess** — for attendance records. What remains assumed is the part the
+purge function actually depends on: that the clock starts *from the date a child leaves*
+rather than from the date each record was made, and that the same window governs the other
+child data `children_due_for_purge` reaches. §6-3 says how long an attendance record is kept.
+It does not say either of those things.
+
+**To close the remainder:** find the anchor in the Handbook — Chapter 11 on record keeping is
+the likely home — and either confirm the leaving-date reading or change the function to age
+records individually.
 
 See [[privacy-and-retention]] for the surrounding design, including a correction already
 made to an earlier wrong claim about the Privacy Act.
@@ -767,10 +787,44 @@ service. If it is not, that is a business decision about a live product holding 
 records and belongs somewhere more prominent than a card on the overview — not a sentence
 nobody reads on the screen they skip past.
 
+### 36. The twelve §6-3 criteria were extracted by a tool, not read by a person
+
+Added 2026-08-14, with the feature built on them.
+
+`0061`, `packages/core/src/attendanceVerification.ts` and [[attendance-verification]] all
+quote the criteria for verifying attendance records electronically, and the schema is shaped
+around them: the signatory flag exists for criterion 4, the append-only grants for criterion 5,
+the paper-evidence constraint for the fallback §6-3 preserves.
+
+They were retrieved on 2026-08-14 from the ECE Funding Handbook §6-3 page, **through an
+automated fetch that summarised the page with a small model**. The quoted wording looked
+verbatim and is internally consistent, and the substance is not seriously in doubt — weekly
+verification for all-day teacher-led services, by a named authorised signatory, with identity,
+approval and timestamp logged. But nobody has opened that page and read it.
+
+That matters more than usual here because the criteria are a *checklist a centre will be
+audited against*, and this product now presents itself as meeting them. A paraphrase that
+drops a clause is a paraphrase that drops a requirement.
+
+**To close it:** open
+`education.govt.nz/…/chapter-6-recording-enrolment-attendance-and-absence/6-3-attendance-records`,
+read the twelve criteria, and diff them against the list in [[attendance-verification]].
+Correct the page and the migration comment if they differ. Nothing in the schema depends on
+the exact phrasing, so a correction is prose unless a criterion turns out to require something
+the tables cannot express.
+
+**A second, smaller thing in the same feature:** the 21-day chase window after which a period
+reads `overdue` is **market practice, not a Handbook rule** — §6-3 states no deadline. It is a
+parameter with a documented default, treated the way `arrears.ts` treats its 30/60/90 buckets,
+and the status is deliberately called `overdue` rather than the market's `failed` so it does
+not read as a regulatory outcome. Recorded here rather than left in a code comment because the
+next person to add a reminder email will want to know the number is not load-bearing.
+
 ## See Also
 
 - [[kiosk-and-pins]] — the door tablet, and what it can and cannot know
 - [[attendance-and-ratios]] — where the ratio bands are used
+- [[attendance-verification]] — the feature item 36 is about
 - [[compliance-and-evidence]] — why criteria ship empty
 - [[privacy-and-retention]] — retention, and the Privacy Act correction
 - [[offline-outbox]] — what the drill covers and does not

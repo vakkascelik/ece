@@ -579,10 +579,16 @@ insert into public.guardians (id, centre_id, user_id, full_name) values
   ('d3333333-3333-4333-8333-333333333333', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
    null, 'Ana Other-Guardian');
 
-insert into public.child_guardians (child_id, guardian_id, relationship) values
-  ('a1111111-1111-4111-8111-111111111111', 'd1111111-1111-4111-8111-111111111111', 'mother'),
-  ('a1111111-1111-4111-8111-111111111111', 'd3333333-3333-4333-8333-333333333333', 'grandmother'),
-  ('b2222222-2222-4222-8222-222222222222', 'd2222222-2222-4222-8222-222222222222', 'father');
+-- `is_authorised_signatory` (0061) is set deliberately and asymmetrically, because the
+-- asymmetry is the test. Priya may sign for Ana. Quinn is Beau's father, has an app account
+-- and a parent membership, and is NOT a signatory — so he passes every check the
+-- verification policy makes except the one it exists to make. He is the control for ECE
+-- Funding Handbook 6-3 criterion 4, and if that predicate is ever dropped from the policy
+-- he is the row that notices.
+insert into public.child_guardians (child_id, guardian_id, relationship, is_authorised_signatory) values
+  ('a1111111-1111-4111-8111-111111111111', 'd1111111-1111-4111-8111-111111111111', 'mother', true),
+  ('a1111111-1111-4111-8111-111111111111', 'd3333333-3333-4333-8333-333333333333', 'grandmother', false),
+  ('b2222222-2222-4222-8222-222222222222', 'd2222222-2222-4222-8222-222222222222', 'father', false);
 
 insert into public.health_conditions (child_id, kind, name, severity, response_plan) values
   ('a1111111-1111-4111-8111-111111111111', 'allergy', 'Peanuts', 'anaphylaxis', 'EpiPen in the office'),
@@ -4106,6 +4112,192 @@ select pg_temp.expect(
   'and another centre''s owner sees no confirmation at all'
 );
 
+-- ---------------------------------------------------------------------------
+-- 0061 — the family's signature on the attendance record
+--
+-- Same shape as the block above and one predicate harder. `detail_confirmations` asks "is
+-- this your ward"; this asks "is this your ward AND are you the person the centre named to
+-- sign for it" — ECE Funding Handbook 6-3 criterion 4. Quinn is the reason the second half
+-- of that sentence is testable: he is a real guardian of Beau, with an account and a parent
+-- membership, and he is not a signatory.
+-- ---------------------------------------------------------------------------
+
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+
+do $$
+declare n integer;
+begin
+  insert into public.attendance_verifications
+    (child_id, guardian_id, period_start, period_end, outcome, method)
+  values ('a1111111-1111-4111-8111-111111111111', 'd1111111-1111-4111-8111-111111111111',
+          date '2026-08-03', date '2026-08-09', 'approved', 'portal');
+  get diagnostics n = row_count;
+  perform pg_temp.expect(n = 1, 'a named signatory verifies their own child''s week');
+end $$;
+
+/*
+ * THE ASSERTION THIS TABLE EXISTS FOR.
+ *
+ * Quinn is Beau's father. He has an account, a parent membership, and Beau is his ward —
+ * `caller_ward_ids()` returns Beau for him, so the policy `detail_confirmations` uses would
+ * let this through. The centre has not named him an authorised signatory, so 6-3 says he
+ * may not verify, and `caller_signatory_ward_ids()` is the difference.
+ *
+ * If the signatory predicate is ever dropped from the policy, or the column ever defaults
+ * to true, this is the line that fails.
+ */
+set local request.jwt.claims = '{"sub":"44444444-4444-4444-8444-444444444444","role":"authenticated"}';
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.attendance_verifications
+      (child_id, guardian_id, period_start, period_end, outcome, method)
+    values ('b2222222-2222-4222-8222-222222222222', 'd2222222-2222-4222-8222-222222222222',
+            date '2026-08-03', date '2026-08-09', 'approved', 'portal');
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok,
+    'a guardian who is NOT a named signatory CANNOT verify, though the child is his own');
+end $$;
+
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+
+-- Not for somebody else's child, and not in another guardian's name. The same two refusals
+-- the block above makes, because a signature filed on a family's behalf is a record of an
+-- assurance nobody gave — and here it is evidence under a funding claim.
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.attendance_verifications
+      (child_id, guardian_id, period_start, period_end, outcome, method)
+    values ('b2222222-2222-4222-8222-222222222222', 'd1111111-1111-4111-8111-111111111111',
+            date '2026-08-03', date '2026-08-09', 'approved', 'portal');
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'a signatory CANNOT verify a week for a child who is not theirs');
+end $$;
+
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.attendance_verifications
+      (child_id, guardian_id, period_start, period_end, outcome, method)
+    values ('a1111111-1111-4111-8111-111111111111', 'd3333333-3333-4333-8333-333333333333',
+            date '2026-08-03', date '2026-08-09', 'approved', 'portal');
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'and CANNOT verify in another guardian''s name');
+end $$;
+
+-- The two integrity rules, which are constraints rather than policies. A dispute nobody
+-- explained can never be resolved, and a paper verification with no pointer to the paper is
+-- the exact assertion this table exists to stop the product making.
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.attendance_verifications
+      (child_id, guardian_id, period_start, period_end, outcome, method)
+    values ('a1111111-1111-4111-8111-111111111111', 'd1111111-1111-4111-8111-111111111111',
+            date '2026-07-27', date '2026-08-02', 'disputed', 'portal');
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'a dispute with no reason is refused');
+end $$;
+
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.attendance_verifications
+      (child_id, guardian_id, period_start, period_end, outcome, method)
+    values ('a1111111-1111-4111-8111-111111111111', 'd1111111-1111-4111-8111-111111111111',
+            date '2026-07-27', date '2026-08-02', 'approved', 'paper');
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'a paper verification with no filed paper is refused');
+end $$;
+
+/*
+ * APPEND-ONLY, ASSERTED ON THE SQLSTATE.
+ *
+ * Criterion 5 requires that any alteration to the record is evident. The cheapest way to
+ * make an alteration evident is to make it impossible — so the verb is withheld by GRANT
+ * and Postgres raises 42501 rather than filtering to zero rows. "The update changed
+ * nothing" would also be true of a policy that merely failed to match.
+ */
+do $$
+declare code text := 'none (the update SUCCEEDED)';
+begin
+  begin
+    update public.attendance_verifications set outcome = 'disputed'
+     where child_id = 'a1111111-1111-4111-8111-111111111111';
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '42501',
+    'NOBODY can turn a family''s approval into something else, got ' || code);
+end $$;
+
+do $$
+declare code text := 'none (the delete SUCCEEDED)';
+begin
+  begin
+    delete from public.attendance_verifications
+     where child_id = 'a1111111-1111-4111-8111-111111111111';
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '42501', 'and nobody can remove a signature, got ' || code);
+end $$;
+
+-- Including service_role, which is the branch that matters: the web app's server actions
+-- hold that key, so a policy alone would leave the evidence editable by the application
+-- that renders it.
+set local role service_role;
+do $$
+declare code text := 'none (the update SUCCEEDED)';
+begin
+  begin
+    update public.attendance_verifications set verified_at = now() - interval '1 year';
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '42501',
+    'SERVICE_ROLE cannot back-date a signature either, got ' || code);
+end $$;
+set local role authenticated;
+
+-- Staff read it, because "has this family signed off last week" is the question the office
+-- asks before preparing a funding claim. But an educator has nothing to sign.
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.attendance_verifications
+    where child_id = 'a1111111-1111-4111-8111-111111111111') = 1,
+  'an educator can SEE that a family has verified a week'
+);
+
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.attendance_verifications
+      (child_id, guardian_id, period_start, period_end, outcome, method)
+    values ('a1111111-1111-4111-8111-111111111111', 'd1111111-1111-4111-8111-111111111111',
+            date '2026-07-27', date '2026-08-02', 'approved', 'portal');
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'an educator CANNOT verify on a family''s behalf');
+end $$;
+
+-- Another centre sees nothing, through the child rather than through a centre_id column —
+-- this table deliberately has none either.
+set local request.jwt.claims = '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.attendance_verifications) = 0,
+  'and another centre''s owner sees no signature at all'
+);
+
 set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
 
 
@@ -6008,7 +6200,10 @@ begin
                            -- 0055: a confirmation IS the record.
                            'detail_confirmations',
                            -- 0057: a sent broadcast IS the record — see the header of 0057.
-                           'emergency_broadcasts')
+                           'emergency_broadcasts',
+                           -- 0061: a family's signature IS the record. Named in
+                           -- scripts/security-review.ts as well, in the same commit.
+                           'attendance_verifications')
      -- Reference data, and settings that belong to a person rather than a centre — the
      -- trigger could not attribute them to a tenant even if it fired.
      and c.relname not in ('criteria', 'criteria_sets', 'schema_migrations',

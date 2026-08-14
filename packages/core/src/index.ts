@@ -279,6 +279,11 @@ export * from './occupancy';
 // rather than a log. No new query; arithmetic on what occupancy.ts already reads.
 export * from './attendanceTrend';
 
+// Whether a family has signed off that attendance, per ECE Funding Handbook 6-3. Derived
+// from append-only signatures rather than stored on the week — which is what lets it say
+// an approval has gone stale, a state a status column cannot express.
+export * from './attendanceVerification';
+
 // The public enrolment enquiry. Validated here, in the SQL function, and by the table —
 // three copies, which is the price of an error a person can read.
 export * from './enquiry';

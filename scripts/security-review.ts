@@ -83,6 +83,9 @@ const APPEND_ONLY = [
   'ai_requests',
   'detail_confirmations',
   'emergency_broadcasts',
+  // 0061: a family's signature under a funding claim. 6-3 criterion 5 requires that any
+  // alteration is evident; withholding the verb is how that is made true rather than hoped.
+  'attendance_verifications',
 ];
 
 async function main() {
@@ -576,6 +579,8 @@ async function main() {
                              'detail_confirmations',
                              -- 0057: a sent emergency broadcast IS the record.
                              'emergency_broadcasts',
+                             -- 0061: a signature IS the record; an editable one proves nothing.
+                             'attendance_verifications',
                              'criteria', 'criteria_sets', 'schema_migrations',
                              'push_tokens', 'notification_preferences', 'notifications',
                              'invitations',
