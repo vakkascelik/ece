@@ -101,7 +101,7 @@ Both halves came from one reading of one page, and the page says something narro
 The distinction decides whether ELI integration is a year away or unreachable, so it is being
 resolved by asking rather than by re-reading: an enquiry to `ELI.queries@education.govt.nz`
 covering both points, plus a request for the ELI and NSI specification documents, which are
-available on request only.
+available on request only. **Sent by the owner on 2026-08-14; reply pending.**
 
 What is **not** in doubt: this product cannot submit today, and everything it produces is a
 preparation export. That has not changed and nothing below it depends on the corrected

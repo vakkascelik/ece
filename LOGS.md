@@ -120,6 +120,28 @@ plausible copy-paste) — suite failed on the first audience assertion because e
 reporter got their own letter; restored, green. 493/493 (+19). One TS slip caught by
 typecheck (missing import), fixed. All gates green; bundle unchanged.
 
+### Fourth commit — 0064: the screens, and the function that refuses to restate the boundary
+
+`needsAttention` had been built, tested and called by nobody; a parent with a login had no
+verify button — the kiosk was the only writer. 0064 adds `verification_overview`, SECURITY
+INVOKER on purpose: every caller is a person, so the tables' policies answer who sees which
+child and the function restates nothing — the exact opposite trade from the kiosk definers,
+argued in the migration header. The suite asserts all three scopings (educator = centre,
+guardian = wards, other centre = nothing, non-Monday = empty), and the live drill flips
+invoker→definer and fails on "a guardian's overview holds their ward and nobody else's
+child" — Priya saw another family's child under definer. Restored, green. 500/500 (+7).
+
+On top of it: the staff chase card on /attendance (superseded → overdue-with-offer-paper →
+in-review, awaiting as a count not rows, and "Nothing needs the office" stated rather than
+an absent card) and the portal verify panel on the child's attendance tab (times above the
+buttons — criterion 6 again; buttons only for signatories; `superseded` worded as "the
+record changed after you confirmed it", not as an expiry). The portal write is a plain
+INSERT under 0061's policy — no definer, no second copy of the conditions.
+
+One SQL slip caught by the migration run itself: `generate_series` over dates yields
+timestamptz, and `timestamptz + 6` is not an operator. Also recorded: the owner sent the
+MoE ELI enquiry today — funding-and-billing's correction now says "sent, reply pending".
+
 ### Found along the way
 
 The under-2 ratio table in `ratios.ts` **matches** the myece.org.nz reproduction of Schedule 2

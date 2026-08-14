@@ -4,9 +4,19 @@ import {
   listBookings,
   listChildren,
   listHealthByChild,
+  listVerificationOverview,
   readAdultsPresent,
 } from '@ece/api';
-import { assessRatio, can, displayName, splitByAgeBand, todayInZone } from '@ece/core';
+import {
+  assessRatio,
+  can,
+  displayName,
+  lastCompletedWeek,
+  needsAttention,
+  splitByAgeBand,
+  summariseVerification,
+  todayInZone,
+} from '@ece/core';
 import { requireCapability } from '@/lib/auth';
 import { serverDb } from '@/lib/supabase';
 import { PageHeader } from '../PageHeader';
@@ -40,13 +50,42 @@ export default async function AttendancePage({
   const db = await serverDb();
   const today = todayInZone(ctx.centre.timezone);
 
-  const [children, states, adultsPresent, healthByChild, todaysBookings] = await Promise.all([
-    listChildren(db, ctx.centre.id),
-    listAttendanceToday(db, ctx.centre.id),
-    readAdultsPresent(db, ctx.centre.id),
-    listHealthByChild(db, ctx.centre.id),
-    listBookings(db, { centreId: ctx.centre.id, from: today, to: today }),
-  ]);
+  const [children, states, adultsPresent, healthByChild, todaysBookings, overview] =
+    await Promise.all([
+      listChildren(db, ctx.centre.id),
+      listAttendanceToday(db, ctx.centre.id),
+      readAdultsPresent(db, ctx.centre.id),
+      listHealthByChild(db, ctx.centre.id),
+      listBookings(db, { centreId: ctx.centre.id, from: today, to: today }),
+      listVerificationOverview(db, {
+        centreId: ctx.centre.id,
+        lastCompletedMonday: lastCompletedWeek(today).periodStart,
+        weeksBack: 4,
+      }),
+    ]);
+
+  /*
+    The §6-3 chase queue: superseded, then overdue, then in-review — the three states
+    where somebody at the centre owes an action, ordered by who is worst off if nobody
+    acts (needsAttention's own ordering). `awaiting` is deliberately not listed row by
+    row: inside the chase window it is the families' turn, not the office's, and a queue
+    padded with rows nobody should act on is a queue people stop reading.
+  */
+  const chase = needsAttention(
+    overview.map((w) => summariseVerification(w, today)),
+  ).map((s) => {
+    const child = children.find((c) => c.id === s.childId);
+    return {
+      key: `${s.childId}:${s.periodStart}`,
+      childId: s.childId,
+      name: child ? displayName(child) : 'A child',
+      week: s.periodStart,
+      status: s.status,
+    };
+  });
+  const awaitingCount = overview
+    .map((w) => summariseVerification(w, today))
+    .filter((s) => s.status === 'awaiting').length;
 
   /*
     Who the families have already said is away (0063). This is what turns a reported
@@ -156,6 +195,50 @@ export default async function AttendancePage({
               </li>
             ))}
           </ul>
+        </section>
+      )}
+
+      {/*
+        Rendered even when empty IF weeks are awaiting, so "nothing to chase" is a stated
+        fact rather than an absent card — the sleep-check rule about green screens. Fully
+        absent only when there is genuinely nothing in flight.
+      */}
+      {(chase.length > 0 || awaitingCount > 0) && (
+        <section
+          aria-label="Attendance verification"
+          className="card"
+          style={{ marginBottom: 'var(--space-4)' }}
+        >
+          <p className="eyebrow" style={{ margin: 0 }}>
+            Weekly record verification
+          </p>
+          {chase.length > 0 ? (
+            <ul style={{ margin: 'var(--space-2) 0 0', paddingLeft: 'var(--space-5)' }}>
+              {chase.map((row) => (
+                <li key={row.key}>
+                  <Link href={`/children/${row.childId}/attendance`}>{row.name}</Link>, week of{' '}
+                  {row.week} —{' '}
+                  {row.status === 'superseded' ? (
+                    <span className="flag flag-critical">record changed after approval</span>
+                  ) : row.status === 'overdue' ? (
+                    <span className="flag flag-critical">unanswered past the window — offer paper</span>
+                  ) : (
+                    <span className="flag flag-quiet">family says something is wrong</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="sub" style={{ margin: 'var(--space-2) 0 0' }}>
+              Nothing needs the office.
+            </p>
+          )}
+          {awaitingCount > 0 && (
+            <p className="sub" style={{ margin: 'var(--space-2) 0 0' }}>
+              {awaitingCount} week{awaitingCount === 1 ? '' : 's'} awaiting family confirmation —
+              inside the window, no action needed yet.
+            </p>
+          )}
         </section>
       )}
 

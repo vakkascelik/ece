@@ -4655,6 +4655,92 @@ select pg_temp.expect(
 set local role authenticated;
 set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
 
+-- ---------------------------------------------------------------------------
+-- 0064 — the overview is SECURITY INVOKER, and these assertions are why that is safe
+--
+-- The function restates no boundary: the tables' policies decide who sees which child.
+-- That is a claim, and the arrears view taught this repo what happens to boundary claims
+-- nothing is checking — so the three scopings are asserted directly, against the same
+-- relative week the kiosk block seeded (two events for Ana), which keeps this block
+-- honest on any date.
+-- ---------------------------------------------------------------------------
+
+-- An educator: every child at the centre, one row per child per week.
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+do $$
+declare
+  v_tz  text; v_end date; v_start date;
+begin
+  select timezone into v_tz from public.centres where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  v_end   := (now() at time zone v_tz)::date - extract(isodow from (now() at time zone v_tz)::date)::int;
+  v_start := v_end - 6;
+
+  perform pg_temp.expect(
+    (select count(*) from public.verification_overview(
+       'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', v_start, v_start)) = 2,
+    'an educator''s overview holds one row per child at the centre');
+
+  perform pg_temp.expect(
+    (select jsonb_array_length(o.events)
+       from public.verification_overview('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', v_start, v_start) o
+      where o.child_id = 'a1111111-1111-4111-8111-111111111111') = 2,
+    'and carries the week''s two events for the child who has them');
+
+  perform pg_temp.expect(
+    (select jsonb_array_length(o.verifications)
+       from public.verification_overview('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', v_start, v_start) o
+      where o.child_id = 'a1111111-1111-4111-8111-111111111111') >= 1,
+    'and the kiosk signature from the block above rides along');
+
+  -- A week grid not anchored on a Monday is refused as empty rather than silently
+  -- shifted: a Tuesday-to-Monday "week" misfiling events would be worse than no rows.
+  perform pg_temp.expect(
+    (select count(*) from public.verification_overview(
+       'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', v_start + 1, v_start + 1)) = 0,
+    'a non-Monday start returns nothing, not a shifted week');
+end $$;
+
+-- A guardian: exactly their wards, through the same call, with no branch saying so.
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+do $$
+declare
+  v_tz  text; v_end date; v_start date;
+begin
+  select timezone into v_tz from public.centres where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  v_end   := (now() at time zone v_tz)::date - extract(isodow from (now() at time zone v_tz)::date)::int;
+  v_start := v_end - 6;
+
+  perform pg_temp.expect(
+    (select count(*) from public.verification_overview(
+       'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', v_start, v_start)) = 1,
+    'a guardian''s overview holds their ward and nobody else''s child');
+
+  perform pg_temp.expect(
+    (select o.child_id from public.verification_overview(
+       'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', v_start, v_start) o)
+      = 'a1111111-1111-4111-8111-111111111111',
+    'and the one row is her own child');
+end $$;
+
+-- Another centre: nothing, through the children policy rather than through a parameter
+-- check — passing the foreign centre id is exactly what an attacker would do.
+set local request.jwt.claims = '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}';
+do $$
+declare
+  v_tz  text; v_end date; v_start date;
+begin
+  select timezone into v_tz from public.centres where id = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+  v_end   := (now() at time zone v_tz)::date - extract(isodow from (now() at time zone v_tz)::date)::int;
+  v_start := v_end - 6;
+
+  perform pg_temp.expect(
+    (select count(*) from public.verification_overview(
+       'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', v_start, v_start)) = 0,
+    'another centre''s owner gets an empty overview of centre A, not an error and not a row');
+end $$;
+
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+
 -- The CHECK that keeps a reason honest: a reason on a row that is not absent is
 -- misinformation with a timestamp, refused by the schema whoever writes it.
 set local role postgres;

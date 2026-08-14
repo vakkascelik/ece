@@ -242,15 +242,54 @@ neither. On a Sunday the running week is not offered; `kiosk_week_attendance` re
 `not_ended` regardless, so the door agrees with `summariseVerification` about what
 `not-yet-due` means.
 
+## The overview (0064): one invoker read for both audiences
+
+The portal and the staff queue arrived together, on one function, and the function's whole
+design is what it does **not** do: `verification_overview` is `SECURITY INVOKER` and
+restates no boundary. The kiosk functions are definers because a tablet has no identity;
+here every caller is a person, so the tables' own policies answer everything — an educator
+gets the centre, a guardian gets exactly their wards through the same rows with no branch
+saying so, another centre gets nothing. 0062's header is one long warning about restated
+conditions; the cure is to stop restating them where RLS can carry the answer.
+
+That is a claim, and the arrears view taught this repo what happens to boundary claims
+nothing is checking — so the suite asserts all three scopings directly, and the live
+mutation drill flips the function to `SECURITY DEFINER` and demands a failure. It fails on
+*"a guardian's overview holds their ward and nobody else's child"*: under definer, Priya
+saw another family's child. Restored, green.
+
+Two smaller decisions worth their sentences:
+
+- **A non-Monday week start returns nothing, not a shifted week.** Every week this product
+  talks about is an ISO week (funding caps per ISO week), and a Tuesday-to-Monday "week"
+  silently misfiling events would be worse than no rows. Asserted.
+- **The API wrapper caps the look-back at 12 weeks.** Weeks × children is the row count,
+  PostgREST truncates at 1,000 silently ([[reading-every-row]]), and a longer look-back is
+  a report, not this call.
+
+**The staff card** on `/attendance` renders `needsAttention`'s three states — superseded,
+overdue (with "offer paper"), in-review — worst first, linking each to the child. Weeks
+merely `awaiting` are a count, not rows: inside the window it is the families' turn, and a
+queue padded with rows nobody should act on is a queue people stop reading. When weeks are
+in flight and nothing needs the office, the card says so rather than disappearing — the
+sleep-check rule about green screens.
+
+**The portal panel** on the child's attendance tab shows every derived state with the
+week's times above the buttons — criterion 6 applies to the portal exactly as it applied to
+the kiosk. The buttons render only for a named signatory; that is display, and 0061's
+INSERT policy is the enforcement, so `verifyWeekPortal` adds no second copy of the
+conditions — a policy refusal maps to one sentence. `superseded` is worded as the true
+thing ("the record changed after you confirmed it — please look again"), not as an expiry.
+
 ## What is not built yet
 
-`0061` is the record and the derivation; `0062` is the door. Still outstanding, in order:
+`0061` is the record, `0062` the door, `0064` the screens. Still outstanding:
 
-- The parent-portal screen and the staff view of what needs attention (`needsAttention`
-  is built and tested; no page calls it).
 - The weekly release and the reminder chain, which need a scheduler this repo does not have.
 - The inspector-shaped export for criterion 12, which should state per row **how** each
   signature was given — the `method` column exists for exactly that sentence.
+- An e2e that drives the portal approve/dispute and the kiosk review flow in a browser —
+  the e2e fixture names no signatory yet, so both are proven at the policy layer only.
 
 Naming signatories is **not** on this list: the whānau tab carries an "Attendance
 signatory" checkbox beside "May collect", unticked by default, and deliberately a separate

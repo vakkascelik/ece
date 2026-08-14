@@ -33,6 +33,7 @@ import {
   recordAdministration,
   recordConsent,
   recordImmunisation,
+  recordVerification,
   resolveHealthCondition,
   revokeGuardianLink,
   supersedeCustodyArrangement,
@@ -842,4 +843,39 @@ export async function confirmChildDetails(_prev: unknown, form: FormData): Promi
 
   revalidatePath(`/children/${childId}`);
   return { ok: true };
+}
+
+/**
+ * A signatory approves or disputes a week of attendance from the portal.
+ *
+ * The gate here is only "somebody is signed in" — the enforcement is 0061's INSERT
+ * policy (their own ward, named signatory, attributed to themselves), and a second copy
+ * of those conditions in TypeScript would be the drift 0062's header warns about.
+ * A policy refusal surfaces as an error, mapped to one sentence: the panel is only drawn
+ * for signatories, so anybody hitting it did not get there by tapping what we rendered.
+ */
+export async function verifyWeekPortal(input: {
+  childId: string;
+  guardianId: string;
+  periodStart: string;
+  periodEnd: string;
+  outcome: 'approved' | 'disputed';
+  comment: string;
+}): Promise<{ message: string | null }> {
+  await requireCtx();
+  const db = await serverDb();
+
+  if (input.outcome === 'disputed' && input.comment.trim().length === 0) {
+    return { message: 'Please say what looks wrong, so the office knows what to check.' };
+  }
+
+  try {
+    await recordVerification(db, input);
+    revalidatePath(`/children/${input.childId}`);
+    return { message: null };
+  } catch {
+    // 42501 from the policy, or a CHECK. Deliberately one sentence either way — the
+    // distinctions are for the office, not for a screen that already filtered its offer.
+    return { message: 'You cannot verify this week. Please talk to the centre.' };
+  }
 }

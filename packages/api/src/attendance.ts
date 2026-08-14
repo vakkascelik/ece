@@ -14,6 +14,7 @@
 // The ratio imports went with `readRoll` — see the note where it was removed. This module now
 // reads attendance and nothing else; the ratio is assembled by `buildRoll` in @ece/core, which is
 // the only assembly that merges the offline queue.
+import { shiftLocalDate, type VerificationEvent, type VerificationPeriod } from '@ece/core';
 import type { Db } from './index';
 
 export type AttendanceKind = 'in' | 'out';
@@ -272,3 +273,98 @@ export async function recordAdultsPresent(
  * Deleted rather than annotated because the danger was the name. It is in the history if the
  * assembly is ever wanted back.
  */
+
+// ---------------------------------------------------------------------------
+// §6-3 verification: the overview both audiences read (0064)
+// ---------------------------------------------------------------------------
+
+/** A week's worth of §6-3 state for one child, plus the times the signature covers. */
+export interface VerificationWeek extends VerificationPeriod {
+  /** The week's sign-in/out instants, for the portal to display before asking. */
+  weekEvents: { at: string; kind: 'in' | 'out' }[];
+}
+
+interface OverviewRow {
+  child_id: string;
+  period_start: string;
+  period_end: string;
+  last_changed_at: string | null;
+  verifications: {
+    outcome: 'approved' | 'disputed';
+    method: 'portal' | 'kiosk' | 'paper';
+    verifiedAt: string;
+    guardianId: string;
+    comment: string | null;
+  }[];
+  events: { at: string; kind: 'in' | 'out' }[];
+}
+
+/**
+ * Per child per ISO week: signatures, the record's last server-side change, the times.
+ *
+ * `verification_overview` is SECURITY INVOKER, so the rows are already scoped by the
+ * tables' own policies — staff read the centre, a guardian reads exactly their wards, and
+ * this wrapper adds no filter for the same reason nothing in this package does.
+ *
+ * `weeksBack` is capped at 12: weeks × children is the row count, PostgREST truncates at
+ * 1,000 silently (see reading-every-row), and 12 weeks of an 80-place centre is 960 rows.
+ * A longer look-back is a report, not this call.
+ */
+export async function listVerificationOverview(
+  db: Db,
+  input: { centreId: string; lastCompletedMonday: string; weeksBack?: number },
+): Promise<VerificationWeek[]> {
+  const weeks = Math.min(Math.max(input.weeksBack ?? 4, 1), 12);
+  // shiftLocalDate, not Date arithmetic: the input is already a calendar day in the
+  // centre's zone, and the source-scanning guard rightly refuses toISOString here —
+  // it caught exactly that in this function's first version.
+  const pFrom = shiftLocalDate(input.lastCompletedMonday, -(weeks - 1) * 7);
+
+  const { data, error } = await db.rpc('verification_overview', {
+    p_centre: input.centreId,
+    p_from: pFrom,
+    p_to: input.lastCompletedMonday,
+  });
+  if (error) throw new Error(`listVerificationOverview: ${error.message}`);
+
+  return ((data ?? []) as OverviewRow[]).map((r) => ({
+    childId: r.child_id,
+    periodStart: r.period_start,
+    periodEnd: r.period_end,
+    recordLastChangedAt: r.last_changed_at,
+    events: (r.verifications ?? []) as VerificationEvent[],
+    weekEvents: r.events ?? [],
+  }));
+}
+
+/**
+ * A signatory approves or disputes a week from the portal.
+ *
+ * A plain INSERT, deliberately: 0061's policy is the enforcement — their own ward, named
+ * signatory, attributed to themselves — and this wrapper adds nothing, because a caller a
+ * policy refuses should be refused by the policy, not by a second copy of it in TypeScript
+ * that can drift. The kiosk needed a definer function because a tablet has no identity;
+ * a portal caller is exactly who RLS is built to answer for.
+ */
+export async function recordVerification(
+  db: Db,
+  input: {
+    childId: string;
+    guardianId: string;
+    periodStart: string;
+    periodEnd: string;
+    outcome: 'approved' | 'disputed';
+    comment?: string | null;
+  },
+): Promise<void> {
+  const { error } = await db.from('attendance_verifications').insert({
+    child_id: input.childId,
+    guardian_id: input.guardianId,
+    period_start: input.periodStart,
+    period_end: input.periodEnd,
+    outcome: input.outcome,
+    method: 'portal',
+    comment: input.comment?.trim() || null,
+  });
+  if (error) throw new Error(`recordVerification: ${error.message}`);
+}

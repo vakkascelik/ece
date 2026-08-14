@@ -15,12 +15,15 @@ import {
   listImmunisation,
   listMembers,
   listMedications,
+  listVerificationOverview,
 } from '@ece/api';
 import {
   can,
   compareBySeverity,
   dosesOnDate,
+  lastCompletedWeek,
   shiftLocalDate,
+  summariseVerification,
   todayInZone,
 } from '@ece/core';
 import { requireCtx } from '@/lib/auth';
@@ -37,6 +40,7 @@ import type { WitnessOption } from '../GiveMedicine';
 import { HealthPanel, type DosesToday } from '../HealthPanel';
 import { ImmunisationPanel, type ImmunisationRow } from '../ImmunisationPanel';
 import { IncidentsPanel, type ChildIncident } from '../IncidentsPanel';
+import { VerifyWeeksPanel, type VerifyWeekRow } from '../VerifyWeeksPanel';
 import { WhanauPanel } from '../WhanauPanel';
 import { TAB_SLUGS } from '../tabs';
 
@@ -301,16 +305,84 @@ export default async function ChildTabPage({
   }
 
   if (tab === 'attendance') {
-    const [bookings, incidents, whanau] = await Promise.all([
+    const [bookings, incidents, whanau, overview] = await Promise.all([
       listChildBookings(db, id, today, shiftLocalDate(today, 28)),
       // Unconditional. A parent's query comes back without drafts because the policy withholds
       // them, not because this call was narrowed — see 0030.
       listChildIncidents(db, id),
-      isParent ? listGuardiansOfChild(db, id) : Promise.resolve([]),
+      // Now fetched for every role: the verify panel needs the caller's own signatory
+      // flag, and staff read it to render the panel without buttons.
+      listGuardiansOfChild(db, id),
+      listVerificationOverview(db, {
+        centreId: child.centreId,
+        lastCompletedMonday: lastCompletedWeek(today).periodStart,
+        weeksBack: 4,
+      }),
     ]);
 
     const ownGuardianId =
       whanau.find((g) => g.guardian.userId === ctx.userId)?.guardian.id ?? null;
+
+    /*
+      §6-3 weeks, derived here against the centre's today — the overview is per centre and
+      per ward for a parent (the invoker function's policies decide), so filter to this
+      child. Newest first: the week most likely to need the signature is the last one.
+    */
+    const timeOf = new Intl.DateTimeFormat('en-NZ', {
+      timeZone: ctx.centre.timezone,
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
+    const dayOf = new Intl.DateTimeFormat('en-CA', {
+      timeZone: ctx.centre.timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+    const weekRows: VerifyWeekRow[] = overview
+      .filter((w) => w.childId === id)
+      .sort((a, b) => b.periodStart.localeCompare(a.periodStart))
+      .map((w) => {
+        const s = summariseVerification(w, today);
+        // `not-yet-due` cannot occur — the overview generates completed weeks only — but
+        // the type says it can, and excluding it here beats a lying status label.
+        if (s.status === 'not-yet-due') return null;
+
+        const byDay = new Map<string, string[]>();
+        for (const e of w.weekEvents) {
+          const day = dayOf.format(new Date(e.at));
+          byDay.set(day, [
+            ...(byDay.get(day) ?? []),
+            `${e.kind === 'in' ? 'in' : 'out'} ${timeOf.format(new Date(e.at))}`,
+          ]);
+        }
+        const dayLines: string[] = [];
+        for (let i = 0; i < 7; i++) {
+          const date = shiftLocalDate(w.periodStart, i);
+          const [yy, mm, dd] = date.split('-').map(Number);
+          const label = new Intl.DateTimeFormat('en-NZ', {
+            timeZone: 'UTC',
+            weekday: 'long',
+            day: 'numeric',
+            month: 'long',
+          }).format(new Date(Date.UTC(yy as number, (mm as number) - 1, dd as number)));
+          const times = byDay.get(date);
+          dayLines.push(`${label} — ${times ? times.join(', ') : 'nothing recorded'}`);
+        }
+
+        return {
+          periodStart: w.periodStart,
+          periodEnd: w.periodEnd,
+          status: s.status,
+          weekLabel: dayLines[0]!.split(' — ')[0]!.replace('Monday ', ''),
+          dayLines,
+        } satisfies VerifyWeekRow;
+      })
+      .filter((w): w is VerifyWeekRow => w !== null);
+
+    const isSignatory =
+      whanau.find((g) => g.guardian.userId === ctx.userId)?.isAuthorisedSignatory ?? false;
 
     const incidentRows: ChildIncident[] = incidents.map((incident) => ({
       incident,
@@ -330,6 +402,16 @@ export default async function ChildTabPage({
           <div className="card">
             <BookingsPanel bookings={bookings} isParent={isParent} />
           </div>
+        </div>
+
+        <div className="section">
+          <h2>Weekly record</h2>
+          <VerifyWeeksPanel
+            childId={id}
+            ownGuardianId={ownGuardianId}
+            isSignatory={isSignatory}
+            weeks={weekRows}
+          />
         </div>
 
         <div className="section">
