@@ -94,6 +94,32 @@ covered by the RLS suite, and driving the two-step UI end-to-end is recorded as 
 is. First-load bundle re-measured: 113.0kB, identical — the kiosk work is route-scoped and
 added zero first-load bytes; the pre-existing 7kB overage stands, still unattributed.
 
+### Third commit — 0063: the absence the centre finally hears about
+
+0051's absence button had been writing rows nobody read: no notification, no staff surface,
+one day per tap, no reason. KindyNow — the online system Little Pearls actually pays for
+this — is, at its core, the notification. 0063 closes the loop: `absence_reason` on the
+booking (optional, 500 chars, CHECK-tied to `absent` status so a reason cannot outlive the
+state it describes), an office notification per submission, a per-day-honest range for the
+sick week, and a "Reported away today" strip at the top of /attendance.
+
+The split that matters: `report_absence_core` (the flip) and `notify_absence` (the telling),
+both EXECUTE-granted to nobody — notify writes into other people's inboxes, and the range
+must tell the office ONCE for five days, because five letters for one sick week is a muted
+inbox and the mute takes 0057's emergency channel with it.
+
+Two assertion lessons, now written into the wiki page because both will recur. A delta
+counted from the reporter's seat read zero — the notifications policy correctly hiding the
+owner's inbox, mistaken for the feature failing. And the counts still failed after that fix,
+reading 2 for 1: the 0051 assertion block six migrations upstream became a WRITER the moment
+the migration added the telling — an old test producing new side effects, which incidentally
+proves two-argument callers resolve against the new three-argument function.
+
+Mutation-drilled live: audience weakened to 0057's everyone-fan-out (`role != 'kiosk'`, the
+plausible copy-paste) — suite failed on the first audience assertion because even the
+reporter got their own letter; restored, green. 493/493 (+19). One TS slip caught by
+typecheck (missing import), fixed. All gates green; bundle unchanged.
+
 ### Found along the way
 
 The under-2 ratio table in `ratios.ts` **matches** the myece.org.nz reproduction of Schedule 2

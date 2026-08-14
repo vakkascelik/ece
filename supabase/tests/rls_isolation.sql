@@ -4484,6 +4484,198 @@ begin
     'a signed-in PARENT cannot use the kiosk functions — the portal is their path, got ' || (v->>'status'));
 end $$;
 
+-- ---------------------------------------------------------------------------
+-- 0063 — the absence the centre now hears about
+--
+-- The 0051 block above proves a guardian can flip a booked day to absent. This block
+-- proves the three things 0063 added: the reason lands on the row and nowhere it should
+-- not, the office is told exactly ONCE per submission however many days it covers, and
+-- the private helpers are callable by nobody — the kiosk_pin_gate arrangement, because
+-- `notify_absence` writes into other people's inboxes.
+-- ---------------------------------------------------------------------------
+
+-- Fixtures: three future booked days for Beau, with a hole at +42 so the range has a
+-- no-booking day in the middle — the case that must not stop the days around it.
+set local role postgres;
+insert into public.bookings (centre_id, child_id, on_date, status) values
+  ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'b2222222-2222-4222-8222-222222222222', current_date + 40, 'booked'),
+  ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'b2222222-2222-4222-8222-222222222222', current_date + 41, 'booked'),
+  ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'b2222222-2222-4222-8222-222222222222', current_date + 43, 'booked');
+
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"44444444-4444-4444-8444-444444444444","role":"authenticated"}';
+
+-- The helpers first: callable by nobody, not even the guardian the public functions serve.
+do $$
+declare code text := 'none (the call SUCCEEDED)';
+begin
+  begin
+    perform public.report_absence_core('b2222222-2222-4222-8222-222222222222', current_date + 40, null);
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '42501',
+    'report_absence_core is callable by NOBODY directly, got ' || code);
+end $$;
+
+do $$
+declare code text := 'none (the call SUCCEEDED)';
+begin
+  begin
+    perform public.notify_absence('b2222222-2222-4222-8222-222222222222',
+                                  array[current_date + 40], 'forged');
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '42501',
+    'notify_absence is callable by NOBODY — an open version writes into every inbox, got ' || code);
+end $$;
+
+-- One day, with a reason.
+select pg_temp.expect(
+  public.report_absence('b2222222-2222-4222-8222-222222222222', current_date + 40, '  chickenpox  ')
+    = 'recorded',
+  'a guardian reports one day away with a reason'
+);
+
+/*
+ * The reporter cannot see the letter their report produced — it sits in the OWNER's
+ * inbox, and the notifications policy shows a person their own rows only. The first
+ * version of this block counted the queue as Quinn and read 0, which was the policy
+ * working, not the feature failing. So every count below runs as postgres.
+ *
+ * The counts are absolute and START AT ONE, not zero — a second wrong premise the first
+ * version had. The 0051 block far above reports a day absent, and as of 0063 that call
+ * notifies: an old test became a writer the moment the migration added the telling.
+ * Which is itself worth keeping visible, because it proves existing two-argument callers
+ * resolve against the new three-argument function unchanged.
+ */
+select pg_temp.expect(
+  (select count(*) from public.notifications where kind = 'attendance') = 0,
+  'the reporter sees no attendance notification at all — the inbox is the office''s, not theirs'
+);
+
+set local role postgres;
+do $$
+begin
+  perform pg_temp.expect(
+    (select absence_reason from public.bookings
+      where child_id = 'b2222222-2222-4222-8222-222222222222' and on_date = current_date + 40)
+      = 'chickenpox',
+    'the reason lands on the booking, trimmed');
+
+  -- Exactly one letter for THIS report (the second overall — the 0051 block's own
+  -- report is the first, see the note above). To the owner of this centre: the educator
+  -- meets the absence on the attendance screen's own strip; the reporting guardian
+  -- needs no letter about their own message; centre B is another tenant.
+  perform pg_temp.expect(
+    (select count(*) from public.notifications where kind = 'attendance') = 2,
+    'ONE notification exists for this report — two overall, counting 0051''s');
+  perform pg_temp.expect(
+    (select count(*) from public.notifications
+      where kind = 'attendance'
+        and user_id = '11111111-1111-4111-8111-111111111111'
+        and body like '%chickenpox%') = 1,
+    'it reaches the owner, and carries the reason');
+end $$;
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"44444444-4444-4444-8444-444444444444","role":"authenticated"}';
+
+-- A reason with no sentence limit would be a free-text channel into the office inbox;
+-- 500 characters is refused in words, not with an error screen.
+select pg_temp.expect(
+  public.report_absence('b2222222-2222-4222-8222-222222222222', current_date + 41, repeat('x', 501))
+    = 'reason_too_long',
+  'a 501-character reason is refused in words'
+);
+
+-- The range: per-day honest. The +42 hole answers no_booking without stopping +41 and
+-- +43 from recording — all-or-nothing was rejected in 0063's header, and this is the
+-- assertion that keeps it rejected.
+do $$
+declare v jsonb;
+begin
+  v := public.report_absence_range('b2222222-2222-4222-8222-222222222222',
+                                   current_date + 41, current_date + 43, 'away with whānau');
+  perform pg_temp.expect(v->>'status' = 'ok', 'a range submission is accepted, got ' || (v->>'status'));
+  perform pg_temp.expect(v->'days'->>((current_date + 41)::text) = 'recorded',
+    'the first day records');
+  perform pg_temp.expect(v->'days'->>((current_date + 42)::text) = 'no_booking',
+    'the unbooked day in the middle says so');
+  perform pg_temp.expect(v->'days'->>((current_date + 43)::text) = 'recorded',
+    'and the day after the hole still records — never all-or-nothing');
+end $$;
+
+-- ONE letter for the whole range, not one per day — five letters for one sick week is a
+-- muted inbox. Counted as postgres for the reason above: the reporter cannot see any of
+-- them, so a delta from their seat proves nothing.
+set local role postgres;
+select pg_temp.expect(
+  (select count(*) from public.notifications where kind = 'attendance') = 3,
+  'three days, ONE more notification — three in total across all submissions'
+);
+select pg_temp.expect(
+  (select count(*) from public.notifications
+    where kind = 'attendance'
+      and user_id in ('55555555-5555-4555-8555-555555555555',
+                      '44444444-4444-4444-8444-444444444444',
+                      '22222222-2222-4222-8222-222222222222')) = 0,
+  'and still nothing to any educator, any reporter, or anybody at another centre'
+);
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"44444444-4444-4444-8444-444444444444","role":"authenticated"}';
+
+-- A malformed or over-month range is refused whole.
+do $$
+declare v jsonb;
+begin
+  v := public.report_absence_range('b2222222-2222-4222-8222-222222222222',
+                                   current_date + 43, current_date + 41, null);
+  perform pg_temp.expect(v->>'status' = 'bad_period', 'a backwards range is refused, got ' || (v->>'status'));
+  v := public.report_absence_range('b2222222-2222-4222-8222-222222222222',
+                                   current_date + 1, current_date + 40, null);
+  perform pg_temp.expect(v->>'status' = 'bad_period', 'a range past a month is refused, got ' || (v->>'status'));
+end $$;
+
+-- The boundary inside the centre, again: Priya is a parent at the same service and Beau
+-- is not hers. Every day refuses, and — the part that matters for the inbox — nothing is
+-- sent, because a notification about a refusal would tell the office a stranger tried.
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+do $$
+declare v jsonb;
+begin
+  v := public.report_absence_range('b2222222-2222-4222-8222-222222222222',
+                                   current_date + 40, current_date + 41, null);
+  perform pg_temp.expect(v->'days'->>((current_date + 40)::text) = 'not_permitted',
+    'another family''s guardian is refused per-day');
+end $$;
+set local role postgres;
+select pg_temp.expect(
+  (select count(*) from public.notifications where kind = 'attendance') = 3,
+  'and no notification marks the refused attempt — still three'
+);
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+
+-- The CHECK that keeps a reason honest: a reason on a row that is not absent is
+-- misinformation with a timestamp, refused by the schema whoever writes it.
+set local role postgres;
+do $$
+declare code text := 'none (the update SUCCEEDED)';
+begin
+  begin
+    update public.bookings set absence_reason = 'stale reason'
+     where child_id = 'b2222222-2222-4222-8222-222222222222' and on_date = current_date + 43
+       and status = 'absent';
+    -- flip it back to booked WITHOUT clearing the reason: must refuse
+    update public.bookings set status = 'booked'
+     where child_id = 'b2222222-2222-4222-8222-222222222222' and on_date = current_date + 43;
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '23514',
+    'a booking cannot leave absent while keeping its reason, got ' || code);
+end $$;
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+
 
 -- A blank reason is refused, because the reason is what makes the audit row mean
 -- anything at all.

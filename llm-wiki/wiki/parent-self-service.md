@@ -395,9 +395,80 @@ to add a guardian-scoped assertion at the bottom of the file will hit exactly th
 
 ---
 
+## The absence the centre now hears about (0063)
+
+For twelve migrations `report_absence` flipped a row and told nobody. The educator doing
+the 8:30 roll saw a missing child with no signal the family had already called it in, and
+rang them — the exact phone call the button exists to replace. A self-service feature whose
+output nobody reads is a form that files itself. 0063 closes the loop three ways, all on
+the same write path.
+
+### The office is told once per submission, not once per day
+
+The single-day logic moved into `report_absence_core` and the telling into
+`notify_absence` — both EXECUTE-granted to **nobody**, the `kiosk_pin_gate` arrangement,
+because `notify_absence` writes into other people's inboxes and a public version would let
+any authenticated caller do that with arbitrary text. The public surface (`report_absence`,
+`report_absence_range`) composes the two.
+
+The split exists for the sick week: a range that looped the old function would send five
+letters for one fact, and a queue that cries five times is a queue people mute — taking
+0057's emergency channel down with it, because the mute is per-app, not per-kind.
+
+**The audience is owner and manager only.** Educators meet the absence on the attendance
+screen's own strip; the reporting guardian needs no letter about their own message. This
+was mutation-drilled live by weakening the predicate to 0057's everyone-fan-out
+(`role != 'kiosk'` — the plausible copy-paste error): the suite failed on the *first*
+audience assertion it reached, because under the widened version even the reporter received
+their own letter.
+
+### Two assertion lessons, recorded because both will recur
+
+- **A delta counted from the wrong seat proves nothing.** The first version counted
+  notifications as the reporting guardian and read a delta of zero — which was the
+  notifications policy correctly hiding the owner's inbox, not the feature failing. Counts
+  of somebody else's rows run as postgres.
+- **An old test became a writer.** The counts then still failed, reading 2 where 1 was
+  expected: the 0051 assertion block far above reports a day absent, and the moment the
+  migration added the telling, that six-migration-old call started producing a
+  notification. The premise "nothing has written this kind before" was true of the schema
+  and false of the suite's own timeline — and it incidentally proves the two-argument
+  callers resolve against the new three-argument function unchanged.
+
+### The reason, and the CHECK that keeps it honest
+
+`bookings.absence_reason` — optional free text, because demanding a reason at 7am with a
+sick child is how the button stops being used; the phone call it replaces never required
+one either. Two constraints: 500 characters (refused in words as `reason_too_long`, not
+with a constraint error — a raise is an error screen where a status is a sentence), and
+`absence_reason is null or status = 'absent'`, so a booking cannot leave `absent` while
+keeping its reason. A reason describing a state the row is no longer in is misinformation
+with a timestamp.
+
+### The range is per-day honest, never all-or-nothing
+
+`report_absence_range` answers each date on its own merits and returns jsonb of
+date → status. A Monday-to-Friday report with an unbooked Wednesday records the other four
+days and says so — refusing the lot would teach a parent to report day by day (the exact
+behaviour the range replaces), and skipping silently would leave the family believing the
+centre knows something it half-knows. Weekends ride along as `no_booking` rather than
+being special-cased; the booking is the ground truth anyway. One notification for the run,
+listing only the dates that recorded. Capped at 31 days, the kiosk window's cap, for the
+same reason: beyond a month this is a conversation, had with a person.
+
+### The strip
+
+`/attendance` now opens with **"Reported away today"** — names and reasons, above the
+roll, so the educator scans who is accounted for before worrying about who is missing.
+Deliberately absent from the wall display: the wall answers "are we within ratio" at three
+metres, and names are unreadable there anyway. No new read API — the page already loads
+children, and today's bookings come through `listBookings` with the roll's own RLS.
+
+---
+
 ## Related
 
 [[tenancy-and-rls]] · [[funding-and-billing]] · [[kiosk-and-pins]] · [[conventions]] ·
-[[unverified-claims]]
+[[attendance-and-ratios]] · [[unverified-claims]]
 
-*Last updated: 2026-08-09*
+*Last updated: 2026-08-14*

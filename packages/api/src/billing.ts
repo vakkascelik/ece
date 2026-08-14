@@ -41,9 +41,12 @@ export interface Booking {
   fromTime: string | null;
   toTime: string | null;
   note: string | null;
+  /** Why the family said the child is away (0063). Null unless status is `absent`. */
+  absenceReason: string | null;
 }
 
-const BOOKING_COLUMNS = 'id, centre_id, child_id, on_date, status, from_time, to_time, note';
+const BOOKING_COLUMNS =
+  'id, centre_id, child_id, on_date, status, from_time, to_time, note, absence_reason';
 
 interface BookingRow {
   id: string;
@@ -54,6 +57,7 @@ interface BookingRow {
   from_time: string | null;
   to_time: string | null;
   note: string | null;
+  absence_reason: string | null;
 }
 
 const toBooking = (r: BookingRow): Booking => ({
@@ -65,6 +69,7 @@ const toBooking = (r: BookingRow): Booking => ({
   fromTime: r.from_time,
   toTime: r.to_time,
   note: r.note,
+  absenceReason: r.absence_reason,
 });
 
 export async function listBookings(
@@ -178,6 +183,9 @@ export const ABSENCE_OUTCOMES = [
   'no_booking',
   'past',
   'not_bookable',
+  // 0063: refused in words rather than left to the CHECK constraint, because a
+  // constraint violation is an error screen where a status is a sentence.
+  'reason_too_long',
   'not_permitted',
 ] as const;
 
@@ -198,11 +206,12 @@ export type AbsenceOutcome = (typeof ABSENCE_OUTCOMES)[number];
  */
 export async function reportAbsence(
   db: Db,
-  input: { childId: string; onDate: string },
+  input: { childId: string; onDate: string; reason?: string | null },
 ): Promise<AbsenceOutcome> {
   const { data, error } = await db.rpc('report_absence', {
     p_child: input.childId,
     p_date: input.onDate,
+    p_reason: input.reason ?? null,
   });
   if (error) throw new Error(`reportAbsence: ${error.message}`);
 
@@ -215,6 +224,40 @@ export async function reportAbsence(
   return typeof data === 'string' && (ABSENCE_OUTCOMES as readonly string[]).includes(data)
     ? (data as AbsenceOutcome)
     : 'not_permitted';
+}
+
+/**
+ * A run of days in one submission — a week of chickenpox is one call, not five.
+ *
+ * Per-day honest: each date answers with its own status, and the office is notified once
+ * for the whole run (0063's reason for splitting the SQL). `bad_period` is the whole-range
+ * refusal for a malformed or over-month window.
+ */
+export async function reportAbsenceRange(
+  db: Db,
+  input: { childId: string; from: string; to: string; reason?: string | null },
+): Promise<{ status: 'bad_period' } | { status: 'ok'; days: Record<string, AbsenceOutcome> }> {
+  const { data, error } = await db.rpc('report_absence_range', {
+    p_child: input.childId,
+    p_from: input.from,
+    p_to: input.to,
+    p_reason: input.reason ?? null,
+  });
+  if (error) throw new Error(`reportAbsenceRange: ${error.message}`);
+
+  const body = (data ?? {}) as { status?: string; days?: Record<string, string> };
+  if (body.status !== 'ok' || typeof body.days !== 'object' || body.days === null) {
+    return { status: 'bad_period' };
+  }
+  // Every per-day status passes the same allowlist as the single-day path, and an
+  // unrecognised one degrades to a refusal for the same reason.
+  const days: Record<string, AbsenceOutcome> = {};
+  for (const [date, outcome] of Object.entries(body.days)) {
+    days[date] = (ABSENCE_OUTCOMES as readonly string[]).includes(outcome)
+      ? (outcome as AbsenceOutcome)
+      : 'not_permitted';
+  }
+  return { status: 'ok', days };
 }
 
 // ---------------------------------------------------------------------------

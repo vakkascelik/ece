@@ -1,6 +1,12 @@
 import Link from 'next/link';
-import { listAttendanceToday, listChildren, listHealthByChild, readAdultsPresent } from '@ece/api';
-import { assessRatio, can, splitByAgeBand, todayInZone } from '@ece/core';
+import {
+  listAttendanceToday,
+  listBookings,
+  listChildren,
+  listHealthByChild,
+  readAdultsPresent,
+} from '@ece/api';
+import { assessRatio, can, displayName, splitByAgeBand, todayInZone } from '@ece/core';
 import { requireCapability } from '@/lib/auth';
 import { serverDb } from '@/lib/supabase';
 import { PageHeader } from '../PageHeader';
@@ -34,12 +40,31 @@ export default async function AttendancePage({
   const db = await serverDb();
   const today = todayInZone(ctx.centre.timezone);
 
-  const [children, states, adultsPresent, healthByChild] = await Promise.all([
+  const [children, states, adultsPresent, healthByChild, todaysBookings] = await Promise.all([
     listChildren(db, ctx.centre.id),
     listAttendanceToday(db, ctx.centre.id),
     readAdultsPresent(db, ctx.centre.id),
     listHealthByChild(db, ctx.centre.id),
+    listBookings(db, { centreId: ctx.centre.id, from: today, to: today }),
   ]);
+
+  /*
+    Who the families have already said is away (0063). This is what turns a reported
+    absence from a row nobody reads into the difference between "missing" and "accounted
+    for" on the 8:30 roll — the phone call the button exists to replace was the centre
+    ringing to ask a question the family had already answered.
+  */
+  const awayToday = todaysBookings
+    .filter((b) => b.status === 'absent')
+    .map((b) => {
+      const child = children.find((c) => c.id === b.childId);
+      return {
+        childId: b.childId,
+        name: child ? displayName(child) : 'A child',
+        reason: b.absenceReason,
+      };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   /*
     The wall display's ratio is computed here, on the server, and the roll's is computed in the
@@ -113,6 +138,27 @@ export default async function AttendancePage({
         `serverStates` and the health map are handed over as plain data — a Map cannot cross
         the boundary, so health arrives as pairs — and the client merges the outbox into them.
       */}
+      {/*
+        Quiet and above the roll: the educator scans this BEFORE worrying about who is
+        missing. Absent from the wall display on purpose — the wall answers "are we within
+        ratio" at three metres, and names are unreadable there anyway.
+      */}
+      {awayToday.length > 0 && (
+        <section aria-label="Reported away today" className="card" style={{ marginBottom: 'var(--space-4)' }}>
+          <p className="eyebrow" style={{ margin: 0 }}>
+            Reported away today
+          </p>
+          <ul style={{ margin: 'var(--space-2) 0 0', paddingLeft: 'var(--space-5)' }}>
+            {awayToday.map((a) => (
+              <li key={a.childId}>
+                {a.name}
+                {a.reason && <span className="sub"> — {a.reason}</span>}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       <RollClient
         childList={children}
         serverStates={states}

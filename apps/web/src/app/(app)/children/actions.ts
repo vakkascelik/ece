@@ -25,6 +25,7 @@ import {
   archiveChild,
   confirmDetails,
   reportAbsence,
+  reportAbsenceRange,
   createChild,
   createEnrolment,
   createGuardian,
@@ -728,12 +729,13 @@ export async function clearPin(_prev: unknown, form: FormData): Promise<Result> 
 export async function reportChildAbsence(
   childId: string,
   onDate: string,
+  reason?: string,
 ): Promise<{ message: string }> {
   await requireCtx();
   const db = await serverDb();
 
   try {
-    const outcome = await reportAbsence(db, { childId, onDate });
+    const outcome = await reportAbsence(db, { childId, onDate, reason: reason?.trim() || null });
     revalidatePath(`/children/${childId}`);
 
     switch (outcome) {
@@ -747,6 +749,8 @@ export async function reportChildAbsence(
         return { message: 'That day has already been. Please talk to the centre about it.' };
       case 'not_bookable':
         return { message: 'That day is not one you can change here. Please talk to the centre.' };
+      case 'reason_too_long':
+        return { message: 'That note is too long — a sentence or two is plenty.' };
       // Includes any status this version of the app does not recognise, which
       // `reportAbsence` deliberately collapses into a refusal.
       case 'not_permitted':
@@ -755,6 +759,57 @@ export async function reportChildAbsence(
     }
   } catch (e) {
     return { message: actionError(e, 'children.reportAbsence').error };
+  }
+}
+
+/**
+ * A run of away days in one submission.
+ *
+ * The sentence does the honesty work: the range is never all-or-nothing (0063), so the
+ * family must hear exactly how many days landed and why the rest did not — "we marked
+ * three of your five days" is actionable where a bare success or failure is misleading
+ * in opposite directions.
+ */
+export async function reportChildAbsenceRange(
+  childId: string,
+  from: string,
+  to: string,
+  reason?: string,
+): Promise<{ message: string }> {
+  await requireCtx();
+  const db = await serverDb();
+
+  try {
+    const result = await reportAbsenceRange(db, {
+      childId,
+      from,
+      to,
+      reason: reason?.trim() || null,
+    });
+    revalidatePath(`/children/${childId}`);
+
+    if (result.status === 'bad_period') {
+      return { message: 'Those dates do not make a range this form can take — up to a month, oldest first.' };
+    }
+
+    const outcomes = Object.values(result.days);
+    const recorded = outcomes.filter((o) => o === 'recorded').length;
+    const alreadyKnown = outcomes.filter((o) => o === 'already_absent').length;
+    const noBooking = outcomes.filter((o) => o === 'no_booking').length;
+    const refused = outcomes.length - recorded - alreadyKnown - noBooking;
+
+    if (recorded === 0 && alreadyKnown === 0) {
+      return { message: 'None of those days were booked days we could mark. Please talk to the centre.' };
+    }
+
+    const parts: string[] = [];
+    if (recorded > 0) parts.push(`the centre now knows about ${recorded} day${recorded === 1 ? '' : 's'}`);
+    if (alreadyKnown > 0) parts.push(`${alreadyKnown} ${alreadyKnown === 1 ? 'was' : 'were'} already marked`);
+    if (noBooking > 0) parts.push(`${noBooking} had no booking (weekends count here)`);
+    if (refused > 0) parts.push(`${refused} could not be changed from here`);
+    return { message: `Thank you — ${parts.join(', ')}.` };
+  } catch (e) {
+    return { message: actionError(e, 'children.reportAbsenceRange').error };
   }
 }
 
