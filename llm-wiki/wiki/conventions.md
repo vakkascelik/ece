@@ -498,10 +498,42 @@ skips.
 
 **Mutation-test a new policy.** If a suite passes first run, weaken the policy deliberately
 and confirm the suite fails on the right assertion. A test that cannot fail is not a test.
+The live variant (0061–0063) derives the weakened body from the migration file itself —
+`s/the predicate//` on the shipped text — so the drill cannot drift from what actually
+shipped, applies it, runs the suite, demands failure on the named assertion, and restores.
 
 The RLS suite is one self-contained SQL script ending in `ROLLBACK`, so it needs no Docker and
 no local Postgres and is safe against a live project. Impersonation is `set local role
 authenticated` plus a `request.jwt.claims` blob, which is what PostgREST does per request.
+
+**Count somebody else's rows as postgres, not as the actor.** A 0063 assertion counted the
+notifications a report produced from the reporter's own seat and read zero — which was the
+notifications policy correctly hiding the recipient's inbox, mistaken for the feature
+failing. If the assertion is about rows the actor is not allowed to see, the count belongs
+in a `set local role postgres` block, and the actor's own filtered view becomes a *separate*
+assertion of the policy.
+
+**An assertion block can become a writer when a migration adds a side effect.** The same
+0063 counts then read 2 where 1 was expected: the 0051 block six migrations upstream calls
+`report_absence`, and the moment the migration taught that function to notify, a
+six-migration-old test started producing notifications. Absolute counts in later blocks
+must account for the suite's own upstream calls — or better, count within a discriminating
+predicate (`body like '%chickenpox%'`) that upstream noise cannot match.
+
+### Definer helpers granted to nobody
+
+Three functions now carry `revoke all … from public, anon, authenticated, service_role` and
+**no grant at all**: `kiosk_pin_gate` (0062), `report_absence_core` and `notify_absence`
+(0063). Only the owner can call them, which in practice means only from inside another
+`SECURITY DEFINER` body — Postgres checks the inner call against the outer function's
+owner, and the owner always may.
+
+Use this when a helper would be dangerous as a public RPC but is shared by two or more
+definer entry points: a PIN check that would otherwise be an oracle unscoped by
+`caller_kiosk_centre_id()`, a notifier that writes into other people's inboxes. The suite
+asserts `42501` on a direct call for each — an assertion per helper, because "granted to
+nobody" is one dropped `revoke` away from "granted to everyone signed in", and nothing else
+would notice.
 
 ### Design tokens
 
@@ -574,4 +606,4 @@ The only exception is a commit that touches nothing but `llm-wiki/`.
 - [[unverified-claims]]
 - [[offline-outbox]]
 
-*Last updated: 2026-08-11 (two corrections: the midnight clamp, and a reused stale server)*
+*Last updated: 2026-08-14 (mutation drills against the live schema, counting seats, and helpers granted to nobody)*

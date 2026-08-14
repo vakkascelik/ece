@@ -22,8 +22,9 @@ and [`../schema.md`](../schema.md) for the page template.
 - [[invitations]] — a two-step handshake with only the token hash stored; why signups are
   disabled and what that makes an invitation
 - [[kiosk-and-pins]] — the door tablet as a role rather than a person: why a four-digit PIN is
-  bcrypt and not SHA-256, why the verify function returns a status instead of raising, and the
-  audit trigger that would have recorded nothing
+  bcrypt and not SHA-256, why the verify function returns a status instead of raising, the
+  audit trigger that would have recorded nothing, and the PIN's second job — signing the week,
+  through a gate callable by nobody
 - [[password-recovery]] — self-serve reset and in-app change, and why the design documents'
   "no password reset, ask for a re-invitation" was a lockout mechanism, not a safety property
 
@@ -33,8 +34,9 @@ and [`../schema.md`](../schema.md) for the page template.
   why the adult count is an event rather than a setting
 - [[attendance-verification]] — the family's signature the record never had: why the status is
   derived and the competition stores it, the state no stored status can express, the snapshot
-  that was not needed because of a decision made four phases earlier, and the three tests that
-  passed while proving nothing
+  that was not needed because of a decision made four phases earlier, the three tests that
+  passed while proving nothing, and the door tablet's show-then-sign flow — a PIN may not sign
+  what was never displayed
 - [[compliance-and-evidence]] — staff records with expiry, criteria that ship empty on
   purpose, and a binder that never claims compliance
 - [[curriculum-strands]] — Tier 4's lowest-priority item, a `FOR ALL` policy that
@@ -76,8 +78,9 @@ and [`../schema.md`](../schema.md) for the page template.
 ## Families
 
 - [[parent-self-service]] — the first write a family may make, why it is a definer function and
-  not a policy, why the button does not say Cancel, and an assertion that lied because its
-  subject could not see its own evidence
+  not a policy, why the button does not say Cancel, an assertion that lied because its subject
+  could not see its own evidence, and the absence the centre now hears about — once per
+  submission, however many days it covers
 - [[emergency-broadcast]] — a fan-out that reaches every family through a queue with a writer
   for nobody and a reader for nothing, until now; why the word does not mean push or email yet;
   and a bug the RLS suite caught while its own assertion was being written
@@ -156,4 +159,4 @@ and [`../schema.md`](../schema.md) for the page template.
   app is ready to deploy. Its Stage 0 (ten conversations, zero code) was never run — recorded in
   [[unverified-claims]], and still the weakest evidence under any pricing decision.
 
-*Index last updated: 2026-08-09*
+*Index last updated: 2026-08-14*

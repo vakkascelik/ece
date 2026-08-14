@@ -5,6 +5,38 @@ says so.*
 
 ---
 
+2026-08-14 — **§6-3 attendance verification arrives across three commits (`dd8827f`, `077d4ef`,
+`5135873`), and two standing claims fall over on the way.** New page: [[attendance-verification]].
+Corrected: [[funding-and-billing]]. Narrowed: [[unverified-claims]] item 3. Added: item 36.
+Extended: [[kiosk-and-pins]], [[parent-self-service]], [[conventions]], [[index]].
+
+The new page holds the twelve criteria of ECE Funding Handbook §6-3, the derived-status design
+(`superseded` — the state a stored status cannot express), the kiosk show-then-sign flow, and the
+vacuous-test episode: three instant-comparison tests that passed with the fix reverted because
+their fixtures' date parts dominated the string comparison. Caught by mutation, rewritten with
+`+12:00` offsets so string and instant ordering disagree.
+
+**[[funding-and-billing]] carried a dated correction**: "the Ministry is not accepting integration
+applications" had expired on its own terms — the source page promised a capacity review in July
+2026, now past — and "50 services before you may apply" was one reading of an ambiguous
+requirement, recorded as such. Resolution moved to an enquiry to the Ministry rather than a harder
+re-reading of one sentence.
+
+**[[unverified-claims]] item 3 narrowed**: the seven-year retention window is now sourced to §6-3;
+what remains assumed is the anchor date the purge function measures from. **Item 36 added**: the
+twelve criteria were machine-extracted from the Handbook page, not read by a person, and the
+feature is built on them — somebody must open the page.
+
+**[[kiosk-and-pins]]** gained the PIN's second job (the §6-3 electronic signature), the
+`kiosk_pin_gate` helper callable by nobody, and the grandmother — the criterion-4 counter-example
+the suite now enforces. **[[parent-self-service]]** gained the 0063 absence loop: the office told
+once per submission, the per-day-honest range, the reason CHECK-tied to the absent status, and two
+assertion lessons (a delta counted from the wrong seat; an upstream test that became a writer).
+**[[conventions]]** gained the live mutation-drill pattern, the counting-seat rule, and the
+granted-to-nobody definer-helper convention, now used three times.
+
+---
+
 2026-08-12 — **The first build this repo has ever produced, and three things in the way of it that
 nobody knew were there.** `apps/mobile/eas.json`, `apps/mobile/app.json`, `scripts/mobile-icons.ts`.
 See [[unverified-claims]] items 15 and 16, and `docs/store-listing.md`.
@@ -3277,4 +3309,4 @@ local stand-in serving a real PNG, and the cache measured at two upstream calls 
 requests. Recorded as gap 16 in `apps/site/CONTENT-GAPS.md` that **nobody has read Google's terms on
 how long their content may be cached** — the TTLs are a guess in the safe direction, not a finding.
 
-*Log last updated: 2026-08-09*
+*Log last updated: 2026-08-14*
