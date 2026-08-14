@@ -365,11 +365,33 @@ would mean rewriting every navigation in about twenty spec files. The suite prov
 works *unmounted*. The mount's only coverage is the manual pass: health, a page render, and a real
 write through the proxy.
 
+## The scheduler service (0065)
+
+A second Railway service in the same project, configured by `railway.scheduler.json` —
+committed for the same reason the web service's config is. It builds only `@ece/core` and
+`@ece/api`, runs `npm run schedule:run -- verification-chase` on a daily cron
+(`0 20 * * *` — 20:00 UTC is the next New Zealand morning on both sides of daylight
+saving), and needs three variables: the Supabase URL, the **service-role key**, and
+`ECE_SCHEDULER_LIVE=yes` — without the last, every run is a dry run that prints its plan
+and sends nothing.
+
+This is the only deployed process besides the web app that holds the service key, and the
+only one that fans out across tenants: `scripts/run-scheduled.ts` iterates centres
+explicitly because `service_role` bypasses RLS, so there the loop *is* the boundary — see
+[[attendance-verification]] for why the code that holds the key contains no judgement.
+`restartPolicyType: NEVER`, because the job is idempotent by construction and a cron that
+retries a half-crashed run is a cron that can double-send in the gap between an insert and
+its ledger row; the next day's tick re-plans from what actually landed.
+
+**Not yet created in the Railway dashboard.** The config is reviewable here; the service
+does not exist until somebody makes it and points it at this file.
+
 ## See Also
 
 - [[tenancy-and-rls]] — the boundary that makes one deployment safe
 - [[security-review]] — the headers, and what is checked on every run
 - [[invitations]] — why the container needs the service-role key
+- [[attendance-verification]] — the chase this cron runs, and its ledger
 - [[unverified-claims]] — CI has still never run
 
-*Last updated: 2026-08-11*
+*Last updated: 2026-08-14*

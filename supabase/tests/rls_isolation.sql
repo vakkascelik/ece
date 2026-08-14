@@ -4656,6 +4656,80 @@ set local role authenticated;
 set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
 
 -- ---------------------------------------------------------------------------
+-- 0065 — the chase's ledger: written by the scheduler, read by staff, edited by nobody
+--
+-- The table has NO insert policy on purpose — the only writer holds the service key and
+-- bypasses RLS, so the grant is the boundary. These assertions prove the grant is doing
+-- that job: an authenticated caller cannot write a notice however they are placed, staff
+-- can read the ledger, a family cannot, and nobody at all can rewrite one.
+-- ---------------------------------------------------------------------------
+
+set local role postgres;
+-- Seeded as the scheduler would write it: one release notice for Ana's fixed 0061 week.
+insert into public.verification_notices (child_id, guardian_id, period_start, period_end, sent_on)
+values ('a1111111-1111-4111-8111-111111111111', 'd1111111-1111-4111-8111-111111111111',
+        date '2026-08-03', date '2026-08-09', date '2026-08-10');
+
+set local role authenticated;
+
+-- The owner cannot write into the ledger — the scheduler is its only author, and a
+-- hand-written row would corrupt the one-per-week arithmetic the planner runs on.
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+do $$
+declare code text := 'none (the insert SUCCEEDED)';
+begin
+  begin
+    insert into public.verification_notices (child_id, guardian_id, period_start, period_end, sent_on)
+    values ('a1111111-1111-4111-8111-111111111111', 'd1111111-1111-4111-8111-111111111111',
+            date '2026-08-03', date '2026-08-09', date '2026-08-11');
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '42501',
+    'even the OWNER cannot hand-write a chase notice, got ' || code);
+end $$;
+
+-- Staff read it: "what have we already sent this family" is office work.
+select pg_temp.expect(
+  (select count(*) from public.verification_notices
+    where child_id = 'a1111111-1111-4111-8111-111111111111') = 1,
+  'the owner reads the ledger'
+);
+
+-- The family does not: a ledger of how many times the centre nudged you is the centre''s
+-- operational record, not part of the child''s file — Priya sees her child everywhere
+-- else in this suite, and nothing here.
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.verification_notices) = 0,
+  'the signatory being chased reads NO ledger rows, though the child is hers'
+);
+
+-- Append-only against everybody, service_role included: an editable input to a send
+-- decision is how a family gets three notices in a morning.
+set local role service_role;
+do $$
+declare code text := 'none (the update SUCCEEDED)';
+begin
+  begin
+    update public.verification_notices set sent_on = date '2026-01-01';
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '42501',
+    'SERVICE_ROLE cannot rewrite the chase ledger, got ' || code);
+end $$;
+do $$
+declare code text := 'none (the delete SUCCEEDED)';
+begin
+  begin
+    delete from public.verification_notices;
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '42501', 'nor erase it, got ' || code);
+end $$;
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+
+-- ---------------------------------------------------------------------------
 -- 0064 — the overview is SECURITY INVOKER, and these assertions are why that is safe
 --
 -- The function restates no boundary: the tables' policies decide who sees which child.
@@ -6665,7 +6739,9 @@ begin
                            'emergency_broadcasts',
                            -- 0061: a family's signature IS the record. Named in
                            -- scripts/security-review.ts as well, in the same commit.
-                           'attendance_verifications')
+                           'attendance_verifications',
+                           -- 0065: a sent chase notice IS the record.
+                           'verification_notices')
      -- Reference data, and settings that belong to a person rather than a centre — the
      -- trigger could not attribute them to a tenant even if it fired.
      and c.relname not in ('criteria', 'criteria_sets', 'schema_migrations',

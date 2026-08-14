@@ -281,15 +281,51 @@ INSERT policy is the enforcement, so `verifyWeekPortal` adds no second copy of t
 conditions — a policy refusal maps to one sentence. `superseded` is worded as the true
 thing ("the record changed after you confirmed it — please look again"), not as an expiry.
 
+## The chase (0065): a scheduler with one decision, and it does not make it
+
+The rhythm §6-3 actually runs on — release the completed week, remind the unanswered
+weekly, stop after three and offer paper — is now `scripts/run-scheduled.ts`, the repo's
+first scheduler, run daily by a Railway cron (`railway.scheduler.json`, committed for the
+same reason `railway.json` is: a schedule that exists only in a dashboard is a schedule
+nobody can review).
+
+The design splits along one line: **the runner holds the service key, so it judges
+nothing.** `service_role` bypasses RLS, which makes the per-centre loop the tenant
+boundary — and code that *is* a boundary should be auditable as "fetched, called the
+planner, wrote what it said". The judgement lives in `planVerificationChase` in
+`@ece/core`: only `awaiting` is chased (`overdue` belongs to the office card and its paper
+form — a fourth notification to a family that ignored three is how every notification from
+the centre starts being ignored), at most three per period, at most one per **calendar
+week** — not "seven elapsed days", because a Tuesday catch-up run after a skipped Monday
+must not slide the rhythm to Tuesdays forever. Both rules mutation-tested.
+
+The chase has its own memory: `verification_notices`, append-only including
+`service_role`, written by the scheduler and **only** the scheduler — there is no INSERT
+policy at all, deliberately, because the only writer bypasses policies and a policy would
+be dead text implying a write path that must not exist. The grant is the boundary, and the
+suite proves it: even the owner's hand-written notice gets `42501`. Families read nothing —
+the ledger of nudges is the centre's operational record, not part of the child's file.
+Counting sends from the notifications table was rejected because recovering "how many
+chase notices for this week" from titles means the first reworded title silently resets
+every count.
+
+Idempotent by construction, so the cron is a dumb daily tick: a crashed run or a double
+run re-plans from the ledger and sends nothing twice. Dry-run is the default and
+`ECE_SCHEDULER_LIVE=yes` is the send switch, the `ECE_ALLOW_DEMO_SEED` arrangement —
+a person poking at the job locally cannot notify a real centre by accident.
+
 ## What is not built yet
 
-`0061` is the record, `0062` the door, `0064` the screens. Still outstanding:
+`0061` is the record, `0062` the door, `0064` the screens, `0065` the rhythm. Still
+outstanding:
 
-- The weekly release and the reminder chain, which need a scheduler this repo does not have.
 - The inspector-shaped export for criterion 12, which should state per row **how** each
   signature was given — the `method` column exists for exactly that sentence.
 - An e2e that drives the portal approve/dispute and the kiosk review flow in a browser —
   the e2e fixture names no signatory yet, so both are proven at the policy layer only.
+- The Railway cron service itself: the config is committed, the service has not been
+  created in the dashboard, and no live guardian carries the signatory flag yet — so the
+  live dry run planning zero notices is currently correct twice over.
 
 Naming signatories is **not** on this list: the whānau tab carries an "Attendance
 signatory" checkbox beside "May collect", unticked by default, and deliberately a separate

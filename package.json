@@ -40,6 +40,7 @@
     "deploy:auth": "node --env-file-if-exists=.env.local --import tsx scripts/deploy-auth-config.ts",
     "drill:rowcap": "node --env-file-if-exists=.env.local --import tsx scripts/drill-rowcap.ts",
     "audit:site": "node --import tsx scripts/audit-site.ts",
+    "schedule:run": "node --env-file-if-exists=.env.local --import tsx scripts/run-scheduled.ts",
     "icons:mobile": "tsx scripts/mobile-icons.ts"
   },
   "devDependencies": {

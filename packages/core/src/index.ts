@@ -284,6 +284,11 @@ export * from './attendanceTrend';
 // an approval has gone stale, a state a status column cannot express.
 export * from './attendanceVerification';
 
+// The scheduler's one decision, made pure: who is asked to confirm a week this run,
+// under the three-per-period and one-per-calendar-week rules. The runner holding the
+// service key executes this plan and judges nothing itself.
+export * from './verificationChase';
+
 // The public enrolment enquiry. Validated here, in the SQL function, and by the table —
 // three copies, which is the price of an error a person can read.
 export * from './enquiry';

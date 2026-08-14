@@ -142,6 +142,29 @@ One SQL slip caught by the migration run itself: `generate_series` over dates yi
 timestamptz, and `timestamptz + 6` is not an operator. Also recorded: the owner sent the
 MoE ELI enquiry today — funding-and-billing's correction now says "sent, reply pending".
 
+### Fifth commit — 0065: the repo's first scheduler, and the judgement it refuses to hold
+
+The §6-3 rhythm — release the week, remind weekly, stop at three and offer paper — as
+`scripts/run-scheduled.ts` plus a committed Railway cron (`railway.scheduler.json`). The split
+is the design: the runner holds the service key and `service_role` bypasses RLS, so the
+per-centre loop is the tenant boundary, and code that IS a boundary judges nothing — the
+decision lives in `planVerificationChase` in core, pure, 7 tests, both rules mutation-killed
+(cap `>=`→`>` and the calendar-week bucket, each failing exactly its own test). Calendar-week
+bucketing rather than seven-elapsed-days, so a Tuesday catch-up run cannot slide the rhythm.
+
+`verification_notices` is the chase's memory: append-only including service_role, NO insert
+policy on purpose — the only writer bypasses policies, so the grant is the boundary and the
+suite proves even the owner's hand-written notice gets 42501. Families read nothing. Counting
+sends from notifications titles was rejected: the first reworded title silently resets every
+count. 505/505.
+
+Two of my own defects caught before commit this time, both by reading: a helper that
+committed the forbidden `toISOString().slice` (again! — deleted in favour of the
+`shiftLocalDate` that already existed) and a tautological window expression. The live dry
+run against the real project planned zero notices — correct twice over: no live guardian
+carries the signatory flag yet, and the Railway service itself is config-only until somebody
+creates it in the dashboard. Recorded in the wiki as exactly that, not as "deployed".
+
 ### Found along the way
 
 The under-2 ratio table in `ratios.ts` **matches** the myece.org.nz reproduction of Schedule 2

@@ -1,0 +1,34 @@
+{
+  "$schema": "https://railway.com/railway.schema.json",
+
+  "//": [
+    "The scheduler: a Railway cron service, committed for the same reason railway.json is —",
+    "a schedule that exists only in somebody's dashboard is a schedule nobody can review",
+    "and nobody can restore. Create a second service in the same Railway project, point its",
+    "config file at THIS file, and set two variables on it:",
+    "",
+    "  SUPABASE_URL                (or NEXT_PUBLIC_SUPABASE_URL)",
+    "  SUPABASE_SERVICE_ROLE_KEY",
+    "  ECE_SCHEDULER_LIVE=yes      — without it every run is a dry run that sends nothing",
+    "",
+    "Daily at 20:00 UTC, which is 08:00 NZST / 09:00 NZDT — after the morning drop-off has",
+    "started, before the office sits down. The job is idempotent by construction (the",
+    "planner reads its own ledger: one ask per calendar week, three per period), so a",
+    "daily tick is safe and a missed day costs one day, not a duplicate.",
+    "",
+    "Cron here is UTC and this repo's rule about New Zealand mornings cuts the OTHER way",
+    "for once: 20:00 UTC is always the NEXT New Zealand morning, on both sides of",
+    "daylight saving, so the centre-calendar day the job computes is stable at this hour."
+  ],
+
+  "build": {
+    "builder": "NIXPACKS",
+    "buildCommand": "npm run build -w @ece/core && npm run build -w @ece/api"
+  },
+
+  "deploy": {
+    "cronSchedule": "0 20 * * *",
+    "startCommand": "npm run schedule:run -- verification-chase",
+    "restartPolicyType": "NEVER"
+  }
+}
