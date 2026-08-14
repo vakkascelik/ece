@@ -1,7 +1,14 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { kioskGuardians, kioskSignChild, type KioskGuardian } from '@ece/api';
+import {
+  kioskGuardians,
+  kioskSignChild,
+  kioskVerifyAttendance,
+  kioskWeekAttendance,
+  type KioskGuardian,
+  type KioskWeekEvent,
+} from '@ece/api';
 import { actionError } from '@/lib/actionError';
 import { requireKiosk } from '@/lib/auth';
 import { serverDb } from '@/lib/supabase';
@@ -44,6 +51,12 @@ const MESSAGES: Record<string, string> = {
     'Too many wrong PINs, so this one is locked for a few minutes. Please ask a kaiako to sign in for you.',
   no_pin: 'No PIN has been set up for you yet. Ask the office and they will sort it out.',
   not_permitted: 'That is not something this tablet can do. Please ask a kaiako.',
+  // The review flow. `not_ended` and `bad_period` mean this screen computed a wrong
+  // window — a defect, not a family's mistake — so both borrow the not_permitted voice
+  // rather than explaining a boundary a parent cannot act on.
+  not_ended: 'That is not something this tablet can do. Please ask a kaiako.',
+  bad_period: 'That is not something this tablet can do. Please ask a kaiako.',
+  comment_required: 'Please say what looks wrong, so the office knows what to check.',
 };
 
 export type SignResult = { error: string } | { ok: true; message: string | null };
@@ -93,5 +106,73 @@ export async function signAtDoor(_prev: unknown, form: FormData): Promise<SignRe
       it.
     */
     return actionError(e, 'kiosk.signAtDoor');
+  }
+}
+
+// ---------------------------------------------------------------------------
+// §6-3 verification at the door (0062)
+// ---------------------------------------------------------------------------
+
+export type ReviewWeekResult =
+  | { error: string }
+  | { ok: true; timezone: string; events: KioskWeekEvent[] }
+  | { ok: false; message: string };
+
+/**
+ * Unlock last week's record with a PIN, so it can be read before it is signed.
+ *
+ * The period arrives from the client, but the client got it from the server page, and
+ * `kiosk_week_attendance` re-validates it anyway — ended, ordered, no longer than a
+ * month. The form is not the boundary; it never is on this screen.
+ */
+export async function reviewWeek(input: {
+  childId: string;
+  guardianId: string;
+  from: string;
+  to: string;
+  pin: string;
+}): Promise<ReviewWeekResult> {
+  await requireKiosk();
+  const db = await serverDb();
+
+  if (!/^[0-9]{4,8}$/.test(input.pin)) return { ok: false, message: 'A PIN is four to eight numbers.' };
+
+  try {
+    const result = await kioskWeekAttendance(db, input);
+    if (result.status === 'ok') {
+      return { ok: true, timezone: result.timezone, events: result.events };
+    }
+    return { ok: false, message: MESSAGES[result.status] ?? MESSAGES.not_permitted! };
+  } catch (e) {
+    return actionError(e, 'kiosk.reviewWeek');
+  }
+}
+
+export type VerifyResult = { error: string } | { ok: true; message: string | null };
+
+/** Record the outcome over the week the signatory was just shown. */
+export async function verifyAtDoor(input: {
+  childId: string;
+  guardianId: string;
+  from: string;
+  to: string;
+  outcome: 'approved' | 'disputed';
+  comment: string;
+  pin: string;
+}): Promise<VerifyResult> {
+  await requireKiosk();
+  const db = await serverDb();
+
+  if (!/^[0-9]{4,8}$/.test(input.pin)) return { ok: true, message: 'A PIN is four to eight numbers.' };
+
+  try {
+    const outcome = await kioskVerifyAttendance(db, {
+      ...input,
+      comment: input.comment.trim() === '' ? null : input.comment.trim(),
+    });
+    if (outcome === 'recorded') return { ok: true, message: null };
+    return { ok: true, message: MESSAGES[outcome] ?? MESSAGES.not_permitted! };
+  } catch (e) {
+    return actionError(e, 'kiosk.verifyAtDoor');
   }
 }

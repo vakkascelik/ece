@@ -182,14 +182,81 @@ corrections. A unique constraint would make the dispute path unrepresentable and
 resolution to be an `UPDATE`, on an append-only table — the contradiction that would have
 quietly turned this back into a status column.
 
+## The kiosk path (0062): show, then sign
+
+Most of the families this exists for will never hold a portal login. They stand at the door
+tablet twice a day, and [[kiosk-and-pins]] already gave each of them an authentication
+factor. `0062` lets that factor sign — which is §6-3 criterion 1 stated as code: the means
+of creating the signature is linked to one person, and here the means *is* the PIN.
+
+A kiosk session's `auth.uid()` is the tablet, so the 0061 policy refuses it forever,
+correctly. The functions restate the policy's conditions in their own bodies — and a
+restated condition can quietly diverge, so the suite holds both texts to the same answers
+against the same people, and the divergence case is mutation-drilled live (below).
+
+**Two functions, because criterion 6 forbids a rubber stamp.** The signature must indicate
+approval of "the information to which the signature relates", so the week has to be ON the
+screen before it can be signed over:
+
+1. `kiosk_week_attendance` — PIN-gated, returns the week's times plus the centre's
+   timezone, so no tablet renders the instants in whatever locale the hardware shipped with.
+2. `kiosk_verify_attendance` — records the outcome over what was shown.
+
+The week view is **not** offered without the PIN, though guardian names on the sign-in
+screen are. A week of times is a pattern — who collects, which days a child is there — and
+custody arrangements are the reason that pattern is not readable by whoever is standing at
+an unattended tablet. The sign-in screen shows one name at one moment; a week is gated.
+
+**What that costs, stated:** the client holds the plaintext PIN in component state between
+the two calls — entered once, used twice, never persisted. 0044's property that the *hash*
+never leaves Postgres is intact; the plaintext already transits on every sign-in tap.
+Demanding the PIN twice would make disputes rarer than they should be (the second entry is
+the one people abandon), and one combined show-and-sign call is the rubber stamp.
+
+**One lockout counter, shared.** A wrong PIN at the review screen is the same brute-force
+attempt as a wrong PIN at the door, and a second counter would double the attacker's
+budget. The 0044 check-and-count logic moved into `kiosk_pin_gate`, with EXECUTE granted
+to **no role at all** — callable only from inside another definer body, because as a public
+function it would be a PIN oracle unscoped by `caller_kiosk_centre_id()`. The suite asserts
+the direct call gets `42501`.
+
+**The grandmother is the whole of criterion 4.** The suite's sharpest case is not Quinn
+(wrong child) but Ana's grandmother: a live guardian of the *right* child with a *working*
+PIN, whom the centre never named a signatory. A lazy predicate — "is a guardian, has a
+PIN" — passes her; the real one refuses her before the PIN gate runs, so the refusal does
+not leak whether a PIN exists. The live mutation drill deletes the signatory predicate from
+the shipped function body (derived from the migration file, not hand-copied) and the suite
+fails on exactly her line — *"and cannot sign it either, got recorded"* — then restores and
+passes.
+
+**No idempotency key, unlike every other kiosk write.** A duplicated sign-in is a wrong
+roll and a wrong claim; a duplicated verification is two rows saying the same thing seconds
+apart, and the newest-wins rule makes the outcome identical. The failure a retry can
+produce is benign, so the machinery to prevent it would be dead weight with a security
+surface.
+
+**The week offered is computed server-side** by `lastCompletedWeek()` in `@ece/core` —
+Monday-start because funding.ts caps per ISO week, and a verification week that disagreed
+with the funding week would have a family signing a slice of two claims and the whole of
+neither. On a Sunday the running week is not offered; `kiosk_week_attendance` re-checks
+`not_ended` regardless, so the door agrees with `summariseVerification` about what
+`not-yet-due` means.
+
 ## What is not built yet
 
-`0061` is the record and the derivation. Still outstanding, in order:
+`0061` is the record and the derivation; `0062` is the door. Still outstanding, in order:
 
-- The kiosk definer function, so a signatory can verify with the PIN they already have.
-- The parent-portal screen and the staff view of what needs attention.
+- The parent-portal screen and the staff view of what needs attention (`needsAttention`
+  is built and tested; no page calls it).
 - The weekly release and the reminder chain, which need a scheduler this repo does not have.
-- The inspector-shaped export for criterion 12.
+- The inspector-shaped export for criterion 12, which should state per row **how** each
+  signature was given — the `method` column exists for exactly that sentence.
+
+Naming signatories is **not** on this list: the whānau tab carries an "Attendance
+signatory" checkbox beside "May collect", unticked by default, and deliberately a separate
+authority — taking a child home and signing off the funded hours are different questions.
+Without it the kiosk draws no review button for anybody and everything above is dormant,
+which is why it shipped in the same commit as the door.
 
 ## See Also
 

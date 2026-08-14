@@ -57,6 +57,13 @@ export interface ChildGuardian {
    */
   canCollect: boolean;
   isEmergencyContact: boolean;
+  /**
+   * May this guardian verify the child's attendance record — ECE Funding Handbook 6-3
+   * criterion 4 (0061). Named by the centre, never inferred: collecting a child and
+   * signing off the funded hours are different authorities, which is why this is not
+   * `canCollect` under another name.
+   */
+  isAuthorisedSignatory: boolean;
   contactPriority: number;
   revokedAt: string | null;
 }

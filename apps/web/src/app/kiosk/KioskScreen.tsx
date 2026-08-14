@@ -1,8 +1,9 @@
 'use client';
 
 import { useActionState, useEffect, useState, useTransition } from 'react';
-import type { KioskChild, KioskGuardian } from '@ece/api';
-import { loadGuardians, signAtDoor, type SignResult } from './actions';
+import type { KioskChild, KioskGuardian, KioskWeekEvent } from '@ece/api';
+import { shiftLocalDate } from '@ece/core';
+import { loadGuardians, reviewWeek, signAtDoor, verifyAtDoor, type SignResult } from './actions';
 
 /**
  * Three steps: which child, which adult, what PIN.
@@ -15,14 +16,43 @@ import { loadGuardians, signAtDoor, type SignResult } from './actions';
  * anywhere else. It is not in a URL, not in `localStorage`, not in a cookie, and there
  * is no offline queue that could hold it. That is the whole reason 0044 compares it
  * inside Postgres.
+ *
+ * The review flow (0062) holds it slightly longer, and that is a stated cost, not a
+ * slip: the PIN unlocks the week (`review-pin`) and then signs the outcome over what was
+ * shown (`review`) — entered once, used twice, still never persisted. Demanding it twice
+ * would make disputes rarer than they should be, and signing without showing is the
+ * rubber stamp §6-3 criterion 6 forbids.
  */
 
 type Step =
   | { at: 'roll' }
   | { at: 'guardian'; child: KioskChild; guardians: KioskGuardian[] }
-  | { at: 'pin'; child: KioskChild; guardian: KioskGuardian };
+  | { at: 'pin'; child: KioskChild; guardian: KioskGuardian }
+  | { at: 'review-pin'; child: KioskChild; guardian: KioskGuardian }
+  | {
+      at: 'review';
+      child: KioskChild;
+      guardian: KioskGuardian;
+      pin: string;
+      timezone: string;
+      events: KioskWeekEvent[];
+    };
 
-export function KioskScreen({ roll, centreId }: { roll: KioskChild[]; centreId: string }) {
+/** The completed week the server computed in the centre's own calendar. */
+export interface ReviewWeek {
+  from: string;
+  to: string;
+}
+
+export function KioskScreen({
+  roll,
+  centreId,
+  week,
+}: {
+  roll: KioskChild[];
+  centreId: string;
+  week: ReviewWeek;
+}) {
   const [step, setStep] = useState<Step>({ at: 'roll' });
   const [problem, setProblem] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
@@ -117,12 +147,32 @@ export function KioskScreen({ roll, centreId }: { roll: KioskChild[]; centreId: 
           step={step}
           onBack={() => setStep({ at: 'roll' })}
           onChoose={(guardian) => setStep({ at: 'pin', child: step.child, guardian })}
+          onReview={(guardian) => setStep({ at: 'review-pin', child: step.child, guardian })}
         />
-      ) : (
+      ) : step.at === 'pin' ? (
         <PinPad
           step={step}
           onBack={() => setStep({ at: 'roll' })}
           onSigned={(message) => {
+            setStep({ at: 'roll' });
+            setDone(message);
+          }}
+        />
+      ) : step.at === 'review-pin' ? (
+        <ReviewPinPanel
+          step={step}
+          week={week}
+          onBack={() => setStep({ at: 'roll' })}
+          onUnlocked={(pin, timezone, events) =>
+            setStep({ at: 'review', child: step.child, guardian: step.guardian, pin, timezone, events })
+          }
+        />
+      ) : (
+        <ReviewPanel
+          step={step}
+          week={week}
+          onBack={() => setStep({ at: 'roll' })}
+          onDone={(message) => {
             setStep({ at: 'roll' });
             setDone(message);
           }}
@@ -178,10 +228,12 @@ function GuardianPicker({
   step,
   onBack,
   onChoose,
+  onReview,
 }: {
   step: Extract<Step, { at: 'guardian' }>;
   onBack: () => void;
   onChoose: (guardian: KioskGuardian) => void;
+  onReview: (guardian: KioskGuardian) => void;
 }) {
   // Signing OUT needs `can_collect`; signing IN does not. Enforced again in Postgres —
   // this only decides what is worth offering.
@@ -204,6 +256,17 @@ function GuardianPicker({
                 {blocked && <span className="kiosk-note">not on the collection list</span>}
                 {!blocked && !g.hasPin && <span className="kiosk-note">no PIN set up yet</span>}
               </button>
+              {/*
+                Drawn only for a named signatory with a PIN — the same display-only
+                filtering as `canCollect` above, re-enforced by both 0062 functions.
+                A secondary control rather than a second row, because the person mid
+                sign-in at 8am must never mistake it for the button they came for.
+              */}
+              {g.isSignatory && g.hasPin && (
+                <button type="button" className="kiosk-review" onClick={() => onReview(g)}>
+                  Check last week&rsquo;s attendance
+                </button>
+              )}
             </li>
           );
         })}
@@ -276,42 +339,7 @@ function PinPad({
         <input type="hidden" name="clientUuid" value={key ?? ''} />
         <input type="hidden" name="pin" value={pin} />
 
-        <p className="kiosk-dots" aria-live="polite">
-          {/* The count, not the digits. A PIN echoed on a screen in an entrance is a
-              PIN the person behind you can read. */}
-          {pin.length === 0 ? 'No numbers yet' : '•'.repeat(pin.length)}
-          <span className="visually-hidden">{pin.length} numbers entered</span>
-        </p>
-
-        <div className="kiosk-pad">
-          {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((d) => (
-            <button
-              key={d}
-              type="button"
-              onClick={() => setPin((p) => (p.length < 8 ? p + d : p))}
-              disabled={pending}
-            >
-              {d}
-            </button>
-          ))}
-          <button type="button" onClick={() => setPin('')} disabled={pending}>
-            Clear
-          </button>
-          <button
-            type="button"
-            onClick={() => setPin((p) => (p.length < 8 ? `${p}0` : p))}
-            disabled={pending}
-          >
-            0
-          </button>
-          <button
-            type="button"
-            onClick={() => setPin((p) => p.slice(0, -1))}
-            disabled={pending}
-          >
-            Back
-          </button>
-        </div>
+        <PadGrid pin={pin} onPin={setPin} disabled={pending} />
 
         <div className="kiosk-actions">
           <button type="submit" disabled={pending || pin.length < 4 || key === null}>
@@ -322,6 +350,285 @@ function PinPad({
           </button>
         </div>
       </form>
+    </section>
+  );
+}
+
+/**
+ * The dots and the digits, shared by every PIN entry on this screen.
+ *
+ * Extracted when 0062 added a second PIN moment — one pad, so the sign-in flow and the
+ * review flow cannot drift on the property that matters: the count is echoed, the digits
+ * never are. A PIN echoed on a screen in an entrance is a PIN the person behind you can
+ * read.
+ */
+function PadGrid({
+  pin,
+  onPin,
+  disabled,
+}: {
+  pin: string;
+  onPin: (next: (p: string) => string) => void;
+  disabled: boolean;
+}) {
+  return (
+    <>
+      <p className="kiosk-dots" aria-live="polite">
+        {pin.length === 0 ? 'No numbers yet' : '•'.repeat(pin.length)}
+        <span className="visually-hidden">{pin.length} numbers entered</span>
+      </p>
+
+      <div className="kiosk-pad">
+        {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((d) => (
+          <button
+            key={d}
+            type="button"
+            onClick={() => onPin((p) => (p.length < 8 ? p + d : p))}
+            disabled={disabled}
+          >
+            {d}
+          </button>
+        ))}
+        <button type="button" onClick={() => onPin(() => '')} disabled={disabled}>
+          Clear
+        </button>
+        <button
+          type="button"
+          onClick={() => onPin((p) => (p.length < 8 ? `${p}0` : p))}
+          disabled={disabled}
+        >
+          0
+        </button>
+        <button type="button" onClick={() => onPin((p) => p.slice(0, -1))} disabled={disabled}>
+          Back
+        </button>
+      </div>
+    </>
+  );
+}
+
+/**
+ * Step one of the review: the PIN unlocks the week — §6-3's "information to which the
+ * signature relates" has to be on screen before anything can be signed over it.
+ */
+function ReviewPinPanel({
+  step,
+  week,
+  onBack,
+  onUnlocked,
+}: {
+  step: Extract<Step, { at: 'review-pin' }>;
+  week: ReviewWeek;
+  onBack: () => void;
+  onUnlocked: (pin: string, timezone: string, events: KioskWeekEvent[]) => void;
+}) {
+  const [pin, setPin] = useState('');
+  const [problem, setProblem] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+
+  function unlock() {
+    setProblem(null);
+    start(async () => {
+      const result = await reviewWeek({
+        childId: step.child.childId,
+        guardianId: step.guardian.guardianId,
+        from: week.from,
+        to: week.to,
+        pin,
+      });
+      if ('error' in result) {
+        setProblem(result.error);
+        return;
+      }
+      if (!result.ok) {
+        // A refusal the server phrased — wrong PIN, locked. Clear and stay, as the
+        // sign-in pad does, so a mistype does not restart from the roll.
+        setProblem(result.message);
+        setPin('');
+        return;
+      }
+      onUnlocked(pin, result.timezone, result.events);
+    });
+  }
+
+  return (
+    <section className="kiosk-panel">
+      <h2>
+        {step.guardian.fullName}, checking {step.child.displayName}&rsquo;s week
+      </h2>
+      <p className="kiosk-sub">Enter your PIN to see last week&rsquo;s attendance.</p>
+
+      {problem && (
+        <p className="kiosk-problem" role="alert">
+          {problem}
+        </p>
+      )}
+
+      <PadGrid pin={pin} onPin={setPin} disabled={pending} />
+
+      <div className="kiosk-actions">
+        <button type="button" onClick={unlock} disabled={pending || pin.length < 4}>
+          {pending ? 'Just a moment…' : 'Show me the week'}
+        </button>
+        <button type="button" className="kiosk-back" onClick={onBack} disabled={pending}>
+          Cancel
+        </button>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Step two: the week itself, and the signature over it.
+ *
+ * Times render in the CENTRE's timezone, carried back by the function — never the
+ * tablet's locale, which is whatever the hardware shipped with. The seven days are
+ * always drawn, including empty ones: "nothing recorded on Wednesday" is information a
+ * family may want to dispute, and a list that skips quiet days hides exactly the row
+ * that is wrong.
+ */
+function ReviewPanel({
+  step,
+  week,
+  onBack,
+  onDone,
+}: {
+  step: Extract<Step, { at: 'review' }>;
+  week: ReviewWeek;
+  onBack: () => void;
+  onDone: (message: string) => void;
+}) {
+  const [disputing, setDisputing] = useState(false);
+  const [comment, setComment] = useState('');
+  const [problem, setProblem] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+
+  function send(outcome: 'approved' | 'disputed') {
+    setProblem(null);
+    start(async () => {
+      const result = await verifyAtDoor({
+        childId: step.child.childId,
+        guardianId: step.guardian.guardianId,
+        from: week.from,
+        to: week.to,
+        outcome,
+        comment,
+        pin: step.pin,
+      });
+      if ('error' in result) {
+        setProblem(result.error);
+        return;
+      }
+      if (result.message !== null) {
+        setProblem(result.message);
+        return;
+      }
+      onDone(
+        outcome === 'approved'
+          ? `Last week is confirmed for ${step.child.displayName}. Ka pai!`
+          : 'Thank you — the office will take a look and come back to you.',
+      );
+    });
+  }
+
+  // Group the instants into the centre's calendar days. en-CA because its date style
+  // is YYYY-MM-DD, which matches the keys the seven-day loop below builds.
+  const dayOf = new Intl.DateTimeFormat('en-CA', {
+    timeZone: step.timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  const timeOf = new Intl.DateTimeFormat('en-NZ', {
+    timeZone: step.timezone,
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+  const byDay = new Map<string, KioskWeekEvent[]>();
+  for (const e of step.events) {
+    const day = dayOf.format(new Date(e.at));
+    byDay.set(day, [...(byDay.get(day) ?? []), e]);
+  }
+
+  const days: { date: string; label: string; events: KioskWeekEvent[] }[] = [];
+  for (let i = 0; i < 7; i++) {
+    const date = shiftLocalDate(week.from, i);
+    const [y, m, d] = date.split('-').map(Number);
+    // UTC on the parts: the string is already a centre-calendar day, and the tablet's
+    // own zone must not shift it while turning it into a weekday name.
+    const label = new Intl.DateTimeFormat('en-NZ', {
+      timeZone: 'UTC',
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+    }).format(new Date(Date.UTC(y as number, (m as number) - 1, d as number)));
+    days.push({ date, label, events: byDay.get(date) ?? [] });
+  }
+
+  return (
+    <section className="kiosk-panel">
+      <h2>{step.child.displayName}&rsquo;s week</h2>
+      <p className="kiosk-sub">
+        If this looks right, confirm it. If something is off, tell the office.
+      </p>
+
+      {problem && (
+        <p className="kiosk-problem" role="alert">
+          {problem}
+        </p>
+      )}
+
+      <ul className="kiosk-week">
+        {days.map((day) => (
+          <li key={day.date}>
+            <span className="kiosk-week-day">{day.label}</span>
+            <span className="kiosk-week-times">
+              {day.events.length === 0
+                ? 'nothing recorded'
+                : day.events
+                    .map((e) => `${e.kind === 'in' ? 'in' : 'out'} ${timeOf.format(new Date(e.at))}`)
+                    .join(', ')}
+            </span>
+          </li>
+        ))}
+      </ul>
+
+      {disputing && (
+        <label className="kiosk-comment">
+          What looks wrong?
+          <textarea
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            rows={2}
+            disabled={pending}
+          />
+        </label>
+      )}
+
+      <div className="kiosk-actions">
+        {disputing ? (
+          <button
+            type="button"
+            onClick={() => send('disputed')}
+            disabled={pending || comment.trim().length === 0}
+          >
+            {pending ? 'Just a moment…' : 'Send to the office'}
+          </button>
+        ) : (
+          <>
+            <button type="button" onClick={() => send('approved')} disabled={pending}>
+              {pending ? 'Just a moment…' : 'That’s right — confirm it'}
+            </button>
+            <button type="button" onClick={() => setDisputing(true)} disabled={pending}>
+              Something&rsquo;s not right
+            </button>
+          </>
+        )}
+        <button type="button" className="kiosk-back" onClick={onBack} disabled={pending}>
+          Cancel
+        </button>
+      </div>
     </section>
   );
 }

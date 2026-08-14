@@ -60,6 +60,40 @@ typecheck ×5, lint, 419 core tests (19 new), tokens, docs links, web build.
 matters most here has not run. The tree holds the work; the commit waits for a live PAT or a
 `SUPABASE_DB_URL`.
 
+### Same day, second commit — 0062: the PIN becomes a signature
+
+The portal path shipped in the morning was honest and useless to most families: they will
+never hold a login, and they already authenticate at the door twice a day. `0062` gives the
+0044 PIN a second job as the §6-3 electronic signature — two definer functions, because
+criterion 6 forbids signing what was never displayed: `kiosk_week_attendance` (PIN-gated,
+returns the week plus the centre's timezone) then `kiosk_verify_attendance` (records the
+outcome). The PIN is held in component state between the two calls — entered once, used
+twice, never persisted — and that trade is argued in the migration header rather than made
+silently.
+
+The check-and-count logic moved into `kiosk_pin_gate`, EXECUTE granted to **no role** —
+callable only from inside another definer body, because as a public function it would be a
+PIN oracle unscoped by `caller_kiosk_centre_id()`. One lockout budget across the door and
+the review. `kiosk_sign_child` keeps its proven inline copy untouched.
+
+The suite's sharpest new case is not Quinn but **Ana's grandmother**: live guardian of the
+*right* child, working PIN, never named a signatory. A lazy predicate passes her. The live
+mutation drill — the weakened body derived from the migration file itself, not hand-copied —
+deleted the signatory line and the suite failed on exactly her assertion (*"and cannot sign
+it either, got recorded"*), then restored and passed. 474/474 after fourteen new assertions.
+
+The office half shipped in the same commit because without it the whole feature is dormant:
+an "Attendance signatory" checkbox on the whānau tab, beside "May collect" and deliberately
+not it — taking a child home and signing off funded hours are different authorities.
+
+Gates: typecheck ×5, lint, 424 unit tests, RLS 474/474 live, security 16/16, build, docs,
+tokens. The kiosk e2e spec ran against the production build — 6/6, including the
+accessibility audit, so the PadGrid extraction regressed nothing. **Not covered by e2e:**
+the review flow itself, because the e2e fixture names no signatory; the function paths are
+covered by the RLS suite, and driving the two-step UI end-to-end is recorded as the gap it
+is. First-load bundle re-measured: 113.0kB, identical — the kiosk work is route-scoped and
+added zero first-load bytes; the pre-existing 7kB overage stands, still unattributed.
+
 ### Found along the way
 
 The under-2 ratio table in `ratios.ts` **matches** the myece.org.nz reproduction of Schedule 2

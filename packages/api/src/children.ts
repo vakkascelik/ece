@@ -91,7 +91,7 @@ const toGuardian = (r: GuardianRow): Guardian => ({
 });
 
 const LINK_COLUMNS =
-  'id, child_id, guardian_id, relationship, is_primary, can_collect, is_emergency_contact, contact_priority, revoked_at';
+  'id, child_id, guardian_id, relationship, is_primary, can_collect, is_emergency_contact, is_authorised_signatory, contact_priority, revoked_at';
 
 interface LinkRow {
   id: string;
@@ -101,6 +101,7 @@ interface LinkRow {
   is_primary: boolean;
   can_collect: boolean;
   is_emergency_contact: boolean;
+  is_authorised_signatory: boolean;
   contact_priority: number;
   revoked_at: string | null;
 }
@@ -113,6 +114,7 @@ const toLink = (r: LinkRow): ChildGuardian => ({
   isPrimary: r.is_primary,
   canCollect: r.can_collect,
   isEmergencyContact: r.is_emergency_contact,
+  isAuthorisedSignatory: r.is_authorised_signatory,
   contactPriority: r.contact_priority,
   revokedAt: r.revoked_at,
 });
@@ -436,6 +438,8 @@ export async function linkGuardian(
     isPrimary?: boolean;
     canCollect?: boolean;
     isEmergencyContact?: boolean;
+    /** Defaults false, like the column — a signatory is named, never assumed. */
+    isAuthorisedSignatory?: boolean;
     contactPriority?: number;
   },
 ): Promise<void> {
@@ -446,6 +450,7 @@ export async function linkGuardian(
     is_primary: input.isPrimary ?? false,
     can_collect: input.canCollect ?? true,
     is_emergency_contact: input.isEmergencyContact ?? false,
+    is_authorised_signatory: input.isAuthorisedSignatory ?? false,
     contact_priority: input.contactPriority ?? 100,
   });
   if (error) throw new Error(`linkGuardian: ${error.message}`);
@@ -454,7 +459,15 @@ export async function linkGuardian(
 export async function updateGuardianLink(
   db: Db,
   linkId: string,
-  patch: { relationship?: string; isPrimary?: boolean; canCollect?: boolean; isEmergencyContact?: boolean; contactPriority?: number },
+  patch: {
+    relationship?: string;
+    isPrimary?: boolean;
+    canCollect?: boolean;
+    isEmergencyContact?: boolean;
+    contactPriority?: number;
+    /** §6-3 criterion 4 (0061): may this guardian verify this child's attendance record? */
+    isAuthorisedSignatory?: boolean;
+  },
 ): Promise<void> {
   const row: Record<string, unknown> = {};
   if (patch.relationship !== undefined) row.relationship = patch.relationship;
@@ -462,6 +475,7 @@ export async function updateGuardianLink(
   if (patch.canCollect !== undefined) row.can_collect = patch.canCollect;
   if (patch.isEmergencyContact !== undefined) row.is_emergency_contact = patch.isEmergencyContact;
   if (patch.contactPriority !== undefined) row.contact_priority = patch.contactPriority;
+  if (patch.isAuthorisedSignatory !== undefined) row.is_authorised_signatory = patch.isAuthorisedSignatory;
   if (Object.keys(row).length === 0) return;
 
   const { error } = await db.from('child_guardians').update(row).eq('id', linkId);

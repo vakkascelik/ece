@@ -139,6 +139,8 @@ function GuardianRow({
           ) : (
             <span className="flag flag-critical">✗ must NOT collect</span>
           )}
+          {/* Quiet, not ok-toned: it is an administrative authority, not a safety state. */}
+          {entry.isAuthorisedSignatory && <span className="flag flag-quiet">signatory</span>}
         </span>
         {canEdit && <DoorPin childId={childId} entry={entry} pin={pin} />}
       </td>
@@ -227,6 +229,17 @@ function EditGuardianForm({
             contact
           </label>
           <label>
+            {/* §6-3 criterion 4. Unticked by default and separate from "may collect" on
+                purpose: taking a child home and signing off the funded hours are
+                different authorities, and the kiosk offers the week only to this one. */}
+            <input
+              type="checkbox"
+              name="isAuthorisedSignatory"
+              defaultChecked={entry.isAuthorisedSignatory}
+            />{' '}
+            Attendance signatory
+          </label>
+          <label>
             Ring order
             <input
               name="contactPriority"
@@ -304,6 +317,9 @@ function GuardianForm({ childId, onDone }: { childId: string; onDone: () => void
           </label>
           <label>
             <input type="checkbox" name="isEmergencyContact" /> Emergency contact
+          </label>
+          <label>
+            <input type="checkbox" name="isAuthorisedSignatory" /> Attendance signatory
           </label>
           <label>
             Ring order

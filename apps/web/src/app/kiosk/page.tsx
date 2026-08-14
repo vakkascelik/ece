@@ -1,4 +1,5 @@
-import { kioskRoll } from '@ece/api';
+import { kioskRoll, listMyCentres } from '@ece/api';
+import { lastCompletedWeek, todayInZone } from '@ece/core';
 import { requireKiosk } from '@/lib/auth';
 import { serverDb } from '@/lib/supabase';
 import { KioskScreen } from './KioskScreen';
@@ -52,5 +53,19 @@ export default async function KioskPage() {
   const db = await serverDb();
   const roll = await kioskRoll(db);
 
-  return <KioskScreen roll={roll} centreId={ctx.centreId} />;
+  /*
+    The week offered for §6-3 review, computed HERE in the centre's own calendar. A kiosk
+    may read its own centre row (the RLS suite asserts exactly that), and the tablet's
+    clock decides nothing: on a Monday morning in Auckland, a tablet still thinking in
+    UTC is living yesterday, which is the wrong side of the only boundary this
+    computation has. `kiosk_week_attendance` re-checks the window regardless.
+  */
+  const centre = (await listMyCentres(db)).find((c) => c.id === ctx.centreId);
+  const { periodStart, periodEnd } = lastCompletedWeek(
+    todayInZone(centre?.timezone ?? 'Pacific/Auckland'),
+  );
+
+  return (
+    <KioskScreen roll={roll} centreId={ctx.centreId} week={{ from: periodStart, to: periodEnd }} />
+  );
 }

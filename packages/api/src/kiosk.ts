@@ -36,6 +36,11 @@ export interface KioskGuardian {
    */
   canCollect: boolean;
   hasPin: boolean;
+  /**
+   * Whether the "review last week" control is drawn at all. Same contract as
+   * `canCollect`: display only, re-enforced by both 0062 functions.
+   */
+  isSignatory: boolean;
 }
 
 /**
@@ -78,6 +83,7 @@ interface GuardianRow {
   full_name: string;
   can_collect: boolean;
   has_pin: boolean;
+  is_signatory: boolean;
 }
 
 /** The roll, as the three columns 0044 permits. Empty for anyone who is not a kiosk. */
@@ -99,7 +105,105 @@ export async function kioskGuardians(db: Db, childId: string): Promise<KioskGuar
     fullName: r.full_name,
     canCollect: r.can_collect,
     hasPin: r.has_pin,
+    isSignatory: r.is_signatory,
   }));
+}
+
+// ---------------------------------------------------------------------------
+// §6-3 verification at the door (0062)
+// ---------------------------------------------------------------------------
+
+/**
+ * Every way the review flow can end. One list for both steps, because the week view and
+ * the signature share their refusals by design — a week that can be shown is a week that
+ * can be signed.
+ */
+export type KioskVerifyOutcome =
+  | 'recorded'
+  | 'wrong_pin'
+  | 'locked'
+  | 'no_pin'
+  | 'not_permitted'
+  | 'not_ended'
+  | 'bad_period'
+  | 'comment_required';
+
+const VERIFY_OUTCOMES: readonly string[] = [
+  'recorded',
+  'wrong_pin',
+  'locked',
+  'no_pin',
+  'not_permitted',
+  'not_ended',
+  'bad_period',
+  'comment_required',
+];
+
+export interface KioskWeekEvent {
+  /** ISO instant. Render with the timezone below, never the tablet's. */
+  at: string;
+  kind: 'in' | 'out';
+}
+
+export type KioskWeekResult =
+  | { status: 'ok'; timezone: string; events: KioskWeekEvent[] }
+  | { status: Exclude<KioskVerifyOutcome, 'recorded' | 'comment_required'> };
+
+/**
+ * The completed week, shown before it can be signed — §6-3 criterion 6. PIN-gated on the
+ * same lockout counter as the door itself.
+ */
+export async function kioskWeekAttendance(
+  db: Db,
+  input: { childId: string; guardianId: string; from: string; to: string; pin: string },
+): Promise<KioskWeekResult> {
+  const { data, error } = await db.rpc('kiosk_week_attendance', {
+    p_child: input.childId,
+    p_guardian: input.guardianId,
+    p_from: input.from,
+    p_to: input.to,
+    p_pin: input.pin,
+  });
+  if (error) throw new Error(`kioskWeekAttendance: ${error.message}`);
+
+  const body = (data ?? {}) as { status?: string; timezone?: string; events?: KioskWeekEvent[] };
+  if (body.status === 'ok' && typeof body.timezone === 'string' && Array.isArray(body.events)) {
+    return { status: 'ok', timezone: body.timezone, events: body.events };
+  }
+  // Same rule as kioskSignChild: anything unrecognised is a refusal, because the
+  // direction that fails in is "a week was shown to somebody it should not have been".
+  const status = typeof body.status === 'string' && VERIFY_OUTCOMES.includes(body.status)
+    ? body.status
+    : 'not_permitted';
+  return { status } as KioskWeekResult;
+}
+
+/** Record the signatory's outcome over the week they were just shown. */
+export async function kioskVerifyAttendance(
+  db: Db,
+  input: {
+    childId: string;
+    guardianId: string;
+    from: string;
+    to: string;
+    outcome: 'approved' | 'disputed';
+    comment: string | null;
+    pin: string;
+  },
+): Promise<KioskVerifyOutcome> {
+  const { data, error } = await db.rpc('kiosk_verify_attendance', {
+    p_child: input.childId,
+    p_guardian: input.guardianId,
+    p_from: input.from,
+    p_to: input.to,
+    p_outcome: input.outcome,
+    p_comment: input.comment,
+    p_pin: input.pin,
+  });
+  if (error) throw new Error(`kioskVerifyAttendance: ${error.message}`);
+  return typeof data === 'string' && VERIFY_OUTCOMES.includes(data)
+    ? (data as KioskVerifyOutcome)
+    : 'not_permitted';
 }
 
 /**

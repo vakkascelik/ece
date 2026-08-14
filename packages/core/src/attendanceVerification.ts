@@ -222,3 +222,30 @@ export function needsAttention(summaries: VerificationSummary[]): VerificationSu
       return byStatus !== 0 ? byStatus : a.periodStart.localeCompare(b.periodStart);
     });
 }
+
+/**
+ * The most recent Monday-to-Sunday week that has fully ended, as of `today`.
+ *
+ * This is the period the kiosk offers a signatory, and the Monday start is not a
+ * preference: funding.ts already applies the weekly cap per ISO week, and a verification
+ * week that disagreed with the funding week would have a family signing off a slice of two
+ * claims and the whole of neither.
+ *
+ * "Fully ended" means the Sunday is strictly before `today`. On a Sunday the running week
+ * still has hours left in it, so the answer is the week before — asking a family to sign a
+ * week that is still happening is the same mistake as `not-yet-due`, made by the caller
+ * instead of the summary.
+ *
+ * `today` is an ISO date already resolved with `todayInZone(centre.timezone)`, not
+ * defaulted, for the reason `summariseVerification` gives.
+ */
+export function lastCompletedWeek(today: string): { periodStart: string; periodEnd: string } {
+  const [y, m, d] = today.split('-').map(Number);
+  // UTC on the parts, so no local timezone can shift the weekday — the daysBetween trick.
+  const dow = new Date(Date.UTC(y as number, (m as number) - 1, d as number)).getUTCDay();
+  // Distance back to the most recent Sunday strictly before today. On Sunday itself
+  // (dow 0) that is a full seven days, because today's week has not ended.
+  const back = dow === 0 ? 7 : dow;
+  const periodEnd = shiftLocalDate(today, -back);
+  return { periodStart: shiftLocalDate(periodEnd, -6), periodEnd };
+}

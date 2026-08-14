@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_CHASE_WINDOW_DAYS,
+  lastCompletedWeek,
   needsAttention,
   summariseVerification,
   type VerificationEvent,
@@ -243,5 +244,54 @@ describe('needsAttention', () => {
       summariseVerification(period(), '2026-08-11'),
     ];
     expect(needsAttention(summaries)).toEqual([]);
+  });
+});
+
+describe('lastCompletedWeek', () => {
+  it('returns the week that ended on the most recent Sunday', () => {
+    // 2026-08-14 is a Friday. The most recent completed week is Mon 3rd – Sun 9th.
+    expect(lastCompletedWeek('2026-08-14')).toEqual({
+      periodStart: '2026-08-03',
+      periodEnd: '2026-08-09',
+    });
+  });
+
+  it('on a Monday, last week ended yesterday', () => {
+    expect(lastCompletedWeek('2026-08-10')).toEqual({
+      periodStart: '2026-08-03',
+      periodEnd: '2026-08-09',
+    });
+  });
+
+  it('on a Sunday, the running week has not ended, so it is the week before', () => {
+    /*
+      2026-08-09 is a Sunday. Its own week still has hours left in it, and offering it
+      for signature would be `not-yet-due` reproduced at the call site. The answer is
+      the week ending the 2nd.
+    */
+    expect(lastCompletedWeek('2026-08-09')).toEqual({
+      periodStart: '2026-07-27',
+      periodEnd: '2026-08-02',
+    });
+  });
+
+  it('crosses a month boundary without arithmetic drift', () => {
+    // 2026-09-02 is a Wednesday; the completed week is Aug 24 – Aug 30.
+    expect(lastCompletedWeek('2026-09-02')).toEqual({
+      periodStart: '2026-08-24',
+      periodEnd: '2026-08-30',
+    });
+  });
+
+  it('agrees with summariseVerification about what is answerable', () => {
+    // Whatever day it is, the week it returns must never read `not-yet-due`.
+    for (const today of ['2026-08-09', '2026-08-10', '2026-08-14', '2026-12-31', '2027-01-01']) {
+      const week = lastCompletedWeek(today);
+      const s = summariseVerification(
+        period({ periodStart: week.periodStart, periodEnd: week.periodEnd }),
+        today,
+      );
+      expect(s.status).not.toBe('not-yet-due');
+    }
   });
 });

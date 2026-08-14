@@ -200,6 +200,7 @@ export async function addGuardian(_prev: unknown, form: FormData): Promise<Resul
       isPrimary: bool(form, 'isPrimary'),
       canCollect: bool(form, 'canCollect'),
       isEmergencyContact: bool(form, 'isEmergencyContact'),
+      isAuthorisedSignatory: bool(form, 'isAuthorisedSignatory'),
       contactPriority: Number(str(form, 'contactPriority')) || 100,
     });
   } catch (e) {
@@ -244,6 +245,7 @@ export async function editGuardian(_prev: unknown, form: FormData): Promise<Resu
       isPrimary: bool(form, 'isPrimary'),
       canCollect: bool(form, 'canCollect'),
       isEmergencyContact: bool(form, 'isEmergencyContact'),
+      isAuthorisedSignatory: bool(form, 'isAuthorisedSignatory'),
       contactPriority: Number(str(form, 'contactPriority')) || 100,
     });
   } catch (e) {

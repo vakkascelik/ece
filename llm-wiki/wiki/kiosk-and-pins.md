@@ -220,11 +220,36 @@ is not in the union is a TS2367 — so the obvious ways to write "treat every re
 will not build. The realistic bug is `result.outcome !== 'not_permitted'`, which typechecks, ships
 a wrong PIN as a success, and fails the e2e on exactly that line.
 
+### The second thing a PIN does (0062)
+
+The PIN was built to attest a sign-in. §6-3 verification gave it a second job: it is now the
+electronic signature with which a **named signatory** approves or disputes a completed week
+of attendance, from the same tablet — see [[attendance-verification]] for the whole design.
+
+What belongs on this page is what it did to the 0044 machinery:
+
+- **The check-and-count logic moved into `kiosk_pin_gate`**, shared by the door and the
+  review, so both consume one lockout budget. It is callable by **no role at all** —
+  EXECUTE granted to nobody, reachable only from inside another definer body — because as
+  a public function it would be a PIN oracle unscoped by `caller_kiosk_centre_id()`. The
+  suite asserts the direct call gets `42501`. `kiosk_sign_child` keeps its inline copy
+  untouched: rewriting a proven function to save twenty lines is how a proven function
+  stops being one, and the drift risk the helper exists to prevent is between the two NEW
+  callers, which were born sharing it.
+- **`kiosk_guardians` grew `is_signatory`**, which required DROP-and-recreate — adding a
+  column changes the return type, and `create or replace` refuses. Display-only, like
+  `can_collect` beside it; both 0062 functions re-check the real column.
+- **Signing authority is not collecting authority.** The grandmother in the test fixtures
+  collects Ana every day and holds a working PIN, and cannot sign the week, because the
+  centre never named her a signatory. The refusal lands *before* the PIN gate, so it does
+  not leak whether a PIN exists to whoever taps names on an unattended tablet.
+
 ## See Also
 
 - [[tenancy-and-rls]] — `caller_centre_ids()` and the four narrowed policies
 - [[attendance-and-ratios]] — the table this writes into, and its idempotency contract
+- [[attendance-verification]] — the week the PIN now signs, and why it is shown first
 - [[unverified-claims]] — the lockout numbers, and what custody arrangements cannot do
 - [[conventions]] — the table convention this one deliberately breaks
 
-*Last updated: 2026-08-09*
+*Last updated: 2026-08-14*

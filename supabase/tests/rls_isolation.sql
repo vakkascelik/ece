@@ -4298,7 +4298,191 @@ select pg_temp.expect(
   'and another centre''s owner sees no signature at all'
 );
 
+-- ---------------------------------------------------------------------------
+-- 0062 — the PIN becomes a signature: §6-3 verification from the door tablet
+--
+-- The portal block above proves the POLICY. A kiosk session never reaches that policy —
+-- auth.uid() is the tablet — so 0062's definer functions restate every condition in
+-- their own bodies, and a restated condition is a condition that can quietly diverge.
+-- This block holds the two texts to the same answers, against the same people:
+-- Priya may sign, Quinn may not, and — the sharpest case — Ana's own grandmother, a
+-- real guardian of the RIGHT child holding a live PIN, may not either, because the
+-- centre never named her a signatory.
+-- ---------------------------------------------------------------------------
+
+-- A completed week with real attendance, relative to now() so this block cannot rot:
+-- attendance_not_ancient refuses anything older than a fortnight, and the most recent
+-- fully-ended week is at worst thirteen days old.
+set local role postgres;
+do $$
+declare
+  v_tz    text;
+  v_today date;
+  v_end   date;
+begin
+  select timezone into v_tz from public.centres where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  v_today := (now() at time zone v_tz)::date;
+  -- isodow: Mon=1..Sun=7, which is exactly the distance back to the last Sunday that
+  -- has fully ended — the same rule lastCompletedWeek() applies in @ece/core.
+  v_end := v_today - extract(isodow from v_today)::int;
+
+  insert into public.attendance_events (child_id, kind, at, client_uuid)
+  values
+    ('a1111111-1111-4111-8111-111111111111', 'in',
+     ((v_end - 2)::timestamp + interval '8 hours 5 minutes') at time zone v_tz, gen_random_uuid()),
+    ('a1111111-1111-4111-8111-111111111111', 'out',
+     ((v_end - 2)::timestamp + interval '15 hours 12 minutes') at time zone v_tz, gen_random_uuid());
+end $$;
+
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"66666666-6666-4666-8666-666666666666","role":"authenticated"}';
+
+-- The gate itself is callable by NOBODY — not even the kiosk it exists for. As a public
+-- function it would be a PIN oracle unscoped by caller_kiosk_centre_id(), so EXECUTE is
+-- granted to no role and only another definer body can reach it.
+do $$
+declare code text := 'none (the call SUCCEEDED)';
+begin
+  begin
+    perform public.kiosk_pin_gate('d1111111-1111-4111-8111-111111111111', '4821');
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '42501',
+    'kiosk_pin_gate is callable by NOBODY — an open gate is a PIN oracle, got ' || code);
+end $$;
+
+-- The week view refuses a wrong PIN, and the counter machinery is live behind it.
+do $$
+declare
+  v_tz  text; v_end date; v jsonb;
+begin
+  select timezone into v_tz from public.centres where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  v_end := (now() at time zone v_tz)::date - extract(isodow from (now() at time zone v_tz)::date)::int;
+
+  v := public.kiosk_week_attendance('a1111111-1111-4111-8111-111111111111',
+                                    'd1111111-1111-4111-8111-111111111111',
+                                    v_end - 6, v_end, '0000');
+  perform pg_temp.expect(v->>'status' = 'wrong_pin',
+    'the week view refuses a wrong PIN, got ' || (v->>'status'));
+
+  -- With the right PIN it shows the week: both events, and the centre's own timezone
+  -- riding along so no tablet renders these instants in the hardware's locale.
+  v := public.kiosk_week_attendance('a1111111-1111-4111-8111-111111111111',
+                                    'd1111111-1111-4111-8111-111111111111',
+                                    v_end - 6, v_end, '4821');
+  perform pg_temp.expect(v->>'status' = 'ok',
+    'a named signatory with the right PIN is shown the week, got ' || (v->>'status'));
+  perform pg_temp.expect(jsonb_array_length(v->'events') = 2,
+    'and the week holds exactly the two events the fixture wrote');
+  perform pg_temp.expect(v->>'timezone' = v_tz,
+    'and the centre''s timezone rides along for the rendering');
+
+  -- A week still running is refused for SHOWING, not just for signing — the door
+  -- agrees with summariseVerification about what not-yet-due means.
+  v := public.kiosk_week_attendance('a1111111-1111-4111-8111-111111111111',
+                                    'd1111111-1111-4111-8111-111111111111',
+                                    v_end + 1, v_end + 7, '4821');
+  perform pg_temp.expect(v->>'status' = 'not_ended',
+    'a week still running is not even shown, got ' || (v->>'status'));
+end $$;
+
+/*
+ * THE GRANDMOTHER, WHO IS THE WHOLE OF CRITERION 4.
+ *
+ * d3333333 is a live guardian of THIS child with a working PIN ('9134') — she signs Ana
+ * in at the door every day this suite pretends to have. The centre has not named her an
+ * authorised signatory, and §6-3 criterion 4 draws the line exactly there. Quinn (below)
+ * proves the wrong-child case; she proves the right-child-wrong-authority case, which is
+ * the one a lazy predicate — "is a guardian, has a PIN" — would let through.
+ *
+ * The refusal must also arrive BEFORE the PIN gate: a not_permitted that varied by PIN
+ * correctness would leak whether a PIN exists to whoever taps names at an unattended
+ * tablet.
+ */
+do $$
+declare
+  v_tz  text; v_end date; v jsonb; r text;
+begin
+  select timezone into v_tz from public.centres where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  v_end := (now() at time zone v_tz)::date - extract(isodow from (now() at time zone v_tz)::date)::int;
+
+  v := public.kiosk_week_attendance('a1111111-1111-4111-8111-111111111111',
+                                    'd3333333-3333-4333-8333-333333333333',
+                                    v_end - 6, v_end, '9134');
+  perform pg_temp.expect(v->>'status' = 'not_permitted',
+    'a guardian of the RIGHT child with a LIVE PIN who is not a named signatory sees nothing, got ' || (v->>'status'));
+
+  r := public.kiosk_verify_attendance('a1111111-1111-4111-8111-111111111111',
+                                      'd3333333-3333-4333-8333-333333333333',
+                                      v_end - 6, v_end, 'approved', null, '9134');
+  perform pg_temp.expect(r = 'not_permitted',
+    'and cannot sign it either, got ' || r);
+
+  -- Quinn: the wrong-child case, PIN correctness irrelevant and unprobed.
+  r := public.kiosk_verify_attendance('a1111111-1111-4111-8111-111111111111',
+                                      'd2222222-2222-4222-8222-222222222222',
+                                      v_end - 6, v_end, 'approved', null, '4821');
+  perform pg_temp.expect(r = 'not_permitted',
+    'a guardian of a DIFFERENT child is refused before the PIN is even considered, got ' || r);
+end $$;
+
+-- The signature itself: a dispute must say why (front door, before the constraint), and
+-- an approval lands as a kiosk-method row the portal block's policy work then governs.
+do $$
+declare
+  v_tz  text; v_end date; r text;
+begin
+  select timezone into v_tz from public.centres where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  v_end := (now() at time zone v_tz)::date - extract(isodow from (now() at time zone v_tz)::date)::int;
+
+  r := public.kiosk_verify_attendance('a1111111-1111-4111-8111-111111111111',
+                                      'd1111111-1111-4111-8111-111111111111',
+                                      v_end - 6, v_end, 'disputed', '   ', '4821');
+  perform pg_temp.expect(r = 'comment_required',
+    'a dispute with no reason is turned back at the door, got ' || r);
+
+  r := public.kiosk_verify_attendance('a1111111-1111-4111-8111-111111111111',
+                                      'd1111111-1111-4111-8111-111111111111',
+                                      v_end - 6, v_end, 'approved', null, '4821');
+  perform pg_temp.expect(r = 'recorded',
+    'a named signatory approves the week at the door, got ' || r);
+end $$;
+
+-- The kiosk cannot READ what it just wrote — caller_may_see_child answers for people,
+-- and a tablet is not one. The write landed; postgres confirms that below, with the
+-- method recorded so the §6-3 export can say HOW each signature was given.
+do $$
+begin
+  perform pg_temp.expect(
+    (select count(*) from public.attendance_verifications where method = 'kiosk') = 0,
+    'the tablet cannot read back the signature it carried');
+end $$;
+
+set local role postgres;
+do $$
+begin
+  perform pg_temp.expect(
+    (select count(*) from public.attendance_verifications
+      where child_id = 'a1111111-1111-4111-8111-111111111111'
+        and guardian_id = 'd1111111-1111-4111-8111-111111111111'
+        and method = 'kiosk'
+        and outcome = 'approved') = 1,
+    'and the signature is there: one kiosk-method approval, attributed to the signatory');
+end $$;
+set local role authenticated;
+
+-- A real person who is not a kiosk gets nothing from these functions, whatever their
+-- standing — the portal is their path, and it identifies them properly.
 set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+do $$
+declare v jsonb;
+begin
+  v := public.kiosk_week_attendance('a1111111-1111-4111-8111-111111111111',
+                                    'd1111111-1111-4111-8111-111111111111',
+                                    date '2026-08-03', date '2026-08-09', '4821');
+  perform pg_temp.expect(v->>'status' = 'not_permitted',
+    'a signed-in PARENT cannot use the kiosk functions — the portal is their path, got ' || (v->>'status'));
+end $$;
 
 
 -- A blank reason is refused, because the reason is what makes the audit row mean

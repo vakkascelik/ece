@@ -113,6 +113,54 @@
 
 .kiosk-note { font-size: var(--text-base); color: var(--ink-muted); }
 
+/* The §6-3 review controls (0062). The week-check button is quiet on purpose: the
+   person mid sign-in at 8am must never read it as the button they came for. */
+.kiosk-review {
+  margin-top: var(--space-2);
+  font-size: var(--text-base);
+  color: var(--ink-muted);
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: var(--space-2) var(--space-3);
+  cursor: pointer;
+}
+.kiosk-review:hover { border-color: var(--accent); color: var(--ink); }
+
+.kiosk-week {
+  list-style: none;
+  margin: var(--space-4) 0 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+.kiosk-week li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font-size: var(--text-lg);
+}
+.kiosk-week-day { font-weight: 600; }
+.kiosk-week-times { color: var(--ink-muted); text-align: right; }
+
+.kiosk-comment {
+  display: block;
+  margin-top: var(--space-4);
+  font-size: var(--text-lg);
+}
+.kiosk-comment textarea {
+  display: block;
+  width: 100%;
+  margin-top: var(--space-2);
+  font: inherit;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
 .kiosk-panel h2 { font-size: var(--text-2xl); margin: 0 0 var(--space-2); }
 
 .kiosk-dots {
@@ -140,8 +188,11 @@
 }
 .kiosk-pad button:hover { border-color: var(--accent); }
 
-.kiosk-actions { display: flex; gap: var(--space-3); margin-top: var(--space-5); }
-.kiosk-actions button[type='submit'] {
+.kiosk-actions { display: flex; gap: var(--space-3); margin-top: var(--space-5); flex-wrap: wrap; }
+/* Every action that is not the escape hatch is a primary. Was button[type='submit'],
+   which stopped matching when 0062 added actions that call a transition rather than
+   submit a form — same look, different plumbing. */
+.kiosk-actions button:not(.kiosk-back) {
   min-height: var(--target-primary);
   padding: 0 var(--space-6);
   font-size: var(--text-xl);
@@ -151,7 +202,7 @@
   border-radius: var(--radius-md);
   cursor: pointer;
 }
-.kiosk-actions button[type='submit']:disabled { opacity: 0.5; cursor: not-allowed; }
+.kiosk-actions button:not(.kiosk-back):disabled { opacity: 0.5; cursor: not-allowed; }
 
 .kiosk-back {
   min-height: var(--target-primary);
