@@ -462,10 +462,22 @@ owner's instruction, and it is the first time an entry on this page has been clo
 the thing rather than by checking it.
 
 What went: the masthead label on all ten routes, the mark beside it, and the two body-copy sentences
-on `/enrolment` and `/contact`. What stayed: the link itself, which now reads **"Sign in to the
-centre app"** — the wording it had before the name existed. Removing the way in would have cost the
-families and kaiako already at the centre the one link they open the site for, and the instruction
-was about the name, not the link.
+on `/enrolment` and `/contact`.
+
+**CORRECTED LATER THE SAME DAY — the link is gone too, and this entry said it had stayed.** The
+paragraph here read: "What stayed: the link itself, which now reads *Sign in to the centre app* …
+Removing the way in would have cost the families and kaiako already at the centre the one link they
+open the site for, and the instruction was about the name, not the link." That reasoning was mine
+and the owner's instruction was broader: the site is not to refer to the app **at all** yet. So the
+masthead control, the footer link and the remaining unnamed sentences on `/enrolment` and
+`/contact` are all off. There is now no mention of the app anywhere on the public site — asserted
+across all nine routes by a check that greps the rendered text and every `href`.
+
+What is still there is the *infrastructure*, which nobody asked to remove: `middleware.ts` still
+mounts the app at `/portal` on this hostname, `SITE_APP_URL` still resolves, `/api/health` still
+reports on it, and `appUrl()` still works with no caller — see the note on it in
+`apps/site/src/lib/site.ts` for why it was kept rather than deleted. Restoring the link is one
+element; restoring the plumbing would not have been.
 
 The asymmetry this entry was written to warn about is therefore reversed. A rename is once again a
 change to a repo rather than to a customer's live, indexed, archived marketing site. The console,
@@ -481,7 +493,7 @@ that when somebody asks "why are we taking this off", the answer is written down
 | **The claim** | "Doorway" is available to use as a product name in New Zealand |
 | **What is actually verified** | An **unfiltered** IPONZ Trade Mark Check returning no identical word mark in the closest 8 of 25 results. **The domain is no longer part of this row**: `doorway.co.nz` is registered and lapsing, `doorway.nz` is registered and live |
 | **Still unverified** | Co-existence in the classes this product sits in, the 17 results not viewed, the companies register, and **when `doorway.co.nz` is actually released** |
-| **Exposure** | The console's title, favicon, apple-icon and rail, and the mobile app's name, since 2026-08-11. **`apps/site` no longer carries it** — public from 2026-08-07, removed 2026-08-16 |
+| **Exposure** | The console's title, favicon, apple-icon and rail, and the mobile app's name, since 2026-08-11. **`apps/site` no longer carries it, or any reference to the app at all** — public from 2026-08-07, removed 2026-08-16 |
 | **To close it** | Re-run the same check with classes 9, 42 and 41 selected — it is the same free tool and takes a minute — and a companies-register search at the Companies Office. Look at what is served at `doorway.nz`. Consider the paid IPONZ search before the name goes on anything print or a store listing |
 | **If it has to change** | One edit. `PRODUCT_NAME` in `packages/core/src/brand.ts` is the only place the word is written for the console and the icons — that consolidation was done at the same time as the adoption, and it is the reason a rename is cheap rather than a hunt. `apps/site` no longer imports it at all |
 

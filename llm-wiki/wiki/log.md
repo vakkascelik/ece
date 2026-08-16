@@ -5,6 +5,48 @@ says so.*
 
 ---
 
+2026-08-16 (later) — **The app comes off the public site entirely, the phone menu goes behind a
+button, and three ways of building that button turn out to be wrong.** Extended:
+[[public-website]]. Corrected: [[unverified-claims]] item 19 — the entry written this morning said
+the sign-in *link* had stayed, and it has not.
+
+Two instructions from the owner: do not mention the app, and do not show the whole menu on a phone.
+The first went further than this morning's change — that removed the name and kept the control, on
+my reasoning that the instruction was about the name. It was about the app. Masthead control, footer
+link and the two remaining unnamed sentences are all gone; no reference survives anywhere, asserted
+across nine routes by a check that greps the rendered text and every `href`. The `/portal` mount,
+`SITE_APP_URL`, the health check and `appUrl()` are all untouched — deleting them would have meant
+deleting a regression test for a real production incident and a section of the runbook to save four
+lines, then restoring it all when the link returns.
+
+**Three attempts at the menu, and the failures are worth more than the result.** `<details>` is the
+right instinct — native, opens with no JavaScript, browser supplies the button role and the expanded
+state — but it must stay open on desktop, and a server render cannot know the viewport. Overriding
+the browser's hiding of closed-details content is the documented workaround; it defeats the hiding
+completely, so attempt 1 left the menu expanded at 390px, which is the exact complaint. Scoping the
+override to desktop gave attempt 2, where the phone was right and **the desktop nav was invisible**:
+the `<nav>` had a real box — 725×44, `display: flex`, `visibility: visible`, `opacity: 1` — inside a
+`<details>` parent 0px tall, never painted and never hit-tested, with `elementFromPoint` at the
+nav's own coordinates returning the container behind it.
+
+That is the finding to keep: **a rect and a computed style both reported a healthy navigation nobody
+could see or click, and the check written to verify the change passed on it.** It now hit-tests each
+link instead of measuring it. `::details-content` was rejected as the fix — where unsupported the
+rule is ignored and the desktop nav simply vanishes.
+
+What shipped is explicit state with two fallbacks covering *different* failures: `<noscript>` for
+scripting switched off, and the footer carrying the same seven links for the bundle failing to run —
+which `<noscript>` does not cover, because a browser considers scripting enabled right up until the
+script errors. This site has had every script on every page refused in production once already.
+
+**A fourth defect, found by the 500 it caused.** The shared link array was exported from the
+`'use client'` nav module; a server component importing a value from a client module gets a client
+reference rather than the value, so the footer called `.map` on a proxy and every route returned
+`TypeError: p.NAV.map is not a function`. It compiles and it typechecks — the boundary is a bundler
+transform TypeScript cannot see. The list is a plain module now.
+
+---
+
 2026-08-16 — **The public website becomes pearls and ocean, and five defects turn up that the site's
 own accessibility gate reported clean.** Extended: [[public-website]]. Corrected:
 [[unverified-claims]] item 19 — the exposure it predicted has been *removed* rather than checked.

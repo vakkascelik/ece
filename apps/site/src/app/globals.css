@@ -211,20 +211,132 @@ a:hover { text-decoration-thickness: 2px; }
 }
 
 /*
- * Always its own line, under the brand and the sign-in link.
+ * THE NAVIGATION IS A DISCLOSURE BELOW 48rem AND A ROW ABOVE IT.
  *
- * It was sharing the first line and never actually fitting: seven items plus a brand plus the new
- * sign-in link exceed 68rem, so the browser wrapped it anyway — and on a 390px phone that landed the
- * sign-in link alone on a third row, three rows of masthead before the page's own heading. Declaring
- * the wrap rather than letting it happen puts the two things a returning visitor wants (who this is,
- * and the way in) on one row at every width.
+ * On a phone the seven links took two full rows under the brand — the whole menu, permanently open,
+ * pushing the page's own heading most of a screen down before a word of it was read. That was the
+ * complaint, and it is the right one: a marketing site's first screen should be the marketing, not
+ * its own table of contents.
+ *
+ * `.nav-shell` is a `<details>`. See `SiteNav.tsx` for why a native disclosure rather than a
+ * `useState` panel — the short version is that this one opens with no JavaScript at all, so a
+ * failed bundle costs a nicety instead of costing every link on the site.
+ *
+ * `flex: 1 0 100%` used to be on `.nav` itself, forcing it onto its own row at every width. That was
+ * correct while a sign-in button shared the first row: seven items plus a brand plus the button
+ * exceeded 68rem, the browser wrapped it anyway, and on a 390px phone the button landed alone on a
+ * third row. The button is gone, so the row has space and the nav can sit in it — `1 1 auto` and a
+ * right-hand alignment, so it takes the room it needs and wraps to its own line on its own when it
+ * does not fit, rather than being told to.
+ */
+.nav-shell {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/*
+ * `display: none` BY DEFAULT, AND THE DEFAULT IS THE PHONE.
+ *
+ * Two things this deliberately does not do, both learned the hard way in this pass:
+ *
+ *  - It does not rely on the browser's own hiding of a closed `<details>`. That was the first
+ *    implementation, and an explicit `display: flex` on the panel *defeats* the hiding — the whole
+ *    menu stayed expanded at 390px, which is the exact complaint this change exists to fix.
+ *  - It does not rely on *overriding* that hiding either, which was the second implementation. In
+ *    Chromium the override produces a laid-out box that is never painted and never hit-tested: the
+ *    nav measured 725×44 with `display: flex` and `visibility: visible`, and was invisible.
+ *
+ * So the state is a data attribute this app sets, and the visible state is two selectors a reader
+ * can hold side by side. See `SiteNav.tsx` for the two fallbacks that cover the no-JavaScript case.
  */
 .nav {
-  display: flex;
-  flex: 1 0 100%;
+  display: none;
   gap: var(--space-1);
   flex-wrap: wrap;
   align-items: center;
+  justify-content: flex-end;
+}
+.nav-shell[data-open='true'] > .nav { display: flex; }
+
+/* The Menu control — a real `<button>`, so focus, tab order and Enter/Space are the platform's job
+   rather than this app's. `font: inherit` because a button does not inherit type by default and
+   would otherwise render in the UA's own face at 13px. */
+.nav-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--target-min);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--teal-ink);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--teal-ink);
+  font: inherit;
+  font-size: var(--text-base);
+  font-weight: 600;
+  cursor: pointer;
+}
+.nav-toggle:hover { background: var(--aqua-pale); }
+
+/*
+ * Three bars, drawn rather than fetched — an icon font or an SVG set for one glyph is a dependency
+ * this site does not have. `currentColor` so it tracks the text beside it, including on hover.
+ */
+.nav-toggle__bars {
+  width: 18px;
+  height: 2px;
+  background: currentColor;
+  box-shadow: 0 -6px 0 currentColor, 0 6px 0 currentColor;
+}
+
+/* Open on a phone: the links stack full width, with room for a thumb. */
+.nav-shell[data-open='true'] .nav {
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  padding: var(--space-3) 0 var(--space-2);
+}
+.nav-shell[data-open='true'] .nav a { justify-content: flex-start; }
+
+/*
+ * At 48rem and up the disclosure is inert: the control disappears and the row is shown whatever the
+ * open state is, so the same seven links serve both layouts and no link is in the document twice.
+ *
+ * Asserted by hit-testing rather than by measuring, which is the lesson of this whole block. A rect
+ * and a computed `display` both reported a healthy navigation while it was unpaintable; what
+ * actually answers "can somebody click Rooms" is `elementFromPoint` over the link, so that is what
+ * the check does at 768, 1024 and 1440.
+ */
+@media (min-width: 48rem) {
+  .nav-toggle { display: none; }
+  .nav-shell > .nav { display: flex; }
+}
+
+/*
+ * The footer's copy of the same seven links.
+ *
+ * NOT DUPLICATION FOR ITS OWN SAKE — it is the fallback for the masthead nav being JavaScript-driven
+ * below 48rem. `<noscript>` covers scripting being switched off; it does **not** cover the bundle
+ * failing to run, because the browser considers scripting enabled right up until the script errors,
+ * and this site has had every script on every page refused in production once already. These links
+ * are server-rendered and need nothing.
+ *
+ * A second `<nav>` landmark, labelled "Footer" so a screen reader's landmark list distinguishes it
+ * from "Main" rather than offering two identical entries.
+ */
+.foot-nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.foot-nav a {
+  /* 24px, the WCAG 2.5.8 floor, rather than the 44px the masthead uses — these are a fallback and a
+     convenience at the bottom of a long page, and stacking seven 44px targets would make the footer
+     taller than the content above it. Same position as the addresses and the social column. */
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  width: max-content;
 }
 .nav a {
   color: #1b1a18;
@@ -243,50 +355,21 @@ a:hover { text-decoration-thickness: 2px; }
 .nav a[aria-current='page'] { background: var(--sand); font-weight: 600; }
 
 /*
- * SIGNING IN IS THE MOST-USED LINK ON THIS SITE and it was body text in the footer.
+ * THERE IS NO `.signin` RULE ANY MORE, and the three-step history is worth the six lines because
+ * each step reversed the one before it and all three were deliberate.
  *
- * Every other link here is for somebody deciding whether to enrol — a decision made once. This one
- * is for the families and kaiako already at the centre, who come back to it daily, and they were
- * being asked to scroll ten pages' worth of marketing copy to find it in small print.
+ * It began as body text in the footer. It was promoted to an outlined masthead button on the
+ * argument that it is the most *frequent* link on the site — every other link here is for somebody
+ * deciding whether to enrol, a decision made once, and this one was for the families and kaiako
+ * already at the centre, who come back daily. It was outlined rather than filled so it would not
+ * outrank "Enquire about a place", which is what the centre actually needs the site to do.
  *
- * Outlined rather than filled: it is the most *frequent* action, not the most important one. A
- * solid button here would outrank "Enquire about a place" on the homepage, which is the thing the
- * centre actually needs the site to do.
- */
-.signin {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-height: var(--target-min);
-  padding: 0 var(--space-3);
-  border: 1px solid var(--teal-ink);
-  border-radius: var(--radius-sm);
-  color: var(--teal-ink);
-  font-size: var(--text-base);
-  font-weight: 600;
-  text-decoration: none;
-  white-space: nowrap;
-}
-.signin:hover { background: var(--aqua-pale); }
-
-/*
- * THE MARK BESIDE IT IS GONE, AND SO IS THE PRODUCT NAME. The link is not.
+ * Then the product name came off it: not trade-mark cleared, and `doorway.nz` belongs to somebody
+ * else. Then the control itself came off, on the instruction that the site should not refer to the
+ * app at all yet.
  *
- * This used to be `Sign in to Doorway` with Doorway's mark at 20px. Both are off the public site on
- * the owner's instruction — the name is not trade-mark cleared, `doorway.nz` is registered to
- * somebody else and `doorway.co.nz` is registered and lapsing, and `unverified-claims` §19 has said
- * since it was written that the name should not go anywhere expensive to change until an IPONZ
- * search has been run. A customer's public website is exactly that: it is indexed, archived and
- * linked to, and taking a name back off it later is not a deploy, it is a correction.
- *
- * What did NOT go is the way in. This is the most-used link on the site — every other link here is
- * for somebody deciding whether to enrol, a decision made once, and this one is for the families and
- * kaiako already at the centre. Removing it to avoid saying a word would have cost them the thing
- * they open the site for. It says "Sign in to the centre app", which is what it is, and which is
- * also what the copy said before the name existed.
- *
- * Text with no icon, rather than a substitute mark: a pearl dot here would read as decoration on a
- * control, and Little Pearls' own logo is already six inches to the left.
+ * The masthead is now the brand and the navigation, which is what it was before any of this. See
+ * `lib/site.ts` for what is still mounted underneath — `/portal` did not go anywhere.
  */
 
 /*

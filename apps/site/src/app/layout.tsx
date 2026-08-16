@@ -4,9 +4,10 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { CENTRES, CENTRE_FACTS, SOCIAL_LINKS } from '@/lib/centres';
 import { PHOTOS } from '@/lib/photos';
-import { appUrl, siteOrigin } from '@/lib/site';
-import { NavLink } from './NavLink';
+import { siteOrigin } from '@/lib/site';
+import { NAV } from '@/lib/nav';
 import { Parallax } from './Parallax';
+import { SiteNav } from './SiteNav';
 import { Pearl } from './Pearl';
 import { Waves } from './Waves';
 import './globals.css';
@@ -164,16 +165,6 @@ export const metadata: Metadata = {
   alternates: { canonical: '/' },
 };
 
-const NAV = [
-  { href: '/', label: 'Home' },
-  { href: '/philosophy', label: 'Our philosophy' },
-  { href: '/centres', label: 'Our centres' },
-  { href: '/rooms', label: 'Rooms' },
-  { href: '/enrolment', label: 'Enrolment' },
-  { href: '/careers', label: 'Careers' },
-  { href: '/contact', label: 'Contact' },
-];
-
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en-NZ" className={display.variable}>
@@ -183,6 +174,22 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <a className="skip" href="#main">
           Skip to content
         </a>
+
+        {/*
+          THE MENU BUTTON IS JAVASCRIPT, SO THIS IS THE VERSION WITHOUT IT: the row is forced open
+          and the button is hidden, which is the layout the site had before the button existed.
+
+          `style-src` on this site is `'self' 'unsafe-inline'` — Next inlines critical CSS as a
+          `<style>` with no nonce plumbing — so an inline rule here costs the policy nothing.
+
+          This covers scripting being switched OFF. It does not cover the bundle failing to run,
+          because a browser considers scripting enabled right up until the script errors, and
+          `<noscript>` never applies. That case is covered by the footer's copy of the same links —
+          see the note on `.foot-nav` in globals.css. Two failures, two fallbacks, deliberately.
+        */}
+        <noscript>
+          <style>{'.nav{display:flex !important}.nav-toggle{display:none !important}'}</style>
+        </noscript>
 
         <header className="masthead">
           <div className="wrap masthead-inner">
@@ -205,33 +212,24 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               </span>
             </a>
             {/*
-              The link out to the platform, promoted from a line of footer body text.
+              THERE IS NO SIGN-IN LINK IN THIS MASTHEAD ANY MORE, and the app is not mentioned
+              anywhere on this site.
 
-              Beside the brand and BEFORE the nav in source order, so the first row of the masthead
-              is "who this is" and "the way in" — the two things a family or a kaiako already at the
-              centre opens this site for. The nav takes the row below it at every width.
+              The history is worth one paragraph because it went in three steps and each was a
+              deliberate call by the owner. It began as a line of body text in the footer; it was
+              promoted to a masthead button on the argument that it is the most-*frequent* link on
+              the site — every other link here is for somebody deciding whether to enrol, a decision
+              made once, and this one is for the families and kaiako who come back to it daily. Then
+              the product name came off it, because the name is not trade-mark cleared and
+              `doorway.nz` belongs to somebody else. Now the control itself is gone, on the
+              instruction that the site should not refer to the app at all yet.
 
-              Outside the `<nav>` on purpose: it leaves this site. A main navigation whose last item
-              is a different application is a navigation that lies to anybody working it with a
-              screen reader or a keyboard.
-
-              IT NO LONGER NAMES THE PRODUCT, AND THE MARK BESIDE IT IS GONE. Both on the owner's
-              instruction and for a reason recorded in `packages/core/src/brand.ts`: the name is not
-              trade-mark cleared, `doorway.nz` is registered to somebody else, and a customer's
-              public website is the worst possible place to find that out. See the note on `.signin`
-              in globals.css for why the *link* stayed when the name went.
+              WHAT IS NOT GONE IS THE WAY IN. `/portal` is still mounted on this hostname by
+              `middleware.ts`, `SITE_APP_URL` still resolves, and `appUrl()` still works — see the
+              note on it in `lib/site.ts`. Nothing was demolished; a link was taken off a page, and
+              putting it back is one element.
             */}
-            <a className="signin" href={appUrl()}>
-              Sign in to the centre app
-            </a>
-
-            <nav className="nav" aria-label="Main">
-              {NAV.map((item) => (
-                <NavLink key={item.href} href={item.href}>
-                  {item.label}
-                </NavLink>
-              ))}
-            </nav>
+            <SiteNav />
           </div>
         </header>
 
@@ -331,15 +329,34 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                 <p>{CENTRE_FACTS.hours}</p>
                 <p>Children {CENTRE_FACTS.ages}</p>
                 {/*
-                  Back in the footer as well as the masthead. Deliberate duplication: the masthead
-                  link is the one that gets used, and somebody who has scrolled to the bottom
-                  looking for it should not have to scroll back up.
+                  The "For families and kaiako" sign-in link is gone from here too — the app is not
+                  referred to anywhere on this site. See the note in the masthead above for the
+                  three steps that got here and for what is still mounted underneath.
                 */}
-                <p className="foot-head foot-head-spaced">For families and kaiako</p>
-                <p>
-                  <a href={appUrl()}>Sign in to the centre app</a>
-                </p>
               </div>
+
+              {/*
+                EVERY PAGE, SERVER-RENDERED, NEEDING NOTHING. This is the fallback for the masthead
+                nav being JavaScript-driven on a phone — `<noscript>` covers scripting being off, and
+                this covers the bundle failing to run, which `<noscript>` cannot. See the note on
+                `.foot-nav` in globals.css.
+
+                It reads as an ordinary footer sitemap, which is what makes it a good fallback: it is
+                not an apology for a broken menu, it is the thing most sites have anyway.
+
+                Labelled "Footer" so it is distinguishable from "Main" in a landmark list. The same
+                `NAV` array as the masthead, so the two cannot list different pages.
+              */}
+              <nav aria-label="Footer">
+                <p className="foot-head">Pages</p>
+                <div className="foot-nav">
+                  {NAV.map((item) => (
+                    <Link key={item.href} href={item.href}>
+                      {item.label}
+                    </Link>
+                  ))}
+                </div>
+              </nav>
               {/*
                 Their social accounts, which the current site has and this one did not.
 
@@ -412,10 +429,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           elements the server components above already marked `data-parallax`. Under
           `prefers-reduced-motion: reduce` it attaches nothing at all.
 
-          The second client component in this app, after `NavLink`. That is worth noting because the
-          note on `NavLink` used to say it was the only one, and the reason it was the only one still
-          holds: a marketing site that ships React to do nothing is a slower marketing site. This one
-          does something.
+          One of the two client components in this app, with `SiteNav`. The rule that kept it to one
+          for a long time still holds and is why there are still only two: a marketing site that
+          ships React to do nothing is a slower marketing site. Both of these do something, and
+          `SiteNav` is built so that it keeps working when this one does not — see the note there.
         */}
         <Parallax />
       </body>

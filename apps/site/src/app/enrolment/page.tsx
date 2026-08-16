@@ -3,7 +3,6 @@ import Link from 'next/link';
 import { Eyebrow } from '../Eyebrow';
 import { PageBand } from '../PageBand';
 import { CENTRES, CENTRE_FACTS } from '@/lib/centres';
-import { appUrl } from '@/lib/site';
 import { EnquiryForm } from './EnquiryForm';
 
 export const metadata: Metadata = {
@@ -132,22 +131,16 @@ export default function EnrolmentPage() {
       </dl>
 
       {/*
-        THE PRODUCT NAME IS OFF THIS SENTENCE, the link is not. It read "sign in to Doorway, the
-        centre app"; it now says only what the thing is. See `packages/core/src/brand.ts` — the name
-        is not trade-mark cleared and the domain belongs to somebody else, and a customer's public
-        site is the last place that should be discovered.
+        THE "ALREADY WITH US?" CALLOUT IS GONE. The site does not refer to the app anywhere — see
+        the note in the masthead in `layout.tsx` for the three steps that led here.
 
-        The sentence after it is unchanged and is the important half: it is what stops a parent
-        hunting for a sign-up form that does not exist.
+        Worth recording what the removal costs, because it is not nothing. This callout was the one
+        place a family already at the centre was told two things: that there is somewhere to sign
+        in, and that access arrives by invitation rather than by signing up. The second sentence
+        existed to stop somebody hunting the site for a registration form. Neither question arises
+        now, because the page no longer suggests there is an app — but if the link comes back, both
+        sentences come back with it, not just the first.
       */}
-      <div className="callout">
-        <p style={{ margin: 0 }}>
-          Already with us? Families and kaiako can{' '}
-          <a href={appUrl()}>sign in to the centre app</a>. Access comes from the centre inviting
-          you — there is no sign-up.
-        </p>
-      </div>
-
       <p>
         <Link href="/contact">Other ways to contact us</Link>
       </p>

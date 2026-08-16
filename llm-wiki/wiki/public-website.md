@@ -52,8 +52,13 @@ Three defects made it urgent rather than cosmetic, all measured rather than asse
 - **The site is pearls and ocean as of 2026-08-16**, on the centre manager's brief: bring back the
   pearl analogy from the old site, give the page water that moves, and put the children's
   photographs *inside* the pearls. See *The pearl and the ocean* below.
-- **The product name is off the public site**, reversing the exposure [[unverified-claims]] §19 was
-  written to warn about. The sign-in link stayed and says "Sign in to the centre app".
+- **The site does not refer to the centre app at all**, as of 2026-08-16 — not the product name, not
+  the mark, not the masthead control, not the footer link, not the two body-copy sentences. This
+  reverses the exposure [[unverified-claims]] §19 was written to warn about. The `/portal` mount and
+  `SITE_APP_URL` are untouched; only the visible references went. See *The navigation, and three
+  ways of building a menu that were wrong* below.
+- **The navigation collapses behind a Menu button below 48rem.** On a phone the seven links were two
+  permanently-open rows under the brand, pushing the page's own heading most of a screen down.
 - Their brand is used, not the platform's — and **none of their colours can carry text.**
 
 ## Details
@@ -215,6 +220,77 @@ footer ran dark ink on their colour. **The ocean cannot take dark**: `#1b1a18` o
 **1.18:1**. The text colour did not need rediscovering so much as re-deriving from the other end —
 and a background swap that left `color: #1b1a18` alone would have shipped an unreadable footer on
 every page while looking, in a diff, like a one-line colour change. It did, until it was looked at.
+
+### The navigation, and three ways of building a menu that were wrong
+
+Added 2026-08-16, from two instructions: **do not mention the app**, and **do not show the whole
+menu on a phone — put it behind a button.**
+
+The first is a deletion and needs little explaining. The masthead control, the footer link and the
+two remaining unnamed sentences on `/enrolment` and `/contact` are gone; there is now no reference
+to the app anywhere on the public site, asserted across all nine routes by a check that greps the
+rendered text and every `href`. What did **not** go is the infrastructure: `middleware.ts` still
+mounts the app at `/portal`, `SITE_APP_URL` still resolves, `/api/health` still reports on it, and
+`appUrl()` is still there with no caller and a note saying why. Deleting it would have meant
+deleting a regression test guarding a real production incident, a section of the runbook, and the
+health check's coverage — to save four lines, and then restoring all of it. Putting the link back is
+one element; that asymmetry is the whole argument.
+
+The second took three attempts, and the failures are more useful than the result.
+
+**Attempt 1 — `<details>` with the panel styled `display: flex`.** A native disclosure is the right
+instinct: it opens with no JavaScript, and the browser supplies the button role, the keyboard
+handling and the expanded state. The problem is that it must *stay open* on desktop, and a server
+render cannot know the viewport, so `open` cannot be set for one width and not the other. The
+documented workaround is to override the browser's hiding of a closed `<details>`' content. It does
+not work, and the way it fails is the point: **an explicit `display` on the panel defeats the
+hiding entirely**, so the menu stayed expanded at 390px — the exact complaint being fixed.
+
+**Attempt 2 — the same thing, scoped to desktop only.** Now the phone collapsed correctly and the
+desktop nav was *invisible*. Measured in Chromium: the `<nav>` had a real layout box — 725×44 at
+1440, `display: flex`, `visibility: visible`, `opacity: 1` — while its `<details>` parent stayed 0px
+tall, and the content was never painted or hit-tested. `elementFromPoint` at the nav's own
+coordinates returned the container behind it.
+
+That is the lesson worth keeping: **a rect and a computed style both reported a healthy navigation
+that no visitor could see or click.** The check written to verify this change passed on it. What
+actually answers "can somebody click Rooms" is hit-testing, so the check now walks each link and
+asks `elementFromPoint` whether the browser finds *that link* at its own centre. `::details-content`
+is the modern fix and was rejected: where it is unsupported the rule is ignored and the desktop nav
+vanishes, which is not a failure mode to ship to browsers that cannot be tested here.
+
+**Attempt 3, and the one that shipped — explicit state, with two different fallbacks.** A `useState`
+disclosure means the panel is hidden in the server HTML and revealed by script, which on its own
+would let a failed bundle cost a phone visitor every link on the site. Not hypothetical: every
+script on every page was once refused in production by a CSP the prerendered pages could not
+satisfy. So there are two fallbacks, and they cover *different* failures:
+
+| Failure | Covered by | Why the other one does not |
+|---|---|---|
+| Scripting switched off | `<noscript>` inline style forcing the row open | — |
+| The bundle fails to run | The footer's copy of the seven links | `<noscript>` never applies; the browser considers scripting enabled right up until the script errors |
+
+The footer list reads as an ordinary footer sitemap, which is what makes it a good fallback — it is
+not an apology for a broken menu, it is the thing most sites have anyway. It is a second `<nav>`
+landmark labelled "Footer" so a screen reader's landmark list distinguishes it from "Main", and it
+maps the same array, so the fallback cannot list different pages from the thing it stands in for.
+
+**A fourth defect, found by the 500 it caused.** That shared array was first exported from
+`SiteNav.tsx`, which is `'use client'`. A server component importing a value from a client module
+does not get the value — Next replaces every export of a client module with a client reference — so
+the footer called `.map` on a proxy and **every route returned 500**:
+
+```
+TypeError: p.NAV.map is not a function
+```
+
+It compiles and it typechecks; the boundary is a bundler transform TypeScript cannot see. The list
+lives in `lib/nav.ts` now, a plain module both sides import.
+
+With the sign-in control gone the masthead had room it did not have before, so the nav sits beside
+the brand on one row at every width above 48rem rather than being forced onto its own line — which
+was a workaround for seven items plus a brand plus a button exceeding 68rem, and the button is what
+went.
 
 ### Their palette cannot carry text, and finding that out took two attempts
 

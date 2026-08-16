@@ -107,7 +107,29 @@ export function siteOrigin(): string {
   return urlFromEnv('SITE_ORIGIN', DEFAULT_ORIGIN).replace(/\/$/, '');
 }
 
-/** Where "Sign in to Doorway" points — the masthead link, and two in body copy. */
+/**
+ * Where a sign-in link would point.
+ *
+ * **NOTHING CALLS THIS TODAY, 2026-08-16, AND IT IS DELIBERATELY STILL HERE.** It had three callers
+ * — the masthead link and two sentences of body copy on `/enrolment` and `/contact` — and all three
+ * were removed on the owner's instruction that the public site should not refer to the app yet.
+ *
+ * Kept rather than deleted, which is the opposite of this repo's usual rule about orphans, because
+ * the thing underneath it was never removed and is still live:
+ *
+ *  - `middleware.ts` still mounts the app at **`/portal`** on this hostname, and its matcher
+ *    excludes that prefix. Somebody handed the URL directly still gets there.
+ *  - `SITE_APP_URL` is still a documented variable in `docs/deploy-railway.md`, still set on the
+ *    Railway service, and still reported by `/api/health` through `URL_ENV` below.
+ *  - The tests in `__tests__/site.test.ts` guard a real production incident — the variable was once
+ *    set to the *description column* out of the runbook's table, so this returned the words
+ *    `where "Sign in to the centre app" points` as an href and the footer link resolved against
+ *    this site's own 404.
+ *
+ * Deleting the function would mean deleting that guard, the health check's coverage of the variable
+ * and a section of the runbook, to save four lines — and then restoring all of it when the link
+ * comes back. Putting the link back is one element in `layout.tsx`; taking this out is not.
+ */
 export function appUrl(): string {
   return urlFromEnv('SITE_APP_URL', DEFAULT_APP_URL);
 }

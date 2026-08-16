@@ -4,7 +4,6 @@ import { CentreMap } from '../CentreMap';
 import { Eyebrow } from '../Eyebrow';
 import { PageBand } from '../PageBand';
 import { CENTRES, CENTRE_FACTS } from '@/lib/centres';
-import { appUrl } from '@/lib/site';
 
 export const metadata: Metadata = {
   title: 'Contact us',
@@ -86,13 +85,16 @@ export default async function ContactPage() {
             <a href={`mailto:${CENTRE_FACTS.careersEmail}`}>{CENTRE_FACTS.careersEmail}</a>.
           </p>
 
-          {/* The product name is off this sentence and the link is not — see the same change on
-              `/enrolment`, and `packages/core/src/brand.ts` for why. */}
-          <h3>Families and kaiako</h3>
-          <p>
-            <a href={appUrl()}>Sign in to the centre app</a>. Access comes from the centre inviting
-            you — there is no sign-up.
-          </p>
+          {/*
+            THE "FAMILIES AND KAIAKO" SIGN-IN SECTION IS GONE. The site does not refer to the app at
+            all — see the note in the masthead in `layout.tsx`.
+
+            What went with it is the sentence "Access comes from the centre inviting you — there is
+            no sign-up", which was doing real work: it stopped a parent hunting this page for a
+            registration form that does not exist. That is no longer a question this page raises,
+            because nothing on it now suggests there is an app to register for. If the link returns,
+            that sentence returns with it.
+          */}
         </section>
       </div>
     </>
