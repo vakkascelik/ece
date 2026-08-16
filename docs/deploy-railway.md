@@ -438,6 +438,53 @@ Notes on those three:
 > is the whole job. `/api/map/<centre>` returning 404 rather than a PNG is the quickest confirmation
 > that it has not taken effect yet.
 
+> ### Fixing it in the Google Cloud console
+>
+> **First, ask the key directly.** This is faster than any amount of clicking, and it reproduces what
+> the container does *exactly* — curl sends no `Referer` header, which is the whole point:
+>
+> ```bash
+> curl -s -o /dev/null -w "%{http_code} %{content_type}\n" \
+>   "https://maps.googleapis.com/maps/api/staticmap?center=-36.8951734,174.7238665&zoom=16&size=600x300&scale=2&key=PASTE_KEY"
+> # then, if it is not 200, read what it actually said:
+> curl -s "https://maps.googleapis.com/maps/api/staticmap?center=-36.8951734,174.7238665&zoom=16&size=600x300&scale=2&key=PASTE_KEY"
+> ```
+>
+> `200 image/png` means the key is fine and the problem is the *value on the service* — a typo, a
+> trailing space, or a different key. Anything else, the body names the cause. Those coordinates are
+> Ōwairaka / Mt Albert out of `apps/site/src/lib/centres.ts`. Do not paste the key into a shared
+> channel to do this.
+>
+> Then, in order of how often each is the answer:
+>
+> **1. Billing.** Maps Platform refuses every request on a project with no billing account attached,
+> free tier or not. Navigation menu → **Billing**. If it says the project has no billing account,
+> that is the whole problem. A Maps key is also worth a budget alert here; the worst case for this
+> key is somebody else's map requests on this bill.
+>
+> **2. Enable the Maps Static API.** **APIs & Services → Library**, search *Maps Static API*, open
+> it, **Enable**. It is its own product — the Geocoding API that produced the coordinates in
+> `centres.ts` being enabled tells you nothing about this one, and that is the single most common
+> reason this feature looks broken. Confirm under **APIs & Services → Enabled APIs & services**;
+> *Maps Static API* has to be in that list by name.
+>
+> **3. Fix the key's restrictions.** **APIs & Services → Credentials**, click the key:
+>
+> - **Application restrictions** must **not** be *HTTP referrers (web sites)*. That setting is for a
+>   key used by a browser and is enforced against the `Referer` header, which a server-to-server
+>   `fetch` does not send — so it 403s every request from this container regardless of anything else.
+>   *IP addresses* is the correct restriction for a server, but Railway gives no stable egress IP on
+>   these plans, so set **None** and rely on the API restriction plus a budget.
+> - **API restrictions** → *Restrict key* → tick **Maps Static API**. Add *Geocoding API* only if the
+>   coordinates in `centres.ts` ever need redoing.
+>
+> Key edits can take a few minutes to propagate; Google's own note says up to five.
+>
+> **Verify** with the curl above, then load `/contact` and check `/api/health` no longer reports
+> `mapsFailing`. **Google Maps Platform → Metrics** in the console is the third opinion — it plots
+> requests by response code, so 403s arriving there proves the requests reach Google and the problem
+> is authorisation rather than the key never being sent.
+
 > ### Why those two are unprefixed, and what they can do
 >
 > **Not `NEXT_PUBLIC_`.** That prefix tells Next to inline the value into client JavaScript, and an
