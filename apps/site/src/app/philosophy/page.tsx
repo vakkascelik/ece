@@ -126,6 +126,65 @@ export default function PhilosophyPage() {
             in our infant room by the Pikler and RIE approaches and the schema concept.
           </p>
         </section>
+
+        <hr className="rule" aria-hidden="true" />
+
+        {/*
+          FROM THE CENTRE'S OWN STRATEGIC PLAN (2026–2029), supplied by the owner on 2026-08-17 with
+          the instruction to use it — and with the manager's direction for the voice of the whole
+          site: plain, warm, nothing boastful, nothing that binds or builds expectations.
+
+          These are their sentences, lightly trimmed for the page, not paraphrased into marketing.
+          The five lines under "What we want to be known for" run as written; the strategic
+          machinery around them (objectives, PLD, documentation systems) stays in the plan, because
+          a parent is not its audience.
+
+          The plan's own attribution for the four values is kept — they are drawn from the Teaching
+          Council's Code and Standards — because a value with its source named reads as practice
+          rather than as decoration, and this repo does not strip citations.
+        */}
+        <section className="prose">
+          <Eyebrow>Where we are heading</Eyebrow>
+          <h2 className="section-title">What we want to be known for</h2>
+          <ul className="plain-list">
+            <li>We are diverse. Our children are unique, our team is unique and our centre is unique.</li>
+            <li>We are free to be and to express ourselves. We want to see you, and for others to see you too.</li>
+            <li>We form bonds and make friendships. The families are part of our family.</li>
+            <li>We play, learn and grow together. We take our learning wherever we go.</li>
+            <li>Respect is fundamental to our practice.</li>
+          </ul>
+
+          <h3>Our values</h3>
+          <dl className="facts">
+            <dt>Whakamana</dt>
+            <dd>Empowering all learners to reach their highest potential.</dd>
+            <dt>Manaakitanga</dt>
+            <dd>
+              A welcoming, caring and creative environment that treats everyone with respect and
+              dignity.
+            </dd>
+            <dt>Pono</dt>
+            <dd>Acting in ways that are fair, honest, ethical and just.</dd>
+            <dt>Whanaungatanga</dt>
+            <dd>
+              Positive, collaborative relationships with our learners, their families and whānau,
+              our colleagues and the wider community.
+            </dd>
+          </dl>
+          <p className="source-note">
+            Our values draw on the Teaching Council&rsquo;s Code and Standards.
+          </p>
+
+          <h3>A global focus</h3>
+          <p>
+            Little Pearls is part of a global movement for unity, justice and human dignity.
+            Supported by the Pearl of the Isles Foundation, our purpose goes beyond early learning —
+            we weave the aspirations of the Foundation with the unique cultural context of Aotearoa
+            and the hopes we hold for future generations. We understand ourselves as global citizens
+            and cultural bridge-builders, and we help build a generation strong in their identity,
+            culture and language, who show empathy and inclusiveness.
+          </p>
+        </section>
       </div>
     </>
   );

@@ -92,6 +92,34 @@ export default function EnrolmentPage() {
 
       <hr className="rule" aria-hidden="true" />
 
+      {/*
+        FROM THE MANAGER'S OWN ENROLMENT REPLY (2026-08-17, relayed by the owner, the family's
+        details redacted). This is the letter the centre sends to every interested family, so the
+        page now says what the letter says — the visit windows and their reason, the unhurried
+        first visit, and what actually happens next. The voice the manager asked for is the rule
+        here: plain and warm, no promises about when a place opens.
+
+        "The days you ask for can be the ones that are full" is deliberate expectation-setting the
+        email models ("we currently only have availability on Wednesdays and Fridays…") without
+        repeating a specific availability that will be stale in a month.
+      */}
+      <section className="prose">
+        <Eyebrow>Come and visit</Eyebrow>
+        <h2 className="section-title">See it before you decide anything</h2>
+        <p>
+          Visits are {CENTRE_FACTS.visitWindows}, {CENTRE_FACTS.visitNote}. We keep a first visit
+          unhurried — a proper walk around, and time for your questions.
+        </p>
+        <p>
+          If you are happy after your visit, we add your child&rsquo;s name to the waiting list —
+          that is the enrolment form and the enrolment fee. Availability moves during the year as
+          families&rsquo; days change, so the days you ask for can be the ones that are full; we
+          will tell you what is open, and when we expect that to change.
+        </p>
+      </section>
+
+      <hr className="rule" aria-hidden="true" />
+
       <section className="prose">
         <Eyebrow>Or write to us</Eyebrow>
         <h2 className="section-title">Send us an enquiry</h2>

@@ -16,21 +16,25 @@ export const metadata: Metadata = {
 /**
  * The three rooms.
  *
- * The ratios are **their** published figures, quoted as their statement about their own staffing.
- * That framing is deliberate and it is not lawyerly hedging: the platform's own ratio tables carry
- * `RATIO_TABLES_VERIFIED = false` and render a notice on every screen saying nobody has checked
- * them against Schedule 2 of the regulations. It would be incoherent for the marketing site to
- * imply a regulatory compliance claim that the software refuses to make.
+ * The ratios are the figures **the centre manager confirmed on 2026-08-17** — see the provenance
+ * note on `ROOMS` in `lib/centres.ts`. They are stated as the centre's own staffing, plainly,
+ * which is what the original fix brief asked for once a confirmation existed.
  *
- * Their site also says "higher than required ratios" and "more than the minimum number of staff
- * required by the Ministry of Education". Both are claims about a regulatory minimum, so neither
- * is repeated here until the minimum is sourced — see CONTENT-GAPS.md.
+ * Still no claim about a regulatory minimum. The manager's email says the ratios "exceed the
+ * standards set by the Ministry of Education"; that stays off the page both because the minimum
+ * has never been sourced here (the platform's own ratio tables carry
+ * `RATIO_TABLES_VERIFIED = false` for the same reason) and because the manager's direction for
+ * the site's voice is explicit: plain and warm, no claims that bind or build expectations. The
+ * numbers do the reassuring on their own.
  */
 export default function RoomsPage() {
   return (
     <>
+      {/* "Warm in winter, cool in summer" is the manager's heating-and-cooling fact from the
+          enrolment email, said the way a parent hears it rather than as building services. */}
       <PageBand eyebrow="Infant · Toddler · Preschool" title="Our rooms">
-        Three age-group rooms, for children {CENTRE_FACTS.ages}, at both centres.
+        Three age-group rooms, for children {CENTRE_FACTS.ages}, at both centres — each warm in
+        winter and cool in summer.
       </PageBand>
 
       <div className="page">

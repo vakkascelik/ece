@@ -798,6 +798,26 @@ a:hover { text-decoration-thickness: 2px; }
   font-size: var(--text-base);
 }
 
+/*
+ * A list that is a list in the markup and a set of sentences on the screen — the philosophy page's
+ * "what we want to be known for", where bullets would make five beliefs read as an agenda. The
+ * semantics stay (a screen reader still hears "list, five items"); only the markers go, and the
+ * spacing does the separating.
+ */
+.plain-list {
+  list-style: none;
+  margin: 0 0 var(--space-5);
+  padding: 0;
+}
+.plain-list li { margin: 0 0 var(--space-3); max-width: 66ch; }
+
+/* A citation under a block, quieter than body copy — the one place the site names a source in
+   running text, and it should read as a footnote rather than a paragraph. */
+.source-note {
+  font-size: var(--text-sm);
+  color: var(--ink);
+}
+
 /* A bottom margin so the paragraph after a fact list is not mistaken for another value in it. On
    /rooms the room's approach was butting straight onto the ratio with no gap at all. */
 dl.facts { margin: 0 0 var(--space-4); }

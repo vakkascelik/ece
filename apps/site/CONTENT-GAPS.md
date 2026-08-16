@@ -81,6 +81,18 @@ site the centre *is* the publisher — it read as the service declining to stand
 in front of a parent. The distinction this gap exists to protect is untouched: their published ratio
 is sourced and stays; the two claims about a regulatory minimum stay off the site.
 
+**Changed 2026-08-17 — the manager confirmed the figures, and they were not the old site's.** The
+enrolment reply the centre sends to families (relayed by the owner, family details redacted) states
+**1:3 infant, 1:5 toddler, 1:7–8 preschool**. The toddler figure is stricter than the 1:6–7 the old
+website carried, which is exactly why the fix brief demanded confirmation before stating anything
+plainly. `/rooms` now carries the confirmed numbers with the hedged ranges gone.
+
+The same email reaffirms "our teacher ratios exceed the standards set by the Ministry of Education"
+— **still not published**, for two reasons that now point the same way: the minimum has never been
+sourced here, and the manager's own instruction for the site's voice is to avoid claims that bind or
+build expectations. The numbers are on the page; the comparison waits for Schedule 2 to be read, and
+possibly forever.
+
 ### 7. Mt Roskill's opening time
 
 Their site says 7.30am for both centres. A third-party directory says Mt Roskill opens at 7.00am.
@@ -258,6 +270,12 @@ authorship rather than accuracy.
 them, or replaces them with their own. They are all in `apps/site/src/app/page.tsx`, in one section,
 with no interpolation.
 
+**Update 2026-08-17:** the manager has now set the voice for the whole site — plain, warm, sincere,
+nothing boastful, nothing that binds or builds expectations — and supplied the strategic plan, whose
+"What we want to be known for" lines are now on `/philosophy` in their own words. The "Why pearls"
+draft reads consistently with that voice, but consistent-with is not approved: this gap stays open
+until the manager reads those four paragraphs specifically.
+
 ### 18. Which photograph belongs in the hero pearl
 
 Added 2026-08-16.
@@ -302,6 +320,18 @@ the policy reference. Yes makes this an ordinary product change — a migration,
 signature, the catalogue assertion in `rls_isolation.sql` rewritten to pin the new boundary rather
 than deleted, and the privacy statement updated. No leaves it exactly as it is, and the centre takes
 a birth date in the conversation the enquiry exists to start.
+
+### 20. ERO reports exist and the site does not point at them
+
+Added 2026-08-17. The manager's enrolment email tells families: "You can view our ERO reports for
+the Mt Albert and Mt Roskill branches online through the ERO website by searching for 'Little
+Pearls Educare Centre'." An ERO report is the strongest independent trust signal a centre can offer
+and the centre itself volunteers it — so the site should link both reports from the centre pages.
+
+Not done yet because the two report URLs have not been fetched and verified, and this repo does not
+publish a link nobody has opened. **To close it:** find both centres' pages on ero.govt.nz, open
+them, confirm they are the right service (match the street address, not just the name), and add one
+line per centre page. Two links, no new design.
 
 ## Resolved by rebuilding
 

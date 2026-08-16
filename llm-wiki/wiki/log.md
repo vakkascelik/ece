@@ -5,6 +5,49 @@ says so.*
 
 ---
 
+2026-08-17 — **The centre speaks in its own voice: the manager's enrolment letter and the strategic
+plan become source material, the ratios get their long-awaited confirmation, and a child's name
+arrives in the conversation and goes no further.** Extended: [[public-website]],
+`apps/site/CONTENT-GAPS.md` gaps 6, 17, 20.
+
+**A real child's name and preferred start date were in the email the manager forwarded.** Neither
+was written to any file; they exist nowhere in this repo. The template around them is the valuable
+part, and it is quoted with the family's details gone. Flagged back to the owner: redact before
+forwarding.
+
+**The ratios are confirmed, and the confirmation contradicted the site.** The fix brief has said
+since the beginning: confirm each figure with the centre manager, use whatever they confirm. The
+manager's own letter to families says **1:3 / 1:5 / 1:7–8** — the toddler figure stricter than the
+1:6–7 the old website carried and the site repeated. `/rooms` now states the confirmed numbers
+plainly, hedges gone. The letter also reaffirms "ratios exceed the standards set by the Ministry";
+still unpublished — the minimum is still unsourced, and the manager's own voice instruction (below)
+points the same way.
+
+**The manager set the voice, in two Turkish messages relayed by the owner:** the centre is genuinely
+distinctive and the site should be *authentic* about it — plain, simple, warm, quality without
+pretension — and **no assertive claims: "they show off, they bind people, and they build
+expectations."** That instruction resolved a decision already taken (the MoE comparative stays off)
+and retitled one section ("A chef, not a delivery" was scoring a point off somebody; it is "A chef
+in the kitchen" now). It is recorded here because it is a standing editorial rule for this site,
+not a one-off preference.
+
+**What went in, all from their own documents:** the strategic plan's "What we want to be known for"
+(five sentences, as written), the four values with the Teaching Council attribution kept, and the
+Pearl of the Isles Foundation paragraph — all on `/philosophy`, all their sentences lightly trimmed
+rather than paraphrased into marketing. From the enrolment letter: visit windows (9.30–11.00 /
+1.00–3.00, booked, timed around lunch and sleep — the reason published with the rule, because it
+reads as care), the unhurried-first-visit promise, the visit → waitlist → form-and-fee sequence,
+the Healthy Heart Award by its proper name, and heated-and-cooled rooms said as a parent hears it.
+The letter's two visit-window paragraphs disagreed with each other (9.30–11/1–3 vs 9–11/2–4); the
+owner picked the first.
+
+**Not done, recorded:** ERO reports — the letter volunteers them, the site should link both, and
+gap 20 says why it waits (nobody has opened the URLs and matched the street addresses). The
+strategic plan itself is not committed to the repo; it is an internal document quoted from, not a
+handoff.
+
+---
+
 2026-08-16 (fourth) — **A request to collect children's dates of birth runs into the gate built to
 stop it, and the footer loses two thirds of its height.** Extended: [[public-website]],
 `docs/tenant-little-pearls.md`, `apps/site/CONTENT-GAPS.md` gap 19.

@@ -62,6 +62,23 @@ Three defects made it urgent rather than cosmetic, all measured rather than asse
 - **The enquiry form does not ask for a child's date of birth, and a request to add one is open.**
   See *The date of birth that has not been added* below — it is gated on an insurance question
   nobody in this repo can answer, and the agreed shape when it is unblocked is a birth **month**.
+- **The site has a standing editorial voice, set by the centre manager on 2026-08-17:** plain,
+  simple, warm, authentic — and **no assertive claims**, in the manager's words because "they show
+  off, they bind people, and they build expectations." Copy decisions cite this now: it is why the
+  confirmed ratios are published as bare numbers with the "exceeds the Ministry" comparative left
+  off, and why "A chef, not a delivery" was retitled. Any new copy on this site is written to it.
+- **The ratios on `/rooms` are the manager's confirmed figures (1:3 / 1:5 / 1:7–8), as of
+  2026-08-17** — from the enrolment reply the centre sends families, which superseded the 2018
+  website's ranges (toddler moved from 1:6–7 to a stricter 1:5). The confirmation the fix brief
+  required from day one, finally supplied. Gap 6 carries the detail.
+- **`/philosophy` carries the centre's vision, values and global focus** from their 2026–2029
+  strategic plan, in their own sentences: "What we want to be known for", the four values with the
+  Teaching Council attribution kept, and the Pearl of the Isles Foundation. The plan itself is not
+  committed — it is an internal document quoted from, not a handoff pack.
+- **Visit windows are published with their reason** (9.30–11.00am or 1.00–3.00pm, booked, timed so
+  visits never land on lunch or sleep) on `/enrolment` and both centre pages — from the same
+  enrolment letter, which also supplied the visit → waitlist → form-and-fee sequence and the Healthy
+  Heart Award's proper name.
 - Their brand is used, not the platform's — and **none of their colours can carry text.**
 
 ## Details

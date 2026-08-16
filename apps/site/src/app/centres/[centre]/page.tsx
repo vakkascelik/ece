@@ -151,9 +151,13 @@ export default async function CentrePage({ params }: { params: Promise<{ centre:
             <Link href="/contact">get in touch</Link> and we will answer anything in the meantime.
           </div>
 
+          {/* The visit windows come with the invitation, so a family can pick a time in the same
+              breath as deciding to come. Times and reason from the manager's enrolment email — see
+              `CENTRE_FACTS` in lib/centres.ts. */}
           <div className="callout">
             <p style={{ margin: 0 }}>
-              Want to look around? <Link href="/enrolment">Send us an enquiry</Link> or call{' '}
+              Want to look around? Visits are {CENTRE_FACTS.visitWindows},{' '}
+              {CENTRE_FACTS.visitNote}. <Link href="/enrolment">Send us an enquiry</Link> or call{' '}
               <a href={`tel:${centre.phoneHref}`}>{centre.phone}</a>.
             </p>
           </div>

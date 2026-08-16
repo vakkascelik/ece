@@ -119,6 +119,17 @@ export const CENTRE_FACTS = {
   careersEmail: 'career@littlepearls.org.nz',
   tagline: 'Every child is precious like a pearl',
   /**
+   * Visit windows, from the manager's own enrolment reply to families (2026-08-17, relayed by the
+   * owner with the family's details removed). The email gives two conflicting pairs — 9.30–11.00 /
+   * 1.00–3.00 in one paragraph and 9–11 / 2–4 in another — and the owner confirmed the first.
+   *
+   * The *reason* travels with the times because it is the kind of fact that makes a rule read as
+   * care rather than as gatekeeping: the windows exist so visits do not land on the children's
+   * lunch and sleep.
+   */
+  visitWindows: '9.30–11.00am or 1.00–3.00pm',
+  visitNote: 'booked ahead, and timed so a visit never lands on lunch or sleep',
+  /**
    * Both centres are in Auckland, so this is a constant rather than a lookup — but it is
    * written down rather than assumed, because the enrolment form compares a family's start
    * date against "today" and a server running UTC calls a New Zealand morning yesterday.
@@ -130,22 +141,18 @@ export const CENTRE_FACTS = {
 /**
  * Their social accounts, as supplied by the owner and carried over from their current site.
  *
- * TEXT LINKS AND NOT ICONS, WHICH IS A DEPARTURE FROM THEIR CURRENT FOOTER.
+ * ICONS NOW, AND THIS COMMENT USED TO ARGUE THE OPPOSITE. It said "text links and not icons" and
+ * gave three reasons; the owner asked for icons on 2026-08-16 to shorten the footer, and the reasons
+ * did not all survive contact with that request equally. What held: an icon-only link still needs an
+ * accessible name, so each link carries a visually-hidden `<span>` with the platform's name — the
+ * `name` field here is that text, not decoration. What bent: the marks are drawn from primitives in
+ * `SocialIcon.tsx` and tinted `currentColor` — simplified geometric forms, not the trademarks — so
+ * the recolouring problem this comment worried about is sidestepped rather than solved. The note in
+ * that file says what to revisit if anybody wants the exact brand marks.
  *
- * Theirs is four circular glyphs with no visible text. Three reasons this is words instead. The
- * `img-src` policy is `'self' data:`, so every icon would have to be a committed asset or an
- * inlined path — and the inlined route is the one the developer credit's comment already refuses
- * for somebody else's mark, because a drawn logo is one `fill` away from being recoloured against
- * its own guidelines. Four platform marks is four of that problem. Second, an icon-only link needs
- * an accessible name supplied separately, and a name that exists only for screen readers is a name
- * nobody proofreads. Third, this site is typographic the whole way down; a row of logo bubbles is
- * the one place it would stop being.
- *
- * The account names are deliberately not abbreviated to handles. "Instagram" is what somebody is
- * looking for; `@littlepearlsnz` is what they find when they get there.
- *
- * `x.com` is recorded as supplied. Their current footer still shows a bird, so the icon is a
- * generation out of date — another small argument for words, which do not go stale.
+ * `x.com` is recorded as supplied. Their current footer still shows a bird, so their own icon is a
+ * generation out of date — the risk words did not have, and icons do. The drawn X is at least ours
+ * to update.
  */
 export const SOCIAL_LINKS = [
   { name: 'Facebook', href: 'https://www.facebook.com/LittlePearlsEducareCentre' },
@@ -155,18 +162,29 @@ export const SOCIAL_LINKS = [
 ] as const;
 
 /**
- * The rooms, with the ratios **their site publishes**.
+ * The rooms, with the ratios **the centre manager confirmed on 2026-08-17** — in the enrolment
+ * reply the centre sends to interested families, relayed by the owner (the family's details were
+ * redacted and are nowhere in this repo).
  *
- * Quoted as the centre's own statement, never as a regulatory figure. The platform's own ratio
- * tables carry `RATIO_TABLES_VERIFIED = false` and render a notice saying nobody has checked them
- * against Schedule 2 — so this site does not get to imply a compliance claim the product itself
- * refuses to make.
+ * That confirmation is the one the original fix brief had been waiting for since the site was
+ * built: "before changing the numbers, confirm each figure with the centre manager and use
+ * whatever they confirm." So the hedged ranges read off their 2018 website ("no more than 1 adult
+ * to 3–4 children") give way to the numbers they actually tell families today, stated plainly.
+ * The toddler figure moved the most — 1:5 against the old site's 1:6–7 — and the manager's is the
+ * one that wins, because it is current and it is theirs.
+ *
+ * STILL NEVER A REGULATORY CLAIM. The same email says the ratios "exceed the standards set by the
+ * Ministry of Education", and that sentence is deliberately NOT here: the platform's own ratio
+ * tables carry `RATIO_TABLES_VERIFIED = false` because nobody has sourced Schedule 2, and the
+ * manager's own instruction for the site's voice — plain, no claims that bind or build
+ * expectations — points the same way. The numbers are what they staff to; what a regulation
+ * requires is a different sentence, and it waits for the regulation to be read.
  */
 export const ROOMS = [
   {
     name: 'Infant',
     ages: '3 months to 2 years',
-    ratio: 'no more than 1 adult to 3–4 children',
+    ratio: '1 adult to 3 children',
     approach:
       'A home-like room built on respect. Their programme draws on Pikler and RIE, the schema concept, and Te Whāriki.',
     /*
@@ -181,14 +199,14 @@ export const ROOMS = [
   {
     name: 'Toddler',
     ages: '2 to 3½ years',
-    ratio: 'no more than 1 adult to 6–7 children',
+    ratio: '1 adult to 5 children',
     approach: 'Interest-based activities, guided by Te Whāriki.',
     photo: 'playKitchen',
   },
   {
     name: 'Preschool',
     ages: '3½ to 5 years',
-    ratio: 'no more than 1 adult to 7–8 children',
+    ratio: '1 adult to 7–8 children',
     approach: 'Play-based learning with a focus on the transition to school, guided by Te Whāriki.',
     photo: 'preschoolRoom',
   },

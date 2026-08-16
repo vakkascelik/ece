@@ -225,13 +225,23 @@ export default function HomePage() {
         {/* --- Food ----------------------------------------------------------------- */}
         <hr className="rule" aria-hidden="true" />
 
+        {/*
+          "A chef, not a delivery" was the title here and it is gone on the manager's own direction
+          for the site's voice — plain and warm, nothing that scores a point off anybody. The
+          comparison was doing exactly that.
+
+          "Healthy Heart Award" replaces "reward programme": the proper name of the Heart Foundation
+          programme, from the manager's enrolment email (2026-08-17), which also supplied the
+          menu-on-a-visit sentence. Their words, not embellishment.
+        */}
         <section>
           <Eyebrow>Food made on site</Eyebrow>
-          <h2 className="section-title">A chef, not a delivery</h2>
+          <h2 className="section-title">A chef in the kitchen</h2>
           <p className="prose">
-            A full-time on-site chef provides nutritious and delicious meals — hot meals at
-            lunchtime, fresh baking in the mornings and afternoons, and fresh and dried fruit through
-            the day. We take part in the Heart Foundation reward programme and follow their advice.
+            A full-time on-site chef cooks for the children — hot meals at lunchtime, fresh baking
+            in the mornings and afternoons, and fresh and dried fruit through the day. We take part
+            in the Heart Foundation&rsquo;s Healthy Heart Award and our menu follows their
+            guidelines; ask to see the menu when you visit.
           </p>
 
           {/* On the second ground. Ngā hononga is the centre's own emphasis, so it gets the one
