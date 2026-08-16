@@ -5,6 +5,60 @@ says so.*
 
 ---
 
+2026-08-16 — **The public website becomes pearls and ocean, and five defects turn up that the site's
+own accessibility gate reported clean.** Extended: [[public-website]]. Corrected:
+[[unverified-claims]] item 19 — the exposure it predicted has been *removed* rather than checked.
+New gaps 17 and 18 in `apps/site/CONTENT-GAPS.md`, and a correction to that file's closing line.
+
+The centre manager's brief was three things: bring back the pearl analogy from the old site, add
+water that moves and a boat, and put the children's photographs inside the pearls. Six ocean tokens,
+a pearl component at five sizes, three drifting wave layers over a hero and two mirrored under the
+footer, one boat, and a scroll handler. All ten routes, not the handoff's homepage-only scope, so
+the nine inner pages are an extrapolation and say so in the code.
+
+**The handoff's palette was declined** — its token table is Doorway's, adopted so the two properties
+would "read as one organisation", and the Doorway name was coming *off* this site in the same
+commit. Ocean tokens went into `brandLittlePearls` instead: their own hue taken down rather than up,
+which is the `tealInk` move applied to a background.
+
+**`npm run audit:site` passed twenty page views while the footer heading rendered at 1.18:1 and the
+homepage `<h1>` was cut off mid-word at 390px.** Neither is an audit bug; both are limits this design
+walked into. axe cannot resolve contrast against a `linear-gradient`, so it files gradient text as
+*incomplete* and the audit counts violations — every ocean band is a contrast blind spot. And a
+document-level `scrollWidth` check is satisfied trivially by an ancestor with `overflow: hidden`, so
+clipped text and no overflow look identical to it. Both found by rendering the page and looking.
+The second class needs an assertion the repo does not have; recorded, not claimed.
+
+**Inline styles beat media queries, and the same root cause produced two unrelated-looking bugs.**
+`--pearl-size` is set inline, so the mobile breakpoint that shrank the hero pearl never fired — and
+because a grid item's `min-width` defaults to `auto`, a 420px pearl dragged the copy column out to
+420px inside a 390px phone. The wave drift was an inline `animation`, so `prefers-reduced-motion:
+reduce` could not stop it: **five wave layers went on drifting for a reader who had asked their
+operating system for no motion**, plus three footer pearls whose `:nth-child` rules outranked a
+two-class reset. Both fixed by passing the *value* in and keeping the property in the stylesheet.
+Measured: 8 running animations before, 0 after, with zero inline transforms in both cases.
+
+**Two defects in the reference implementation itself.** `wave5` began at `y=30` and hit `y=34` at
+the halfway mark, so the seamless `-50%` wrap had a ~2px step across the full width every 19
+seconds. And the wave geometry has *exactly* zero slack — a fully-drifted layer's right edge lands
+at precisely 100% of the viewport, which the handoff's own parallax table then subtracts up to
+160px from, showing a wedge of open ocean below the waterline. Fixed together by rebuilding the
+paths as four repetitions of one relative-coordinate period: the wrap is now structurally seamless
+rather than seamless-if-you-check, the rendered period is unchanged, and there is 60% of viewport
+slack at both edges.
+
+**The handoff's sheen is tuned against an empty pearl** — no photograph appears in any pearl in its
+reference file, so nothing there tests it. Over real images it washed them out; the hero child came
+out hazy and the 64px story pearls read as white discs. Softened for photo pearls only. The hero
+photograph also needs its highlight mirrored, or it lands on the child's forehead and erases it.
+
+The coral footer, asked for by name three passes ago, is now the ocean band — the owner's call, put
+back to them rather than assumed. The contrast work inverted with it: coral could not take white
+text at 2.88:1, and the ocean cannot take dark at 1.18:1. A background swap that left the text
+colour alone shipped an unreadable footer on every page and looked, in the diff, like one line.
+
+---
+
 2026-08-14 — **§6-3 attendance verification arrives across three commits (`dd8827f`, `077d4ef`,
 `5135873`), and two standing claims fall over on the way.** New page: [[attendance-verification]].
 Corrected: [[funding-and-billing]]. Narrowed: [[unverified-claims]] item 3. Added: item 36.
@@ -3309,4 +3363,4 @@ local stand-in serving a real PNG, and the cache measured at two upstream calls 
 requests. Recorded as gap 16 in `apps/site/CONTENT-GAPS.md` that **nobody has read Google's terms on
 how long their content may be cached** — the TTLs are a guess in the safe direction, not a finding.
 
-*Log last updated: 2026-08-14*
+*Log last updated: 2026-08-16*

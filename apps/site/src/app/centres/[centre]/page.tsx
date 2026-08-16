@@ -2,6 +2,8 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { CentreMap } from '../../CentreMap';
+import { Eyebrow } from '../../Eyebrow';
+import { PageBand } from '../../PageBand';
 import { Photo } from '../../Photo';
 import { PHOTOS } from '@/lib/photos';
 import { CENTRE_FACTS, centreByPath } from '@/lib/centres';
@@ -84,63 +86,78 @@ export default async function CentrePage({ params }: { params: Promise<{ centre:
 
   return (
     <>
-      <h1>{centre.name}</h1>
-      <p className="lede">
+      <PageBand eyebrow="Our centres" title={centre.name}>
         Little Pearls Educare Centre, {centre.suburb}. {CENTRE_FACTS.hours}, for children{' '}
         {CENTRE_FACTS.ages}.
-      </p>
+      </PageBand>
 
-      {/*
-        The same two photographs on both centre pages, and that is a gap rather than a shortcut: their
-        old site had no per-centre photography either, so there is nothing to tell them apart with.
-        Recorded in CONTENT-GAPS.md rather than papered over by showing a different room on each and
-        implying it belongs to that site.
-      */}
-      <div className="photo-row">
-        <Photo photo={PHOTOS.entrance} priority />
-        <Photo photo={PHOTOS.playground} />
-      </div>
+      <div className="page">
+        {/*
+          The same two photographs on both centre pages, and that is a gap rather than a shortcut:
+          their old site had no per-centre photography either, so there is nothing to tell them apart
+          with. Recorded in CONTENT-GAPS.md rather than papered over by showing a different room on
+          each and implying it belongs to that site.
+        */}
+        <div className="photo-row">
+          <Photo photo={PHOTOS.entrance} priority />
+          <Photo photo={PHOTOS.playground} />
+        </div>
 
-      <h2>Find us</h2>
-      <dl className="facts">
-        <dt>Address</dt>
-        <dd>
-          {centre.street}
-          <br />
-          {centre.suburb} {centre.postcode}
-        </dd>
-        <dt>Phone</dt>
-        <dd>
-          <a href={`tel:${centre.phoneHref}`}>{centre.phone}</a>
-        </dd>
-        <dt>Email</dt>
-        <dd>
-          <a href={`mailto:${centre.email}`}>{centre.email}</a>
-        </dd>
-        <dt>Hours</dt>
-        <dd>{CENTRE_FACTS.hours}</dd>
-      </dl>
-      <CentreMap centre={centre} />
+        <hr className="rule" aria-hidden="true" />
 
-      <h2>Rooms at this centre</h2>
-      <p>
-        Both centres run the same three age-group rooms — Infant, Toddler and Preschool.{' '}
-        <Link href="/rooms">See what happens in each</Link>.
-      </p>
+        <section className="aside-grid">
+          <div>
+            <Eyebrow>Find us</Eyebrow>
+            <h2 className="section-title">{centre.suburb}</h2>
+            <CentreMap centre={centre} />
+          </div>
+          <aside>
+            <dl className="facts">
+              <dt>Address</dt>
+              <dd>
+                {centre.street}
+                <br />
+                {centre.suburb} {centre.postcode}
+              </dd>
+              <dt>Phone</dt>
+              <dd>
+                <a href={`tel:${centre.phoneHref}`}>{centre.phone}</a>
+              </dd>
+              <dt>Email</dt>
+              <dd>
+                <a href={`mailto:${centre.email}`}>{centre.email}</a>
+              </dd>
+              <dt>Hours</dt>
+              <dd>{CENTRE_FACTS.hours}</dd>
+            </dl>
+          </aside>
+        </section>
 
-      {/* Leads with the offer rather than the absence — see the note on the same block in
-          `enrolment/page.tsx`. */}
-      <div className="gap">
-        <strong>Ask us about the team here, and this centre&rsquo;s licence details.</strong> We are
-        not publishing either until they have been confirmed with us —{' '}
-        <Link href="/contact">get in touch</Link> and we will answer anything in the meantime.
-      </div>
+        <hr className="rule" aria-hidden="true" />
 
-      <div className="callout">
-        <p style={{ margin: 0 }}>
-          Want to look around? <Link href="/enrolment">Send us an enquiry</Link> or call{' '}
-          <a href={`tel:${centre.phoneHref}`}>{centre.phone}</a>.
-        </p>
+        <section className="prose">
+          <Eyebrow>Rooms at this centre</Eyebrow>
+          <h2 className="section-title">The same three rooms</h2>
+          <p>
+            Both centres run the same three age-group rooms — Infant, Toddler and Preschool.{' '}
+            <Link href="/rooms">See what happens in each</Link>.
+          </p>
+
+          {/* Leads with the offer rather than the absence — see the note on the same block in
+              `enrolment/page.tsx`. */}
+          <div className="gap">
+            <strong>Ask us about the team here, and this centre&rsquo;s licence details.</strong> We
+            are not publishing either until they have been confirmed with us —{' '}
+            <Link href="/contact">get in touch</Link> and we will answer anything in the meantime.
+          </div>
+
+          <div className="callout">
+            <p style={{ margin: 0 }}>
+              Want to look around? <Link href="/enrolment">Send us an enquiry</Link> or call{' '}
+              <a href={`tel:${centre.phoneHref}`}>{centre.phone}</a>.
+            </p>
+          </div>
+        </section>
       </div>
 
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />

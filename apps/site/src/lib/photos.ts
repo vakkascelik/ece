@@ -41,6 +41,27 @@ export interface Photo {
   alt: string;
   /** Shown under the image where the layout has room for it. */
   caption: string;
+  /**
+   * Where the subject is, 0–1 from the top-left, for the circular pearl crop. Defaults to
+   * `0.5 / 0.35` — centre, a little above the middle, which is where a face usually is.
+   *
+   * Only set where the default is wrong. These are square files rendered into a circle, so the
+   * *corners* are what a pearl loses rather than the sides; the focal point matters less here than
+   * it would on a landscape crop, and is recorded per image only where somebody has looked.
+   */
+  focalX?: number;
+  focalY?: number;
+  /**
+   * Which side the pearl's specular highlight sits on.
+   *
+   * `left` is the default and it is where a real pearl's highlight belongs. It is also, at
+   * `34% 26%`, exactly where a face lands in a portrait — and the highlight is 92% white at its
+   * centre, so it does not soften a face, it erases it. `right` mirrors it to `66% 26%`.
+   *
+   * A per-image field rather than a rule, because it depends entirely on the photograph. See
+   * `painting` below, which is the reason this exists.
+   */
+  sheen?: 'left' | 'right';
 }
 
 export const PHOTOS = {
@@ -79,10 +100,29 @@ export const PHOTOS = {
     alt: 'Five children sitting around a low table together, working on a picture card activity with a teacher’s materials spread out in front of them.',
     caption: 'Working on something together, which is most of a morning.',
   },
+  /**
+   * THE HERO PEARL, and the two extra fields are the whole reason the fields exist.
+   *
+   * Chosen by opening all ten and looking, against a 420px circle: it is the only photograph the
+   * centre owns with a single subject, face-on, at the centre of the frame. Everything else is
+   * either a room or a group, and a group in a circle is a picture of somebody's shoulder.
+   *
+   * The face sits at roughly 44% / 29%. On a square file rendered into a circle nothing but the
+   * corners is lost — that point is 22% from the centre against a 50% radius — so the crop is safe
+   * and `focalX`/`focalY` only nudge it.
+   *
+   * `sheen: 'right'` IS NOT COSMETIC. The default highlight is `circle at 34% 26%` at 92% white,
+   * which lands on this child's forehead and left eye and burns them out completely. Mirrored to
+   * `66% 26%` it falls on the hair at the edge of the frame, which is where light would actually
+   * catch. Caught by looking at it rendered, not by reading the co-ordinates.
+   */
   painting: {
     src: '/painting.webp',
     alt: 'A toddler in a painting smock, hands and face covered in blue paint, holding a brush over a pot of it and looking up.',
     caption: 'Paint goes where paint goes.',
+    focalX: 0.44,
+    focalY: 0.3,
+    sheen: 'right',
   },
   writing: {
     src: '/writing.webp',

@@ -174,6 +174,41 @@ export const brandLittlePearls = {
   /** Body copy. 7.00:1 on white, 6.47:1 on aquaPale. */
   ink: '#595959',
   surface: '#ffffff',
+
+  /**
+   * The ocean. Added 2026-08-16 with the pearl-and-ocean direction the centre manager asked for:
+   * bring back the pearl analogy, put the children's photos inside the pearls, and give the page
+   * moving water to sit on.
+   *
+   * THESE ARE A SURFACE, NEVER AN ACCENT. Nothing here becomes a button, a link or body text on
+   * `shell`. `tealInk` remains the one interface accent on this site, which is the rule the last
+   * pass established and the reason the ocean can be this saturated without the page gaining a
+   * second voice — a band you read *on* is not a colour that competes with the thing you click.
+   *
+   * WHY THIS IS THE ONE PART OF THE PALETTE THAT CAN CARRY WHITE TEXT, when the note at the top of
+   * this block says none of their colours can. Because these are not their colours. Their teal is a
+   * pale ground (`#83afaf`, white on it 2.41:1); this is the same hue taken *down* rather than up,
+   * far enough that the relationship holds by eye and the contrast problem inverts — white on
+   * `oceanDeep` is 12.26:1. It is the `tealInk` move again, applied to a background instead of to
+   * text.
+   *
+   * MEASURED AGAINST ALL THREE DEPTHS, NOT JUST THE DARKEST, and that is the whole point of the
+   * nine pairs below. The handoff quotes its contrast against `oceanDeep` only — but the hero is a
+   * gradient that *ends* at `oceanShallow`, which is the lightest of the three, and the buttons and
+   * the intro paragraph sit at the bottom of it. Checking the top of a gradient tells you nothing
+   * about the text at the bottom of it; that is the same mistake the `Ink` variants above were
+   * corrected for, one surface later.
+   *
+   *     white on deep 12.26   mid 10.37   shallow  8.57
+   *     muted on deep  8.09   mid  6.84   shallow  5.66
+   *     soft  on deep  7.26   mid  6.14   shallow  5.08   <- worst pair, still AA with room
+   */
+  oceanDeep: '#0d3b3e',
+  oceanMid: '#12474a',
+  oceanShallow: '#16545a',
+  onOcean: '#ffffff',
+  onOceanMuted: '#bfd7d1',
+  onOceanSoft: '#a9cfc7',
 } as const;
 
 /**
@@ -226,6 +261,34 @@ export const LITTLE_PEARLS_CONTRAST_PAIRS: readonly {
   { fg: brandLittlePearls.coralInk, bg: brandLittlePearls.sand, min: 4.5, label: 'coral ink on sand' },
   { fg: '#1b1a18', bg: brandLittlePearls.shell, min: 4.5, label: 'heading on shell' },
   { fg: '#1b1a18', bg: brandLittlePearls.sand, min: 4.5, label: 'heading on sand' },
+
+  /*
+   * The ocean band, every text colour against every depth.
+   *
+   * NINE PAIRS FOR WHAT LOOKS LIKE THREE, because the band is a gradient rather than a fill. A pair
+   * asserted against `oceanDeep` is an assertion about the top edge of the hero; the intro
+   * paragraph and both buttons are at the bottom edge, where the ground is `oceanShallow` and every
+   * ratio is at its worst. The handoff quotes only the `oceanDeep` figures, so taking them on trust
+   * would have left the three pairs that actually matter unchecked.
+   *
+   * `soft` on `oceanShallow` at 5.08:1 is the floor. It holds AA, so the eyebrow may stay the
+   * quietest thing in the band — but it is the pair that breaks first if anyone lightens the water.
+   */
+  { fg: brandLittlePearls.onOcean, bg: brandLittlePearls.oceanDeep, min: 4.5, label: 'white on ocean deep' },
+  { fg: brandLittlePearls.onOcean, bg: brandLittlePearls.oceanMid, min: 4.5, label: 'white on ocean mid' },
+  { fg: brandLittlePearls.onOcean, bg: brandLittlePearls.oceanShallow, min: 4.5, label: 'white on ocean shallow' },
+  { fg: brandLittlePearls.onOceanMuted, bg: brandLittlePearls.oceanDeep, min: 4.5, label: 'muted on ocean deep' },
+  { fg: brandLittlePearls.onOceanMuted, bg: brandLittlePearls.oceanMid, min: 4.5, label: 'muted on ocean mid' },
+  { fg: brandLittlePearls.onOceanMuted, bg: brandLittlePearls.oceanShallow, min: 4.5, label: 'muted on ocean shallow' },
+  { fg: brandLittlePearls.onOceanSoft, bg: brandLittlePearls.oceanDeep, min: 4.5, label: 'soft on ocean deep' },
+  { fg: brandLittlePearls.onOceanSoft, bg: brandLittlePearls.oceanMid, min: 4.5, label: 'soft on ocean mid' },
+  { fg: brandLittlePearls.onOceanSoft, bg: brandLittlePearls.oceanShallow, min: 4.5, label: 'soft on ocean shallow' },
+
+  /*
+   * The white button that inverts on the ocean, and its label. This is the primary CTA in both
+   * bands — `tealInk` on white would be the site's usual fill, and on a dark ground it disappears.
+   */
+  { fg: brandLittlePearls.oceanDeep, bg: brandLittlePearls.surface, min: 4.5, label: 'ocean deep on white' },
 ];
 
 export const space = {

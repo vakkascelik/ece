@@ -20,6 +20,25 @@
  *   npm run audit:site
  *
  * Assumes `npm run build:site` has already run.
+ *
+ * TWO THINGS THIS CANNOT SEE, both of which the pearl-and-ocean pass walked straight into on
+ * 2026-08-16. Neither is a bug here; both are limits, and they are written down because a gate that
+ * reports clean is read as "checked" unless somebody says otherwise.
+ *
+ *  1. **Contrast against a gradient.** axe cannot resolve a foreground colour over a
+ *     `linear-gradient` background, so it files those elements as *incomplete* rather than as
+ *     violations — and this script counts violations. Every ocean band on the site is therefore a
+ *     contrast blind spot. It reported twenty clean page views while the footer's `<h2>`, the
+ *     invitation that closes every page, rendered near-black on deep teal at **1.18:1**.
+ *  2. **Clipped content.** The overflow check below asks whether the *document* scrolls sideways,
+ *     which any ancestor with `overflow: hidden` satisfies trivially. At 390px the homepage's copy
+ *     column was 420px wide inside a 390px container and the `<h1>` was cut off mid-word, with no
+ *     horizontal scrollbar anywhere. Catching that class needs a different assertion — each text
+ *     element's rect against its nearest clipping ancestor, rather than against the document — and
+ *     that assertion is not written yet.
+ *
+ * Both were found by rendering the pages and looking at them. Until (2) exists, a visual pass is
+ * part of changing this site's layout, not an optional extra.
  */
 import { spawn } from 'node:child_process';
 import { AxeBuilder } from '@axe-core/playwright';

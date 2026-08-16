@@ -45,9 +45,9 @@ export const dynamic = 'force-dynamic';
   tabs open is looking for the screen, not for which product it belongs to. The bare `default`
   is for routes that set no title of their own.
 
-  The name is NOT trade-mark cleared — `doorway.co.nz` was confirmed available on 2026-08-11
-  and that is one check of three. See unverified-claims §19 before it goes on anything
-  expensive to change.
+  The name is NOT trade-mark cleared, and the domain is not ours — this comment used to say
+  `doorway.co.nz` was confirmed available on 2026-08-11; the registry says otherwise. See
+  unverified-claims §19 before it goes on anything expensive to change.
 */
 export const metadata: Metadata = {
   title: {

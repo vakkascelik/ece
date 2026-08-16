@@ -1,4 +1,6 @@
 import type { Metadata } from 'next';
+import { Eyebrow } from '../Eyebrow';
+import { PageBand } from '../PageBand';
 import { CENTRE_FACTS } from '@/lib/centres';
 import { ApplicationForm } from './ApplicationForm';
 
@@ -30,36 +32,45 @@ export const metadata: Metadata = {
 export default function CareersPage() {
   return (
     <>
-      <h1>Work with us</h1>
-      <p className="lede">
+      <PageBand eyebrow="Careers" title="Work with us">
         We are a {CENTRE_FACTS.structure.toLowerCase()} service across two Auckland centres, and we
         are always glad to hear from registered and experienced early childhood teachers.
-      </p>
+      </PageBand>
 
-      <h2>What we care about</h2>
-      <p>
-        Respect is the basis of our approach: treating even the youngest infant as a unique human
-        being. We are committed to ongoing professional development for our kaiako, and to promoting
-        te reo Māori and tikanga Māori in daily practice.
-      </p>
+      <div className="page">
+        <section className="prose">
+          <Eyebrow>What we care about</Eyebrow>
+          <h2 className="section-title">Respect, and people who stay</h2>
+          <p>
+            Respect is the basis of our approach: treating even the youngest infant as a unique
+            human being. We are committed to ongoing professional development for our kaiako, and to
+            promoting te reo Māori and tikanga Māori in daily practice.
+          </p>
 
-      {/* Leads with the offer rather than the absence — see the note on the same block in
-          `enrolment/page.tsx`. */}
-      <div className="gap">
-        <strong>Send us an application whenever you are ready.</strong> We do not list current
-        vacancies here — tell us what you are looking for and we will say what is open at each
-        centre.
+          {/* Leads with the offer rather than the absence — see the note on the same block in
+              `enrolment/page.tsx`. */}
+          <div className="gap">
+            <strong>Send us an application whenever you are ready.</strong> We do not list current
+            vacancies here — tell us what you are looking for and we will say what is open at each
+            centre.
+          </div>
+        </section>
+
+        <hr className="rule" aria-hidden="true" />
+
+        <section className="prose">
+          <Eyebrow>Apply</Eyebrow>
+          <h2 className="section-title">Tell us about yourself</h2>
+          <p>
+            Only the centre’s manager and owner can see what you send, and you can ask us to delete
+            it at any time. Please also email your CV to{' '}
+            <a href={`mailto:${CENTRE_FACTS.careersEmail}`}>{CENTRE_FACTS.careersEmail}</a> — this
+            form cannot take attachments yet.
+          </p>
+
+          <ApplicationForm />
+        </section>
       </div>
-
-      <h2>Apply</h2>
-      <p>
-        Only the centre’s manager and owner can see what you send, and you can ask us to delete it
-        at any time. Please also email your CV to{' '}
-        <a href={`mailto:${CENTRE_FACTS.careersEmail}`}>{CENTRE_FACTS.careersEmail}</a> — this form
-        cannot take attachments yet.
-      </p>
-
-      <ApplicationForm />
     </>
   );
 }

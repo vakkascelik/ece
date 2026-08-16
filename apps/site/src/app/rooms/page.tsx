@@ -1,4 +1,6 @@
 import type { Metadata } from 'next';
+import { Eyebrow } from '../Eyebrow';
+import { PageBand } from '../PageBand';
 import { Photo } from '../Photo';
 import { PHOTOS } from '@/lib/photos';
 import Link from 'next/link';
@@ -27,18 +29,31 @@ export const metadata: Metadata = {
 export default function RoomsPage() {
   return (
     <>
-      <h1>Our rooms</h1>
-      <p className="lede">
+      <PageBand eyebrow="Infant · Toddler · Preschool" title="Our rooms">
         Three age-group rooms, for children {CENTRE_FACTS.ages}, at both centres.
-      </p>
+      </PageBand>
 
+      <div className="page">
       {ROOMS.map((room, i) => (
-        <section key={room.name}>
+        <section key={room.name} className="aside-grid">
           {/* Between rooms, not before the first — a mark that separates, not a decoration that
-              repeats. */}
-          {i > 0 && <hr className="rule" aria-hidden="true" />}
-          <h2>{room.name}</h2>
-          <dl className="facts">
+              repeats. `.rule-span` because a hairline inside a grid would otherwise take a column
+              and sit under one half of the row above it. */}
+          {i > 0 && <hr className="rule rule-span" aria-hidden="true" />}
+          <div className="prose">
+            {/*
+              `Room 1 of 3` rather than the age band, which is directly below it in the `<dl>`, and
+              rather than the room name, which is the heading. An eyebrow that restates the thing
+              under it is a line of text doing nothing.
+
+              The eyebrow's own pearl dot stays at 9px here. The growing 18/24/30 version of it is on
+              the homepage strip, where the three sit together and the growth is legible; three rooms
+              a screenful apart cannot show a size relationship, so repeating it here would be the
+              gesture without the meaning.
+            */}
+            <Eyebrow>Room {i + 1} of 3</Eyebrow>
+            <h2 className="section-title">{room.name}</h2>
+            <dl className="facts">
             <dt>Ages</dt>
             <dd>{room.ages}</dd>
             <dt>Adult to child ratio</dt>
@@ -60,18 +75,22 @@ export default function RoomsPage() {
               CONTENT-GAPS.md gap 6 tracks both.
             */}
             <dd>{room.ratio}</dd>
-          </dl>
-          <p>{room.approach}</p>
+            </dl>
+            <p>{room.approach}</p>
+          </div>
           {/* Named by the room's own `photo` key, so this cannot drift out of step with the list. */}
-          <Photo photo={PHOTOS[room.photo]} />
+          <aside>
+            <Photo photo={PHOTOS[room.photo]} />
+          </aside>
         </section>
       ))}
 
-      <div className="callout">
-        <p style={{ margin: 0 }}>
-          Not sure which room your child would start in?{' '}
-          <Link href="/enrolment">Send an enquiry</Link> and we will tell you what is available.
-        </p>
+        <div className="callout">
+          <p style={{ margin: 0 }}>
+            Not sure which room your child would start in?{' '}
+            <Link href="/enrolment">Send an enquiry</Link> and we will tell you what is available.
+          </p>
+        </div>
       </div>
     </>
   );

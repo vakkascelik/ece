@@ -1,11 +1,14 @@
 import type { Metadata, Viewport } from 'next';
 import { Literata } from 'next/font/google';
+import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { MARK, PRODUCT_NAME } from '@ece/core';
 import { CENTRES, CENTRE_FACTS, SOCIAL_LINKS } from '@/lib/centres';
 import { PHOTOS } from '@/lib/photos';
 import { appUrl, siteOrigin } from '@/lib/site';
 import { NavLink } from './NavLink';
+import { Parallax } from './Parallax';
+import { Pearl } from './Pearl';
+import { Waves } from './Waves';
 import './globals.css';
 
 /**
@@ -212,35 +215,14 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               is a different application is a navigation that lies to anybody working it with a
               screen reader or a keyboard.
 
-              The mark is inlined rather than fetched — one fewer request for three shapes, and
-              `img-src` would otherwise be carrying a file that exists only for this. `aria-hidden`
-              because the words beside it already say Doorway; `focusable="false"` because SVG
-              otherwise picks up a tab stop in some engines.
+              IT NO LONGER NAMES THE PRODUCT, AND THE MARK BESIDE IT IS GONE. Both on the owner's
+              instruction and for a reason recorded in `packages/core/src/brand.ts`: the name is not
+              trade-mark cleared, `doorway.nz` is registered to somebody else, and a customer's
+              public website is the worst possible place to find that out. See the note on `.signin`
+              in globals.css for why the *link* stayed when the name went.
             */}
             <a className="signin" href={appUrl()}>
-              <svg
-                className="doorway-mark"
-                viewBox={`0 0 ${MARK.size} ${MARK.size}`}
-                xmlns="http://www.w3.org/2000/svg"
-                aria-hidden="true"
-                focusable="false"
-              >
-                {/* Read from `@ece/core`, not typed here. This mark is also drawn in the
-                    console's rail and generated into its favicon, and a logo maintained in
-                    three files is a logo that ends up in three slightly different shapes —
-                    the failure `tokens.ts` exists to prevent, applied to identity. */}
-                <rect width={MARK.size} height={MARK.size} rx={MARK.box.radius} fill={MARK.box.fill} />
-                <circle cx={MARK.head.cx} cy={MARK.head.cy} r={MARK.head.r} fill={MARK.head.fill} />
-                <rect
-                  x={MARK.shoulders.x}
-                  y={MARK.shoulders.y}
-                  width={MARK.shoulders.width}
-                  height={MARK.shoulders.height}
-                  rx={MARK.shoulders.radius}
-                  fill={MARK.shoulders.fill}
-                />
-              </svg>
-              Sign in to {PRODUCT_NAME}
+              Sign in to the centre app
             </a>
 
             <nav className="nav" aria-label="Main">
@@ -253,8 +235,15 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           </div>
         </header>
 
+        {/*
+          NO `.wrap` HERE ANY MORE. `<main>` is full-bleed and each page carries its own container,
+          because an ocean band has to reach the window edges and the two ways of faking that from
+          inside a centred column are both worse — see the `.main` note in globals.css, which
+          records why `calc(50% - 50vw)` is banned in this file and why moving the band outside
+          `<main>` would put every page's `<h1>` outside the main landmark.
+        */}
         <main className="main" id="main">
-          <div className="wrap">{children}</div>
+          {children}
         </main>
 
         {/*
@@ -274,6 +263,51 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           a reader can ignore, where two identical headings is one a screen-reader user cannot.
         */}
         <footer className="foot">
+          {/*
+            The waterline, mirrored — these paths fill upward, so the page appears to end *in* the
+            sea rather than at a border. Two layers here against the hero's three: the footer band
+            is shallower and a third would put foam through the invitation below it.
+          */}
+          <Waves variant="footer" />
+
+          {/*
+            THE INVITATION, and it is the one piece of the design that is a marketing decision
+            rather than a visual one.
+
+            Everything above it on any given page is describing the centre. This is the last thing
+            on every page, it asks for the one action the site exists to produce, and it says the
+            thing that actually lowers the barrier — that nobody has to send anything about their
+            child to start a conversation. That sentence is lifted from `/enrolment`, where it was
+            already doing the same job for the form.
+          */}
+          <div className="foot__cta">
+            <div className="wrap foot__cta-grid">
+              <div>
+                <h2>Come and meet the people who will know your child</h2>
+                <p>
+                  Tell us a little and we will arrange a visit at whichever centre suits you. You do
+                  not need to send us anything about your child yet.
+                </p>
+                <p style={{ margin: 0 }}>
+                  <Link className="btn btn-invert" href="/enrolment">
+                    Enquire about a place
+                  </Link>
+                </p>
+              </div>
+              {/*
+                Three empty pearls. `aria-hidden` because they carry nothing a reader needs — see
+                the note on `.pearl-cluster` in globals.css for why these three, alone among the
+                pearls on this site, hold no photograph.
+              */}
+              <div className="pearl-cluster" data-parallax="cluster" aria-hidden="true">
+                <Pearl size={74} />
+                <Pearl size={124} />
+                <Pearl size={56} />
+              </div>
+            </div>
+          </div>
+
+          <div className="foot__detail">
           <div className="wrap">
             <div className="foot-grid">
               {CENTRES.map((centre) => (
@@ -303,7 +337,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                 */}
                 <p className="foot-head foot-head-spaced">For families and kaiako</p>
                 <p>
-                  <a href={appUrl()}>Sign in to {PRODUCT_NAME}</a>
+                  <a href={appUrl()}>Sign in to the centre app</a>
                 </p>
               </div>
               {/*
@@ -340,13 +374,11 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             {/*
               The developer credit.
 
-              A file in `public/` rather than an inlined `<svg>`, which is the opposite of the call
-              made for the Doorway mark two elements up, and deliberately. Doorway's is three
-              primitives copied out of the handoff; this is a drawn mark belonging to someone else,
-              whose own guidelines say it may not be recoloured — keeping it as the byte-identical
-              asset makes that hard to violate by accident, where an inlined path is one `fill`
-              away from it. `img-src` is `'self' data:`, so a committed file is also the only
-              shape the policy allows.
+              A file in `public/` rather than an inlined `<svg>`. This is a drawn mark belonging to
+              someone else, whose own guidelines say it may not be recoloured — keeping it as the
+              byte-identical asset makes that hard to violate by accident, where an inlined path is
+              one `fill` away from it. `img-src` is `'self' data:`, so a committed file is also the
+              only shape the policy allows.
 
               It is their `favicon.svg` — the solid tile — and not `salix-mark-green.svg`, which is
               their default. See the note in globals.css: the default is a line drawing that
@@ -372,7 +404,20 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               </a>
             </p>
           </div>
+          </div>
         </footer>
+
+        {/*
+          The scroll parallax, last in the body and rendering nothing — it attaches one listener to
+          elements the server components above already marked `data-parallax`. Under
+          `prefers-reduced-motion: reduce` it attaches nothing at all.
+
+          The second client component in this app, after `NavLink`. That is worth noting because the
+          note on `NavLink` used to say it was the only one, and the reason it was the only one still
+          holds: a marketing site that ships React to do nothing is a slower marketing site. This one
+          does something.
+        */}
+        <Parallax />
       </body>
     </html>
   );

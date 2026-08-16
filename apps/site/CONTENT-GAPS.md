@@ -232,6 +232,53 @@ and nothing calls it: there is no form. The copy now says so plainly instead.
 query function and the schema are already there, so this is a form and a server action, not a
 feature. It is worth doing at the same time as gap 12, because both exist for the same reason.
 
+### 17. The "Why pearls" copy is not the centre's own words
+
+Added 2026-08-16 with the pearl-and-ocean design.
+
+**This is the only text on the site the centre did not write**, and that is why it is a gap rather
+than a paragraph. Everything else here traces to their own site or their philosophy PDF; the closing
+note of this file has said since it was written that *nothing on the site is unsourced*. Four pieces
+of prose now are:
+
+- the section intro, "No two are alike, and none of it is hurried…"
+- the three card headings and their paragraphs — *Something singular arrives*, *Layer upon layer*,
+  *Something to treasure*
+
+They come from the design handoff, which flags them itself as "a first draft, not approved text" and
+lists the manager's sign-off as a thing to get **before publishing**. They are on the homepage now
+because the pearls are decoration without them — the section is where the analogy is actually made —
+and a placeholder would have been worse than a draft somebody has to read.
+
+Nothing in them is a claim of fact. They describe an approach, in the register the centre's own
+philosophy statement uses, and no figure, ratio, hour or capacity appears. So the risk is tone and
+authorship rather than accuracy.
+
+**To close it:** the centre manager reads four short paragraphs and either approves them, edits
+them, or replaces them with their own. They are all in `apps/site/src/app/page.tsx`, in one section,
+with no interpolation.
+
+### 18. Which photograph belongs in the hero pearl
+
+Added 2026-08-16.
+
+The hero pearl is a 420px circular crop and it currently holds `painting.webp` — a single toddler,
+face-on, covered in blue paint. **It was chosen on compositional grounds, not editorial ones**: of
+the ten photographs the centre owns it is the only one with a single subject at the centre of the
+frame, and a circle turns a group shot into a picture of somebody's shoulder.
+
+Consent is not the open question — the centre confirmed on 2026-08-07 that it holds the consents for
+the four photographs showing children, and this is one of them (see `lib/photos.ts`). What is open
+is that **this photograph is now the single largest thing on the front page**, which is a different
+decision from being one of three in a row further down, and nobody at the centre has been asked
+about that specific promotion. The design handoff lists "which consented photos go in the hero pearl
+and the three story pearls" as a thing to confirm before publishing.
+
+**To close it:** show the manager the homepage and ask whether that child's photograph is the one
+they want as the front page. If not, `PHOTOS.painting` in `page.tsx` is a one-word change — but note
+the `sheen` and focal-point fields on the replacement, because a circular crop plus a bright
+highlight will destroy a badly-placed face.
+
 ## Resolved by rebuilding
 
 - **No `<meta name="viewport">` and no responsive layout.** Fixed: the site is fluid and asserted
@@ -253,5 +300,9 @@ feature. It is worth doing at the same time as gap 12, because both exist for th
   who had been replied to. Now a form that creates a record the centre's manager can act on. The CV
   still arrives by email — gap 12.
 
-*Last updated 2026-08-06. Nothing on the site is unsourced; everything above is a question for the
-centre.*
+*Last updated 2026-08-16.*
+
+*The closing line here used to read "nothing on the site is unsourced". **That is no longer true and
+the correction is gap 17**: the four "Why pearls" paragraphs on the homepage come from the design
+handoff rather than from the centre, and they are awaiting the manager's sign-off. Everything else
+above is still a question for the centre rather than a claim on the page.*

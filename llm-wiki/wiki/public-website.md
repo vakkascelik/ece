@@ -46,9 +46,175 @@ Three defects made it urgent rather than cosmetic, all measured rather than asse
 - **All ten routes pass axe (WCAG 2.2 AA) at 390px and 1440px with zero violations and zero
   horizontal overflow.** Their predecessor fails on every page at every width. Repeatable since
   2026-08-07 as `npm run audit:site` — before that it was a one-off run, which is not a check.
+  **Read *The audit's two blind spots* below before trusting that sentence about this design** —
+  the pearl-and-ocean pass put a gradient and an `overflow: hidden` on every page, and each of those
+  hides a class of defect from this gate.
+- **The site is pearls and ocean as of 2026-08-16**, on the centre manager's brief: bring back the
+  pearl analogy from the old site, give the page water that moves, and put the children's
+  photographs *inside* the pearls. See *The pearl and the ocean* below.
+- **The product name is off the public site**, reversing the exposure [[unverified-claims]] §19 was
+  written to warn about. The sign-in link stayed and says "Sign in to the centre app".
 - Their brand is used, not the platform's — and **none of their colours can carry text.**
 
 ## Details
+
+### The pearl and the ocean
+
+Added 2026-08-16, from a design handoff (`handoff_website_pearl_ocean/`) written to the centre
+manager's brief: **bring the pearl analogy back from the old site, add water that moves and a boat,
+and put the children's photographs inside the pearls.** The handoff scopes itself to the homepage;
+the owner asked for the whole site, so the nine other routes are an extrapolation and are marked as
+one in `PageBand.tsx`.
+
+The organising rule, and the reason it does not turn the site into a theme: **the ocean is a
+surface, never an accent.** Teal water is a ground you read *on*; it never becomes a button, a link,
+or body text on paper. `--teal-ink` is still the one interface accent, exactly as it was. On a band
+the primary button inverts to white with `--ocean-deep` text, because a teal button on teal water is
+a button nobody finds. Two bands per page maximum — the top and the bottom — and the middle stays
+`--shell` with white cards.
+
+**The handoff's own palette was declined, and that is the one place this pass overrides it.** Its
+token table is *Doorway's* — the fix brief says in as many words that the website should use the
+app's tokens "so the two properties read as one organisation", and its accent `#2f6f4f` is Doorway's
+brand green. The name was being taken *off* this site in the same commit, so importing its colour
+would have been the opposite move. Six ocean tokens were added to `brandLittlePearls` instead; they
+are the same hue family as their own teal, taken down rather than up.
+
+**These are the one part of Little Pearls' palette that can carry white text**, which contradicts
+the rule stated everywhere else on this page — because they are not their colours. The `tealInk`
+move, applied to a background instead of to text. White on `--ocean-deep` is 12.26:1.
+
+#### Nine contrast pairs for what looks like three
+
+The handoff quotes its contrast against `--ocean-deep` only. **The hero is a gradient that *ends* at
+`--ocean-shallow`**, the lightest of the three, and the intro paragraph and both buttons sit at the
+bottom of it — so its figures describe the top edge of a band and say nothing about the text at the
+bottom of it. All nine combinations are measured and asserted in `LITTLE_PEARLS_CONTRAST_PAIRS`:
+
+| | deep | mid | shallow |
+|---|---|---|---|
+| white | 12.26 | 10.37 | 8.57 |
+| `--on-ocean-muted` | 8.09 | 6.84 | 5.66 |
+| `--on-ocean-soft` | 7.26 | 6.14 | **5.08** |
+
+The floor holds AA with room. It is also the pair that breaks first if anybody lightens the water.
+
+This is the *third* time on this site that a colour checked against one background has turned out to
+say nothing about the others — the `Ink` variants were corrected for it, the footer swap below hit
+it again from the opposite direction, and now a gradient. The lesson has a stronger form than it was
+first written in: **a gradient is not a background, it is a range of them.**
+
+#### The audit's two blind spots
+
+Both were found by rendering the page and looking at it, after `npm run audit:site` reported twenty
+clean page views. Neither is a bug in the audit; both are limits of what it can see, and this design
+walked into both.
+
+1. **axe cannot resolve contrast against a `linear-gradient`.** It files those elements as
+   *incomplete* rather than as violations, and the audit counts violations. So every ocean band is a
+   contrast blind spot. What it hid: the footer's `<h2>` — the invitation that closes every page on
+   the site — rendering near-black on deep teal at **1.18:1**, because `.foot` is an ocean band but
+   does not carry the `.band-ocean` class and fell through to the global heading colour. Alongside
+   it, the "Enquire about a place" button rendered as **a blank white rectangle**: `.foot a` is
+   (0,2,0) and `.btn-invert` was (0,1,0), so the footer's link colour won and the label was white on
+   white.
+2. **`overflow: hidden` defeats a document-level overflow check.** The audit asserts
+   `documentElement.scrollWidth === clientWidth`, which a clipping ancestor satisfies trivially.
+   What it hid: at 390px the hero's copy column was **420px wide inside a 390px container** and the
+   `<h1>` was cut off mid-word. Clipped text and no overflow look identical to that check.
+
+The second class needs a different assertion to catch it — comparing each text element's rect
+against its nearest clipping ancestor rather than against the document — and that assertion does not
+exist in the repo yet. Recorded rather than claimed.
+
+#### Inline styles beat media queries, twice
+
+The same root cause produced two unrelated-looking defects, and it is worth stating once as a rule:
+**a value set in an element's `style` attribute cannot be overridden by any stylesheet rule, at any
+specificity, including inside a media query.**
+
+- `--pearl-size` is set inline by `Pearl.tsx`, so
+  `@media (max-width: 40rem) { .hero .pearl { --pearl-size: … } }` did nothing. The hero pearl stayed
+  420px on a phone; a grid item's `min-width` defaults to `auto`, so it dragged the copy column out
+  with it. Fixed by putting the responsiveness in the *value* — `min(420px, 78vw)` — which needs no
+  breakpoint and cannot be silently lost. The derived shadow sizes moved to `calc()` in CSS so the
+  prop could stop being a number.
+- The wave drift was an inline `animation`, so `@media (prefers-reduced-motion: reduce)` could not
+  stop it. **Five wave layers went on drifting for a reader who had asked the operating system for
+  no motion**, plus three footer pearls whose `:nth-child` rules outranked a two-class reset. Fixed
+  by passing the animation *value* through a custom property and declaring `animation` in the
+  stylesheet, and by declaring the pearls' animation once with a per-pearl period.
+
+Measured rather than reasoned: with reduced motion requested, `document.getAnimations()` reported
+**8 running before and 0 after**, with zero inline transforms written in both cases — the scroll
+handler half was correct from the start. With motion allowed, 9 elements get transforms and 9
+animations run. The page is complete and legible either way: 5 waves, the boat and 7 pearls are all
+still drawn with nothing moving.
+
+#### The waves, and two defects in the reference file
+
+Each layer is three nested elements — a positioned reservoir, an inner div carrying the drift, and
+an SVG whose path repeats a period. Translating by exactly half the width lands period *n+2* where
+period *n* was, so the loop has no seam. Two directions and three speeds is what makes it read as
+water; nothing goes under ~15s per cycle, because faster reads as a loading spinner.
+
+Both of these are in the handoff's reference implementation and both were found by checking rather
+than by looking:
+
+- **`wave5` had a seam.** Its path started at `y=30` and reached `y=34` at the halfway mark, so the
+  `-50%` wrap put a 34 where a 30 had been — a ~2px step across the full width, once every 19
+  seconds. Every other path returns to its start value. One number.
+- **The geometry has zero slack, and its own parallax then eats it.** With `left: -10%; width: 220%`,
+  a fully-drifted layer's right edge lands at `left + width/2` = *exactly* 100% of the viewport; the
+  scroll parallax subtracts up to ~160px from that. The result was a wedge of open ocean showing
+  below the waterline at the right edge of the page. The handoff's own definition of done asks for
+  "no white gap at either edge"; its numbers cannot deliver that with its own parallax table
+  applied.
+
+Fixed by going to **four periods with `left: -60%; width: 440%`**, which keeps the drift at -50% and
+the rendered period identical (`440/4 == 220/2`), so the waves are not stretched — there is simply
+more of the same wave, and 60% of viewport slack at both edges. The paths are now built by repeating
+one period written as *relative* curves, which makes "identical periods" structural rather than
+something a reader has to verify. That is the actual fix for `wave5`: not the corrected number, but
+removing the possibility of the class of error.
+
+#### The pearl, and the photograph inside it
+
+Three layers over a circular crop: a specular highlight, iridescence at `mix-blend-mode: soft-light`
+— at `normal` it lays a pink film over a child's face rather than tinting what is there — and a rim
+carrying the curvature. The rim is what makes it a pearl; the sheen only says where the light is.
+Inset blurs scale with the diameter, because the handoff's are written for the 420px hero and a
+-34px inset swallows a 64px card pearl whole.
+
+**The handoff's sheen values are tuned against an empty pearl** — there is no photograph in any
+pearl in its reference file, so nothing there tests them. Over a real image they put white at 42%
+alpha across a sixth of the radius and washed the picture out: the hero child came out hazy and the
+64px story pearls read as plain white discs. `.pearl--photo` pulls the highlight in and takes it
+down. The manager asked for photographs *inside* the pearls, and a photograph nobody can make out is
+not that.
+
+Two per-image fields exist because of one photograph. `sheen: 'right'` mirrors the highlight to
+`66% 26%` — at the default `34% 26%` it lands squarely on the hero child's forehead and burns it
+out. Focal point drives `object-position`. Both are on the photograph in `lib/photos.ts` rather than
+on the component, because which is right depends entirely on the image.
+
+**A pearl with no photograph is a supported state, and it is the one place this site renders
+absence.** [[consent-gated-media]]'s rule holds everywhere else — no consent, no render, no
+placeholder, no gap. Here the pearl is the decoration and the photograph is the content, so an empty
+pearl is still a pearl and the layout does not develop a hole. The three footer pearls are empty on
+purpose: at 56px a face is about eleven pixels across, and that is a child's face reduced to texture.
+
+#### The footer went from coral to ocean, and the contrast work inverted
+
+The coral footer was asked for by name — "make footer background color same as current one; pinkish"
+— and `#ff6565` was read out of their own stylesheet. The new direction ends the page in water, so
+the choice was put back to the owner rather than assumed, and the band won.
+
+What is worth keeping is the shape of the change. Coral could not take white text (2.88:1), so that
+footer ran dark ink on their colour. **The ocean cannot take dark**: `#1b1a18` on `--ocean-mid` is
+**1.18:1**. The text colour did not need rediscovering so much as re-deriving from the other end —
+and a background swap that left `color: #1b1a18` alone would have shipped an unreadable footer on
+every page while looking, in a diff, like a one-line colour change. It did, until it was looked at.
 
 ### Their palette cannot carry text, and finding that out took two attempts
 

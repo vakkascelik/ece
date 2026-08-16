@@ -157,8 +157,27 @@ a:hover { text-decoration-thickness: 2px; }
  * A hairline instead of a border colour change, so the header separates from the content without
  * announcing itself. Reverting is one declaration if they miss the band.
  */
+/*
+ * STICKY AND TRANSLUCENT, as of the pearl-and-ocean pass.
+ *
+ * It could stay put, and on a marketing site a sticky header is usually a way of keeping a "Buy"
+ * button on screen. The reason here is the ocean: the hero is a dark band that the page scrolls out
+ * from under, and a masthead that scrolls away with it leaves the reader on paper with no way back
+ * to the navigation for the length of a long page. Sticky costs 68px and removes that.
+ *
+ * `rgba` on the shell rather than the solid colour, with a blur behind it — so what passes under it
+ * is legible as motion without being readable, which is what stops the bar looking like a lid. The
+ * fallback in a browser with no `backdrop-filter` is 92% shell, which is very nearly the solid
+ * colour it used to be; nothing depends on the blur.
+ *
+ * `z-index: 20` clears the waves, which paint at the top of the footer band.
+ */
 .masthead {
-  background: var(--shell);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: rgba(250, 247, 240, 0.92);
+  backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--sand);
 }
 .masthead-inner {
@@ -216,7 +235,7 @@ a:hover { text-decoration-thickness: 2px; }
   display: inline-flex;
   align-items: center;
   padding: 0 var(--space-3);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
 }
 .nav a:hover { background: var(--sand); }
 /* Current page carried by aria-current, so what a screen reader announces and what the eye sees
@@ -251,20 +270,24 @@ a:hover { text-decoration-thickness: 2px; }
 .signin:hover { background: var(--aqua-pale); }
 
 /*
- * The Doorway mark, in the handoff's **mono** variant (#1b1a18 box, white shapes) rather than its
- * primary green.
+ * THE MARK BESIDE IT IS GONE, AND SO IS THE PRODUCT NAME. The link is not.
  *
- * Not a stylistic preference. Doorway's green is #2f6f4f, and this site deliberately runs on one
- * accent — Little Pearls' teal — with their own pink logo as the single exception. Dropping a
- * fourth colour into the masthead is the exact problem this pass exists to fix. The handoff offers
- * mono as a sanctioned variant, so it is used as specified rather than recoloured into their
- * palette, which would be neither product's mark.
+ * This used to be `Sign in to Doorway` with Doorway's mark at 20px. Both are off the public site on
+ * the owner's instruction — the name is not trade-mark cleared, `doorway.nz` is registered to
+ * somebody else and `doorway.co.nz` is registered and lapsing, and `unverified-claims` §19 has said
+ * since it was written that the name should not go anywhere expensive to change until an IPONZ
+ * search has been run. A customer's public website is exactly that: it is indexed, archived and
+ * linked to, and taking a name back off it later is not a deploy, it is a correction.
+ *
+ * What did NOT go is the way in. This is the most-used link on the site — every other link here is
+ * for somebody deciding whether to enrol, a decision made once, and this one is for the families and
+ * kaiako already at the centre. Removing it to avoid saying a word would have cost them the thing
+ * they open the site for. It says "Sign in to the centre app", which is what it is, and which is
+ * also what the copy said before the name existed.
+ *
+ * Text with no icon, rather than a substitute mark: a pearl dot here would read as decoration on a
+ * control, and Little Pearls' own logo is already six inches to the left.
  */
-.doorway-mark {
-  width: 20px;
-  height: 20px;
-  flex-shrink: 0;
-}
 
 /*
  * One readable column, centred.
@@ -288,8 +311,56 @@ a:hover { text-decoration-thickness: 2px; }
  * The floor on how narrow this can go is `.photo-row`: three photographs at a 13rem minimum plus
  * two 16px gaps need 656px, so anything under ~43rem drops the homepage rows to two across.
  */
-.main { padding: var(--space-7) 0 var(--space-8); }
-.main .wrap { max-width: 44rem; }
+/*
+ * `<main>` IS NOW FULL-BLEED AND THE PAGES CARRY THEIR OWN CONTAINERS. This is the structural
+ * change the ocean forced, and it is the one thing in this pass that touches every route.
+ *
+ * It was `<main class="main"><div class="wrap">{children}</div></main>` with a 44rem cap — every
+ * page's content, wrapped once, centrally. An ocean band cannot live inside that: it has to run to
+ * the window edges, and the two ways of faking that from inside a column are both worse than
+ * restructuring. `margin-left: calc(50% - 50vw)` is the usual trick and this file already records
+ * why it is banned here — `100vw` includes the scrollbar on every desktop browser that reserves
+ * space for one, so it buys a few pixels of horizontal scroll exactly where `npm run audit:site`
+ * asserts there are none. The other option, moving the band outside `<main>`, puts the page's `<h1>`
+ * outside the main landmark, which is worse for a screen reader than any of this is for the CSS.
+ *
+ * So the wrapper moved down a level. `<main>` is bare, each page opens with a band that bleeds and
+ * follows it with `.page`, and the measure is now a property of the text rather than of the shell.
+ *
+ * The floor on how narrow `.prose` can go is `.photo-row`: three photographs at a 13rem minimum
+ * plus two 16px gaps need 656px, so anything under ~43rem drops the rows to two across.
+ */
+.main { padding: 0 0 var(--space-8); }
+
+/*
+ * The outer container — cards, grids, asides, the wide half of the site. 68rem is 1088px, near
+ * enough the handoff's 1160px once this site's narrower gutters are taken off it.
+ */
+.page {
+  width: 100%;
+  max-width: 68rem;
+  margin: 0 auto;
+  padding: var(--space-7) var(--space-4) 0;
+}
+
+/*
+ * The measure, inside the container. TWO NUMBERS HAVE TO AGREE and this is the second of them:
+ * paragraphs cap at 66ch (~620px at 17px body), so a 44rem column less 32px of padding gives 672px
+ * of content and the text fills it. Widen this and every page reads as a narrow ragged block hugging
+ * the left of a container that failed, which is the defect two passes were spent on.
+ */
+.prose { max-width: 44rem; }
+
+/*
+ * A page with a natural aside — the contact card, the room list, the map. One column below 1024px,
+ * because a 320px sidebar on a phone is a 320px paragraph.
+ */
+.aside-grid { display: grid; gap: var(--space-7); align-items: start; }
+@media (min-width: 64rem) {
+  .aside-grid { grid-template-columns: minmax(0, 1fr) 20rem; }
+  /* The aside's own prose does not get the 66ch measure; it has 20rem and that is the measure. */
+  .aside-grid > aside p { max-width: none; }
+}
 
 /*
  * THREE COLUMNS — two centres and a third for hours and the way in.
@@ -310,54 +381,76 @@ a:hover { text-decoration-thickness: 2px; }
  * A style preference can be restored without restoring the defect that shared a commit with it.
  */
 /*
- * THE FOOTER IS CORAL, WHICH IS THEIR OWN BRAND COLOUR AND THEIR OWN CURRENT SITE'S FOOTER.
+ * THE FOOTER WAS CORAL AND IS NOW THE OCEAN. This reverses a colour that was asked for by name, so
+ * both halves of the decision are kept rather than the losing one being deleted.
  *
- * Asked for directly: "make footer background color same as current one; pinkish". It was `--sand`.
- * `--coral` is `#ff6565`, read out of their existing stylesheet rather than sampled from a
- * screenshot, so this is the same colour their footer has today.
+ * What it was, and why: "make footer background color same as current one; pinkish" — a direct
+ * instruction, and `--coral` `#ff6565` was read out of their existing stylesheet rather than sampled
+ * from a screenshot, so it was genuinely the colour their footer has today. It shipped with dark
+ * text rather than their white, because white on coral measures 2.88:1 and `tokens.ts` exists to
+ * record that none of their light palette can carry text.
  *
- * WHAT COULD NOT COME WITH IT IS THE WHITE TEXT.
+ * What replaced it, and why: the pearl-and-ocean direction ends the page in water, and the choice
+ * between the two was put back to the owner rather than assumed. The band won. It is not only a
+ * preference — a saturated coral block immediately under an ocean band is two loud grounds arguing
+ * across a hairline, and the coral is the one carrying addresses and phone numbers.
  *
- * Their current footer is white on coral, and `tokens.ts` has recorded since it was written that
- * white on coral measures **2.88:1** — against the 4.5:1 WCAG 2.2 AA asks of body text. That file's
- * whole point is that none of their brand colours can carry text. So the background is theirs and
- * the text is not: measured with the repo's own `contrastRatio` before anything was changed —
+ * THE CONTRAST WORK SURVIVES THE SWAP, IN THE OPPOSITE DIRECTION. Coral could not take white text;
+ * the ocean cannot take dark. Measured with the repo's own `contrastRatio` and asserted in
+ * `LITTLE_PEARLS_CONTRAST_PAIRS` rather than trusted from the handoff, which quotes its figures
+ * against `--ocean-deep` only and never against the lighter end the gradient actually reaches:
  *
- *     #1b1a18 on coral   6.05:1  PASS   <- chosen
- *     white   on coral   2.88:1  FAILS  <- what their site does today
- *     --ink   on coral   2.44:1  FAILS  <- what this footer's body text was
- *     --teal-ink on coral 2.01:1 FAILS  <- what .foot-head was
+ *     white on ocean mid    10.37:1  PASS   <- .foot-head, and every link
+ *     muted on ocean mid     6.84:1  PASS   <- body text
+ *     #1b1a18 on ocean mid   1.18:1  FAILS  <- what this footer's text was, one commit ago
  *
- * So **both** colours already in this footer fail on the new background, which is why this is more
- * than a one-line change and why the overrides below are not decoration. A background swap that
- * left the text alone would have shipped two contrast failures on every page of a compliance
- * product, and it would have looked completely fine.
+ * That last line is the point of writing this down. The background changed and the text colour did
+ * not have to be *rediscovered*, but it did have to be re-derived from the other direction, and a
+ * swap that left `color: #1b1a18` in place would have shipped an unreadable footer on every page of
+ * a compliance product while looking, in a diff, like a one-line colour change.
  *
- * The rejected alternative, recorded because it is the obvious one: `--coral-ink` (#c12727) takes
- * white text at 5.85:1 and would have matched their *arrangement* — white on red. It is a deep
- * brick, not the pinkish coral that was asked for, so it loses on the actual request. Available in
- * one line if the dark text reads wrong on screen.
- *
- * Links keep the footer's text colour rather than `--teal-ink`, which is safe here only because
- * nothing on this site removes underlines: the underline carries the affordance, so WCAG 1.4.1 is
- * not relying on hue. See the `a:hover` note above — the same reasoning that stopped links being a
- * second accent.
+ * Links keep the band's white rather than `--teal-ink`, which measures 1.9:1 here. Safe because
+ * nothing on this site removes underlines: the underline carries the affordance, so 1.4.1 is not
+ * relying on hue. Same reasoning as the `a:hover` note above.
  */
 .foot {
-  background: var(--coral);
-  color: #1b1a18;
-  /* No border-top. It was `--aqua` — a cool line under a warm block, and the only place on the
-     site where a hairline was a colour rather than a tone. Coral against shell is the edge, and it
-     is a far harder edge than sand was: the block now announces itself. */
-  padding: var(--space-6) 0;
+  position: relative;
+  background: linear-gradient(180deg, var(--ocean-mid) 0%, var(--ocean-deep) 100%);
+  color: var(--on-ocean-muted);
+  /* No border-top: the waves are the edge, and they are a far harder one than a hairline. */
   font-size: var(--text-base);
+  overflow: hidden;
 }
 /*
  * (0,2,0) to outrank the global `a { color: var(--teal-ink) }`, which is (0,1,0) and measures
- * 2.01:1 on coral. Every link in this footer is caught: two phone numbers, two addresses, the
+ * 1.9:1 on this band. Every link in this footer is caught: two phone numbers, two addresses, the
  * social column and the sign-in link.
  */
-.foot a { color: #1b1a18; }
+.foot a { color: var(--on-ocean); }
+
+/*
+ * The waves paint into the band's own top 96px, so the first content has to start below them —
+ * otherwise the invitation is written through the foam. `z-index: 1` puts both sections above the
+ * wave layer rather than relying on source order, because the waves are `position: absolute` and
+ * would otherwise paint over anything that is not itself positioned.
+ */
+.foot__cta {
+  position: relative;
+  z-index: 1;
+  padding: calc(96px + var(--space-6)) 0 var(--space-8);
+}
+.foot__cta-grid { display: grid; gap: var(--space-7); align-items: center; }
+@media (min-width: 64rem) {
+  .foot__cta-grid { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); }
+}
+.foot__cta h2 { margin-top: 0; }
+
+.foot__detail {
+  position: relative;
+  z-index: 1;
+  border-top: 1px solid rgba(255, 255, 255, 0.14);
+  padding: var(--space-7) 0 var(--space-6);
+}
 .foot-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
@@ -368,10 +461,10 @@ a:hover { text-decoration-thickness: 2px; }
   letter-spacing: 0.06em;
   text-transform: uppercase;
   font-size: var(--text-sm);
-  /* Was `--teal-ink`, which is 2.01:1 on coral — the worst pair in the footer. The label stays
-     distinguishable from its values by weight, uppercase and letter-spacing, all of which it
-     already had; the colour was never what separated them. */
-  color: #1b1a18;
+  /* White against the body text's `--on-ocean-muted`, so the label separates from its values the
+     way it did on coral — by weight, case, letter-spacing *and* a lift in tone, never by hue
+     alone. 10.37:1 on the band's lightest point. */
+  color: var(--on-ocean);
 }
 .foot p { margin: 0 0 var(--space-1); }
 /*
@@ -424,14 +517,13 @@ a:hover { text-decoration-thickness: 2px; }
   margin: var(--space-6) 0 0;
   padding-top: var(--space-4);
   /*
-   * Was `1px solid var(--teal)`. Teal on coral is 1.19:1 — not a contrast failure, because a
-   * divider is decoration rather than a UI component under WCAG 1.4.11, but invisible, which is
-   * worse for the one job it has. The note above says this hairline earns being a colour rather
-   * than a tone; on coral it cannot, so it becomes a tone of the text instead. Translucent rather
-   * than solid #1b1a18: at full strength a 1px near-black rule on a saturated ground reads as a
-   * seam between two blocks, and this one divides content inside one.
+   * A tone of the text rather than a colour, which is the same call this line has carried through
+   * two backgrounds now — only the direction flips. On coral it was `rgba(27,26,24,0.3)`; on the
+   * ocean it is white at low alpha. Translucent rather than solid in both cases: at full strength a
+   * 1px rule on a saturated ground reads as a seam between two blocks, and this one divides content
+   * inside one.
    */
-  border-top: 1px solid rgba(27, 26, 24, 0.3);
+  border-top: 1px solid rgba(255, 255, 255, 0.16);
   font-size: var(--text-sm);
 }
 .foot-credit a {
@@ -800,6 +892,14 @@ figure.photo-figure figcaption {
 }
 
 /*
+ * A rule that is itself a grid item — `/rooms` puts one between each room, inside the same
+ * `.aside-grid` that lays the room out. Without this it takes a single column and renders as a line
+ * under the left half of the row above, which looks like a strikethrough on the previous room
+ * rather than a divider before the next one.
+ */
+.rule-span { grid-column: 1 / -1; margin: 0; }
+
+/*
  * The arch. Their quiet corner is photographed through an actual ivy-trailed archway, and the logo
  * is a rounded badge — so an arched image is drawn from two things that already exist rather than
  * imposed as a style.
@@ -847,4 +947,627 @@ figure.photo-figure figcaption {
 /* The heading that opens a band should not add its usual top margin on top of the padding. */
 .band > :first-child { margin-top: 0; }
 .band > :last-child { margin-bottom: 0; }
+
+/* --- The ocean ---------------------------------------------------------------- */
+
+/*
+ * THE OCEAN IS A SURFACE, NOT AN ACCENT, and that sentence is the whole rule for this section.
+ *
+ * The centre manager asked for the pearl analogy back and for water that moves. What makes that
+ * work rather than turning the site into a theme is that the teal never becomes a button, a link or
+ * body text on paper — it is only ever the ground you read *on*. `--teal-ink` remains the one
+ * interface accent, exactly as it was before this pass. On an ocean band the primary button inverts
+ * to white with `--ocean-deep` text, because a teal button on teal water is a button nobody sees.
+ *
+ * TWO BANDS PER PAGE, MAXIMUM: the top and the bottom. The middle stays `--shell` and white cards.
+ * Three would make the paper look like the interruption.
+ */
+.band-ocean {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(
+    180deg,
+    var(--ocean-deep) 0%,
+    var(--ocean-mid) 52%,
+    var(--ocean-shallow) 100%
+  );
+  color: var(--on-ocean-muted);
+}
+
+/*
+ * One soft light source, high and to the right. Without it the gradient is a painted wall; with it
+ * the band has a direction, and it is the same direction the pearls' highlights come from — which
+ * is what makes the pearl look like it is lit by the scene rather than pasted onto it.
+ *
+ * A pseudo-element rather than a wrapper div: it is decoration, so it should not be a node.
+ * `pointer-events: none` because it covers the whole band including the buttons.
+ */
+.band-ocean::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(120% 90% at 78% 8%, rgba(215, 236, 232, 0.22) 0%, rgba(13, 59, 62, 0) 60%);
+  pointer-events: none;
+}
+
+/* Everything real sits above the light source and the waves. */
+.band-ocean__inner { position: relative; z-index: 1; }
+
+/*
+ * `.foot` IS IN THIS SELECTOR AND THAT IS A BUG FIX, not tidiness.
+ *
+ * It was `.band-ocean` alone. The footer is an ocean band but does not carry that class — it sets
+ * its own gradient, because it runs mid → deep where the hero runs deep → shallow — so its `<h2>`
+ * fell through to the global `h1,h2,h3 { color: #1b1a18 }` and rendered near-black on deep teal.
+ * **1.18:1.** The invitation to come and meet the teachers, which is the last thing on every page
+ * of the site, was very nearly invisible.
+ *
+ * WHAT DID NOT CATCH IT, which is the reason this note is long: `npm run audit:site` passed all
+ * twenty page views. axe cannot resolve a foreground against a `linear-gradient` background, so it
+ * files those elements as *incomplete* rather than as violations, and the audit counts violations.
+ * A gradient is therefore a blind spot in the one automated gate this site has for contrast — and
+ * this pass added gradients to every page. It was found by rendering the page and looking at it.
+ */
+.band-ocean h1,
+.band-ocean h2,
+.band-ocean h3,
+.foot h2,
+.foot h3 { color: var(--on-ocean); }
+
+/*
+ * The lower-contrast pair, and the one to watch. `--on-ocean-muted` on `--ocean-shallow` is 5.66:1
+ * — comfortably AA, and the *worst* case in the band because the gradient is lightest exactly where
+ * this paragraph sits. Do not lighten the water without re-running `npm run tokens`.
+ */
+.band-ocean__lede {
+  font-size: var(--text-lg);
+  line-height: 1.6;
+  color: var(--on-ocean-muted);
+  max-width: 56ch;
+  margin: 0;
+}
+
+/*
+ * The inner-page band. A third of the hero's height and none of its furniture — see the note in
+ * `PageBand.tsx` for why these pages get a band at all and why it is deliberately not a second hero.
+ *
+ * The bottom padding clears the waterline: two layers, the deepest 28px up and 72px tall, so
+ * anything less than ~100px puts foam through the opening sentence.
+ */
+.band-ocean--page {
+  padding: var(--space-7) 0 calc(var(--space-8) + var(--space-7));
+}
+.band-ocean--page h1 { margin-bottom: var(--space-4); }
+
+/* --- The hero ------------------------------------------------------------------ */
+
+/*
+ * `88px` top and `176px` bottom, and the bottom one is load-bearing rather than generous: it is
+ * what keeps the waterline clear of the two buttons. The handoff says 168px; 176px is the same
+ * intent expressed as `64 + 64 + 48`, all steps on the spacing scale, since a page that mixes scale
+ * values with hand-picked ones has no scale.
+ */
+.hero__inner {
+  display: grid;
+  gap: var(--space-8);
+  align-items: center;
+  padding-top: calc(var(--space-8) + var(--space-5));
+  padding-bottom: calc(var(--space-8) * 2 + var(--space-7));
+}
+
+/*
+ * `min-width: 0` ON THE GRID ITEMS, and it is a guard rather than a formality.
+ *
+ * A grid item's `min-width` defaults to `auto`, which means it refuses to shrink below its
+ * min-content size and pushes the track out instead. That is how a 420px pearl in the second row
+ * of a single-column grid dragged the *copy* column to 420px inside a 390px phone and cut the
+ * heading off mid-word. The pearl is sized responsively now, so this is not what fixes it — it is
+ * what stops the next wide thing dropped in here doing the same, in a band that clips its own
+ * overflow and therefore never reports it.
+ */
+.hero__inner > * { min-width: 0; }
+
+@media (min-width: 64rem) {
+  .hero__inner { grid-template-columns: minmax(0, 1fr) 420px; }
+}
+
+/*
+ * WEIGHT 300, AND IT IS THE ONE PLACE ON THIS SITE THAT GOES BELOW 400.
+ *
+ * Literata is a variable font here — `next/font` loads the full axis because no `weight` is pinned —
+ * so 300 is a real instance rather than a synthetic one the browser fakes by thinning strokes. At
+ * 66px a serif does not need weight to be a heading, and taking it *down* is what makes a large
+ * heading read as calm rather than as shouting. The rest of the site stays at 400 for the same
+ * reason in the other direction: at 22px, 300 is spindly.
+ *
+ * `clamp` from 40px to 66px. The handoff's two fixed sizes are the ends of this, and a phone and a
+ * laptop are genuinely different problems — the note on the global `h1` says the same thing.
+ */
+.hero h1 {
+  font-size: clamp(2.5rem, 5.4vw, 4.125rem);
+  font-weight: 300;
+  line-height: 1.04;
+  letter-spacing: -0.025em;
+  margin: 0 0 var(--space-5);
+  text-wrap: pretty;
+}
+
+/*
+ * THE TAGLINE IS THE POINT OF THE WHOLE DESIGN. "Every child is precious like a pearl" is the
+ * centre's own sentence and it was header microcopy at 13px; the manager asked for it back as a
+ * real part of the page. Italic serif at 23px, directly under the `<h1>`, which is where a subtitle
+ * belongs and where nobody can mistake it for navigation furniture.
+ *
+ * Not an `<h2>`. It is a line of the heading's own thought, not a section of the document, and
+ * making it a heading would put a second entry in the outline that leads nowhere.
+ */
+.hero__tagline {
+  font-family: var(--font-display), Georgia, serif;
+  font-style: italic;
+  font-size: var(--text-xl);
+  line-height: 1.45;
+  color: #d9ebe4;
+  margin: 0 0 var(--space-5);
+  max-width: 30ch;
+}
+
+.hero__intro {
+  font-size: var(--text-mobile-base);
+  line-height: 1.65;
+  color: var(--on-ocean-muted);
+  margin: 0 0 var(--space-6);
+  max-width: 56ch;
+}
+
+.hero__actions { display: flex; gap: var(--space-3); flex-wrap: wrap; margin: 0; max-width: none; }
+
+/* The pearl column. Centred below 1024px, where it sits under the copy rather than beside it. */
+.hero__pearl { display: flex; justify-content: center; }
+
+/*
+ * The submerged glow, bottom left. Purely atmospheric, and the one moving element with no analogue
+ * in the content — it is what stops the bottom-left corner of a tall band being dead space.
+ */
+.hero__glow {
+  position: absolute;
+  left: -120px;
+  bottom: -160px;
+  width: 420px;
+  height: 420px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 34% 28%,
+    rgba(255, 255, 255, 0.16) 0%,
+    rgba(255, 255, 255, 0.04) 45%,
+    rgba(255, 255, 255, 0) 70%
+  );
+  will-change: transform;
+  pointer-events: none;
+}
+
+@media (max-width: 40rem) {
+  .hero__inner { padding-bottom: calc(var(--space-8) + var(--space-7)); }
+  .hero__tagline { font-size: var(--text-lg); }
+}
+
+/* --- Pearls -------------------------------------------------------------------- */
+
+/*
+ * The pearl. See `Pearl.tsx` for why there are three layers and why the shadows scale — the short
+ * version is that one gradient makes a shiny disc, and the shadow blurs written for a 420px hero
+ * turn a 64px card pearl into a dark blob.
+ *
+ * The gradient on `.pearl` itself is the empty state: with a photo it is covered, without one it is
+ * the pearl. One declaration, both states, no conditional.
+ */
+.pearl {
+  position: relative;
+  width: var(--pearl-size);
+  height: var(--pearl-size);
+  flex: none;
+  border-radius: 50%;
+  overflow: hidden;
+  margin: 0;
+  background: linear-gradient(150deg, #eceeeb 0%, #d6ddda 100%);
+  box-shadow: 0 calc(var(--pearl-size) * 0.095) calc(var(--pearl-size) * 0.19) rgba(0, 0, 0, 0.3);
+
+  /*
+   * Derived here rather than in the component, so `--pearl-size` can be any CSS length — the hero
+   * needs `min(420px, 78vw)` and a JavaScript number cannot express that. See `Pearl.tsx` for the
+   * bug that forced the change.
+   */
+  --pearl-shade: calc(var(--pearl-size) * 0.08);
+  --pearl-light: calc(var(--pearl-size) * 0.05);
+}
+
+.pearl > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* The specular highlight. `--pearl-sheen-at` is per image, because at 92% white this does not
+   soften a face, it erases one. See the `sheen` field in `lib/photos.ts`. */
+.pearl__sheen {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle at var(--pearl-sheen-at),
+    rgba(255, 255, 255, 0.92) 0%,
+    rgba(255, 255, 255, 0.42) 16%,
+    rgba(255, 255, 255, 0.1) 34%,
+    rgba(255, 255, 255, 0) 52%
+  );
+}
+
+/*
+ * OVER A PHOTOGRAPH THE SHEEN IS SOFTER, and this is a correction from looking at the rendered
+ * page rather than a refinement of the spec.
+ *
+ * The handoff's sheen values are tuned against an empty pearl — its own reference file has no
+ * photographs in any pearl, so nothing there tests them. Over a real image the stops above put
+ * white at 42% alpha out to 16% of the radius and 10% out to a third of it, which covers more than
+ * half the circle: at 420px the hero child came out hazy, and at 64px the story pearls read as
+ * plain white discs with something faint behind them. The manager asked for the children's
+ * photographs *inside* the pearls, and a photograph nobody can make out is not that.
+ *
+ * The highlight is pulled in and taken down. The pearl still reads as a pearl, because the rim —
+ * curvature and the light edge — is what actually does that job; the sheen only says where the
+ * light is.
+ */
+.pearl--photo .pearl__sheen {
+  background: radial-gradient(
+    circle at var(--pearl-sheen-at),
+    rgba(255, 255, 255, 0.78) 0%,
+    rgba(255, 255, 255, 0.26) 11%,
+    rgba(255, 255, 255, 0.06) 24%,
+    rgba(255, 255, 255, 0) 42%
+  );
+}
+
+/* Iridescence. `soft-light` and not `normal`: the difference between a photograph inside a pearl
+   and a photograph behind coloured glass. */
+.pearl__nacre {
+  position: absolute;
+  inset: 0;
+  mix-blend-mode: soft-light;
+  background: conic-gradient(
+    from 200deg at 60% 60%,
+    rgba(255, 214, 224, 0.55),
+    rgba(214, 238, 232, 0.45),
+    rgba(226, 222, 246, 0.48),
+    rgba(255, 235, 214, 0.4),
+    rgba(255, 214, 224, 0.55)
+  );
+}
+
+/* Curvature: dark at the bottom, light at the top, one pearly hairline at the edge. Without this
+   the whole thing is flat and reads as a circular crop. */
+.pearl__rim {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  box-shadow:
+    inset 0 calc(var(--pearl-shade) * -1) calc(var(--pearl-shade) * 1.9) rgba(13, 59, 62, 0.42),
+    inset 0 var(--pearl-light) calc(var(--pearl-light) * 2.2) rgba(255, 255, 255, 0.65),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+}
+
+/*
+ * NO MEDIA QUERY FOR THE HERO PEARL, deliberately — there was one and it did nothing.
+ *
+ * `--pearl-size` is an inline style, so a stylesheet rule cannot win against it whatever the
+ * breakpoint. The responsive size is expressed in the value itself instead: the hero passes
+ * `min(420px, 78vw)`, which is 420px from 539px of viewport upward and 78% of the window below
+ * that. One expression, no breakpoint, and nothing that can be silently overridden.
+ */
+
+/*
+ * The footer cluster: three pearls at rest, drifting on different periods so they never line up.
+ *
+ * EMPTY ON PURPOSE, which is worth defending because the manager asked for photographs in the
+ * pearls and these have none. At 56px a face is about eleven pixels across, and the nacre layer
+ * finishes what the scale starts — a photograph here is not a photograph, it is texture, and it
+ * would be a child's face reduced to texture. The four pearls that carry photographs are the hero
+ * and the three story cards, where they are 64px and up and the crop was chosen per image. These
+ * are the decoration, and the pearl is allowed to be decoration on its own.
+ */
+.pearl-cluster {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--space-4);
+  will-change: transform;
+}
+/*
+ * One rule with three periods, rather than three rules each declaring the animation.
+ *
+ * It was `.pearl-cluster .pearl:nth-child(1) { animation: … }` and so on — (0,3,0) each, against a
+ * (0,2,0) reset in the reduced-motion query, so **the reset lost** and all three pearls kept
+ * bobbing for a reader who had asked for no motion. Same defect as the waves, reached by a
+ * different route: there by an inline style, here by specificity.
+ *
+ * Only the period varies, so only the period is per-pearl. The reset now matches the rule that
+ * sets it, and 9/13/7 stay prime-ish and unequal so the three never fall into step.
+ */
+.pearl-cluster .pearl { animation: lpdrift var(--drift) ease-in-out infinite; }
+.pearl-cluster .pearl:nth-child(1) { --drift: 9s; }
+.pearl-cluster .pearl:nth-child(2) { --drift: 13s; }
+.pearl-cluster .pearl:nth-child(3) { --drift: 7s; }
+
+/* --- Waves and the boat --------------------------------------------------------- */
+
+/*
+ * See `Waves.tsx` for how the seamless loop is built. What lives here is only the geometry, and the
+ * two numbers below are a bug fix rather than the handoff's values.
+ *
+ * The handoff says `left: -10%; width: 220%`. A layer drifted to the end of its cycle then has its
+ * right edge at `left + width/2` = exactly 100% of the viewport — no slack whatsoever — and the
+ * scroll parallax subtracts up to ~160px from that. The result was a wedge of open ocean showing
+ * below the waterline at the right edge of the page.
+ *
+ * `-60%` and `440%` give 60% of slack at both edges while keeping the drift at -50%. The rendered
+ * period is unchanged (440%/4 == 220%/2), so this is more of the same wave rather than a stretched
+ * one — see the note in `Waves.tsx` on why the paths went from two periods to four.
+ */
+.waves {
+  position: absolute;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+}
+.waves--hero { bottom: 0; height: 150px; }
+.waves--page { bottom: 0; height: 110px; }
+.waves--footer { top: 0; height: 96px; }
+
+.wave {
+  position: absolute;
+  left: -60%;
+  width: 440%;
+  will-change: transform;
+}
+/*
+ * The drift and the scroll parallax are on separate elements because one element cannot hold two
+ * transforms — the second silently wins, and the symptom is water that stops the moment you scroll.
+ *
+ * The `animation` property lives HERE and only its value is passed in from the component, as
+ * `--wave-drift`. Declaring `animation` inline instead put it beyond the reach of the
+ * reduced-motion query below, because an inline declaration outranks any stylesheet rule.
+ */
+.wave__drift {
+  will-change: transform;
+  animation: var(--wave-drift);
+}
+
+/*
+ * The boat. The entire illustration budget for this site: no bubbles, no fish, no gulls.
+ *
+ * Two motions on two elements, for the same reason the waves are two elements — the bob is a CSS
+ * animation on the inner, the scroll travel is a transform on the wrapper.
+ *
+ * `bottom: 78px` puts it on the waterline between wave2 and wave1. Its travel is `left: 44%` plus
+ * 180px, checked at 1440/1024/768/640: the far end is 888px at 1440 and 536px at 640, so it never
+ * reaches the right edge and never creates horizontal overflow — and the band clips anyway.
+ */
+.boat {
+  position: absolute;
+  bottom: 78px;
+  left: 44%;
+  width: 74px;
+  will-change: transform;
+}
+.boat__bob {
+  animation: lpbob 6.5s ease-in-out infinite;
+  transform-origin: 50% 90%;
+}
+/* Below 640px there is not enough waterline for it to sail along without meeting the buttons. */
+@media (max-width: 40rem) {
+  .boat { display: none; }
+}
+
+/* --- Motion --------------------------------------------------------------------- */
+
+/*
+ * Two directions and three speeds. Nothing here goes under ~15s per cycle: faster than that and it
+ * stops reading as water and starts reading as a loading spinner, which on a childcare site is the
+ * impression that the page has not finished.
+ */
+@keyframes lpwave {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(-50%, 0, 0); }
+}
+@keyframes lpwaveback {
+  from { transform: translate3d(-50%, 0, 0); }
+  to { transform: translate3d(0, 0, 0); }
+}
+@keyframes lpbob {
+  0% { transform: translate3d(0, 0, 0) rotate(-2.5deg); }
+  50% { transform: translate3d(0, -7px, 0) rotate(2.5deg); }
+  100% { transform: translate3d(0, 0, 0) rotate(-2.5deg); }
+}
+@keyframes lpdrift {
+  0% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(0, -14px, 0); }
+  100% { transform: translate3d(0, 0, 0); }
+}
+
+/*
+ * EVERYTHING STOPS, AND THE PAGE HAS TO STILL BE FINISHED.
+ *
+ * This is the version most parents on older phones and everyone with a vestibular disorder will
+ * see, so it is not a degraded mode — the waves are still drawn, the boat is still on the water,
+ * the pearls are still pearls. Only the movement goes.
+ *
+ * Named selectors rather than `* { animation: none !important }`. The blanket rule is what the
+ * reference file uses and it is too blunt for an app: it would also kill the `:focus-visible`
+ * transitions and anything a form adds later, and a keyboard user who cannot see focus move is a
+ * worse outcome than a wave that drifts.
+ *
+ * THE PRICE OF NOT USING `!important` IS THAT THESE SELECTORS HAVE TO ACTUALLY WIN, and the first
+ * version of them did not. Eight animations kept running with reduced motion requested: five waves,
+ * whose `animation` was an inline style and therefore unreachable from any stylesheet rule, and
+ * three cluster pearls, whose `:nth-child` rules outranked a two-class reset. Both are fixed at
+ * source — the waves take their value through a custom property and the pearls declare the
+ * animation once — so the selectors below are the same specificity as the rules they undo.
+ *
+ * Verified by asking a browser rather than by reading the CSS: with `prefers-reduced-motion:
+ * reduce`, `document.getAnimations()` reported 8 running before and 0 after.
+ *
+ * `Parallax.tsx` checks the same query and attaches no listener at all, so nothing writes a
+ * transform either — that half was correct from the start and is asserted the same way.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .wave__drift,
+  .boat__bob,
+  .pearl-cluster .pearl {
+    animation: none;
+  }
+}
+
+/* --- Section marks and lists ----------------------------------------------------- */
+
+/*
+ * The eyebrow: a 9px pearl and a small uppercase label. See `Eyebrow.tsx` for why this is a label
+ * bullet rather than the divider glyph that was removed — the short version is that a mark attached
+ * to words cannot be mistaken for a missing image, and a mark alone in whitespace can.
+ */
+.eyebrow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin: 0 0 var(--space-4);
+  max-width: none;
+}
+.eyebrow--ink { color: var(--ink); }
+/* `--on-ocean-soft` on the shallow end of the band is 5.08:1 — the lowest pair on this site, and
+   the one that breaks first if the water is ever lightened. */
+.eyebrow--ocean { color: var(--on-ocean-soft); }
+
+.eyebrow__dot {
+  width: 9px;
+  height: 9px;
+  flex: none;
+  border-radius: 50%;
+  background: radial-gradient(circle at 32% 28%, #ffffff 0%, #f6ece9 45%, #c9d2d2 100%);
+  box-shadow: 0 1px 2px rgba(27, 26, 24, 0.18);
+}
+
+/*
+ * The rooms, with the pearl scale used as age: 18px, 24px, 30px. The same idea as the story cards,
+ * where the pearls grow 64 → 80 → 98 across the three of them — the layers accumulating, expressed
+ * in the layout rather than only in the copy.
+ */
+.room-list { display: flex; flex-direction: column; margin: 0 0 var(--space-5); }
+.room-list__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4) 0;
+  border-bottom: 1px solid var(--sand);
+}
+.room-list__dot {
+  flex: none;
+  border-radius: 50%;
+  background: radial-gradient(circle at 32% 28%, #ffffff 0%, #f6ece9 45%, #d6dedd 100%);
+  box-shadow: inset 0 -3px 6px rgba(27, 26, 24, 0.1);
+}
+.room-list__name { font-weight: 600; }
+.room-list__ages { font-size: var(--text-base); }
+
+/*
+ * A section heading that follows an eyebrow. Two differences from the global `h2`, both because of
+ * what is directly above it:
+ *
+ *  - `margin-top: 0`, because the eyebrow already carries the section's air. The global rule adds
+ *    48px above every `h2`, which between a label and its own heading is a gap that separates them.
+ *  - Weight 300 and a size or two up. This is the hero's treatment brought down to section scale,
+ *    which is what makes the page read as one design rather than as a hero with ordinary content
+ *    underneath it. Literata is variable here, so 300 is a real instance rather than a faked one.
+ */
+.section-title {
+  margin-top: 0;
+  font-weight: 300;
+  font-size: clamp(1.75rem, 3.6vw, 2.375rem);
+  letter-spacing: -0.02em;
+  text-wrap: pretty;
+}
+
+/*
+ * The three "Why pearls" cards.
+ *
+ * The pearls inside them are 64 / 80 / 98px and are NOT equalised on purpose — the growth is the
+ * argument the section is making, and a grid that tidied them to one size would delete it. They
+ * keep those sizes at every breakpoint for the same reason; the handoff shrinks all three to 72px
+ * on a phone, which flattens the one thing the cards are for.
+ */
+.story {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-5);
+}
+@media (max-width: 64rem) {
+  .story { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 40rem) {
+  .story { grid-template-columns: 1fr; }
+}
+
+.story__card { display: flex; flex-direction: column; }
+/* `align-items: flex-start` would be the other way to stop the pearl stretching; this is one
+   declaration instead of one plus an override on everything else in the card. */
+.story__card .pearl { margin-bottom: var(--space-4); }
+.story__card h3 { margin-top: 0; }
+.story__card p:last-child { margin-bottom: 0; }
+
+/* --- Buttons on the ocean --------------------------------------------------------- */
+
+/*
+ * The primary button INVERTS on a band: white ground, `--ocean-deep` text at 12.26:1. `--teal-ink`
+ * on teal water would be a button nobody can find, and the ocean is a surface that never becomes an
+ * accent — so the accent's job passes to the paper colour for as long as the band lasts.
+ */
+/*
+ * `.btn.btn-invert` AND NOT `.btn-invert`, which is the second half of the same bug as the heading
+ * above and was worse: the button in the footer rendered as a **blank white rectangle**.
+ *
+ * `.foot a { color: var(--on-ocean) }` is (0,2,0) and exists so every link in the footer survives
+ * the dark ground. A lone `.btn-invert` is (0,1,0), so the footer rule won and the label was white
+ * on the white fill. Doubling the class takes this to (0,2,0) and it is declared later in the file,
+ * so it wins on source order.
+ *
+ * Worth stating plainly because it is the same shape as the heading: an element-and-class rule
+ * written to fix contrast on a dark band is *also* a rule that quietly overrides every button
+ * placed on that band later.
+ */
+.btn.btn-invert {
+  background: var(--surface);
+  border-color: var(--surface);
+  color: var(--ocean-deep);
+}
+.btn.btn-invert:hover { background: var(--aqua-pale); border-color: var(--aqua-pale); color: var(--ocean-deep); }
+
+/*
+ * The secondary. 55% WHITE AND NOT THE HANDOFF'S 45%, which is a measured change rather than a
+ * preference: composited over `--ocean-shallow` — the bottom of the hero gradient, which is exactly
+ * where these buttons sit — 45% white gives 3.08:1 against its own background. WCAG 1.4.11 asks 3:1
+ * for the visual boundary of a control, so the handoff's value passes by 0.08 at the one point on
+ * the page it is actually used. 55% gives 3.81:1 and is indistinguishable by eye.
+ */
+.btn.btn-onocean {
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.55);
+  color: var(--on-ocean);
+}
+.btn.btn-onocean:hover { background: rgba(255, 255, 255, 0.1); color: var(--on-ocean); }
+
+/* The band's own focus ring. The global one is `#1b1a18`, which on deep water is 1.2:1 — a focus
+   indicator nobody can see is a 2.4.7 failure whatever its offset. */
+.band-ocean :focus-visible,
+.foot :focus-visible {
+  outline-color: var(--on-ocean);
+}
 

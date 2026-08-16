@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { CentreMap } from '../CentreMap';
+import { Eyebrow } from '../Eyebrow';
+import { PageBand } from '../PageBand';
 import { CENTRES, CENTRE_FACTS } from '@/lib/centres';
 import { appUrl } from '@/lib/site';
 
@@ -31,49 +33,68 @@ export const metadata: Metadata = {
 export default async function ContactPage() {
   return (
     <>
-      <h1>Contact us</h1>
-      <p className="lede">
+      <PageBand eyebrow="Get in touch" title="Contact us">
         If you have any questions, please send us an email or give us a call. We are open{' '}
         {CENTRE_FACTS.hours.toLowerCase()}.
-      </p>
+      </PageBand>
 
-      <div className="grid">
-        {CENTRES.map((centre) => (
-          <div className="card" key={centre.path}>
-            <h2 style={{ marginTop: 0 }}>{centre.name}</h2>
-            <dl className="facts">
-              <dt>Phone</dt>
-              <dd>
-                <a href={`tel:${centre.phoneHref}`}>{centre.phone}</a>
-              </dd>
-              <dt>Email</dt>
-              <dd>
-                <a href={`mailto:${centre.email}`}>{centre.email}</a>
-              </dd>
-              <dt>Address</dt>
-              <dd>
-                {centre.street}
-                <br />
-                {centre.suburb} {centre.postcode}
-              </dd>
-            </dl>
-            {/* The picture drops out if there is no map to show; the links under it do not. */}
-            <CentreMap centre={centre} />
+      <div className="page">
+        <section>
+          <Eyebrow>Both centres</Eyebrow>
+          <h2 className="section-title">Phone, email and where to find us</h2>
+          <div className="grid">
+            {CENTRES.map((centre) => (
+              <div className="card" key={centre.path}>
+                {/*
+                  `<h3>`, not `<h2>`. These sit under the section heading above, and the footer
+                  carries each centre's name as a `<p class="foot-head">` for the same reason — a
+                  heading outline that lists "Ōwairaka / Mt Albert" twice at the same level is one
+                  nobody can navigate by. That defect was fixed once already; the restructure in this
+                  pass is exactly the kind of change that reintroduces it.
+                */}
+                <h3 style={{ marginTop: 0 }}>{centre.name}</h3>
+                <dl className="facts">
+                  <dt>Phone</dt>
+                  <dd>
+                    <a href={`tel:${centre.phoneHref}`}>{centre.phone}</a>
+                  </dd>
+                  <dt>Email</dt>
+                  <dd>
+                    <a href={`mailto:${centre.email}`}>{centre.email}</a>
+                  </dd>
+                  <dt>Address</dt>
+                  <dd>
+                    {centre.street}
+                    <br />
+                    {centre.suburb} {centre.postcode}
+                  </dd>
+                </dl>
+                {/* The picture drops out if there is no map to show; the links under it do not. */}
+                <CentreMap centre={centre} />
+              </div>
+            ))}
           </div>
-        ))}
+        </section>
+
+        <hr className="rule" aria-hidden="true" />
+
+        <section className="prose">
+          <Eyebrow>Anything else</Eyebrow>
+          <h2 className="section-title">Working with us</h2>
+          <p>
+            For a place, see <Link href="/enrolment">enrolment</Link>. To join the team, email{' '}
+            <a href={`mailto:${CENTRE_FACTS.careersEmail}`}>{CENTRE_FACTS.careersEmail}</a>.
+          </p>
+
+          {/* The product name is off this sentence and the link is not — see the same change on
+              `/enrolment`, and `packages/core/src/brand.ts` for why. */}
+          <h3>Families and kaiako</h3>
+          <p>
+            <a href={appUrl()}>Sign in to the centre app</a>. Access comes from the centre inviting
+            you — there is no sign-up.
+          </p>
+        </section>
       </div>
-
-      <h2>Working with us</h2>
-      <p>
-        For a place, see <Link href="/enrolment">enrolment</Link>. To join the team, email{' '}
-        <a href={`mailto:${CENTRE_FACTS.careersEmail}`}>{CENTRE_FACTS.careersEmail}</a>.
-      </p>
-
-      <h2>Families and kaiako</h2>
-      <p>
-        <a href={appUrl()}>Sign in to Doorway</a>, the centre app. Access comes from the centre
-        inviting you — there is no sign-up.
-      </p>
     </>
   );
 }

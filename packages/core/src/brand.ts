@@ -26,11 +26,12 @@
 /**
  * The product name.
  *
- * **Not cleared as a trade mark.** `doorway.co.nz` was confirmed available by the owner on
- * 2026-08-11, which is one of the three checks; an IPONZ search in the relevant classes and a
- * companies-register check have still not been run. See `unverified-claims` §19 before this
- * name goes onto anything that is expensive to change — a store listing, printed material, or
- * a second customer's site.
+ * **Not cleared as a trade mark, and the domain is not ours.** An earlier version of this
+ * comment said `doorway.co.nz` was confirmed available on 2026-08-11; the .nz registry says it
+ * is registered and lapsing, and `doorway.nz` is registered and live. An IPONZ search in the
+ * relevant classes and a companies-register check have still not been run. See
+ * `unverified-claims` §19 before this name goes onto anything that is expensive to change — a
+ * store listing, printed material, or a second customer's site.
  */
 export const PRODUCT_NAME = 'Doorway';
 

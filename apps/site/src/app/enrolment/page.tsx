@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { Eyebrow } from '../Eyebrow';
+import { PageBand } from '../PageBand';
 import { CENTRES, CENTRE_FACTS } from '@/lib/centres';
 import { appUrl } from '@/lib/site';
 import { EnquiryForm } from './EnquiryForm';
@@ -60,41 +62,53 @@ export const metadata: Metadata = {
 export default function EnrolmentPage() {
   return (
     <>
-      <h1>Enrolment</h1>
-      <p className="lede">
+      <PageBand eyebrow="Come and see us" title="Enrolment">
         We would love to meet you. Get in touch with the centre you are interested in and we will
         tell you what is available, show you around, and answer anything about fees.
-      </p>
+      </PageBand>
 
-      <h2>Enquire about a place</h2>
-      <div className="grid">
-        {CENTRES.map((centre) => (
-          <div className="card" key={centre.path}>
-            <h3 style={{ marginTop: 0 }}>{centre.name}</h3>
-            <p>
-              <a className="btn" href={`tel:${centre.phoneHref}`}>
-                Call {centre.phone}
-              </a>
-            </p>
-            <p>
-              <a href={`mailto:${centre.email}?subject=Enquiry about a place`}>{centre.email}</a>
-            </p>
-            <p>
-              {centre.street}, {centre.suburb}
-            </p>
-          </div>
-        ))}
-      </div>
+      <div className="page">
+      <section>
+        <Eyebrow>Talk to us</Eyebrow>
+        <h2 className="section-title">Enquire about a place</h2>
+        <div className="grid">
+          {CENTRES.map((centre) => (
+            <div className="card" key={centre.path}>
+              <h3 style={{ marginTop: 0 }}>{centre.name}</h3>
+              <p>
+                <a className="btn" href={`tel:${centre.phoneHref}`}>
+                  Call {centre.phone}
+                </a>
+              </p>
+              <p>
+                <a href={`mailto:${centre.email}?subject=Enquiry about a place`}>{centre.email}</a>
+              </p>
+              <p style={{ marginBottom: 0 }}>
+                {centre.street}, {centre.suburb}
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
 
-      <h2>Or send us an enquiry</h2>
-      <p>
-        It helps if you can say roughly how old your child is, when you are hoping to start, and
-        which days you would like. You do not need to send us anything about your child before we
-        have spoken — we will take the details we need when a place is available.
-      </p>
-      <EnquiryForm />
+      <hr className="rule" aria-hidden="true" />
 
-      <h2>Fees</h2>
+      <section className="prose">
+        <Eyebrow>Or write to us</Eyebrow>
+        <h2 className="section-title">Send us an enquiry</h2>
+        <p>
+          It helps if you can say roughly how old your child is, when you are hoping to start, and
+          which days you would like. You do not need to send us anything about your child before we
+          have spoken — we will take the details we need when a place is available.
+        </p>
+        <EnquiryForm />
+      </section>
+
+      <hr className="rule" aria-hidden="true" />
+
+      <section className="prose">
+      <Eyebrow>Fees</Eyebrow>
+      <h2 className="section-title">What it costs</h2>
       {/*
         LEADS WITH THE OFFER, not the absence. Same block, same honesty, opposite first sentence.
 
@@ -109,7 +123,7 @@ export default function EnrolmentPage() {
         we would rather tell you an accurate figure than leave one here that is out of date.
       </div>
 
-      <h2>Hours and ages</h2>
+      <h3>Hours and ages</h3>
       <dl className="facts">
         <dt>Open</dt>
         <dd>{CENTRE_FACTS.hours}</dd>
@@ -117,16 +131,28 @@ export default function EnrolmentPage() {
         <dd>{CENTRE_FACTS.ages}</dd>
       </dl>
 
+      {/*
+        THE PRODUCT NAME IS OFF THIS SENTENCE, the link is not. It read "sign in to Doorway, the
+        centre app"; it now says only what the thing is. See `packages/core/src/brand.ts` — the name
+        is not trade-mark cleared and the domain belongs to somebody else, and a customer's public
+        site is the last place that should be discovered.
+
+        The sentence after it is unchanged and is the important half: it is what stops a parent
+        hunting for a sign-up form that does not exist.
+      */}
       <div className="callout">
         <p style={{ margin: 0 }}>
-          Already with us? Families and kaiako can <a href={appUrl()}>sign in to Doorway</a>, the
-          centre app. Access comes from the centre inviting you — there is no sign-up.
+          Already with us? Families and kaiako can{' '}
+          <a href={appUrl()}>sign in to the centre app</a>. Access comes from the centre inviting
+          you — there is no sign-up.
         </p>
       </div>
 
       <p>
         <Link href="/contact">Other ways to contact us</Link>
       </p>
+      </section>
+      </div>
     </>
   );
 }

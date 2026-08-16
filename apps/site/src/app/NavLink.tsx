@@ -12,8 +12,9 @@ import type { ReactNode } from 'react';
  * current but is not announced as current" stops being a possible state. Same rule as the
  * platform's rail, for the same reason.
  *
- * The only client component in this app. Everything else is static, which is the point: a
- * marketing site that ships React to do nothing is a slower marketing site.
+ * One of two client components in this app — `Parallax` is the other, added with the ocean. The
+ * principle behind the old "the only one" is unchanged and is the reason there are still only two:
+ * a marketing site that ships React to do nothing is a slower marketing site.
  */
 export function NavLink({ href, children }: { href: string; children: ReactNode }) {
   const pathname = usePathname();

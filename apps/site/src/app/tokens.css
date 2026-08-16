@@ -27,6 +27,12 @@
   --coral-ink: #c12727;
   --ink: #595959;
   --surface: #ffffff;
+  --ocean-deep: #0d3b3e;
+  --ocean-mid: #12474a;
+  --ocean-shallow: #16545a;
+  --on-ocean: #ffffff;
+  --on-ocean-muted: #bfd7d1;
+  --on-ocean-soft: #a9cfc7;
 
   /* Spacing */
   --space-0: 0px;
@@ -95,4 +101,14 @@
  *   coral ink on sand    4.85:1  passes AA (needs 4.5:1)
  *   heading on shell     16.25:1  passes AA (needs 4.5:1)
  *   heading on sand      14.41:1  passes AA (needs 4.5:1)
+ *   white on ocean deep  12.26:1  passes AA (needs 4.5:1)
+ *   white on ocean mid   10.37:1  passes AA (needs 4.5:1)
+ *   white on ocean shallow 8.57:1  passes AA (needs 4.5:1)
+ *   muted on ocean deep  8.09:1  passes AA (needs 4.5:1)
+ *   muted on ocean mid   6.84:1  passes AA (needs 4.5:1)
+ *   muted on ocean shallow 5.66:1  passes AA (needs 4.5:1)
+ *   soft on ocean deep   7.26:1  passes AA (needs 4.5:1)
+ *   soft on ocean mid    6.14:1  passes AA (needs 4.5:1)
+ *   soft on ocean shallow 5.08:1  passes AA (needs 4.5:1)
+ *   ocean deep on white  12.26:1  passes AA (needs 4.5:1)
  */

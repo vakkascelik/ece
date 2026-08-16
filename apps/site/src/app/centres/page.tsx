@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { Eyebrow } from '../Eyebrow';
+import { PageBand } from '../PageBand';
 import { CENTRES, CENTRE_FACTS } from '@/lib/centres';
 
 export const metadata: Metadata = {
@@ -19,41 +21,52 @@ export const metadata: Metadata = {
 export default function CentresPage() {
   return (
     <>
-      <h1>Our centres</h1>
-      <p className="lede">
+      <PageBand eyebrow="Ōwairaka · Puketāpapa" title="Our centres">
         Two {CENTRE_FACTS.structure.toLowerCase()} centres in Auckland, both open{' '}
         {CENTRE_FACTS.hours.toLowerCase()}, for children {CENTRE_FACTS.ages}.
-      </p>
+      </PageBand>
 
-      <div className="grid">
-        {CENTRES.map((centre) => (
-          <div className="card" key={centre.path}>
-            <h2 style={{ marginTop: 0 }}>{centre.name}</h2>
-            <p>
-              {centre.street}
-              <br />
-              {centre.suburb} {centre.postcode}
-            </p>
-            <p>
-              <a href={`tel:${centre.phoneHref}`}>{centre.phone}</a>
-              <br />
-              <a href={`mailto:${centre.email}`}>{centre.email}</a>
-            </p>
-            <p>
-              <Link className="btn btn-quiet" href={`/centres/${centre.path}`}>
-                About {centre.shortName}
-              </Link>
-            </p>
+      <div className="page">
+        <section>
+          <Eyebrow>Two places</Eyebrow>
+          <h2 className="section-title">A few minutes apart</h2>
+          <div className="grid">
+            {CENTRES.map((centre) => (
+              <div className="card" key={centre.path}>
+                <h3 style={{ marginTop: 0 }}>{centre.name}</h3>
+                <p>
+                  {centre.street}
+                  <br />
+                  {centre.suburb} {centre.postcode}
+                </p>
+                <p>
+                  <a href={`tel:${centre.phoneHref}`}>{centre.phone}</a>
+                  <br />
+                  <a href={`mailto:${centre.email}`}>{centre.email}</a>
+                </p>
+                <p style={{ marginBottom: 0 }}>
+                  <Link className="btn btn-quiet" href={`/centres/${centre.path}`}>
+                    About {centre.shortName}
+                  </Link>
+                </p>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+        </section>
 
-      <h2>What is the same at both</h2>
-      <p>
-        Both centres are open {CENTRE_FACTS.hours.toLowerCase()} and take children{' '}
-        {CENTRE_FACTS.ages}. Both are guided by Te Whāriki, both are shoe-free inside, and both run
-        the same three age-group rooms — <Link href="/rooms">Infant, Toddler and Preschool</Link>.
-      </p>
+        <hr className="rule" aria-hidden="true" />
+
+        <section className="prose">
+          <Eyebrow>The same at both</Eyebrow>
+          <h2 className="section-title">One centre, in two places</h2>
+          <p>
+            Both centres are open {CENTRE_FACTS.hours.toLowerCase()} and take children{' '}
+            {CENTRE_FACTS.ages}. Both are guided by Te Whāriki, both are shoe-free inside, and both
+            run the same three age-group rooms —{' '}
+            <Link href="/rooms">Infant, Toddler and Preschool</Link>.
+          </p>
+        </section>
+      </div>
     </>
   );
 }

@@ -457,14 +457,33 @@ Also `Not found` at 2026-08-11: `doorway.net.nz`, `doorway.org.nz`, `doorway.kiw
 `getdoorway` / `usedoorway` / `doorwayapp` / `doorwayece` / `trydoorway` / `doorwayhq` `.co.nz`.
 Listed as fact, not as a recommendation — none has been checked against anything but the registry.
 
+**THE PUBLIC EXPOSURE IS GONE, 2026-08-16 — the name is off the customer's website.** On the
+owner's instruction, and it is the first time an entry on this page has been closed by *removing*
+the thing rather than by checking it.
+
+What went: the masthead label on all ten routes, the mark beside it, and the two body-copy sentences
+on `/enrolment` and `/contact`. What stayed: the link itself, which now reads **"Sign in to the
+centre app"** — the wording it had before the name existed. Removing the way in would have cost the
+families and kaiako already at the centre the one link they open the site for, and the instruction
+was about the name, not the link.
+
+The asymmetry this entry was written to warn about is therefore reversed. A rename is once again a
+change to a repo rather than to a customer's live, indexed, archived marketing site. The console,
+the icons and the mobile app still carry it — that is a screen behind a login, which is where this
+entry said the risk was acceptable.
+
+Worth naming plainly: **this entry predicted the exposure, watched it happen anyway, and it took an
+instruction from the owner to undo it.** The value of the page is not that it stops things; it is
+that when somebody asks "why are we taking this off", the answer is written down.
+
 | | |
 |---|---|
 | **The claim** | "Doorway" is available to use as a product name in New Zealand |
 | **What is actually verified** | An **unfiltered** IPONZ Trade Mark Check returning no identical word mark in the closest 8 of 25 results. **The domain is no longer part of this row**: `doorway.co.nz` is registered and lapsing, `doorway.nz` is registered and live |
 | **Still unverified** | Co-existence in the classes this product sits in, the 17 results not viewed, the companies register, and **when `doorway.co.nz` is actually released** |
-| **Exposure** | Public since 2026-08-07 on `apps/site`; since 2026-08-11 also the console's title, favicon, apple-icon and rail, and the mobile app's name |
+| **Exposure** | The console's title, favicon, apple-icon and rail, and the mobile app's name, since 2026-08-11. **`apps/site` no longer carries it** — public from 2026-08-07, removed 2026-08-16 |
 | **To close it** | Re-run the same check with classes 9, 42 and 41 selected — it is the same free tool and takes a minute — and a companies-register search at the Companies Office. Look at what is served at `doorway.nz`. Consider the paid IPONZ search before the name goes on anything print or a store listing |
-| **If it has to change** | One edit. `PRODUCT_NAME` in `packages/core/src/brand.ts` is the only place the word is written for the console, the icons and the site masthead — that consolidation was done at the same time as the adoption, and it is the reason a rename is cheap rather than a hunt. Two body-copy sentences on `apps/site` still spell it out, deliberately: they are prose about the product, not a label |
+| **If it has to change** | One edit. `PRODUCT_NAME` in `packages/core/src/brand.ts` is the only place the word is written for the console and the icons — that consolidation was done at the same time as the adoption, and it is the reason a rename is cheap rather than a hunt. `apps/site` no longer imports it at all |
 
 ### 20. The mobile workspace has no unit tests, and the checklist does not say so
 

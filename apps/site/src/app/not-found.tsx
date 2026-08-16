@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { PageBand } from './PageBand';
 import { CENTRES } from '@/lib/centres';
 
 /**
@@ -12,12 +13,12 @@ import { CENTRES } from '@/lib/centres';
 export default function NotFound() {
   return (
     <>
-      <h1>We couldn&rsquo;t find that page</h1>
-      <p className="lede">
+      <PageBand eyebrow="Page not found" title="We couldn’t find that page">
         Our website has been rebuilt, so an older link may no longer work. Here is where things are
         now.
-      </p>
+      </PageBand>
 
+      <div className="page prose">
       <ul>
         <li>
           <Link href="/enrolment">Enrolment and fees</Link>
@@ -44,6 +45,7 @@ export default function NotFound() {
           <Link href="/contact">Contact us</Link>
         </li>
       </ul>
+      </div>
     </>
   );
 }

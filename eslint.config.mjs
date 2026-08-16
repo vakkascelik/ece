@@ -26,6 +26,10 @@ export default tseslint.config(
       // The second one, same shape and the same support.js. `handover/screens/` under it
       // holds captures of the built screens, which are not code either.
       'handover/**',
+      // The third: the pearl-and-ocean website direction. Same shape again — a `.dc.html` board
+      // and the same 1,900-line support.js, which is somebody else's browser bundle and accounts
+      // for all 93 errors this list exists to keep out of the build.
+      'handoff_website_pearl_ocean/**',
       '**/*.config.js',
       '**/*.config.mjs',
     ],
