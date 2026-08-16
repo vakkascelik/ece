@@ -1388,12 +1388,11 @@ figure.photo-figure figcaption {
 /*
  * The footer cluster: three pearls at rest, drifting on different periods so they never line up.
  *
- * EMPTY ON PURPOSE, which is worth defending because the manager asked for photographs in the
- * pearls and these have none. At 56px a face is about eleven pixels across, and the nacre layer
- * finishes what the scale starts — a photograph here is not a photograph, it is texture, and it
- * would be a child's face reduced to texture. The four pearls that carry photographs are the hero
- * and the three story cards, where they are 64px and up and the crop was chosen per image. These
- * are the decoration, and the pearl is allowed to be decoration on its own.
+ * They hold generated abstract nacre artwork (`lib/art.ts`) — NOT photographs, and the old rule
+ * that kept them empty is why. At 56px a face is about eleven pixels across; a photograph here is
+ * a child's face reduced to texture. Abstract texture is texture already, so it may live at any
+ * size, and it turns a blank sphere into nacre. The pearls that carry photographs remain the hero
+ * and the three story cards, where the crop was chosen per image and faces survive it.
  */
 .pearl-cluster {
   display: flex;

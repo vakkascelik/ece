@@ -3,6 +3,7 @@ import { Eyebrow } from '../Eyebrow';
 import { PageBand } from '../PageBand';
 import { Pearl } from '../Pearl';
 import { Photo } from '../Photo';
+import { ART } from '@/lib/art';
 import { PHOTOS } from '@/lib/photos';
 
 export const metadata: Metadata = {
@@ -143,7 +144,8 @@ export default function PhilosophyPage() {
           Council's Code and Standards — because a value with its source named reads as practice
           rather than as decoration, and this repo does not strip citations.
         */}
-        <section className="prose">
+        <section className="aside-grid">
+          <div className="prose">
           <Eyebrow>Where we are heading</Eyebrow>
           <h2 className="section-title">What we want to be known for</h2>
           <ul className="plain-list">
@@ -184,6 +186,17 @@ export default function PhilosophyPage() {
             and cultural bridge-builders, and we help build a generation strong in their identity,
             culture and language, who show empathy and inclusiveness.
           </p>
+          </div>
+          {/*
+            A decorative pearl, holding generated nacre artwork rather than a photograph — see
+            `lib/art.ts` for what these images are and are not. Deliberate: the aside beside the
+            philosophy statement above holds a real room, because that section describes the real
+            place; this section is the centre's aspirations, and an abstract texture suits words
+            about direction better than a photograph pretending to illustrate them.
+          */}
+          <aside aria-hidden="true">
+            <Pearl photo={ART.ocean} size={220} />
+          </aside>
         </section>
       </div>
     </>

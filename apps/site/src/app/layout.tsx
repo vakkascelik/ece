@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import { CENTRES, CENTRE_FACTS, SOCIAL_LINKS } from '@/lib/centres';
 import { PHOTOS } from '@/lib/photos';
 import { siteOrigin } from '@/lib/site';
+import { ART } from '@/lib/art';
 import { Parallax } from './Parallax';
 import { SiteNav } from './SiteNav';
 import { SocialIcon } from './SocialIcon';
@@ -293,14 +294,17 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                 </p>
               </div>
               {/*
-                Three empty pearls. `aria-hidden` because they carry nothing a reader needs — see
-                the note on `.pearl-cluster` in globals.css for why these three, alone among the
-                pearls on this site, hold no photograph.
+                Three pearls holding generated nacre artwork — not photographs, and deliberately
+                not: see `lib/art.ts` for the provenance and the boundary. These were empty, and
+                the reasoning that kept them empty still holds for what it was about: a
+                photograph at 56px is a child's face reduced to texture. Abstract texture *is*
+                texture, so it may live here, and it makes the pearls read as nacre rather than
+                as blank spheres. `aria-hidden` as before — they carry nothing a reader needs.
               */}
               <div className="pearl-cluster" data-parallax="cluster" aria-hidden="true">
-                <Pearl size={74} />
-                <Pearl size={124} />
-                <Pearl size={56} />
+                <Pearl size={74} photo={ART.shell} />
+                <Pearl size={124} photo={ART.ocean} />
+                <Pearl size={56} photo={ART.mist} />
               </div>
             </div>
           </div>

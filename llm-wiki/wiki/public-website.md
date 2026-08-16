@@ -75,6 +75,16 @@ Three defects made it urgent rather than cosmetic, all measured rather than asse
   strategic plan, in their own sentences: "What we want to be known for", the four values with the
   Teaching Council attribution kept, and the Pearl of the Isles Foundation. The plan itself is not
   committed — it is an internal document quoted from, not a handoff pack.
+- **The empty pearls hold generated abstract artwork as of 2026-08-17** — the footer cluster and a
+  decorative aside on `/philosophy`. Generated with Canva's image generation (the tool that actually
+  exists here: no Veo/Gemini/Vertex-AI credential is configured anywhere in this repo or in
+  `C:/dev/salix`, whose "vertex" folder is the Vertex Tuition client). The manifest is
+  `apps/site/src/lib/art.ts`, **deliberately separate from the photo-consent manifest**, with the
+  provenance and the boundary written down: abstract texture only, never anything that could read as
+  a photograph of a room, a meal or a child — that would be a fabricated claim about the centre, and
+  it does not get made whatever tool exists. Two of Canva's four candidates arrived with marketing
+  text baked in ("Embrace the Calm of Childhood", a fake star rating, a placeholder URL) and were
+  discarded on sight, which is the review step this kind of asset always needs.
 - **Visit windows are published with their reason** (9.30–11.00am or 1.00–3.00pm, booked, timed so
   visits never land on lunch or sleep) on `/enrolment` and both centre pages — from the same
   enrolment letter, which also supplied the visit → waitlist → form-and-fee sequence and the Healthy

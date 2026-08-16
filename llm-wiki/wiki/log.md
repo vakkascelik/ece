@@ -5,6 +5,34 @@ says so.*
 
 ---
 
+2026-08-17 (second) — **Generated artwork goes into the empty pearls, and the tool the owner
+thought existed does not.** Extended: [[public-website]]. New: `apps/site/src/lib/art.ts`.
+
+The owner asked for Google Veo 3 and Remotion to generate imagery "across the website". Checked
+before building: **no Veo, Gemini or Vertex-AI credential exists** in this repo's env, salix's env,
+or anywhere in either tree — the `vertex` folder in salix is the Vertex Tuition client promo, and
+salix's Remotion package renders outreach videos, which this site should not embed (it would fight
+`prefers-reduced-motion`, the performance budget, and the design's own one-boat illustration
+limit). Reported plainly rather than worked around silently. What does exist is Canva's image
+generation via the session's MCP connection, and that is what was used.
+
+**The boundary mattered more than the tool.** On a childcare site whose voice rule is authenticity
+and whose photo pipeline is a consent manifest, generated imagery has exactly one honest use:
+abstract texture that reads as decoration. Anything that could pass for a photograph of a room, a
+meal or a child is a fabricated claim about the centre — rule 5 applied to pixels. So the prompt
+asked for mother-of-pearl watercolour in the site's own ocean palette, and the output went only
+where decoration already lived: the three footer pearls (previously deliberately empty — the
+face-at-56px-is-texture argument was about photographs, and abstract texture is already texture)
+and one aside pearl beside the strategic plan's vision on `/philosophy`.
+
+**The manifest is separate from `PHOTOS` on purpose** — mixing them would blur the one distinction
+that matters — and carries provenance: Canva generation, 2026-08-17, four candidates, **two
+discarded on sight for baked-in marketing text** (a fake five-star rating and `reallygreatsite.com`
+among it, on a childcare brand prompt). Generated assets always need that review step. 52KB of WebP
+across three files; every budget and all 20 audit views still green.
+
+---
+
 2026-08-17 — **The centre speaks in its own voice: the manager's enrolment letter and the strategic
 plan become source material, the ratios get their long-awaited confirmation, and a child's name
 arrives in the conversation and goes no further.** Extended: [[public-website]],
