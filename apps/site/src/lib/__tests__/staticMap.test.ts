@@ -145,6 +145,77 @@ describe('centreMap', () => {
   });
 });
 
+/**
+ * `/api/health` reporting why there is no map.
+ *
+ * This exists because of a real morning spent guessing: the centre manager asked why the contact
+ * page showed no map, the health endpoint said the key was set, and the only place the reason
+ * existed was the container log.
+ */
+describe('mapsStatus', () => {
+  it('says nothing before anything has been attempted', async () => {
+    const { mapsStatus } = await freshModule();
+    // Empty means "not attempted since the restart", never "working" — asserted so the health
+    // route's wording and this function cannot drift apart.
+    expect(mapsStatus()).toEqual([]);
+  });
+
+  it('reports the refusal Google actually gave, per centre', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response('This API project is not authorized to use this API.', { status: 403 }),
+    );
+    const { centreMap, mapsStatus } = await freshModule();
+
+    await centreMap(MT_ALBERT);
+    const status = mapsStatus();
+
+    expect(status).toHaveLength(1);
+    expect(status[0].centre).toBe(MT_ALBERT.path);
+    expect(status[0].why).toContain('403');
+    // The sentence itself, because "403" alone does not distinguish "API not enabled" from
+    // "billing is off" from "this key is referrer-restricted" — which is the whole point.
+    expect(status[0].why).toContain('not authorized');
+  });
+
+  it('reports a network failure too, not only an HTTP refusal', async () => {
+    vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('getaddrinfo ENOTFOUND'));
+    const { centreMap, mapsStatus } = await freshModule();
+
+    await centreMap(MT_ALBERT);
+    expect(mapsStatus()[0].why).toContain('ENOTFOUND');
+  });
+
+  it('says nothing once the map is working', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(pngResponse());
+    const { centreMap, mapsStatus } = await freshModule();
+
+    await centreMap(MT_ALBERT);
+    expect(mapsStatus()).toEqual([]);
+  });
+
+  /**
+   * THE ONE THAT MATTERS FOR SAFETY. This text is served on a public endpoint, so a refusal that
+   * echoed the request URL would publish the API key. Google's refusals are sentences and do not
+   * echo it — this is insurance against the day one does, and "the error message contained the
+   * credential" is a well-worn way for a key to end up published.
+   */
+  it('never lets an API key reach the response, even if Google echoes the URL', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        'Bad Request: https://maps.googleapis.com/maps/api/staticmap?center=1,2&key=SECRET_KEY_VALUE',
+        { status: 400 },
+      ),
+    );
+    const { centreMap, mapsStatus } = await freshModule();
+
+    await centreMap(MT_ALBERT);
+    const why = mapsStatus()[0].why;
+
+    expect(why).not.toContain('SECRET_KEY_VALUE');
+    expect(why).toContain('key=<redacted>');
+  });
+});
+
 describe('the links out', () => {
   it('encode the address and use the versioned URL form', async () => {
     const { directionsUrl, mapPlaceUrl } = await freshModule();

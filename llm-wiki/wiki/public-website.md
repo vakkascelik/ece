@@ -441,6 +441,40 @@ explicit `next.revalidate` overrides that default is a question about Next's int
 have to be re-answered on every upgrade. Fifteen lines that behave identically on every version won.
 Measured: nine requests across two centres produced two calls upstream.
 
+**STILL NOT LIVE, AND ON 2026-08-16 SOMEBODY ASKED WHY.** The centre manager asked to see the map on
+the contact page. It has never appeared, and the reason it took a dig to answer is the thing worth
+recording — the three failure states are indistinguishable from outside the container, because
+`CentreMap` renders the address and the links and no image in all of them.
+
+What the production site actually said, checked rather than assumed:
+
+| | |
+|---|---|
+| `GET /api/health` | `{"ok":true,"usingDefaultsFor":["SITE_CANONICAL_HOST"]}` — **no `mapsDisabledFor`, so the key IS set** |
+| `GET /api/map/mt-albert` | `404`, zero bytes — `centreMap()` returned null, so the fetch to Google failed |
+| `GET /contact` | emits no `<img>` at all — the fallback behaved exactly as designed |
+
+So the design worked and Google refused. The likely causes are all in the Google Cloud console and
+none of them is a code change: the Maps Static API not enabled on the project (its own product,
+separate from the Geocoding API the coordinates came from), **an HTTP-referrer restriction on the
+key** — which is the standard advice for a Maps key and is fatal here, because a server-to-server
+`fetch` sends no `Referer` — or no billing account attached.
+
+**What changed in code is only that the reason is now visible.** `mapsStatus()` puts Google's own
+refusal sentence on `/api/health` as `mapsFailing`, per centre, so the question is answerable without
+Railway's logs. It does **not** call Google — that reasoning is unchanged, and is the same reason
+this endpoint does not query Supabase — it reports what the last real page render already found out.
+The consequence is that an empty result means *not attempted since the restart*, never *working*,
+which is asserted in a test so the wording and the function cannot drift apart.
+
+The refusal text is scrubbed of anything matching `key=…` before it goes into a public response.
+Google's refusals are sentences and do not echo the request, so this is insurance rather than a fix
+for an observed leak — mutation-tested, and removing the scrub fails exactly one assertion.
+
+Diagnosis order and the fix steps are in `docs/deploy-railway.md`, which is where whoever deploys
+will look. A fix needs no redeploy: a failure is remembered for fifteen minutes, deliberately, so
+ticking the box in the console is the whole job.
+
 **What nobody has checked, and it is in `apps/site/CONTENT-GAPS.md`.** Google's Maps Platform terms
 restrict how long their content may be cached, and serving it from our own origin is caching. The
 TTLs are set short and conservative rather than argued to a limit. Do not read the numbers in

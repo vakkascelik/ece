@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { isUnusableUrl, URL_ENV } from '@/lib/site';
-import { mapsConfigured } from '@/lib/staticMap';
+import { mapsConfigured, mapsStatus } from '@/lib/staticMap';
 
 /**
  * Health check for the host's load balancer.
@@ -72,14 +72,25 @@ export async function GET() {
        * contact page. It is here because the failure is otherwise invisible: `CentreMap` renders
        * nothing rather than a broken image, so a site with no maps and a site whose key was never
        * set look identical from the outside. This is the one place that tells them apart.
-       *
-       * A `true` here does NOT mean maps are appearing. The key can be set and the Maps Static API
-       * still not enabled on the Google Cloud project, which is a 403 per centre and shows up in
-       * the container log rather than here. Checking would mean calling Google from a health probe,
-       * and a health check that fails because a third party is slow rolls back a container that is
-       * fine — the reason this endpoint does not query Supabase either.
        */
       ...(mapsConfigured() ? {} : { mapsDisabledFor: ['GOOGLE_MAPS_API_KEY'] }),
+
+      /*
+       * WHY THERE IS NO MAP, added 2026-08-16 because the previous version of this route could not
+       * say. Its note read: "A `true` here does NOT mean maps are appearing. The key can be set and
+       * the Maps Static API still not enabled, which is a 403 per centre and shows up in the
+       * container log rather than here." That is exactly the state the site was found in — the
+       * centre manager asked why the contact page had no map, `mapsDisabledFor` was absent so the
+       * key was set, and answering the question meant reading Railway's logs.
+       *
+       * Still no call to Google from a health probe — that reasoning is unchanged and is why this
+       * endpoint does not query Supabase either. This reports what the last real page render already
+       * discovered.
+       *
+       * EMPTY MEANS "NOT ATTEMPTED SINCE THE LAST RESTART", NOT "WORKING". The cache behind it is
+       * populated by rendering `/contact` or a centre page. Load one, then read this.
+       */
+      ...(mapsStatus().length > 0 ? { mapsFailing: mapsStatus() } : {}),
     },
     { headers: { 'Cache-Control': 'no-store' } },
   );

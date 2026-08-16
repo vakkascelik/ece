@@ -74,7 +74,11 @@ export interface MapImage {
   contentType: string;
 }
 
-type Entry = { image: MapImage | null; at: number };
+/**
+ * `why` is the last refusal, kept so `/api/health` can say *why* there is no map rather than only
+ * that there is none. See `mapsStatus()`.
+ */
+type Entry = { image: MapImage | null; at: number; why?: string };
 
 /**
  * In-memory, per container, keyed by centre path. Two entries, forever.
@@ -152,31 +156,69 @@ export async function centreMap(centre: Centre): Promise<MapImage | null> {
      * silently has no maps and nobody knows why.
      */
     if (!response.ok) {
-      console.error(
-        `[map] ${centre.path}: Google returned ${response.status}. ${(await response.text()).slice(0, 300)}`,
-      );
-      return remember(centre.path, cached?.image ?? null);
+      const why = `HTTP ${response.status}: ${scrub(await response.text()).slice(0, 200)}`;
+      console.error(`[map] ${centre.path}: Google returned ${why}`);
+      return remember(centre.path, cached?.image ?? null, why);
     }
 
     const contentType = response.headers.get('content-type') ?? 'image/png';
     // Guards against caching an error page as if it were an image — the API answers `text/plain`
     // on refusal, and a 200 with a text body would otherwise be served as a PNG forever.
     if (!contentType.startsWith('image/')) {
-      console.error(`[map] ${centre.path}: expected an image, got ${contentType}`);
-      return remember(centre.path, cached?.image ?? null);
+      const why = `expected an image, got ${contentType}`;
+      console.error(`[map] ${centre.path}: ${why}`);
+      return remember(centre.path, cached?.image ?? null, why);
     }
 
     const bytes = new Uint8Array(await response.arrayBuffer());
     return remember(centre.path, { bytes, contentType });
   } catch (error) {
-    console.error(`[map] ${centre.path}: ${error instanceof Error ? error.message : error}`);
-    return remember(centre.path, cached?.image ?? null);
+    const why = error instanceof Error ? error.message : String(error);
+    console.error(`[map] ${centre.path}: ${why}`);
+    return remember(centre.path, cached?.image ?? null, why);
   }
 }
 
-function remember(path: string, image: MapImage | null): MapImage | null {
-  cache.set(path, { image, at: Date.now() });
+/**
+ * Never let a key reach a response body, however unlikely.
+ *
+ * Google's refusals are sentences — "This API project is not authorized to use this API" — and do
+ * not echo the request. This is insurance, not a fix for an observed leak: `mapsStatus()` puts this
+ * text on a public endpoint, and "the error message turned out to contain the credential" is a
+ * well-worn way for a key to get published.
+ */
+function scrub(text: string): string {
+  return text.replace(/key=[^&\s"']+/gi, 'key=<redacted>');
+}
+
+function remember(path: string, image: MapImage | null, why?: string): MapImage | null {
+  cache.set(path, { image, at: Date.now(), why });
   return image;
+}
+
+/**
+ * Why there is no map, for `/api/health`.
+ *
+ * THE PROBLEM THIS SOLVES, observed on 2026-08-16. The centre manager asked why the contact page
+ * showed no map. From outside the container the two states are identical — `CentreMap` renders the
+ * links and no image either way — and `mapsConfigured()` said `true`, so the key was set and
+ * something else was refusing. The only place the reason existed was the container log.
+ *
+ * This does **not** call Google. It reports what the last real page render already found out, which
+ * is the distinction the health route's own note draws: a health check that fails because a third
+ * party is slow rolls back a container that is fine.
+ *
+ * The consequence of that, and it is worth knowing before reading an empty result: nothing here is
+ * populated until somebody loads `/contact` or a centre page after the container starts. An empty
+ * list means "not attempted since the last restart", never "working".
+ */
+export function mapsStatus(): { centre: string; why: string; agoMinutes: number }[] {
+  const out: { centre: string; why: string; agoMinutes: number }[] = [];
+  for (const [centre, entry] of cache) {
+    if (!entry.why) continue;
+    out.push({ centre, why: entry.why, agoMinutes: Math.round((Date.now() - entry.at) / 60000) });
+  }
+  return out;
 }
 
 /**

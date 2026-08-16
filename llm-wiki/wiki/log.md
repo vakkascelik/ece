@@ -5,6 +5,37 @@ says so.*
 
 ---
 
+2026-08-16 (later still) — **The centre manager asks why the contact page has no map, and answering
+it needed a log dig that nobody should have to repeat.** Extended: [[public-website]] and
+`docs/deploy-railway.md`.
+
+**No code was broken and none was written to fix it.** Checked against production rather than
+assumed: `/api/health` reports no `mapsDisabledFor`, so `GOOGLE_MAPS_API_KEY` **is** set;
+`/api/map/mt-albert` returns 404 with zero bytes, so `centreMap()` got nothing from Google; and
+`/contact` emits no `<img>` at all, which is the fallback behaving exactly as designed. The map
+machinery has been correct since 2026-08-07 and Google is refusing the request.
+
+The three plausible causes are all in the Google Cloud console — the Maps Static API not enabled
+(its own product, separate from the Geocoding API the committed coordinates came from), **an
+HTTP-referrer restriction on the key**, or no billing account. The middle one is worth a line in
+this log because it is the *standard* advice for a Maps key and it is fatal to this design: the
+restriction is enforced against the `Referer` header, and a server-to-server `fetch` sends none. The
+whole point of this feature is that the container calls Google and the reader's browser never does.
+
+What changed is that the reason is now visible. `mapsStatus()` surfaces Google's own refusal
+sentence on `/api/health` as `mapsFailing`, per centre. It does not call Google — same reasoning
+that keeps Supabase out of this endpoint — it reports what the last page render already discovered,
+so an empty result means "not attempted since the restart" rather than "working", asserted in a test
+so that wording cannot drift from the behaviour. The text is scrubbed of `key=…` before reaching a
+public response: insurance rather than a fix for an observed leak, mutation-tested, and removing the
+scrub fails exactly one assertion and nothing else.
+
+Also noticed and not acted on: production reports `usingDefaultsFor: ["SITE_CANONICAL_HOST"]`, so
+the canonical-host redirect is not active on the Railway domain. Unrelated to the maps, and it is
+the owner's call whether it matters before a custom domain exists.
+
+---
+
 2026-08-16 (later) — **The app comes off the public site entirely, the phone menu goes behind a
 button, and three ways of building that button turn out to be wrong.** Extended:
 [[public-website]]. Corrected: [[unverified-claims]] item 19 — the entry written this morning said

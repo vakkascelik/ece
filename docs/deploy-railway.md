@@ -396,14 +396,47 @@ Notes on those three:
 > with no maps and no error anywhere on the page, because `CentreMap` renders nothing rather than a
 > broken image; the 403 is in the container log, prefixed `[map]`.
 >
-> **Restrict it and set a budget.** This key is not secret in the sense the service-role key is —
-> the worst case is somebody else's map requests on this project's bill — but it is a bill.
-> Restrict it to the Maps Static API, and to the Geocoding API only if the coordinates in
-> `apps/site/src/lib/centres.ts` ever need redoing.
+> **Restrict it by API, NOT by HTTP referrer**, and set a budget. This key is not secret in the sense
+> the service-role key is — the worst case is somebody else's map requests on this project's bill —
+> but it is a bill. Restrict it to the Maps Static API, and to the Geocoding API only if the
+> coordinates in `apps/site/src/lib/centres.ts` ever need redoing.
+>
+> The referrer half is a trap worth spelling out, because it is the default advice for a Maps key
+> and it is wrong here. **An "HTTP referrers (web sites)" application restriction breaks this
+> outright.** That restriction is designed for a key used by a browser, and it is enforced against
+> the `Referer` header — which a server-to-server `fetch` does not send. This container is the
+> caller, so a referrer-restricted key returns 403 for every centre no matter which APIs are enabled.
+> If the key needs an application restriction at all, it is **IP addresses**, and Railway does not
+> give a stable egress IP on the plans this runs on — so "None" plus an API restriction plus a budget
+> is the workable combination.
 >
 > **Unset is a supported state.** Both pages fall back to what they carried before the maps existed:
 > the address in text, "Get directions", and the phone number. `/api/health` reports
 > `mapsDisabledFor` so the difference is visible without reading the HTML.
+
+> ### Diagnosing "the contact page has no map"
+>
+> Written on 2026-08-16, when the centre manager asked and answering took a log dig. The three
+> states look identical from the outside — `CentreMap` renders the address and the links and no
+> image in all of them — so ask in this order:
+>
+> 1. **`GET /api/health`.** If it reports `mapsDisabledFor: ["GOOGLE_MAPS_API_KEY"]`, the key is not
+>    set on the service. Set it; nothing else below applies.
+> 2. **Open `/contact`, then `GET /api/health` again.** If it reports `mapsFailing`, that is Google's
+>    own refusal, per centre, with the sentence it gave. **Order matters**: the reason is recorded by
+>    a real page render, so an absent `mapsFailing` on a freshly-restarted container means "not
+>    attempted yet", never "working".
+> 3. **Read the sentence.** `not authorized to use this API` is the Maps Static API not being enabled
+>    on the project. `API keys with referer restrictions cannot be used` is the referrer trap above.
+>    Anything mentioning billing is a billing account that is not attached.
+>
+> The same lines are in the container log prefixed `[map]`, which is where they lived before step 2
+> existed.
+>
+> **After a fix, maps appear within about fifteen minutes and need no redeploy** — a failure is
+> remembered for `BAD_TTL_MS`, deliberately short so that ticking the box in the Google Cloud console
+> is the whole job. `/api/map/<centre>` returning 404 rather than a PNG is the quickest confirmation
+> that it has not taken effect yet.
 
 > ### Why those two are unprefixed, and what they can do
 >
