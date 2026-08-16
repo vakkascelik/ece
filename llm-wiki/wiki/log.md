@@ -5,6 +5,51 @@ says so.*
 
 ---
 
+2026-08-16 (fourth) — **A request to collect children's dates of birth runs into the gate built to
+stop it, and the footer loses two thirds of its height.** Extended: [[public-website]],
+`docs/tenant-little-pearls.md`, `apps/site/CONTENT-GAPS.md` gap 19.
+
+**The date-of-birth request was not built, and that is the outcome the owner chose.** The centre
+manager asked for the enquiry form to collect a child's date of birth, as their old website does. It
+runs at three things at once: `tenant-little-pearls.md` gating all child data on professional
+indemnity insurance that was absent on 2026-08-05; migration **0054**, which deliberately dropped
+exactly this field, calling a birth month *"a date of birth with the day filed off … it invites
+exactly the field the page refuses"*; and an assertion in `rls_isolation.sql` that reads the Postgres
+catalogue rather than the behaviour, written because *"a behavioural test cannot catch that coming
+back — somebody re-adding the parameter would write a test that passes it"*.
+
+That assertion worked exactly as designed. Its comment ends "whoever changed it has to come and read
+this comment", and that is what happened.
+
+Put to the owner with the insurance question attached, the answers were **month and year rather than
+an exact date**, and **find out about the insurance first**. So nothing shipped: the form, the table,
+the function and the assertion are untouched, and the agreed shape plus the one blocking fact are
+recorded in the tenant doc and as gap 19. Worth passing to the manager: their old form posts to a
+2018 Muse PHP mailer whose delivery was never verified, so it is not a working precedent for
+collecting a birth date.
+
+**The footer.** The three-column detail block had grown a fourth column of seven page links and a
+fifth of four stacked social links — sixteen lines of footer. Now: three columns, then one row with
+the social accounts as icons at one end and the developer credit at the other.
+
+The icons are drawn from primitives — the no-icon-library rule holds for four glyphs — and tinted
+`currentColor`, because four brand colours in a footer would be four accents on a site whose rule is
+one, and Facebook blue and Instagram's gradient both fail contrast on `--ocean-deep` anyway.
+
+**The cost is a fallback I had added one commit earlier and have now removed**, which is worth being
+straight about: the Pages column existed because `<noscript>` covers scripting being *off* and not
+the bundle failing to *run*. What still stands is the desktop nav (pure CSS), the `<noscript>` rule,
+and body copy that links out of every page — so the residual gap is a phone, scripting enabled,
+script then errors. Narrow, not nothing, and the note in `globals.css` says what to do if it ever
+matters.
+
+One thing the change forced rather than allowed: **44px targets, reached here for the first time.**
+The old text links did not reach them and the note recorded that honestly. An icon has no word to
+widen its target, so turning four links into four icons without padding them would have turned a
+recorded compromise into a real defect.
+
+---
+
 2026-08-16 (later still) — **The centre manager asks why the contact page has no map, and answering
 it needed a log dig that nobody should have to repeat.** Extended: [[public-website]] and
 `docs/deploy-railway.md`.

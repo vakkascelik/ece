@@ -97,6 +97,41 @@ name, a service number and a timezone precisely so that line has not been crosse
 See [privacy-statement](privacy-statement.md) for what will be held when it is, and
 [retention](retention.md) for how long.
 
+### Somebody has now asked to cross it — 2026-08-16
+
+**The centre manager asked for the enquiry form to collect a child's date of birth**, as the
+centre's old website does. This is the first request that runs directly at the gate above, so
+the state of it is recorded here rather than settled in a commit message.
+
+**Nothing was built.** The form, `enrolment_applications`, `submit_enrolment_application` and
+the catalogue assertion in `rls_isolation.sql` are all untouched.
+
+**The shape that was agreed, for when it is unblocked: month and year of birth — "March 2024"
+— not an exact date.** It answers what the centre actually needs from an enquiry (which room,
+which month the transition falls in, and where the family sits on a waitlist) and stops short
+of a value that identifies one child on its own.
+
+That reverses a decision made deliberately in migration **0054**, which dropped exactly this
+field and called it *"a date of birth with the day filed off … finer than a band, and it invites
+exactly the field the page refuses."* That reasoning was sound and the reversal is a change of
+requirements, not a correction of it — so 0054's argument has to be answered in whatever
+supersedes it rather than quietly overwritten.
+
+**THE ONE FACT THAT BLOCKS IT, and nobody here can answer it: is the professional indemnity
+insurance in place now?** The date above is 2026-08-05 and it has not been rechecked. Every
+argument on this page depends on it, and the answer is a fact the owner holds. Record it here
+with the date it was confirmed — and, if yes, the insurer or policy reference, because "somebody
+said yes once" is the shape of claim this repo keeps having to correct.
+
+If the answer is **yes**, this becomes an ordinary product change: a migration superseding 0054,
+a new function signature, the `child_name` catalogue assertion in `rls_isolation.sql` rewritten
+to pin the *new* boundary rather than deleted, and [privacy-statement](privacy-statement.md)
+updated to say the platform now holds a child's birth month from a public form.
+
+If the answer is **no**, it stays as it is. The enquiry keeps the coarse age band, and the
+centre takes a birth date the way it does today — in the conversation the enquiry exists to
+start.
+
 ## The trap this uncovered
 
 The demo centres were originally created with **the real customer's slugs** —

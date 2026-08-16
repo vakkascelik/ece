@@ -5,9 +5,9 @@ import type { ReactNode } from 'react';
 import { CENTRES, CENTRE_FACTS, SOCIAL_LINKS } from '@/lib/centres';
 import { PHOTOS } from '@/lib/photos';
 import { siteOrigin } from '@/lib/site';
-import { NAV } from '@/lib/nav';
 import { Parallax } from './Parallax';
 import { SiteNav } from './SiteNav';
+import { SocialIcon } from './SocialIcon';
 import { Pearl } from './Pearl';
 import { Waves } from './Waves';
 import './globals.css';
@@ -335,91 +335,79 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                 */}
               </div>
 
+            </div>
+
+            {/*
+              THE BOTTOM LINE: the social accounts as icons, and the developer credit, on one row.
+
+              THE "PAGES" COLUMN THAT WAS HERE IS GONE, asked for to shorten the footer, and the cost
+              is worth writing down because it was added one commit ago for a reason. It was the
+              fallback for the masthead nav being JavaScript-driven below 48rem: `<noscript>` covers
+              scripting being switched off, and that column covered the bundle failing to *run*,
+              which `<noscript>` cannot.
+
+              What still stands between a phone visitor and a dead end if the bundle fails: the
+              `<noscript>` rule, which handles the commoner case; the desktop nav, which is pure CSS
+              and unaffected; and the body copy, which links out of every page — the homepage alone
+              reaches philosophy, centres, rooms, enrolment and contact. So the residual gap is
+              narrow: a phone, with scripting enabled, whose script then errors. Narrow is not
+              nothing, and if it ever matters the cheapest fix is a single wrapped row of links here
+              rather than the seven-high column that made the footer long.
+            */}
+            <div className="foot-bottom">
               {/*
-                EVERY PAGE, SERVER-RENDERED, NEEDING NOTHING. This is the fallback for the masthead
-                nav being JavaScript-driven on a phone — `<noscript>` covers scripting being off, and
-                this covers the bundle failing to run, which `<noscript>` cannot. See the note on
-                `.foot-nav` in globals.css.
-
-                It reads as an ordinary footer sitemap, which is what makes it a good fallback: it is
-                not an apology for a broken menu, it is the thing most sites have anyway.
-
-                Labelled "Footer" so it is distinguishable from "Main" in a landmark list. The same
-                `NAV` array as the masthead, so the two cannot list different pages.
-              */}
-              <nav aria-label="Footer">
-                <p className="foot-head">Pages</p>
-                <div className="foot-nav">
-                  {NAV.map((item) => (
-                    <Link key={item.href} href={item.href}>
-                      {item.label}
-                    </Link>
-                  ))}
-                </div>
-              </nav>
-              {/*
-                Their social accounts, which the current site has and this one did not.
-
-                A fourth grid column rather than a row of icons under the credit. `.foot-grid` is
-                `auto-fit, minmax(16rem, 1fr)`, so a fourth item costs nothing and reflows to two-up
-                and then one-up on its own — no media query, and no fixed column count to get wrong
-                when a fifth thing arrives.
-
-                `<ul>` and not four `<p>`s: it is a list of four equivalent things, and a screen
+                `<ul>` and not four `<a>`s: it is a list of four equivalent things, and a screen
                 reader announcing "list, 4 items" is the difference between hearing the shape and
-                hearing four sentences. The bullets and indent come off in CSS.
+                hearing four links in a row. The bullets and indent come off in CSS.
+
+                EACH LINK CARRIES ITS OWN NAME IN TEXT, visually hidden. An icon has no accessible
+                name — `aria-label` on the link would work, but a hidden `<span>` also survives a
+                translation tool and a stylesheet that fails to load, and this site has been bitten
+                by "it only works when everything works" twice this week.
 
                 No `target="_blank"`. Opening in a new tab is a decision made for the reader about
                 their own browser, and WCAG 3.2.5 treats an unrequested new window as a change of
                 context; anybody who wants one has a middle-click. `rel="noreferrer"` would be
                 redundant against this site's `strict-origin-when-cross-origin` policy, which
-                already sends the origin and nothing more — so it is left off rather than added as
-                cargo, and the policy is the single place that decision lives.
+                already sends the origin and nothing more.
               */}
-              <div>
-                <p className="foot-head">Follow us</p>
-                <ul className="foot-social">
-                  {SOCIAL_LINKS.map((social) => (
-                    <li key={social.name}>
-                      <a href={social.href}>{social.name}</a>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+              <ul className="foot-social">
+                {SOCIAL_LINKS.map((social) => (
+                  <li key={social.name}>
+                    <a href={social.href}>
+                      <SocialIcon name={social.name} />
+                      <span className="visually-hidden">{social.name}</span>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+
+              {/*
+                The developer credit, now sharing the row rather than sitting under a rule of its own.
+
+                A file in `public/` rather than an inlined `<svg>`. This is a drawn mark belonging to
+                someone else, whose own guidelines say it may not be recoloured — keeping it as the
+                byte-identical asset makes that hard to violate by accident, where an inlined path is
+                one `fill` away from it. `img-src` is `'self' data:`, so a committed file is also the
+                only shape the policy allows. That is the opposite call from the social glyphs beside
+                it, and deliberately: those are drawn here from primitives and tinted with
+                `currentColor`, which is exactly what this one may not be.
+
+                It is their `favicon.svg` — the solid tile — and not `salix-mark-green.svg`, which is
+                their default. See the note in globals.css: the default is a line drawing that
+                disappears at this size.
+
+                `alt=""` for the same reason as the logo in the masthead: the words in the link
+                already say Salix, so a screen reader announcing the image too would say it twice.
+              */}
+              <p className="foot-credit">
+                <a href="https://www.salixtech.co.nz">
+                  <img className="salix-mark" src="/salix-mark.svg" alt="" width={512} height={512} />
+                  Developed by Salix
+                </a>
+              </p>
             </div>
 
-            {/*
-              The developer credit.
-
-              A file in `public/` rather than an inlined `<svg>`. This is a drawn mark belonging to
-              someone else, whose own guidelines say it may not be recoloured — keeping it as the
-              byte-identical asset makes that hard to violate by accident, where an inlined path is
-              one `fill` away from it. `img-src` is `'self' data:`, so a committed file is also the
-              only shape the policy allows.
-
-              It is their `favicon.svg` — the solid tile — and not `salix-mark-green.svg`, which is
-              their default. See the note in globals.css: the default is a line drawing that
-              disappears at this size.
-
-              `alt=""`, the second empty alt on this site and for the same reason as the first: the
-              words in the link already say Salix, so a screen reader announcing the image too
-              would say it twice.
-
-              No `target="_blank"`. Deciding for somebody that they wanted a new window is not a
-              courtesy, and a credit line is the least urgent link on the page.
-            */}
-            <p className="foot-credit">
-              <a href="https://www.salixtech.co.nz">
-                <img
-                  className="salix-mark"
-                  src="/salix-mark.svg"
-                  alt=""
-                  width={512}
-                  height={512}
-                />
-                Developed by Salix
-              </a>
-            </p>
           </div>
           </div>
         </footer>

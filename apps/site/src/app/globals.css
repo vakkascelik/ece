@@ -313,31 +313,20 @@ a:hover { text-decoration-thickness: 2px; }
 }
 
 /*
- * The footer's copy of the same seven links.
+ * `.foot-nav` USED TO BE HERE — the footer's copy of these seven links, added as the fallback for
+ * this menu being JavaScript-driven, and removed a commit later to shorten the footer.
  *
- * NOT DUPLICATION FOR ITS OWN SAKE — it is the fallback for the masthead nav being JavaScript-driven
- * below 48rem. `<noscript>` covers scripting being switched off; it does **not** cover the bundle
- * failing to run, because the browser considers scripting enabled right up until the script errors,
- * and this site has had every script on every page refused in production once already. These links
- * are server-rendered and need nothing.
+ * Recorded rather than deleted silently, because the reasoning is still true and whoever needs it
+ * back should not have to rediscover it. `<noscript>` (in `layout.tsx`) covers scripting being
+ * switched *off*; it does not cover the bundle failing to *run*, because a browser considers
+ * scripting enabled right up until the script errors — and every script on every page of this site
+ * was refused in production once already.
  *
- * A second `<nav>` landmark, labelled "Footer" so a screen reader's landmark list distinguishes it
- * from "Main" rather than offering two identical entries.
+ * What still covers that gap: the desktop nav is pure CSS and unaffected, and the body copy links
+ * out of every page. The residual case is a phone, scripting enabled, script then errors. If it
+ * ever matters, the fix is a single wrapped row here — not the seven-high column that made the
+ * footer long.
  */
-.foot-nav {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-.foot-nav a {
-  /* 24px, the WCAG 2.5.8 floor, rather than the 44px the masthead uses — these are a fallback and a
-     convenience at the bottom of a long page, and stacking seven 44px targets would make the footer
-     taller than the content above it. Same position as the addresses and the social column. */
-  min-height: 24px;
-  display: inline-flex;
-  align-items: center;
-  width: max-content;
-}
 .nav a {
   color: #1b1a18;
   text-decoration: none;
@@ -551,22 +540,62 @@ a:hover { text-decoration-thickness: 2px; }
 }
 .foot p { margin: 0 0 var(--space-1); }
 /*
- * The social column. A list, stripped of its marker and indent — the semantics are the reason it is
- * a `<ul>` (see layout.tsx), and the bullets are not.
+ * The social accounts, as icons on one row.
  *
- * `var(--space-1)` between items rather than the `line-height` doing it: these are link targets, and
- * two underlined words stacked at natural leading are two things a thumb cannot reliably separate.
- * This does not reach the 24px of WCAG 2.5.8 on its own for the text itself, which is the same
- * position every other inline link in this footer is in — the addresses and phone numbers included —
- * so it is consistent rather than a new exception, and it is recorded here as not fixed rather than
- * claimed as fixed.
+ * They were a stacked column of four underlined words in a fourth grid track, which made the footer
+ * four items tall for four links. As icons they are one row, and the footer is shorter by most of
+ * its height.
+ *
+ * **44px targets, and this is the first place in this footer that reaches them.** The old text links
+ * did not — the note that used to live here recorded that honestly, saying they matched the
+ * addresses and phone numbers and were "not fixed rather than claimed as fixed". An icon has no
+ * word to widen the target for it, so the padding has to do the whole job, and 44px is what WCAG
+ * 2.5.8 asks and what a thumb needs. Turning four links into four icons *without* this would have
+ * made a real problem out of a recorded one.
+ *
+ * A list, stripped of its marker and indent — the semantics are the reason it is a `<ul>` (see
+ * layout.tsx), and the bullets are not.
  */
 .foot-social {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
   list-style: none;
   margin: 0;
   padding: 0;
 }
-.foot-social li { margin: 0 0 var(--space-1); }
+.foot-social a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--target-min);
+  height: var(--target-min);
+  border-radius: var(--radius-md);
+  /* The glyphs are `currentColor`; this is what they inherit. */
+  color: var(--on-ocean);
+}
+/* Hover is a ground rather than a hue, because the icons have no underline to thicken and colour
+   alone would be the only signal. */
+.foot-social a:hover { background: rgba(255, 255, 255, 0.12); }
+.social-icon { display: block; }
+
+/*
+ * The bottom row: the icons at one end, the credit at the other.
+ *
+ * `space-between` with `wrap`, so on a phone the credit drops under the icons instead of the two
+ * being squeezed into an unreadable line. The hairline above it is the one that used to be on
+ * `.foot-credit` — it belongs to the row now that the row is the last thing in the footer.
+ */
+.foot-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+  padding-top: var(--space-3);
+  border-top: 1px solid rgba(255, 255, 255, 0.16);
+}
 /*
  * ORDER MATTERS BELOW, and it is the same class of bug that ate the credit's margin last time.
  * Both selectors are (0,2,0), so source order decides — and `.foot .foot-head` uses the `margin`
@@ -577,19 +606,18 @@ a:hover { text-decoration-thickness: 2px; }
 .foot .foot-head-spaced { margin-top: var(--space-4); }
 
 /*
- * The developer credit — the very bottom, under the three columns, set off by a full-width hairline.
- *
- * `max-width: none` IS THE LOAD-BEARING LINE. `p` caps at 66ch globally, which is right for prose
- * and wrong for a rule meant to span the footer: the first attempt at this border stopped
- * two-thirds of the way across and read as an underline struck through the text above it rather
- * than as a divider. Invisible in the CSS, obvious in a screenshot.
- *
- * `--teal` rather than `--sand` for the line. This is the one hairline on the site that is a colour
- * rather than a tone, and it earns it: sand on sand is nothing, and this divides content *inside* a
- * block rather than marking the boundary between two.
+ * The developer credit. It shares the bottom row with the social icons now rather than sitting
+ * alone under a rule of its own — the rule moved up to `.foot-bottom`, which is the thing that is
+ * last in the footer.
  *
  * `.foot .foot-credit` and not `.foot-credit`: `.foot p { margin: … }` above is (0,1,1) and would
  * otherwise outrank a lone class and flatten the margin. It did, once.
+ *
+ * `max-width: none` because `p` caps at 66ch globally. That cap was load-bearing when this carried
+ * the full-width hairline — the first version of that border stopped two-thirds of the way across
+ * and read as a strikethrough rather than a divider, invisible in the CSS and obvious in a
+ * screenshot. The border has moved, but a credit that wraps early inside a flex row is its own
+ * small ugliness, so the line stays.
  *
  * `--text-sm`, and the link keeps the footer's own colour rather than being played down further —
  * a credit that has to be squinted at is worse than no credit, and 13px is already the smallest
@@ -597,16 +625,7 @@ a:hover { text-decoration-thickness: 2px; }
  */
 .foot .foot-credit {
   max-width: none;
-  margin: var(--space-6) 0 0;
-  padding-top: var(--space-4);
-  /*
-   * A tone of the text rather than a colour, which is the same call this line has carried through
-   * two backgrounds now — only the direction flips. On coral it was `rgba(27,26,24,0.3)`; on the
-   * ocean it is white at low alpha. Translucent rather than solid in both cases: at full strength a
-   * 1px rule on a saturated ground reads as a seam between two blocks, and this one divides content
-   * inside one.
-   */
-  border-top: 1px solid rgba(255, 255, 255, 0.16);
+  margin: 0;
   font-size: var(--text-sm);
 }
 .foot-credit a {

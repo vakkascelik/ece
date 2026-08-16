@@ -59,6 +59,9 @@ Three defects made it urgent rather than cosmetic, all measured rather than asse
   ways of building a menu that were wrong* below.
 - **The navigation collapses behind a Menu button below 48rem.** On a phone the seven links were two
   permanently-open rows under the brand, pushing the page's own heading most of a screen down.
+- **The enquiry form does not ask for a child's date of birth, and a request to add one is open.**
+  See *The date of birth that has not been added* below — it is gated on an insurance question
+  nobody in this repo can answer, and the agreed shape when it is unblocked is a birth **month**.
 - Their brand is used, not the platform's — and **none of their colours can carry text.**
 
 ## Details
@@ -291,6 +294,45 @@ With the sign-in control gone the masthead had room it did not have before, so t
 the brand on one row at every width above 48rem rather than being forced onto its own line — which
 was a workaround for seven items plus a brand plus a button exceeding 68rem, and the button is what
 went.
+
+### The date of birth that has not been added
+
+Asked for on 2026-08-16 by the centre manager, who wants what the old website collects. **Nothing
+was built.** The form, `enrolment_applications`, `submit_enrolment_application` and the catalogue
+assertion in `rls_isolation.sql` are all untouched.
+
+It runs at three things at once, and it is worth seeing them as one mechanism rather than three
+objections:
+
+1. **`docs/tenant-little-pearls.md`** gates every piece of child data on professional indemnity
+   insurance, recorded as absent on 2026-08-05 and not rechecked since.
+2. **Migration 0054** dropped exactly this field, having been written into 0052 by mistake. Its
+   reasoning: a birth month is *"a date of birth with the day filed off … finer than a band, and it
+   invites exactly the field the page refuses"*.
+3. **`rls_isolation.sql` asserts against the Postgres catalogue** that the public function takes no
+   child's name — deliberately not a behavioural test, because *"somebody re-adding the parameter
+   would write a test that passes it"*.
+
+**The third one is the interesting one, because it did its job.** Its comment ends "if that changes,
+this fails, and whoever changed it has to come and read this comment". A guard whose stated purpose
+is to make a future change *expensive to do quietly* was written, and the next person to touch this
+area read it and stopped. That is the pattern worth copying: where a decision matters more than the
+code expressing it, assert the decision, not the behaviour.
+
+The substance, briefly. This form is a public `anon` endpoint, so a DOB there writes an identifiable
+under-five into the database before anyone has signed anything or had a consent conversation — the
+weakest lawful basis in the product. And the old site is a poor precedent: its form posts to a 2018
+Adobe Muse PHP mailer whose delivery was never verified, so copying it preserves no working
+capability.
+
+**Decided, for when it is unblocked: month and year — "March 2024" — not an exact date.** It gives
+the centre the room, the transition month and a waitlist position without a value that identifies
+one child on its own. It reverses 0054 knowingly, so whatever supersedes that migration has to
+answer its argument rather than overwrite it, and the catalogue assertion should be *rewritten to
+pin the new boundary* rather than deleted.
+
+**The one blocking fact is not a code question:** is the indemnity insurance in place now? Recorded
+in `tenant-little-pearls.md` under *Somebody has now asked to cross it*, and as gap 19.
 
 ### Their palette cannot carry text, and finding that out took two attempts
 

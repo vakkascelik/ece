@@ -279,6 +279,30 @@ they want as the front page. If not, `PHOTOS.painting` in `page.tsx` is a one-wo
 the `sheen` and focal-point fields on the replacement, because a circular crop plus a bright
 highlight will destroy a badly-placed face.
 
+### 19. Whether the enquiry form should ask for a child's date of birth
+
+Added 2026-08-16. **Asked for by the centre manager**, who wants what the old website collects.
+
+Nothing has been built and the form is unchanged. The reason is not reluctance — it is one fact
+nobody here can check: `docs/tenant-little-pearls.md` gates every piece of child data on
+**professional indemnity insurance being in place**, and records it as absent on 2026-08-05. That
+date has not been rechecked.
+
+The shape agreed for when it is unblocked is **month and year — "March 2024" — not an exact date**.
+It gives the centre the room, the transition month and a waitlist position, and stops short of a
+value that identifies one child on its own. It knowingly reverses migration 0054, which dropped
+exactly this field.
+
+Worth saying to the manager, because it changes what "like the current website" means: **their old
+form posts to a 2018 Adobe Muse PHP mailer whose delivery could not be verified** — see gap 11. It
+is not a working precedent for collecting a birth date; it is a form that may not reach anybody.
+
+**To close it:** the owner confirms whether the indemnity insurance is in place, with the date and
+the policy reference. Yes makes this an ordinary product change — a migration, a new function
+signature, the catalogue assertion in `rls_isolation.sql` rewritten to pin the new boundary rather
+than deleted, and the privacy statement updated. No leaves it exactly as it is, and the centre takes
+a birth date in the conversation the enquiry exists to start.
+
 ## Resolved by rebuilding
 
 - **No `<meta name="viewport">` and no responsive layout.** Fixed: the site is fluid and asserted
