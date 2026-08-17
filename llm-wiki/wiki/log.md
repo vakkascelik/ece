@@ -5,6 +5,36 @@ says so.*
 
 ---
 
+2026-08-17 (fourth) — **The manager reviews the live site and catches what the sourcing rules
+could not: two claims sourced from the centre's own documents that should not be published.**
+Corrected: [[public-website]], `/philosophy`, `/centres`. Regenerated: the pearl artwork.
+
+Three pieces of WhatsApp feedback, relayed by the owner:
+
+**"A global focus" came off `/philosophy` the day after it went up.** "Bu part bize içimize dönük,
+daha public değil" — it faces inward, not public yet, inshallah one day. The Pearl of the Isles
+Foundation paragraph was in the strategic plan the owner supplied with instructions to use it, and
+the manager drew a line the document itself could not: **supplied is not approved, section by
+section.** One element restores it when they are ready.
+
+**"Shoe free değiliz maalesef."** Their own 2018 philosophy PDF says "the inside of our centre is
+shoe-free"; the site carried it faithfully; it is not true any more. Off `/philosophy` (heading and
+sentence) and off `/centres`. This is the sharper of the two lessons: the repo's rule is that every
+claim traces to a source, and this claim did — **a sourced claim is not a true claim when the
+source is seven years old.** The only defence is the owner of the facts reading the rendered page,
+which is exactly what happened. Both removals are asserted by a check that greps seven routes'
+rendered text.
+
+**"Bunlar biraz gezegenlere benzemiş :)"** — the teal pearl art looked like planets, and he was
+right: swirled teal inside a circle is a gas giant. Regenerated as grey pearl nacre — silvery,
+ivory, champagne, the inside of an oyster shell — per his "grey olabilir, pearl gibi renkleri".
+Same review discipline as the first round, same result: four candidates, two discarded on sight
+for baked-in marketing text ("Delicious Dining Discounts", on a childcare prompt — the second time
+Canva has done this, so it is a pattern, not an accident). Old files deleted, new ones committed;
+"masallah" on the rest of the page noted with some satisfaction.
+
+---
+
 2026-08-17 (third) — **The mobile menu becomes an icon at top right, and two flexbox lessons come
 with it.** Extended: [[public-website]] is unchanged in substance; the mechanics are in
 `globals.css` comments and here.

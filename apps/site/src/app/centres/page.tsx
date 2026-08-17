@@ -59,11 +59,12 @@ export default function CentresPage() {
         <section className="prose">
           <Eyebrow>The same at both</Eyebrow>
           <h2 className="section-title">One centre, in two places</h2>
+          {/* "both are shoe-free inside" was in this sentence — removed 2026-08-17 on the
+              manager's correction; the claim came from their 2018 PDF and is no longer true. */}
           <p>
             Both centres are open {CENTRE_FACTS.hours.toLowerCase()} and take children{' '}
-            {CENTRE_FACTS.ages}. Both are guided by Te Whāriki, both are shoe-free inside, and both
-            run the same three age-group rooms —{' '}
-            <Link href="/rooms">Infant, Toddler and Preschool</Link>.
+            {CENTRE_FACTS.ages}. Both are guided by Te Whāriki, and both run the same three
+            age-group rooms — <Link href="/rooms">Infant, Toddler and Preschool</Link>.
           </p>
         </section>
       </div>

@@ -71,10 +71,17 @@ Three defects made it urgent rather than cosmetic, all measured rather than asse
   2026-08-17** — from the enrolment reply the centre sends families, which superseded the 2018
   website's ranges (toddler moved from 1:6–7 to a stricter 1:5). The confirmation the fix brief
   required from day one, finally supplied. Gap 6 carries the detail.
-- **`/philosophy` carries the centre's vision, values and global focus** from their 2026–2029
-  strategic plan, in their own sentences: "What we want to be known for", the four values with the
-  Teaching Council attribution kept, and the Pearl of the Isles Foundation. The plan itself is not
-  committed — it is an internal document quoted from, not a handoff pack.
+- **`/philosophy` carries the centre's vision and values** from their 2026–2029 strategic plan, in
+  their own sentences: "What we want to be known for" and the four values with the Teaching Council
+  attribution kept. The plan itself is not committed — it is an internal document quoted from, not a
+  handoff pack. **CORRECTED 2026-08-17, later the same day: "A global focus" (the Pearl of the
+  Isles Foundation) went up and came straight back down** — the manager reviewed the live page and
+  said that part faces inward and is not public yet. The same review corrected a second claim:
+  **"shoe-free inside" is in their 2018 philosophy PDF and is no longer true**, so it is off
+  `/philosophy` and `/centres`. Both corrections carry the same lesson, recorded in the page code:
+  a document supplied by the centre is not a document approved for publication, section by section
+  — sourced is not the same as current, and the manager reviewing the *rendered page* caught in a
+  day what the sourcing rules could not.
 - **The empty pearls hold generated abstract artwork as of 2026-08-17** — the footer cluster and a
   decorative aside on `/philosophy`. Generated with Canva's image generation (the tool that actually
   exists here: no Veo/Gemini/Vertex-AI credential is configured anywhere in this repo or in

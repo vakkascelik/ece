@@ -40,11 +40,21 @@ export interface Illustration {
   caption: string;
 }
 
+/*
+ * REGENERATED 2026-08-17, LATER THE SAME DAY, ON THE MANAGER'S FEEDBACK. The first set was teal
+ * watercolour in the ocean palette, and the manager's review was exact: "bunlar biraz gezegenlere
+ * benzemiş" — they look a bit like planets — "grey olabilir, pearl gibi renkleri": grey, in pearl
+ * colours. He was right; swirled teal inside a circle reads as a gas giant, not a pearl. The
+ * second prompt asked for the inside of an oyster shell — silvery grey, ivory, champagne, faint
+ * blush — and explicitly forbade the cloud-swirl look. Same review step, same result as the first
+ * round: four candidates, two discarded on sight for baked-in marketing text ("Delicious Dining
+ * Discounts", on a childcare prompt).
+ */
 export const ART = {
-  /** Warm cream and soft teal — the top of the nacre texture. */
-  shell: { src: '/pearl-art-shell.webp', alt: '', caption: '' },
-  /** Cooler and mistier — the bottom of the same texture, so the two read as siblings. */
-  mist: { src: '/pearl-art-mist.webp', alt: '', caption: '' },
-  /** Deep teal watercolour clouds, near the ocean band's own hues. */
-  ocean: { src: '/pearl-art-ocean.webp', alt: '', caption: '' },
+  /** Soft ivory nacre with warm champagne veining — the top of the first texture. */
+  ivory: { src: '/pearl-art-ivory.webp', alt: '', caption: '' },
+  /** The same texture's lower half, blush-warmer, so the two read as siblings. */
+  blush: { src: '/pearl-art-blush.webp', alt: '', caption: '' },
+  /** Silvery grey lustre with pale gold seams — the second texture. */
+  silver: { src: '/pearl-art-silver.webp', alt: '', caption: '' },
 } as const satisfies Record<string, Illustration>;

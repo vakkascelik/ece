@@ -309,9 +309,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                 as blank spheres. `aria-hidden` as before — they carry nothing a reader needs.
               */}
               <div className="pearl-cluster" data-parallax="cluster" aria-hidden="true">
-                <Pearl size={74} photo={ART.shell} />
-                <Pearl size={124} photo={ART.ocean} />
-                <Pearl size={56} photo={ART.mist} />
+                <Pearl size={74} photo={ART.ivory} />
+                <Pearl size={124} photo={ART.silver} />
+                <Pearl size={56} photo={ART.blush} />
               </div>
             </div>
           </div>

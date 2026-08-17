@@ -21,7 +21,7 @@ export const metadata: Metadata = {
  * for it: it is not indexed usefully, it does not reflow on a phone, a screen reader handles it
  * worse than HTML, and a parent has to leave the site to read it.
  *
- * The words are theirs. Three kinds of change, all deliberate and all recorded:
+ * The words are theirs. Four kinds of change, all deliberate and all recorded:
  *
  *  1. **Macrons restored** — their PDF writes "Maori", "whanau", "Nga Hononga". The bicultural
  *     commitment in this very statement is the reason that matters; the platform's design pack
@@ -29,6 +29,11 @@ export const metadata: Metadata = {
  *  2. **Typos fixed** — "whana" for "whānau", "its just a pleasure", and a sentence that reads
  *     "We aim to environmental/sustainability focus".
  *  3. **Nothing added.** No claim appears here that is not in their statement.
+ *  4. **One claim REMOVED, on the manager's own correction (2026-08-17): "the inside of our
+ *     centre is shoe-free."** It is in their 2018 PDF, and the manager says plainly that it is
+ *     no longer true — "shoe free değiliz maalesef". A sourced claim is not the same as a true
+ *     one; the source was seven years old. It came off this page and off /centres the day the
+ *     correction arrived.
  */
 export default function PhilosophyPage() {
   return (
@@ -96,9 +101,15 @@ export default function PhilosophyPage() {
 
         <hr className="rule" aria-hidden="true" />
 
+        {/*
+          NO SHOE-FREE CLAIM. Their 2018 philosophy PDF says "the inside of our centre is
+          shoe-free" and it was faithfully carried here — until the manager corrected it on
+          2026-08-17: they are not shoe-free any more. The heading and the sentence both changed;
+          what remains is only what still holds. See the note at the top of this file.
+        */}
         <section>
           <Eyebrow>Our environment</Eyebrow>
-          <h2 className="section-title">Shoe-free inside, and quiet where it needs to be</h2>
+          <h2 className="section-title">Quiet where it needs to be</h2>
           {/*
             Inside `.prose` so the photograph keeps the measure. A square image at the full 68rem
             container is a 1088px-tall block — the container widened in this pass and an uncapped
@@ -106,9 +117,8 @@ export default function PhilosophyPage() {
           */}
           <div className="prose">
             <p>
-              The inside of our centre is shoe-free. We are committed to ongoing professional
-              development for our kaiako, and to an environmental and sustainability focus in what
-              we do day to day.
+              We are committed to ongoing professional development for our kaiako, and to an
+              environmental and sustainability focus in what we do day to day.
             </p>
 
             {/* Placed against "our environment", which is what it shows. No caption: the paragraph
@@ -177,15 +187,18 @@ export default function PhilosophyPage() {
             Our values draw on the Teaching Council&rsquo;s Code and Standards.
           </p>
 
-          <h3>A global focus</h3>
-          <p>
-            Little Pearls is part of a global movement for unity, justice and human dignity.
-            Supported by the Pearl of the Isles Foundation, our purpose goes beyond early learning —
-            we weave the aspirations of the Foundation with the unique cultural context of Aotearoa
-            and the hopes we hold for future generations. We understand ourselves as global citizens
-            and cultural bridge-builders, and we help build a generation strong in their identity,
-            culture and language, who show empathy and inclusiveness.
-          </p>
+          {/*
+            "A GLOBAL FOCUS" WAS HERE AND CAME OFF THE NEXT DAY, at the manager's direction: "bu
+            part bize içimize dönük, daha public değil" — it faces inward, it is not public yet,
+            inshallah one day. The strategic plan's Foundation paragraph is theirs to publish when
+            they are ready, and one element restores it. The vision lines and the values above are
+            what they confirmed should stay.
+
+            This is the second manager correction in two days (the shoe-free claim is the other),
+            and both cut the same way: content sourced from the centre's own documents still is not
+            published content until the centre says so. A document supplied is not a document
+            approved, section by section.
+          */}
           </div>
           {/*
             A decorative pearl, holding generated nacre artwork rather than a photograph — see
@@ -195,7 +208,7 @@ export default function PhilosophyPage() {
             about direction better than a photograph pretending to illustrate them.
           */}
           <aside aria-hidden="true">
-            <Pearl photo={ART.ocean} size={220} />
+            <Pearl photo={ART.silver} size={220} />
           </aside>
         </section>
       </div>
