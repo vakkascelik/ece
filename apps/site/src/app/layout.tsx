@@ -188,8 +188,15 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           `<noscript>` never applies. That case is covered by the footer's copy of the same links —
           see the note on `.foot-nav` in globals.css. Two failures, two fallbacks, deliberately.
         */}
+        {/*
+          The third rule pins the shell to its own full row: with scripting off the toggle is gone,
+          and the shell would otherwise keep its mobile size-to-the-button flex basis and squeeze
+          seven links into a 44px column.
+        */}
         <noscript>
-          <style>{'.nav{display:flex !important}.nav-toggle{display:none !important}'}</style>
+          <style>
+            {'.nav{display:flex !important}.nav-toggle{display:none !important}.nav-shell{flex:1 1 100% !important}'}
+          </style>
         </noscript>
 
         <header className="masthead">

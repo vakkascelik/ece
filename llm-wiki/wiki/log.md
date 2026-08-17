@@ -5,6 +5,37 @@ says so.*
 
 ---
 
+2026-08-17 (third) — **The mobile menu becomes an icon at top right, and two flexbox lessons come
+with it.** Extended: [[public-website]] is unchanged in substance; the mechanics are in
+`globals.css` comments and here.
+
+The owner asked for the hamburger at top right with no visible "Menu" word. The word stays in a
+visually-hidden span — a nameless icon button announces as "button" — and the target grew to a
+44px square to survive losing its label. The open panel is now an absolute-positioned dropdown
+anchored to the sticky masthead, because the toggle's new parent is a 44px box and a panel laid
+out inside it would be 44px wide. The open-state styles are scoped below the breakpoint, which
+they never were before: `[data-open]` styling used to leak into desktop for anyone who opened the
+menu and rotated.
+
+Lesson one, measured not reasoned: **flex-wrap wraps before flex-shrink shrinks.** The brand's
+auto flex-basis is its max-content width, so basis + gap + button overflowed the line and the
+button wrapped to its own row — `min-width: 0` never got a say, because shrinking only applies to
+items already sharing a line. Basis 0 makes the line always fit and lets the brand grow into the
+remainder.
+
+Lesson two, found by asserting the toggle's position: **`.masthead-inner`'s `padding:
+var(--space-3) 0` shorthand had been zeroing `.wrap`'s horizontal gutters since the masthead was
+built.** The logo touched the left screen edge on every phone, the whole masthead sat 16px out of
+line with every `.wrap` below it on desktop, and it looked deliberate enough that nobody
+questioned it. `padding-block` keeps the vertical rhythm and lets the gutters through. A shorthand
+overriding a longhand from another class on the same element is invisible in a diff and obvious in
+a ruler.
+
+Also fixed in the check itself: `innerText` includes clip-path-hidden text, so "is this button
+icon-only" is asserted by measuring the label's rendered box (1px), not by reading its text.
+
+---
+
 2026-08-17 (second) — **Generated artwork goes into the empty pearls, and the tool the owner
 thought existed does not.** Extended: [[public-website]]. New: `apps/site/src/lib/art.ts`.
 

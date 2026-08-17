@@ -186,7 +186,15 @@ a:hover { text-decoration-thickness: 2px; }
   justify-content: space-between;
   gap: var(--space-4);
   flex-wrap: wrap;
-  padding: var(--space-3) 0;
+  /*
+   * `padding-block`, NOT the `padding: var(--space-3) 0` shorthand that was here — the shorthand
+   * also set the horizontal padding to zero, silently overriding `.wrap`'s 16px gutters (this
+   * element carries both classes, and this rule comes later in the file). The result was the logo
+   * touching the left screen edge on a phone, the Menu button touching the right, and the whole
+   * masthead sitting 16px out of line with every `.wrap` below it on desktop. Found by measuring
+   * the toggle's position, not by reading this file — the shorthand looked perfectly innocent.
+   */
+  padding-block: var(--space-3);
 }
 .brand {
   display: flex;
@@ -235,6 +243,24 @@ a:hover { text-decoration-thickness: 2px; }
 }
 
 /*
+ * Below the breakpoint the shell shrinks to the button, so the toggle sits at the end of the
+ * BRAND'S row — top right, where the owner asked for it — instead of taking a row of its own
+ * under the logo.
+ *
+ * `flex-basis: 0` ON THE BRAND, NOT `auto`, and the first version of this was `auto` and did not
+ * work. The masthead wraps, and **wrapping happens before shrinking**: items whose combined
+ * flex-*basis* overflow the line are wrapped, and `flex-shrink` only compresses items already
+ * sharing one. The brand's auto basis is its max-content width (the centre's full name on one
+ * line, ~344px), so basis + gap + button exceeded 358px of content box and the button wrapped —
+ * `min-width: 0` never got a say. Basis 0 makes the line always fit; the brand then *grows* into
+ * the leftover space and its text wraps inside that. Measured before and after, not reasoned.
+ */
+@media (max-width: 47.9375rem) {
+  .nav-shell { flex: 0 0 auto; }
+  .brand { min-width: 0; flex: 1 1 0; }
+}
+
+/*
  * `display: none` BY DEFAULT, AND THE DEFAULT IS THE PHONE.
  *
  * Two things this deliberately does not do, both learned the hard way in this pass:
@@ -259,22 +285,20 @@ a:hover { text-decoration-thickness: 2px; }
 .nav-shell[data-open='true'] > .nav { display: flex; }
 
 /* The Menu control — a real `<button>`, so focus, tab order and Enter/Space are the platform's job
-   rather than this app's. `font: inherit` because a button does not inherit type by default and
-   would otherwise render in the UA's own face at 13px. */
+   rather than this app's. Icon-only on the owner's instruction (see SiteNav.tsx for the accessible
+   name that stays); a 44px square, so the target survives losing its word. */
 .nav-toggle {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
-  min-height: var(--target-min);
-  padding: 0 var(--space-3);
+  justify-content: center;
+  width: var(--target-min);
+  height: var(--target-min);
   border: 1px solid var(--teal-ink);
   border-radius: var(--radius-md);
   background: transparent;
   color: var(--teal-ink);
-  font: inherit;
-  font-size: var(--text-base);
-  font-weight: 600;
   cursor: pointer;
+  flex: none;
 }
 .nav-toggle:hover { background: var(--aqua-pale); }
 
@@ -289,14 +313,39 @@ a:hover { text-decoration-thickness: 2px; }
   box-shadow: 0 -6px 0 currentColor, 0 6px 0 currentColor;
 }
 
-/* Open on a phone: the links stack full width, with room for a thumb. */
-.nav-shell[data-open='true'] .nav {
-  flex-direction: column;
-  align-items: stretch;
-  justify-content: flex-start;
-  padding: var(--space-3) 0 var(--space-2);
+/*
+ * Open on a phone: a full-width dropdown under the masthead, not a panel inside the button's own
+ * column.
+ *
+ * SCOPED TO BELOW THE BREAKPOINT, and the old version was not — `[data-open]` styling with no media
+ * query also applied at desktop, where the toggle is hidden but the state can still be `true` (open
+ * the menu on a phone, rotate to landscape). Before, that cost a column layout; with absolute
+ * positioning it would have been a broken overlay, so the scoping stopped being optional.
+ *
+ * `position: absolute` against `.masthead` (sticky, so it is the positioned ancestor): the toggle
+ * now sits beside the brand at top right, which makes its parent a 44px box — a panel laid out
+ * inside that would be 44px wide. Anchoring to the masthead gives the panel the full width, and an
+ * overlay is also the honest behaviour for a dropdown: it covers the page rather than shoving it.
+ *
+ * 47.9375rem, not 48rem: the desktop rules start at exactly 48rem, and two rules both matching at
+ * the boundary pixel is how a menu ends up absolutely positioned *and* permanently visible.
+ */
+@media (max-width: 47.9375rem) {
+  .nav-shell[data-open='true'] > .nav {
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 100%;
+    background: var(--shell);
+    border-bottom: 1px solid var(--sand);
+    padding: var(--space-2) var(--space-4) var(--space-3);
+    box-shadow: 0 12px 24px rgba(27, 26, 24, 0.08);
+  }
+  .nav-shell[data-open='true'] .nav a { justify-content: flex-start; }
 }
-.nav-shell[data-open='true'] .nav a { justify-content: flex-start; }
 
 /*
  * At 48rem and up the disclosure is inert: the control disappears and the row is shown whatever the

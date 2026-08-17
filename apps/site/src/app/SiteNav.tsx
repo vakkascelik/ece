@@ -87,8 +87,12 @@ export function SiteNav() {
         without any of that being reimplemented. `aria-expanded` and `aria-controls` are explicit
         here — with `<details>` the browser supplied them, and this is the cost of not using it.
 
-        The accessible name is the word "Menu" beside the bars rather than only a label on an icon:
-        an icon-only control is one more thing to guess at, and there is room for four characters.
+        ICON-ONLY, ON THE OWNER'S INSTRUCTION — this used to say "an icon-only control is one more
+        thing to guess at, and there is room for four characters", and the owner weighed that and
+        chose the icon. What does not bend is the accessible name: the word "Menu" is still here,
+        visually hidden, because a nameless icon button announces as "button" and nothing else. The
+        hamburger is also one of the few icons with genuinely universal meaning, which is what makes
+        the trade acceptable at all.
       */}
       <button
         type="button"
@@ -98,7 +102,7 @@ export function SiteNav() {
         onClick={() => setOpen((wasOpen) => !wasOpen)}
       >
         <span className="nav-toggle__bars" aria-hidden="true" />
-        Menu
+        <span className="visually-hidden">Menu</span>
       </button>
 
       <nav className="nav" id={NAV_ID} aria-label="Main">
