@@ -5,6 +5,43 @@ says so.*
 
 ---
 
+2026-08-18 (fifth) — **The mobile app ran on a device for the first time, and the first thing it
+found was a defect from three hours earlier.** Item 15 partially closed, item 16 blocker 1 cleared:
+[[unverified-claims]]. Extended: [[mobile-app]].
+
+versionCode 4 was installed on an Android phone. It booted, signed in, resolved the tenant, and
+rendered the Roll screen for Little Pearls Mt Albert. Module load through auth, tenant resolution
+and the ratio bar are now executed code. The AAB was also inspected before installing — the
+Supabase URL and anon key are inlined as literals, the variable *name* `EXPO_PUBLIC_SUPABASE_URL`
+appears **zero** times (the exact inverse of the 12 August artefact, where the name was present and
+neither value was), and `service_role` appears nowhere in the shipped bundle.
+
+**What the run found, and it was mine.** The mobile ratio bar's caveat was gated on
+`!ratio.verified`. Flipping `RATIO_TABLES_VERIFIED` for item 1 silenced it as a side effect: seven
+*web* surfaces got the replacement caveat and the mobile bar got nothing. So the screen an educator
+reads in the room, with a parent at the door, went from saying something true to saying nothing —
+while the web app, used sitting down in an office, said more. Backwards, and invisible to typecheck,
+lint, 564 unit tests and a 117-test e2e suite, because none of them render the mobile bar. Fixed by
+calling `ratioInputCaveat()` here too, muted rather than warn-coloured: it states a limit of the
+input, it does not raise an alarm.
+
+The general lesson is the one item 15 always claimed and can now demonstrate: **a shared flag has
+surfaces the person flipping it does not enumerate.** The fix for next time is not diligence, it is
+that `ratioInputCaveat()` is unconditional on any flag, so it cannot be switched off by a decision
+made about something else.
+
+**One finding left undiagnosed on purpose.** Every tab label carries a missing-glyph box above it.
+`StaffTabs` sets no icons deliberately, the installed `BottomTabItem` returns `null` when none is
+given, and `✓` and `·` render fine on the same screen — so it is neither a JS placeholder nor a font
+gap. Suspected native Android tab bar via `react-native-screens`. Recorded as suspected, because
+writing a guess into the wiki is the failure this page exists to prevent.
+
+**Item 16's first store blocker is cleared**, and cleared the way it demanded: the bands were read
+and found correct, not the flag flipped to remove the notice.
+
+Still open, and unchanged: the roll was empty, so nothing was signed in, nothing was queued, and
+`expo-sqlite` has still never executed. The airplane-mode drill needs a child enrolled first.
+
 2026-08-18 (fourth) — **A measurement outlived the code path it measured, and got faster while
 becoming wrong.** Corrected: [[production-readiness]]. Also `README.md` and the header of
 `apps/web/e2e/journey.spec.ts`.

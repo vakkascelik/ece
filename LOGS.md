@@ -7,6 +7,59 @@ itself, and from the wiki pages, which hold the durable *why*. This file is the 
 
 ---
 
+## 2026-08-18 (fifth) — The app ran on a phone, and found a defect three hours old
+
+`eas build --platform android --profile production` produced versionCode 4 (the remote counter
+incremented 3 → 4). The AAB was **inspected before installing**, because the 12 August artefact
+passed every gate and could not have run:
+
+| Check on `base/assets/index.android.bundle` | Result |
+|---|---|
+| Supabase URL inlined as a literal | present |
+| Anon key JWT inlined | present |
+| The string `EXPO_PUBLIC_SUPABASE_URL` | **absent, 0 occurrences** |
+| `service_role` anywhere in the shipped bundle | absent |
+
+The third row is the decisive one and the exact inverse of last time, when the variable *name* was
+in the bundle and neither *value* was — the signature of a computed `process.env[name]` Metro cannot
+see. Not claimed: whether the `required()` guard's throw branch survived. The grep for its message
+came back empty, which is consistent with the value being inlined *and* with the pattern missing a
+template concatenation, so it is left unasserted rather than reported either way.
+
+**Then it was installed, and it ran.** Booted, signed in, resolved the tenant, rendered the Roll
+screen for Little Pearls Mt Albert with an empty roll and "✓ Within ratio · 0 kaiako · 0 tamariki".
+Item 15 is partially closed: module load, auth, tenant resolution and the ratio bar are executed
+code for the first time in the project's life.
+
+**The first run found a defect introduced three hours earlier, and it was mine.** The mobile ratio
+bar's caveat was gated on `!ratio.verified`. Flipping `RATIO_TABLES_VERIFIED` for item 1 silenced it
+as a side effect — seven *web* surfaces were given the replacement caveat and the mobile bar was
+not. The screen an educator reads in the room went quiet while the office screen said more, which is
+backwards, and no gate could see it: typecheck, lint, 564 unit tests and 117 e2e checks all pass
+without ever rendering a React Native component.
+
+Fixed by calling `ratioInputCaveat()` on the mobile bar too, muted rather than warn-coloured. The
+structural fix is that the caveat is unconditional on any flag, so a decision about the *tables*
+can no longer switch off a statement about the *inputs*.
+
+**One finding deliberately left undiagnosed.** Every tab label carries a missing-glyph box above it.
+`StaffTabs` sets no icons on purpose, the installed `BottomTabItem` does `if (icon === undefined)
+return null`, and `✓` and `·` render correctly on the same screen — so it is neither a JS
+placeholder nor a font gap. Suspected native Android tab bar via `react-native-screens` 4.x.
+Suspected is what it is recorded as; the cheap test is an explicit `tabBarIcon: () => null` and a
+rebuild.
+
+**Item 16's first store blocker is cleared** — and cleared the way that entry demanded rather than
+the way it warned against: Schedule 2 was read and the bands were correct, instead of the flag being
+flipped to remove the notice.
+
+What the run did **not** do: the roll was empty, so nothing was signed in, nothing was queued, and
+`expo-sqlite` has still never executed. The airplane-mode drill needs a child against this tenant
+first. Every gap listed under "specifically unverified" in item 15 stands.
+
+Gates: typecheck ×5, lint, check:docs. No web code changed; the mobile workspace has no test runner,
+which item 20 already records and which this session has now paid for once.
+
 ## 2026-08-18 (fourth) — test:rls 505/505, and a measurement that had been lying since 6 August
 
 Two verification jobs, one of which turned into a correction.

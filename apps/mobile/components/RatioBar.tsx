@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
-import type { RatioAssessment } from '@ece/core';
+import { ratioInputCaveat, type RatioAssessment } from '@ece/core';
 import { color, font, radius, space } from '../theme';
 import { Flag } from './Flag';
 
@@ -102,9 +102,28 @@ export function RatioBar({
       )}
 
       {/*
-        Until the bands have been checked against Schedule 2, the screen says so. A
-        compliance indicator that might be wrong is more dangerous than none, because
-        somebody will rely on it.
+        THIS WENT SILENT ON 2026-08-18 AND WAS NOT NOTICED UNTIL A DEVICE RAN IT.
+
+        Schedule 2 was checked that day and `RATIO_TABLES_VERIFIED` flipped to true. Seven
+        WEB surfaces were updated to carry the narrower caveat that replaces it; this one
+        was not, because the flag is shared and flipping it silenced the mobile bar as a
+        side effect. So the screen an educator actually reads in the room went from saying
+        something true to saying nothing at all, while the web app — used sitting down in
+        an office — said more.
+
+        `ratioInputCaveat()` is the replacement, and it does not expire with any flag:
+        Schedule 2 counts every person present aged under 6, including a staff member's own
+        child, who is on no roll and in no attendance event. This bar counts children signed
+        in. That gap is permanent until somebody records non-enrolled under-6s.
+
+        Gated on `present > 0` for the same reason as the web banner: a caveat about a count
+        on a screen showing no children is noise, and noise is how a warning gets ignored.
+      */}
+      {ratio.present > 0 && <Text style={styles.caveat}>{ratioInputCaveat()}</Text>}
+
+      {/*
+        Kept and now unreachable with the stock tables — a centre running a variation under
+        a licence condition passes its own table in, and that one has been read by nobody.
       */}
       {!ratio.verified && ratio.present > 0 && (
         <Text style={styles.unverified}>
@@ -152,4 +171,6 @@ const styles = StyleSheet.create({
     marginTop: space['2'],
   },
   unverified: { fontSize: font.size.sm, color: color.warn, marginTop: space['2'] },
+  // Muted, not warn-coloured: this states a limit of the input, it does not raise an alarm.
+  caveat: { fontSize: font.size.sm, color: color.inkMuted, marginTop: space['2'] },
 });
