@@ -5,6 +5,36 @@ says so.*
 
 ---
 
+2026-08-18 (fourth) — **A measurement outlived the code path it measured, and got faster while
+becoming wrong.** Corrected: [[production-readiness]]. Also `README.md` and the header of
+`apps/web/e2e/journey.spec.ts`.
+
+The e2e suite recorded the web sign-in as "~930ms, click to present on the roll, including the
+server action, RLS and the re-render". True in Phase 6. `751837a` then gave the web app the outbox
+five days later: a tap enqueues locally and repaints from local state, so the assertion the
+measurement ends on became satisfied by the optimistic paint. The timings artifact shows it as a
+clean step — 26 consecutive runs in a tight 894–971ms band, then everything after at 68–130ms.
+
+**Twelve days unnoticed, because the number got faster.** That is the transferable part: a
+measurement is a claim about a code path, and changing the path invalidates the claim without
+touching the number. Nobody audits an improvement.
+
+Split into two figures named for what they contain — paint (click to on-screen, no network, 97–122ms)
+and confirmed (click until "Waiting to send" clears, so the flush has landed in Postgres). The
+confirmed figure is **320–480ms warm and about 3.1 seconds for the first write after a cold start**,
+four samples on one machine against the live project. The first sample was the 3.1s one, which is
+why it is quoted as a cold start rather than as the number: one sample would have recorded a
+three-second round trip as typical.
+
+The cold-start figure is the keeper, and it argues for a decision already made. The first sign-in of
+the morning takes about three seconds to confirm; the only reason that is acceptable is the outbox —
+immediate paint, queued write, a badge until it lands. The offline design justifying itself on a
+*connected* morning at the door.
+
+Sign-out has no confirmed counterpart: once the row leaves "Here now" there is no badge left to
+watch. Recorded as a gap rather than filled with the paint number under a round-trip label, which is
+the error being corrected here.
+
 2026-08-18 (third) — **Item 1 is closed. The bands were right and a row was missing.**
 Rewritten: [[unverified-claims]] item 1 and its Key Point. Extended: [[attendance-and-ratios]].
 

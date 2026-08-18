@@ -10,12 +10,32 @@ import { ensureArtifacts, TIMINGS_FILE } from './fixtures/paths';
  * session — so this picks up at enrolment.
  *
  * It also measures. Not because a number in a log is a performance culture, but
- * because the plan states a budget and an unmeasured budget is a wish. What is
- * measured here is the *web* round trip: click a labelled button, server action, RLS,
- * insert, revalidate, repaint. The plan's 100ms figure is about the **mobile**
- * optimistic write, which paints before the network is involved at all, and that
- * cannot be measured without a device build. Two different numbers; conflating them
- * would let a fast web action stand in for an untested tablet.
+ * because the plan states a budget and an unmeasured budget is a wish.
+ *
+ * WHAT THESE NUMBERS ARE, CORRECTED 2026-08-18
+ *
+ * This header used to say the measured figure was "the *web* round trip: click a
+ * labelled button, server action, RLS, insert, revalidate, repaint", and warned that
+ * conflating it with the plan's 100ms mobile optimistic budget "would let a fast web
+ * action stand in for an untested tablet".
+ *
+ * That warning came true against this very file. `751837a` moved the roll to the client
+ * and gave the web app the outbox, so a tap now enqueues locally and repaints from local
+ * state while the flush goes out behind it. The recorded figure fell from a tight
+ * 894–971ms band to 68–130ms in one commit — and stopped being a round trip at the same
+ * moment, because the assertion it ends on is satisfied by the optimistic paint. Nobody
+ * noticed for twelve days; the number got faster, which is not the direction that makes
+ * people look.
+ *
+ * So there are two measurements now, named for what they actually contain:
+ *
+ *   `web sign-in paint` — click to the child appearing on the roll. No network in it.
+ *     This is the web analogue of the plan's mobile 100ms budget, and comparable to it.
+ *   `web sign-in confirmed` — click until the "Waiting to send" badge clears, which is
+ *     the flush landing in Postgres. THIS is the round trip: server action, RLS, insert.
+ *
+ * The mobile figure still cannot be measured without a device build. Two different
+ * numbers, and now three, each labelled so the fast one cannot be quoted as the slow one.
  */
 
 function record(label: string, ms: number) {
@@ -59,7 +79,18 @@ test('enrol a child, then sign them in and out', async ({ page }) => {
 
   const here = page.getByRole('region', { name: /Here now/ });
   await expect(here.getByText(new RegExp(surname))).toBeVisible();
-  record('web sign-in round trip (click → present on the roll)', Date.now() - started);
+  record('web sign-in paint (click → present on the roll, no network)', Date.now() - started);
+
+  /*
+    And now the part the old label was claiming. The row is present from the local queue;
+    "Waiting to send" is up until the flush lands, so waiting for it to clear measures the
+    server action, RLS and the insert — the round trip the previous single number was
+    mistaken for. Scoped to this child's row: another child's badge clearing would satisfy
+    an unscoped locator and turn this into a measurement of somebody else's write.
+  */
+  const signedInRow = here.getByRole('listitem').filter({ hasText: surname }).first();
+  await expect(signedInRow.getByText(/Waiting to send/)).toHaveCount(0);
+  record('web sign-in confirmed (click → flushed to Postgres)', Date.now() - started);
 
   // The heading carries the count, so this asserts the derived roll moved rather than
   // just that a row appeared somewhere.
@@ -70,7 +101,11 @@ test('enrol a child, then sign them in and out', async ({ page }) => {
   const outAt = Date.now();
   await presentRow.getByRole('button', { name: 'Sign out' }).click();
   await expect(here.getByText(new RegExp(surname))).toHaveCount(0);
-  record('web sign-out round trip', Date.now() - outAt);
+  // Same correction as above: the row leaves "Here now" on the local write, so this is a
+  // paint figure and is labelled as one. The sign-out has no badge left to watch once the
+  // row has gone, so there is no confirmed counterpart — a gap named rather than papered
+  // over with the paint number under a round-trip label.
+  record('web sign-out paint (click → gone from the roll, no network)', Date.now() - outAt);
 });
 
 test('the ratio is on screen without going to find it', async ({ page }) => {

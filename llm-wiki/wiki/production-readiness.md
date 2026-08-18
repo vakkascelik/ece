@@ -186,12 +186,33 @@ this app: React 19 and the App Router runtime are ~98kB of it, and each page add
 The middleware budget is the one with history: a static Sentry import took it from 91kB to
 176kB raw, on every request including 404s, to catch errors in a file that never throws.
 
-The e2e suite also measures the web sign-in round trip — click to present-on-the-roll,
-including the server action, RLS and the re-render. **~930ms.** That is honest and it is
-slower than it should be. The plan's 100ms budget is a different number: it is about the
-**mobile** optimistic write, which paints before the network is involved, and it cannot be
-measured without a device build. Conflating them would let a fast web action stand in for
-an untested tablet.
+The e2e suite also measures the web sign-in. **This page said ~930ms and called it a round
+trip; corrected 2026-08-18.**
+
+The figure was right in Phase 6 and wrong five days later. `751837a` gave the web app the
+outbox, so a tap enqueues locally and repaints from local state — and the assertion the
+measurement ended on started being satisfied by the optimistic paint rather than by the
+server. The recorded number fell from a tight 894–971ms band to 68–130ms in one commit and
+silently changed meaning. **Twelve days, unnoticed, because it got faster.** The lesson is
+the general one this page keeps finding: a measurement is a claim about a code path, and
+changing the path invalidates the claim without touching the number.
+
+Two figures now, and the timings artifact keeps the whole history so a regime change is
+visible as a step rather than as a footnote:
+
+- **paint** — click to present on the roll, no network: **97–122ms**
+- **confirmed** — click until "Waiting to send" clears, the flush landing in Postgres:
+  **320–480ms warm**, **~3.1s for the first write after a cold start**
+
+Four samples on one machine against the live project. The cold-start number is the one worth
+keeping: the first sign-in of the morning takes about three seconds to confirm, and the only
+reason that is acceptable is the outbox — immediate paint, queued write, "Waiting to send"
+until it lands. It is the offline design justifying itself on a *connected* morning.
+
+The plan's 100ms budget is still a different number: the **mobile** optimistic write, which
+the paint figure is the web analogue of, and which cannot be measured without a device build.
+Conflating them would let a fast web action stand in for an untested tablet — which is
+exactly the error the corrected paragraph above committed.
 
 ### What Phase 6 could not do
 

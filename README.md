@@ -1048,10 +1048,41 @@ runtime are ~98kB, and each page adds 142B–3kB. Movement means a dependency re
 client. The middleware budget has history — a static Sentry import took it from 91kB to
 176kB raw, on every request including 404s, to catch errors in a file that never throws.
 
-The e2e suite measures the web sign-in round trip: **~930ms** click-to-present, including
-the server action, RLS and the re-render. Honest, and slower than it should be. The plan's
-100ms budget is a different number — the *mobile* optimistic write, which paints before the
-network is involved and cannot be measured without a device build.
+### The sign-in timing, and the measurement that outlived what it measured
+
+**Corrected 2026-08-18.** This section used to read: *"The e2e suite measures the web sign-in
+round trip: ~930ms click-to-present, including the server action, RLS and the re-render.
+Honest, and slower than it should be."* It was true when written and stopped being true five
+days later, without anybody touching this paragraph.
+
+`751837a` gave the web app the outbox. A tap now enqueues locally and repaints from local
+state while the flush goes out behind it, so the assertion the measurement ended on — the
+child appearing on the roll — started being satisfied by the optimistic paint. The recorded
+figure fell from a tight 894–971ms band to 68–130ms **in one commit**, and stopped being a
+round trip at the same moment. It went unnoticed for twelve days because the number got
+faster, which is not the direction that makes anyone look. The test's own header had warned
+that conflating the web figure with the mobile optimistic budget "would let a fast web action
+stand in for an untested tablet"; that is precisely what happened, to the file carrying the
+warning.
+
+There are now two web figures, each named for what it contains:
+
+| | Measured |
+|---|---|
+| **Sign-in paint** — click to present on the roll, no network in it | **97–122ms** |
+| **Sign-in confirmed** — click until "Waiting to send" clears, i.e. the flush landing in Postgres: server action, RLS, insert | **320–480ms warm**, and **~3.1s on the first write after a cold start** |
+
+Four samples, one developer machine, against the live Supabase project — so treat the spread
+as an order of magnitude and not a benchmark. The cold-start figure is the operationally
+interesting one: **the first sign-in of the morning takes about three seconds to reach
+Postgres.** That is survivable only because of the design it sits in — the paint is
+immediate, the write is queued, and the badge says "Waiting to send" until it lands. An app
+that blocked the button on that round trip would feel broken at 8am at the door, which is the
+argument for the outbox restated as a number.
+
+The plan's 100ms budget remains a different number again — the *mobile* optimistic write,
+which the paint figure above is the web analogue of, and which still cannot be measured
+without a device build.
 
 ### The restore drill, and why the mutation test is the point
 

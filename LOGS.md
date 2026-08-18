@@ -7,6 +7,51 @@ itself, and from the wiki pages, which hold the durable *why*. This file is the 
 
 ---
 
+## 2026-08-18 (fourth) — test:rls 505/505, and a measurement that had been lying since 6 August
+
+Two verification jobs, one of which turned into a correction.
+
+**`npm run test:rls` — 505/505 against live Postgres.** Nothing in the three commits earlier today
+touched a migration, a policy or a grant, so this was expected to pass and did. Expected is not the
+same as run, which is why it was run.
+
+**The sign-in timing was wrong, and it had got wrong by getting faster.** The e2e suite recorded
+"~930ms, click to present on the roll, including the server action, RLS and the re-render", and
+README and [production-readiness](llm-wiki/wiki/production-readiness.md) both quoted it as an honest
+round trip. `751837a` gave the web app the outbox on 6 August: a tap enqueues locally and repaints
+from local state, so the assertion the measurement ended on started being satisfied by the
+optimistic paint. `apps/web/e2e/.artifacts/timings.txt` keeps every run and shows it as a step, not
+a drift — 26 consecutive samples between 894 and 971ms, then everything after between 68 and 130ms.
+
+**Twelve days, and nobody looked, because the number improved.** The test's own header had warned
+that conflating the web figure with the mobile optimistic budget "would let a fast web action stand
+in for an untested tablet". That is exactly what happened, to the file carrying the warning.
+
+Split into two, each named for what it contains:
+
+| | Measured |
+|---|---|
+| sign-in **paint** — click to present on the roll, no network | 97–122ms |
+| sign-in **confirmed** — click until "Waiting to send" clears, so the flush reached Postgres | **320–480ms warm, ~3.1s first write after a cold start** |
+
+The first sample was 3088ms and the next three were 340, 476 and 323ms — so the three seconds is a
+cold connection, and quoting the single sample would have recorded a three-second round trip as
+typical. Four samples, one developer machine, live Supabase project; treat it as an order of
+magnitude.
+
+**The cold-start number is the one worth keeping, and it vindicates a decision already made.** The
+first sign-in of the morning takes about three seconds to reach Postgres. The educator never waits
+for it: the paint is immediate, the write is queued, and the badge says "Waiting to send" until it
+lands. An app that disabled the button on that round trip would feel broken at 8am at the door.
+That is the argument for the outbox, restated as a number, on a *connected* morning.
+
+Sign-out gets a paint figure and no confirmed one — once the row leaves "Here now" there is no badge
+left to watch. Named as a gap rather than filled in with the paint number under a round-trip label,
+which is the mistake being corrected.
+
+Gates: typecheck (including the e2e project), lint, unit tests, **test:rls 505/505 live**, and
+`journey.spec.ts` run four times plus one full-suite run of **117 passed**.
+
 ## 2026-08-18 (third) — Item 1 closed: the bands were right, and Schedule 2 had a row the product did not
 
 The repo's headline open item since Phase 2, closed on the boring outcome. Schedule 2 was read
