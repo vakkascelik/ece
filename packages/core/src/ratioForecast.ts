@@ -12,12 +12,17 @@
  * adults. Neither is worth much alone.
  *
  * ─────────────────────────────────────────────────────────────────────────────
- * IT RUNS ON `assessRatio`, WHICH MEANS IT INHERITS `RATIO_TABLES_VERIFIED = false`
+ * IT RUNS ON `assessRatio`, WHICH MEANS IT INHERITS `RATIO_TABLES_VERIFIED`
  *
- * Deliberately. A forecast computed against unverified bands is an unverified
- * forecast, and it says so through the same `verified` flag every other surface uses.
- * A forward-looking number is *more* dangerous to be confidently wrong about, not
- * less: it is the one a manager acts on by not calling a reliever.
+ * Deliberately, and the wiring is what matters rather than the current value — which
+ * became `true` on 2026-08-18. A forecast computed against unverified bands would be an
+ * unverified forecast and would say so through the same flag every other surface uses;
+ * a centre running a licence variation still passes its own table in.
+ *
+ * What verifying the bands did NOT make this number safe about: it is built from who is
+ * booked, not who turned up. A forward-looking figure is *more* dangerous to be
+ * confidently wrong about, not less — it is the one a manager acts on by not calling a
+ * reliever — so the forecast's own caveat on /roster stays whatever the flag says.
  * ─────────────────────────────────────────────────────────────────────────────
  *
  * WHY IT WORKS IN LOCAL CLOCK TIME AND NEVER TOUCHES A TIMEZONE

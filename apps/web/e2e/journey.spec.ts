@@ -80,17 +80,21 @@ test('the ratio is on screen without going to find it', async ({ page }) => {
   const banner = page.getByRole('status').first();
   await expect(banner).toBeVisible();
 
-  // And it says it is unverified, because `RATIO_TABLES_VERIFIED` is false. When that
-  // flag flips this assertion is supposed to fail — it is the tripwire that stops the
-  // caveat being removed from the code and left in the UI, or vice versa.
+  // THE TRIPWIRE FIRED, AS DESIGNED. This asserted the "not been checked against the
+  // regulations" caveat while RATIO_TABLES_VERIFIED was false, and said in as many words
+  // that flipping the flag was supposed to break it — so that the caveat could not be
+  // removed from the code and left in the UI, or the reverse. On 2026-08-18 the bands were
+  // checked against Schedule 2 and the flag flipped; this assertion moved with it.
   //
-  // Scoped to the ratio block. Unscoped with `.first()` it silently started matching the
-  // in-product help note instead, which quotes the same caveat inside a closed `<details>`
-  // — so the tripwire was passing on hidden documentation rather than on the visible
-  // warning, and would have gone on passing after the caveat was deleted from the banner.
-  // A tripwire that can be satisfied by prose about itself is not a tripwire.
+  // What it now guards is the caveat that does NOT go away: the tables are right and the
+  // inputs are still incomplete, because Schedule 2 counts every person present aged under
+  // 6 and this product only knows who was signed in.
+  //
+  // Still scoped to the ratio block. Unscoped with `.first()` it silently started matching
+  // the in-product help note instead, which quotes the same caveat inside a closed
+  // `<details>` — a tripwire satisfiable by prose about itself is not a tripwire.
   await expect(
-    page.locator('.ratio').getByText(/have not been checked against the regulations/i),
+    page.locator('.ratio').getByText(/counts children signed in today/i),
   ).toBeVisible();
 });
 

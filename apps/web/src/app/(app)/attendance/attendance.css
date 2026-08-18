@@ -201,6 +201,13 @@
    number it qualifies grows is a disclaimer nobody reads — which is the whole failure mode
    `RATIO_TABLES_VERIFIED` exists to prevent. */
 .ratio-wall .flag { font-size: 24px; padding: 8px 16px; }
+/*
+  The input caveat scales with the wall variant for the same reason the flag did: this
+  block is read from three metres, and a caveat legible only at arm's length is one the
+  person acting on the number never reads. Was `.flag` until 2026-08-18, when the bands
+  were verified and the warning it styled became dormant.
+*/
+.ratio-wall .ratio-caveat { font-size: 24px; }
 
 @media (max-width: 767px) {
   /* A phone is not a wall. Fall back to the ordinary block rather than rendering 88px

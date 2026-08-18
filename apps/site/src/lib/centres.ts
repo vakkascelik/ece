@@ -174,11 +174,12 @@ export const SOCIAL_LINKS = [
  * one that wins, because it is current and it is theirs.
  *
  * STILL NEVER A REGULATORY CLAIM. The same email says the ratios "exceed the standards set by the
- * Ministry of Education", and that sentence is deliberately NOT here: the platform's own ratio
- * tables carry `RATIO_TABLES_VERIFIED = false` because nobody has sourced Schedule 2, and the
- * manager's own instruction for the site's voice — plain, no claims that bind or build
- * expectations — points the same way. The numbers are what they staff to; what a regulation
- * requires is a different sentence, and it waits for the regulation to be read.
+ * Ministry of Education", and that sentence is deliberately NOT here. **Correction, 2026-08-18:**
+ * this used to justify the omission partly on the grounds that "nobody has sourced Schedule 2".
+ * Somebody has now, and the tables are verified — so the regulation being unread is no longer the
+ * reason. The reason is the manager's own instruction for the site's voice: plain, no claims that
+ * bind or build expectations. The numbers are what they staff to; a public promise about a
+ * statutory minimum is a different sentence and still does not belong on a marketing page.
  */
 export const ROOMS = [
   {

@@ -89,7 +89,7 @@ export const TABS: TabDoc[] = [
     what: 'Today’s roll — who is here, who is not — and the ratio for the room.',
     how: 'Sign in and Sign out are separate buttons rather than one toggle, because a mis-tap on a toggle records the opposite of what happened. A tap is saved on the device first and sent when there is a connection, so the roll keeps working with the wifi down; a row that has not been sent yet says “Waiting to send”.',
     limit:
-      'The ratio figures have not been checked against the regulations by anybody. Treat them as a prompt, not as confirmation you are compliant. The adult count comes from who has signed in on the Staff screen — if nobody signs in, it reads zero adults and shows a breach.',
+      'The ratio tables were checked against Schedule 2 on 18 August 2026. What the figure cannot see is anyone not signed in — Schedule 2 counts every person present aged under 6, including a staff member’s own child, and an adult does not count while on a break. The adult count comes from who has signed in on the Staff screen: if nobody signs in, it reads zero adults and shows a breach.',
   },
   {
     href: '/incidents',

@@ -321,9 +321,9 @@ test.describe('staff screens', () => {
     expect(await px('.ratio-wall .ratio-detail'), 'detail line should be ~44px').toBeGreaterThanOrEqual(40);
 
     // The caveat is on screen and scaled, not shrunk into the corner.
-    const caveat = page.getByText(/have not been checked against the regulations/i).first();
+    const caveat = page.getByText(/counts children signed in today/i).first();
     await expect(caveat).toBeVisible();
-    expect(await px('.ratio-wall .flag'), 'the unverified caveat should scale too').toBeGreaterThanOrEqual(20);
+    expect(await px('.ratio-wall .ratio-caveat'), 'the input caveat should scale too').toBeGreaterThanOrEqual(20);
 
     // The roll is deliberately absent — see the comment in attendance/page.tsx.
     await expect(page.getByRole('region', { name: /Here now/ })).toHaveCount(0);

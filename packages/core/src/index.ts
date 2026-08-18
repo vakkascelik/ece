@@ -242,7 +242,8 @@ export * from './compliance';
 export * from './ratioHistory';
 
 // The same arithmetic run forwards, over bookings and shifts instead of events. It
-// inherits RATIO_TABLES_VERIFIED from `ratios` and says so.
+// inherits RATIO_TABLES_VERIFIED from `ratios` and says so — verified since 2026-08-18,
+// which changes the value and not the wiring.
 export * from './ratioForecast';
 
 // Quiet hours and the te reo vocabulary whanau read.

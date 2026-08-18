@@ -2,18 +2,35 @@
  * Regulated adult-to-child ratios.
  *
  * ─────────────────────────────────────────────────────────────────────────────
- * READ THIS BEFORE RELYING ON THE NUMBERS
+ * VERIFIED 2026-08-18 — WHAT THAT DOES AND DOES NOT COVER
  *
- * `RATIO_TABLES_VERIFIED` below is **false**. The bands encode a good-faith reading
- * of Schedule 2 of the Education (Early Childhood Services) Regulations 2008 for
- * centre-based services, and they have not been checked against the regulation
- * itself by anybody. They are the one part of this product where being approximately
- * right is worse than being obviously unfinished: a ratio display that is confidently
- * wrong tells a manager they are compliant when they are not.
+ * `RATIO_TABLES_VERIFIED` is now **true**. The all-day centre-based bands below were
+ * checked row by row against Schedule 2 as published on legislation.govt.nz, version
+ * as at 29 June 2026 (which includes the 23 February 2026 amendment made by s 14 of
+ * the Education and Training (Early Childhood Education Reform) Amendment Act 2025).
+ * The tables were transcribed from the regulation and diffed against these values —
+ * not recalled, and not summarised by a tool. **Every published row matches.**
  *
- * So the figures are data with a citation attached, the UI shows that it is
- * unverified while the flag is false, and correcting a band is a one-line change.
- * Confirm them, then flip the flag — do not flip the flag to make the notice go away.
+ * Reading it also found a rule this file did not have: three or fewer children of
+ * mixed ages need one adult, not the sum of the two bands. See `assessRatio`.
+ *
+ * What the flag covers: the two tables below, for an **all-day centre-based** service.
+ * What it does not cover, each tagged TODO where it bites:
+ *
+ *   - The **sessional** tables, which differ for 2-and-over (1–8 → 1, 9–30 → 2, …).
+ *   - **Home-based** ratios, which are a different schedule entirely.
+ *   - Regulation 44A, letting spare under-2 capacity offset the 2-and-over count.
+ *   - Regulation 54(4), the sibling rules.
+ *   - Who counts. The schedule says every person present aged under 6 counts as a
+ *     child — including a staff member's own child, who is not on any roll — and an
+ *     adult does not count while at lunch, on a break, or on non-contact time.
+ *
+ * The last one is the sharpest, because it is about the **inputs** rather than the
+ * tables: this product derives the child count from attendance events for enrolled
+ * children, so a visiting under-6 is invisible to it, and the adult count is a figure
+ * a person types. A correct table over an incomplete count is still the right thing
+ * to ship — the alternative is a blanket "unverified" notice that says less — but it
+ * is why `ratioInputCaveat()` exists and is rendered next to the figure.
  * ─────────────────────────────────────────────────────────────────────────────
  *
  * WHY THE MATHS IS SEPARATE FROM THE NUMBERS
@@ -26,12 +43,28 @@
 import { isUnderTwo, todayInZone } from './children';
 
 /**
- * Has a person checked these against the regulation?
+ * Have these been checked against the regulation?
  *
- * Flipping this to `true` is a claim about the law, not about the code. It should be
- * done by someone who has read Schedule 2, in a commit that says so.
+ * Flipping this is a claim about the law, not about the code. Set `true` on 2026-08-18
+ * against Schedule 2 as at 29 June 2026, retrieved from legislation.govt.nz and
+ * transcribed row by row. The commit records the rows.
+ *
+ * TODO(ratios): a second pair of human eyes on the transcription. The tables matched
+ * exactly, so this is confirmation rather than correction — but the whole point of
+ * this flag is that one reading is one reading.
  */
-export const RATIO_TABLES_VERIFIED = false;
+export const RATIO_TABLES_VERIFIED = true;
+
+/**
+ * Three or fewer children of mixed ages need one adult.
+ *
+ * A row in its own right in Schedule 2 — "Up to 3 children of mixed ages … 1" — and
+ * separate from the summing rule that governs every larger group. Without it, two
+ * infants and a three-year-old read as needing two adults when the regulation asks
+ * for one, which is the indicator crying wolf on a room that is legal. Applies only
+ * when both age groups are actually present; a single-band group uses its own table.
+ */
+const MIXED_AGE_SINGLE_ADULT_MAX = 3;
 
 export interface RatioBand {
   /** Applies when the child count is at most this. */
@@ -61,7 +94,7 @@ export interface RatioTable {
 export const UNDER_TWO_TABLE: RatioTable = {
   label: 'Under 2',
   citation:
-    'Education (Early Childhood Services) Regulations 2008, Schedule 2 — centre-based, children under 2. UNVERIFIED.',
+    'Education (Early Childhood Services) Regulations 2008, Schedule 2 — all-day centre-based, children under 2. Checked against the regulation as at 29 June 2026.',
   bands: [
     { upTo: 5, adults: 1 },
     { upTo: 10, adults: 2 },
@@ -75,7 +108,7 @@ export const UNDER_TWO_TABLE: RatioTable = {
 export const TWO_AND_OVER_TABLE: RatioTable = {
   label: '2 and over',
   citation:
-    'Education (Early Childhood Services) Regulations 2008, Schedule 2 — centre-based, children aged 2 and over. UNVERIFIED.',
+    'Education (Early Childhood Services) Regulations 2008, Schedule 2 — all-day centre-based, children aged 2 and over. Checked against the regulation as at 29 June 2026.',
   bands: [
     { upTo: 6, adults: 1 },
     { upTo: 20, adults: 2 },
@@ -143,13 +176,48 @@ export interface RatioAssessment {
 }
 
 /**
- * Assess the room as it stands.
+ * Adults required for a mixed room, which is the whole rule and not a sum of two.
  *
- * The two bands are computed separately and summed. That is the conservative reading
- * — Schedule 2 publishes different tables depending on whether under-2s are present
- * at all, and summing never under-staffs relative to a combined table. If the
- * verification pass finds the combined figures are lower, this becomes generous
- * rather than wrong, which is the right direction for the error to run.
+ * **CORRECTED 2026-08-18.** Summing the two bands used to be described here as "the
+ * conservative reading", on the assumption that Schedule 2 published different tables
+ * depending on whether under-2s were present. It does not, and summing is not a
+ * reading — it is the rule, stated in the schedule as "Sum of minimum staffing
+ * requirement for relevant number of children under 2 years old … and minimum
+ * staffing requirement for relevant number of children of or over 2 years old".
+ *
+ * So the guess was right and its stated basis was wrong, which is worth recording:
+ * the comment claimed a safety margin that never existed. The row above it in the
+ * same table is the part that was genuinely missing — up to 3 children of mixed ages
+ * need one adult.
+ */
+function adultsRequiredFor(underTwo: number, twoAndOver: number, under: RatioTable, over: RatioTable): number {
+  const mixed = underTwo > 0 && twoAndOver > 0;
+  if (mixed && underTwo + twoAndOver <= MIXED_AGE_SINGLE_ADULT_MAX) return 1;
+  return requiredAdultsFor(underTwo, under) + requiredAdultsFor(twoAndOver, over);
+}
+
+/**
+ * What the figure on screen does not know, said next to it.
+ *
+ * Not a disclaimer about the tables — those are verified. This is about the inputs,
+ * and it stays true no matter how carefully the bands are checked: the roll counts
+ * enrolled children who were signed in, and the schedule counts every person present
+ * aged under 6, including a staff member's own child. The adult count is typed by a
+ * person, and an adult on a break does not count.
+ *
+ * TODO(ratios): non-enrolled under-6s have nowhere to be recorded. A "visitors under
+ * 6" count on the attendance screen would close it and is a schema change, not a
+ * wording one.
+ */
+export function ratioInputCaveat(): string {
+  return (
+    'Counts children signed in today. Schedule 2 also counts any other person present aged under 6, ' +
+    'including a staff member’s own child, and an adult does not count while on a break or on non-contact time.'
+  );
+}
+
+/**
+ * Assess the room as it stands.
  */
 export function assessRatio(input: {
   underTwo: number;
@@ -165,15 +233,15 @@ export function assessRatio(input: {
   const twoAndOver = Math.max(0, Math.trunc(input.twoAndOver));
   const adultsPresent = Math.max(0, Math.trunc(input.adultsPresent));
 
-  const requiredUnder = requiredAdultsFor(underTwo, underTable);
-  const requiredOver = requiredAdultsFor(twoAndOver, overTable);
-  const adultsRequired = requiredUnder + requiredOver;
+  const adultsRequired = adultsRequiredFor(underTwo, twoAndOver, underTable, overTable);
 
   const shortfall = Math.max(0, adultsRequired - adultsPresent);
 
-  // Would one more child in each band push the requirement up?
-  const oneMoreUnder = requiredAdultsFor(underTwo + 1, underTable) + requiredOver;
-  const oneMoreOver = requiredUnder + requiredAdultsFor(twoAndOver + 1, overTable);
+  // Would one more child in each band push the requirement up? Both go through the same
+  // function as the figure itself, so the mixed-age rule cannot apply to one and not the
+  // other — which is how a room reads "at the limit" and then admits a child with no change.
+  const oneMoreUnder = adultsRequiredFor(underTwo + 1, twoAndOver, underTable, overTable);
+  const oneMoreOver = adultsRequiredFor(underTwo, twoAndOver + 1, underTable, overTable);
 
   const headroomUnderTwo = headroom(underTwo, underTable);
   const headroomTwoAndOver = headroom(twoAndOver, overTable);

@@ -118,10 +118,11 @@ test('the forecast never claims the ratio tables have been checked', async ({ pa
 
   /*
     A forward-looking figure is the one a manager acts on by NOT calling a reliever,
-    which makes it the last surface that should imply Schedule 2 has been verified.
-    RATIO_TABLES_VERIFIED is false and this notice is how the screen says so.
+    which makes it the last surface that should overstate itself. Schedule 2 was verified
+    on 2026-08-18, so the claim being guarded changed: not "the bands are unchecked" but
+    "this is a forecast built from bookings", which no amount of checking makes untrue.
   */
-  await expect(page.getByText(/have not been checked against the regulation/)).toBeVisible();
+  await expect(page.getByText(/still a forecast/i)).toBeVisible();
 
   // And it must not quietly become a figure derived from what actually happened.
   await expect(page.getByText(/never from who actually turned up/)).toBeVisible();

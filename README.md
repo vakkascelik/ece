@@ -532,22 +532,41 @@ locally; the card carries a "not sent yet" badge instead. A flush runs on mount,
 return to the foreground, and after each tap. There is no connectivity library, because
 the flush attempt *is* the connectivity check.
 
-### Ratios: the numbers are not verified
+### Ratios: verified 2026-08-18, and the reading found a missing row
 
-**`RATIO_TABLES_VERIFIED` is `false`.** The bands in
-[`ratios.ts`](packages/core/src/ratios.ts) are a good-faith reading of Schedule 2 of the
-Education (Early Childhood Services) Regulations 2008 that **nobody has checked against
-the regulation**. This is the one place in the product where being approximately right
-is worse than being obviously unfinished: a ratio display that is confidently wrong
-tells a manager they are compliant when they are not.
+**`RATIO_TABLES_VERIFIED` is `true`.** The bands in
+[`ratios.ts`](packages/core/src/ratios.ts) were checked row by row against Schedule 2 of
+the Education (Early Childhood Services) Regulations 2008 as at 29 June 2026, and **every
+published row matched**. This was the repo's highest-priority open item for four months,
+and it closed on the boring outcome.
 
-So the figures are data with a citation attached, `assessRatio` returns the flag, and
-both the web banner and the mobile bar show a notice while it is false. Confirm the
-bands, then flip it, in a commit that says who read what. Do not flip it to make the
-notice go away.
+What it was not boring about: Schedule 2 carries a row this product did not have — *up to
+3 children of mixed ages need one adult*, not the sum of the two bands. Two infants and a
+three-year-old were being reported as a breach in a room that is legal. A unit test had
+the wrong behaviour written into it as an assertion; both are corrected. An indicator that
+calls a compliant room non-compliant is one people learn to dismiss, and dismissing it
+costs precisely the morning it is right.
+
+A second correction, to this file: the two bands are computed separately and summed, which
+this README used to call "the conservative reading". Summing is not a reading — the
+schedule states it outright. The guess was right and the reason given for it was invented.
+
+**The blanket notice is gone and a narrower one replaced it.** Leaving "these figures have
+not been checked" on screen after they had been checked would be a false caveat, which
+teaches people that the warnings on that screen are decoration. What stays true is about
+the *inputs*: Schedule 2 counts every person present aged under 6 — including a staff
+member's own child, who is on no roll — and an adult does not count while on a break. The
+product counts enrolled children who signed in. `ratioInputCaveat()` says so wherever a
+ratio appears, and it does not go away by checking a number.
+
+Sessional and home-based tables are still not modelled, and neither are the regulation 44A
+set-off nor the regulation 54(4) sibling rules — all tagged `TODO(ratios)`. The last two
+make the requirement *lower*, so omitting them asks for more adults than the law does,
+never fewer.
 
 The maths is tested independently of the numbers, and the tests say so: a green suite
-means the bands are *applied* correctly, not that they are right.
+means the bands are *applied* correctly. What says they are *right* is the transcription
+in the commit, plus a test that reproduces every printed row of the schedule.
 
 Three states, because two are not enough. `breach` reports the shortfall, since "you
 are non-compliant" is not actionable. `at-limit` is the one worth building — **the
@@ -1354,9 +1373,9 @@ qualifies; "it probably will not get that big" does not.
   above) and it means the criteria-gap section of the dashboard cannot do its job until
   somebody imports a checked set. It is the largest piece of remaining work in Phase 3, and
   it is content work rather than code.
-- **The ratio bands are unverified.** `RATIO_TABLES_VERIFIED` is `false` and the UI
-  says so. This is the highest-priority open item in the repo: the rest are gaps, and
-  this one is a number a manager might rely on.
+- **The ratio bands are verified** as of 2026-08-18, against Schedule 2 as at 29 June
+  2026. What is not modelled: sessional and home-based tables, the reg 44A set-off, the
+  reg 54(4) sibling rules, and any person present aged under 6 who is not on the roll.
 - **No real airplane-mode drill has been run.** `npm run drill:offline` proves the
   contract the outbox depends on against the real database, but not the `expo-sqlite`
   queue itself — that needs a tablet, before a centre relies on it.

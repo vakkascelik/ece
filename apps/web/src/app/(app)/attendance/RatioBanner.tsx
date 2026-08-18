@@ -1,4 +1,4 @@
-import type { RatioAssessment } from '@ece/core';
+import { ratioInputCaveat, type RatioAssessment } from '@ece/core';
 
 /**
  * The ratio, as the first thing on the page — screens 2 and 3 of the design pack.
@@ -112,9 +112,25 @@ export function RatioBanner({
       )}
 
       {/*
-        Shown until somebody has checked the bands against Schedule 2 and flipped
-        RATIO_TABLES_VERIFIED. A compliance figure that might be wrong has to say so;
-        the alternative is a manager relying on a number nobody has verified.
+        Until 2026-08-18 this said the bands had not been checked against the regulations.
+        They have been now — Schedule 2 as at 29 June 2026, row by row — so that notice
+        would be false, and a false caveat is worse than none: it teaches people the
+        warnings on this screen are decoration.
+
+        What replaced it is narrower and permanent, because it is about the INPUTS rather
+        than the tables. Schedule 2 counts every person present aged under 6, including a
+        staff member's own child, who is on no roll and in no attendance event. The
+        product cannot see them. That gap does not close by checking a number.
+      */}
+      {ratio.present > 0 && (
+        <p className="sub ratio-caveat" style={{ whiteSpace: 'normal', display: 'block', margin: 0 }}>
+          {ratioInputCaveat()}
+        </p>
+      )}
+      {/*
+        Kept, and now unreachable with the stock tables — a centre running a variation
+        under a licence condition passes its own table in, and that one has not been read
+        by anybody here.
       */}
       {!ratio.verified && ratio.present > 0 && (
         <p className="flag flag-warn" style={{ whiteSpace: 'normal', display: 'block', margin: 0 }}>

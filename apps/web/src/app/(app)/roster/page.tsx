@@ -113,15 +113,16 @@ export default async function RosterPage({
         </p>
 
         {/*
-          The unverified notice, in the same words as every other ratio surface. A
-          forward-looking figure is the one a manager acts on by NOT calling a
-          reliever, which makes it the last place to imply the bands have been
-          checked. See ratios.ts and unverified-claims.
+          A forward-looking figure is the one a manager acts on by NOT calling a reliever,
+          which makes it the last surface that should overstate itself. The bands are checked
+          now (2026-08-18); what is still an indication rather than a clearance is the
+          forecast, because it is built from who is BOOKED. See ratios.ts.
         */}
         <p className="sub" style={{ margin: '0.5rem 0 0' }}>
-          These figures use the same ratio tables as the attendance screen, and those tables have
-          not been checked against the regulation by anybody. Treat a covered day as an indication,
-          not a clearance.
+          These figures use the same ratio tables as the attendance screen, checked against
+          Schedule 2 on 18 August 2026. They are still a forecast: a booked day is not an
+          attended one, and nobody under 6 who is not on the roll is counted here. Treat a
+          covered day as an indication, not a clearance.
         </p>
 
         <p className="sub" style={{ margin: '0.5rem 0 0' }}>

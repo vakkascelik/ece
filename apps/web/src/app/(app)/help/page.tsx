@@ -107,8 +107,10 @@ export default async function HelpPage() {
         <ol>
           <li>
             <strong>The ratio figures are a prompt, not a clearance.</strong> The tables
-            behind them have not been checked against the regulations by anybody, and the
-            screen says so wherever it shows one.
+            were checked against Schedule 2 on 18 August 2026 and are right. What the screen
+            cannot see is anyone who is not signed in: Schedule 2 counts every person present
+            aged under 6, including a staff member’s own child, and an adult does not count
+            while on a break.
           </li>
           <li>
             <strong>Telling the centre a child is away does not change the fee.</strong> A

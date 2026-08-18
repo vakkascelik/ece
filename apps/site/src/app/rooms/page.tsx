@@ -21,11 +21,12 @@ export const metadata: Metadata = {
  * which is what the original fix brief asked for once a confirmation existed.
  *
  * Still no claim about a regulatory minimum. The manager's email says the ratios "exceed the
- * standards set by the Ministry of Education"; that stays off the page both because the minimum
- * has never been sourced here (the platform's own ratio tables carry
- * `RATIO_TABLES_VERIFIED = false` for the same reason) and because the manager's direction for
- * the site's voice is explicit: plain and warm, no claims that bind or build expectations. The
- * numbers do the reassuring on their own.
+ * standards set by the Ministry of Education"; that stays off the page. **The reason narrowed on
+ * 2026-08-18** — the platform's tables have now been checked against Schedule 2, so "the minimum
+ * has never been sourced" is no longer true. What remains is the manager's own direction for the
+ * site's voice: plain and warm, no claims that bind or build expectations. A public page that
+ * asserts compliance is a page a family can hold the centre to on a day the reliever did not
+ * arrive. The numbers do the reassuring on their own.
  */
 export default function RoomsPage() {
   return (

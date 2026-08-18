@@ -7,6 +7,61 @@ itself, and from the wiki pages, which hold the durable *why*. This file is the 
 
 ---
 
+## 2026-08-18 (third) — Item 1 closed: the bands were right, and Schedule 2 had a row the product did not
+
+The repo's headline open item since Phase 2, closed on the boring outcome. Schedule 2 was read
+from legislation.govt.nz — version as at 29 June 2026, which includes the 23 February 2026
+amendment — and transcribed row by row against `UNDER_TWO_TABLE` and `TWO_AND_OVER_TABLE`. **Every
+published row matched.** `RATIO_TABLES_VERIFIED` is now `true`.
+
+**The reading paid for itself on a row that was missing, not on one that was wrong.** Schedule 2
+says *"Up to 3 children of mixed ages … 1"*. Two infants and a three-year-old need one adult; the
+product summed the bands and asked for two, reporting a breach on a room that is legal. That is the
+failure direction that costs an indicator its credibility — an educator told they are
+non-compliant while standing in a compliant room learns to dismiss the banner, and the banner's
+whole job is the morning it is right. `roll.test.ts` had the wrong behaviour written in as an
+assertion, complete with a comment explaining the wrong reasoning; both are corrected, and a
+companion test now proves queued sign-ins still produce a breach once the allowance runs out — so
+the correction cannot be satisfied by a ratio that quietly stopped counting them.
+
+**A second correction, to something this repo said in three places.** The two bands are computed
+separately and summed, which the README, item 1 and `ratios.ts` all called "the conservative
+reading", on the assumption that the schedule published different tables depending on whether
+under-2s were present. It does not. Summing is the rule, stated in the schedule in as many words.
+The guess was right and the reason given for it was invented — a safety margin claimed and never
+held.
+
+**Seven surfaces moved together, and three of them were tripwires.** The e2e suite asserted the
+"not been checked against the regulations" caveat and said in its own comment that flipping the
+flag was *supposed* to break it, so the caveat could not be deleted from the code and left in the
+UI or the reverse. It fired exactly as designed. What replaced it is `ratioInputCaveat()`, which
+does not expire: Schedule 2 counts every person present aged under 6 — including a staff member's
+own child, who is on no roll and in no attendance event — and an adult does not count while at
+lunch, on a break, or on non-contact time. This product counts enrolled children who signed in.
+Leaving the old notice up would have been a false caveat, and a false caveat teaches people that
+the warnings on that screen are decoration.
+
+**One mutation survived the first attempt.** Changing the mixed-age rule's `underTwo > 0 &&
+twoAndOver > 0` to `||` broke nothing at all: both published tables give 1 adult for 1–3 children,
+so "mixed only" and "any small group" agree on every input the stock tables can produce. A
+condition no test can observe is one somebody deletes while simplifying. A fixture table stricter
+than the regulation now makes it observable — which is what `assessRatio` taking its tables as
+arguments was always for, and the real case is a centre operating under a licence variation. Four
+mutations, four failures, after that.
+
+Left as `TODO(ratios)` in the file: sessional tables (they differ for two-and-over — 1–8→1,
+9–30→2, …), home-based ratios, the regulation 44A spare-capacity set-off, the regulation 54(4)
+sibling rules, and a second pair of human eyes on the transcription. The two regulations both make
+the requirement *lower*, so omitting them asks for more adults than the law does, never fewer.
+Little Pearls is all-day centre-based, so the sessional gap is the next customer's, not this one's.
+
+Gates: typecheck ×5, lint, 458 core tests (+17) plus 106 across the other workspaces, tokens,
+docs links, both builds. **`test:e2e` not run** — it needs a production build, a browser and a
+seeded tenant, and the three assertions it owns were edited in this change, so they are the least
+verified part of it. That is the honest state and it is the first thing to run next.
+
+---
+
 ## 2026-08-18 (second) — The specifications were opened, and item 6 turned out to be half right
 
 The follow-up email went to the Ministry, and the seven specification documents were decrypted and

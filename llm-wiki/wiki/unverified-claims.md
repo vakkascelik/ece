@@ -19,11 +19,13 @@ Nothing here is a bug. They are known gaps with known closures.
 
 ## Key Points
 
-- **The adult-to-child ratio bands are unverified.** `RATIO_TABLES_VERIFIED` is `false` in
-  `packages/core/src/ratios.ts`, and the web ratio banner, the mobile ratio bar and the
-  **roster forecast** all render a notice while it is. This is the highest-priority item in
-  the repo, and the forecast raised its cost: a live banner is read by somebody already in
-  the room, while a forecast is acted on a week early by *not* calling a reliever.
+- **The ratio bands are verified — item 1, CLOSED 2026-08-18.** Read against Schedule 2 as
+  at 29 June 2026 and correct in every published row. The reading found a *missing* row
+  instead: three or fewer children of mixed ages need one adult, and the product had been
+  reporting a breach on a legal room. What is still true, and now said in narrower words on
+  every ratio surface, is that the **inputs** are incomplete: Schedule 2 counts every person
+  present aged under 6, including a staff member's own child, and this product counts
+  enrolled children who signed in. Sessional and home-based tables are not modelled.
 - **Whether a service may keep its Chapter 6 records outside an approved SMS is still
   unconfirmed** — and that is the premise the whole product rests on. Asked of the Ministry on
   2026-08-14; the 2026-08-18 reply answered a question about *vendor integration* instead.
@@ -88,25 +90,59 @@ Nothing here is a bug. They are known gaps with known closures.
 
 ## Details
 
-### 1. Ratio bands — highest priority
+### 1. Ratio bands — **CLOSED 2026-08-18.** The bands were right; a missing row was not
+
+The repo's headline open item since day one, and the outcome is the boring one: every
+published row matched. What the reading actually bought was a rule nobody knew was absent.
 
 | | |
 |---|---|
-| **What is asserted** | Under-2: 1 adult per 5 children, stepped. 2-and-over: 1–6→1 adult, 7–20→2, 21–30→3, 31–40→4, 41–50→5, then 1 per 10 |
-| **Where** | `packages/core/src/ratios.ts` — `UNDER_TWO_TABLE`, `TWO_AND_OVER_TABLE` |
-| **Basis** | A good-faith reading of Schedule 2 of the Education (Early Childhood Services) Regulations 2008, from memory. **Not read against the regulation.** |
-| **How the product behaves** | `assessRatio()` returns `verified: false`; the web banner and mobile bar show "not yet checked against the regulations"; the evidence binder footnotes it |
-| **To close it** | Read Schedule 2. Correct the bands if wrong, then set `RATIO_TABLES_VERIFIED = true` in a commit that records who read what and when |
-| **Risk if left** | A manager relies on "Within ratio" and is not. This is the failure the whole feature exists to prevent |
+| **Read** | Schedule 2 of the Education (Early Childhood Services) Regulations 2008, from legislation.govt.nz, **version as at 29 June 2026** — which includes the 23 February 2026 amendment made by s 14 of the Education and Training (Early Childhood Education Reform) Amendment Act 2025 |
+| **Method** | Transcribed row by row and diffed against `UNDER_TWO_TABLE` / `TWO_AND_OVER_TABLE`. Not recalled, and not a tool's summary — the failure mode item 36 records |
+| **Result** | **All-day centre-based bands correct.** Under 2: 1–5→1, 6–10→2, 11–15→3, 16–20→4, 21–25→5. Two and over: 1–6→1, 7–20→2, 21–30→3, 31–40→4, 41–50→5, and thereafter one per ten, which reproduces every printed row to 141–150→15 |
+| **State** | `RATIO_TABLES_VERIFIED = true` |
 
-Two mitigations already in place. The maths is tested independently of the numbers — a
-green suite means the bands are *applied* correctly, not that they are right, and the tests
-say so. And the two age bands are computed separately and summed, which is the
-conservative reading: if the combined figures turn out lower, the product is generous
-rather than wrong.
+**What the reading found, and it was not in the tables.** Schedule 2 carries a row this
+product did not have: *"Up to 3 children of mixed ages … 1"*. Two infants and a
+three-year-old need **one** adult, not the two that summing the bands produces. The
+product had been reporting a breach on a legal room — and an indicator that calls a
+compliant room non-compliant is one people learn to dismiss, which costs exactly the
+morning it is right. A unit test had the wrong behaviour written into it as an assertion,
+with a comment explaining the wrong reasoning; both are corrected.
 
-**Do not flip the flag to remove the notice.** The notice is the only thing standing
-between an unchecked number and a compliance decision.
+**A correction to this page's own mitigation.** It used to say the two bands were
+"computed separately and summed, which is the conservative reading". Summing is not a
+reading — the schedule states it, in as many words: *"Sum of minimum staffing requirement
+for relevant number of children under 2 years old … and minimum staffing requirement for
+relevant number of children of or over 2 years old"*. The guess was right and its stated
+basis was invented. A claimed safety margin that does not exist is worse than no claim.
+
+**What `verified` does not cover** — each tagged `TODO(ratios)` in `ratios.ts`:
+
+- **Sessional** tables, which differ for 2-and-over: 1–8→1, 9–30→2, 31–45→3, 46–60→4,
+  61–75→5, and so on to 136–150→10. Under-2 sessional is identical to all-day. Little
+  Pearls is all-day, so this is a gap for the next customer rather than this one.
+- **Home-based**: under 2 is 1–2→1, two-and-over 1–4→1, mixed 1–4→1. A different shape
+  entirely, and one of the licence types the ELI capability requirement names.
+- **Regulation 44A**, spare under-2 capacity offsetting the 2-and-over count, and
+  **regulation 54(4)**, the sibling rules. Both are exceptions that make the requirement
+  *lower*, so not modelling them is the safe direction — the product asks for more adults
+  than the law does, never fewer.
+- **Who counts, which is about the inputs and not the tables.** Every person present aged
+  under 6 counts as a child, *including a staff member's own child*, who is on no roll and
+  in no attendance event. An adult must be 17 or older, doing something other than food
+  service, admin or maintenance, and **does not count while at lunch, on a break, or on
+  non-contact time**. This product counts enrolled children who were signed in, and takes
+  the adult count as a typed figure.
+
+That last one does not close by checking a number, so it replaced the blanket notice
+rather than disappearing with it: `ratioInputCaveat()` renders on every ratio surface and
+says what the figure cannot see. **A false caveat is worse than none** — leaving "these
+figures have not been checked" on screen after they had been checked would teach people
+that the warnings on that screen are decoration.
+
+**The flag still exists and is still load-bearing.** A centre operating under a licence
+variation passes its own table into `assessRatio`, and that table has been read by nobody.
 
 ### 2. Licensing criteria — absent, on purpose
 

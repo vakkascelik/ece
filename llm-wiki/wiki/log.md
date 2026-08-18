@@ -5,6 +5,50 @@ says so.*
 
 ---
 
+2026-08-18 (third) — **Item 1 is closed. The bands were right and a row was missing.**
+Rewritten: [[unverified-claims]] item 1 and its Key Point. Extended: [[attendance-and-ratios]].
+
+Schedule 2 was read from legislation.govt.nz, version as at 29 June 2026 — the version that
+includes the 23 February 2026 amendment — and transcribed row by row against the tables. **Every
+published row matched**, under-2 and two-and-over, all the way to 141–150 → 15, which is what makes
+`thereafterPerAdult: 10` a claim rather than a convenience. A test now reproduces the printed rows
+so the compression cannot drift.
+
+**What the reading actually bought was a row the product did not have:** *"Up to 3 children of mixed
+ages … 1"*. Two infants and a three-year-old need one adult, and the product was summing the bands
+to two — reporting a breach on a legal room. The failure direction is the one that costs the
+feature its credibility: an indicator that calls a compliant room non-compliant is one people learn
+to dismiss, and dismissing it costs the morning it is right. A unit test in `roll.test.ts` had the
+wrong behaviour written in as an assertion, with a comment explaining the wrong reasoning.
+
+**A correction to what this page used to claim about the summing.** Item 1 called it "the
+conservative reading", on an assumption that Schedule 2 published different tables depending on
+whether under-2s were present. It does not. Summing is the rule, stated in the schedule. The guess
+was right and its stated basis was invented — a claimed safety margin that never existed, which is
+worse than claiming nothing.
+
+**The blanket notice came off every surface and a narrower one went on.** Leaving "these figures
+have not been checked" up after checking them would be a false caveat, and a false caveat teaches
+people the warnings on that screen are decoration. `ratioInputCaveat()` replaces it and does not
+expire: Schedule 2 counts every person present aged under 6 — including a staff member's own child,
+who is on no roll and in no attendance event — and an adult does not count while at lunch, on a
+break, or on non-contact time. That is about the inputs, and no amount of checking the tables fixes
+it. Seven surfaces moved together: the banner, the compliance history, the roster forecast, two
+help texts, and three e2e assertions that were written as tripwires for exactly this flip and fired
+exactly as designed.
+
+**Mutation-tested, and one mutation survived the first attempt.** Changing the mixed-age rule's
+`underTwo > 0 && twoAndOver > 0` to `||` broke nothing, because both published tables give 1 adult
+for 1–3 children, so "mixed only" and "any small group" agree everywhere. A condition no test can
+see is a condition somebody deletes while simplifying — so a fixture table stricter than the
+regulation now makes the difference observable, which is what `assessRatio` taking its tables as
+arguments was always for. Four mutations, four failures, after that fix.
+
+Left open as `TODO(ratios)`: the sessional tables (which differ for two-and-over), home-based, the
+regulation 44A set-off, the regulation 54(4) sibling rules, and a second pair of human eyes on the
+transcription. The two regulations both make the requirement *lower*, so omitting them asks for
+more adults than the law does, never fewer.
+
 2026-08-18 (second) — **The specifications were opened, and the first thing they found was a rule
 this product did not have.** Extended: [[funding-and-billing]] with what reading them changed.
 Narrowed: [[unverified-claims]] item 6, and its Key Point.

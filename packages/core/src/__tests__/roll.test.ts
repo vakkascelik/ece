@@ -28,6 +28,9 @@ const child = (id: string, dateOfBirth: string): Child => ({
 // Ages chosen relative to a fixed reference so the bands are stable.
 const baby = child('baby', '2025-06-01'); // under 2 for years to come
 const toddler = child('toddler', '2021-01-01'); // comfortably over 2
+// A second of each, for the case where the mixed-age allowance has run out.
+const baby2 = child('baby2', '2025-07-01');
+const toddler2 = child('toddler2', '2021-02-01');
 
 const noHealth = new Map<string, HealthCondition[]>();
 
@@ -81,7 +84,43 @@ describe('buildRoll', () => {
     expect(roll.ratio.present).toBe(2);
     expect(roll.ratio.underTwo).toBe(1);
     expect(roll.ratio.twoAndOver).toBe(1);
-    // One under-2 and one over-2 needs two adults; one adult is a breach.
+    /*
+      CORRECTED 2026-08-18. This asserted `breach`, on the comment "one under-2 and one
+      over-2 needs two adults". That is wrong, and reading Schedule 2 is what found it:
+      three or fewer children of MIXED ages need one adult, so this room is legal and the
+      product was reporting a breach on it.
+
+      The failure direction was the bad one for an indicator. An educator who is told they
+      are non-compliant while standing in a compliant room learns to dismiss the banner —
+      and the banner's whole job is the morning it is right.
+
+      The assertion this test exists for is unchanged: the queued sign-ins are COUNTED. It
+      now says so through the numbers above and the required-adults figure, rather than
+      through a status that was only incidentally observable.
+    */
+    expect(roll.ratio.adultsRequired).toBe(1);
+    expect(roll.ratio.status).not.toBe('breach');
+  });
+
+  it('still reports a breach once the mixed-age allowance runs out', () => {
+    // The other half of the correction above: four mixed children need two adults, so the
+    // queued events must be visible enough to produce a breach with one. Without this, the
+    // change above could be satisfied by a ratio that had stopped counting queued sign-ins
+    // altogether — which is the exact bug this describe block exists to prevent.
+    const roll = buildRoll({
+      children: [baby, baby2, toddler, toddler2],
+      serverStates: [],
+      queued: [
+        { clientUuid: 'k1', childId: 'baby', kind: 'in', at: '2026-08-04T20:00:00Z' },
+        { clientUuid: 'k2', childId: 'baby2', kind: 'in', at: '2026-08-04T20:00:30Z' },
+        { clientUuid: 'k3', childId: 'toddler', kind: 'in', at: '2026-08-04T20:01:00Z' },
+        { clientUuid: 'k4', childId: 'toddler2', kind: 'in', at: '2026-08-04T20:01:30Z' },
+      ],
+      health: noHealth,
+      adultsPresent: 1,
+    });
+    expect(roll.ratio.present).toBe(4);
+    expect(roll.ratio.adultsRequired).toBe(2);
     expect(roll.ratio.status).toBe('breach');
   });
 
