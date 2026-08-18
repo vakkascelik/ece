@@ -225,9 +225,53 @@ June–September, October–January — four-monthly, three a year, one straddli
 a centre may want an arbitrary window and a period that cannot be chosen is a screen somebody works
 around. What has gone is the need to invent a date range on a document that looks official.
 
-Not modelled, and now visible as a gap rather than an unknown: the **Frequent Absence** and
-**3-Week Continuous Absence** rules, which decide when a recorded absence is claimable. That is why
-`FUNDING_RULES_VERIFIED` is still `false` — see [[unverified-claims]] item 6.
+### The absence rules, read 2026-08-18 — and this product under-claims
+
+Chapter 6 was read the same day, and it changes what "funding from attendance" means.
+
+**6-4.** Funding may be claimed for hours a **permanently enrolled** child did not attend, if the
+absence falls under one of the absence rules. For a **casual or conditional** child, funding is on
+attendance **only**, and a child who books a day and does not turn up must never be claimed — in an
+audit that money is recovered. Nor may a service claim for both an absent permanent child and the
+casual child filling their place.
+
+**6-5, the Three Week Rule.** Claim every enrolled-but-absent session within three weeks of the
+**first** day of absence; nothing from the fourth week onward; funding resumes when the child
+returns. And it stops the moment a parent says the child is not coming back — **even mid-window**, or
+the Ministry recovers what was claimed after that point.
+
+**6-7, the Frequent Absence Rule.** A child's attendance must match their enrolment agreement for at
+least half of each calendar month. Flagged in month 1, the agreement reconfirmed in month 2, month 3
+claimable **only if** reconfirmed, month 4 not claimable and the agreement must be changed to match
+reality.
+
+#### What that means for this product
+
+**It claims none of it.** `attendedHours` is the only source of funded hours, so an absent day
+contributes zero. Two consequences, and the second is the one that matters:
+
+- For a **casual or conditional** child, attendance-only is exactly what 6-4 requires. The
+  calculation is already correct for them.
+- For a **permanently enrolled** child it **under-claims** — and losing a centre funding it is owed
+  is the same class of failure as over-claiming. It is the reason this phase names a broken day
+  rather than silently zeroing it.
+
+**The blocker is the schema, not the arithmetic.** `enrolments` carries no permanent/casual
+distinction; the word "casual" appears nowhere in this repo. 6-4 turns on exactly that axis, so
+there is no way to ask the question the rule asks. Building absence funding needs an enrolment type,
+a three-week window per absence spell, a monthly frequent-absence check and a record of
+reconfirmations. That is a feature with real decisions in it, not a patch, so it is named rather
+than half-built.
+
+**One thing already in place helps more than it looks.** `bookings` (0018) and the `absent` status
+with its reason (0063) already record *which enrolled days a child was expected and did not come* —
+which is the input the Three Week Rule needs. The framing at the top of this page, "invoices come
+from bookings, funding from attendance", turns out to be **incomplete rather than wrong**: funding
+for an *absent* day comes from the booking, because there are no attended hours to come from.
+
+`FUNDING_RULES_VERIFIED` stays `false` for this reason, and the export's disclaimer no longer claims
+the caps are unchecked — it names the gap a manager can act on: these figures count attended hours
+only, and you may be entitled to claim more. See [[unverified-claims]] item 6.
 
 So the output is a **preparation export**: figures a manager keys into ELI Web. Every label says
 "preparation" and none say "return", "submit" or "file". That is not pedantry — a screen that looks

@@ -5,6 +5,42 @@ says so.*
 
 ---
 
+2026-08-18 (sixth) — **The absence rules were read, and this product under-claims funding.** Item 6
+narrowed again: [[unverified-claims]]. Extended: [[funding-and-billing]] with a new section.
+
+Chapter 6 sections **6-4, 6-5 and 6-7** of the Funding Handbook, from education.govt.nz. The finding
+in one sentence: *"Absence rules allow services to claim funding for hours that permanently enrolled
+children do not attend, providing that certain conditions are met."*
+
+This product claims none of it. `attendedHours` is the only source of funded hours, so an absent day
+contributes zero. The consequence splits by enrolment type, and only 6-4 can express the split:
+
+- **Casual or conditional** children are funded on attendance only, and a booked no-show must never
+  be claimed. Attendance-only is therefore **exactly correct** for them.
+- **Permanently enrolled** children may have their absent-but-booked days claimed. For them this
+  product **under-claims**, which is the same class of failure as over-claiming — the reason this
+  phase names a broken day rather than silently zeroing it.
+
+**The blocker is the schema, not the arithmetic.** `enrolments` has no permanent/casual distinction;
+the word "casual" appears nowhere in the repo. So there is no way to ask the question 6-4 asks.
+
+**A correction to this page's framing.** "Invoices come from bookings, funding from attendance" is
+**incomplete rather than wrong**: funding for an *absent* day comes from the booking, because there
+are no attended hours to come from. `bookings` (0018) plus the `absent` status and reason (0063)
+already record which enrolled days a child was expected and did not come — the exact input the Three
+Week Rule needs. So the data is closer than the model.
+
+**The export's disclaimer changed rather than disappearing.** It used to say the caps had not been
+checked; they have been, and that sentence was becoming the false-caveat problem the ratio banner was
+just rid of. It now names the gap in words a manager can act on: these figures count attended hours
+only, and you may be entitled to claim more. "Something is unverified" is not actionable; "you may be
+owed more than this" is.
+
+`FUNDING_RULES_VERIFIED` stays `false`, now for a precise and documented reason rather than a vague
+one. Absence funding is a feature with decisions in it — an enrolment type, a three-week window per
+absence spell, monthly frequent-absence checks, a record of reconfirmations — so it is named rather
+than half-built.
+
 2026-08-18 (fifth) — **The mobile app ran on a device for the first time, and the first thing it
 found was a defect from three hours earlier.** Item 15 partially closed, item 16 blocker 1 cleared:
 [[unverified-claims]]. Extended: [[mobile-app]].

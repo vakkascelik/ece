@@ -7,6 +7,53 @@ itself, and from the wiki pages, which hold the durable *why*. This file is the 
 
 ---
 
+## 2026-08-18 (sixth) — The absence rules, and the discovery that the funding export under-claims
+
+Third trip to a primary source today, and the third one to find something. Chapter 6 sections 6-4,
+6-5 and 6-7 of the ECE Funding Handbook, at the URL the Ministry named in its second email.
+
+**The sentence that matters:** *"Absence rules allow services to claim funding for hours that
+permanently enrolled children do not attend, providing that certain conditions are met."*
+
+The rules, sourced:
+
+- **6-5, Three Week Rule.** Claim every enrolled-but-absent session within three weeks of the FIRST
+  day of absence; nothing from the fourth week on; funding resumes when the child returns. It stops
+  the moment a parent says the child is not returning — **even mid-window** — and anything claimed
+  after that point is recovered.
+- **6-7, Frequent Absence Rule.** Attendance must match the enrolment agreement for at least half of
+  each calendar month. Flagged month 1, agreement reconfirmed month 2, month 3 claimable only if
+  reconfirmed, month 4 not claimable and the agreement must change.
+- **6-4** also forbids claiming for both an absent permanent child and the casual child filling their
+  place, and requires subsidy rather than 20 Hours funding where a fee-paying casual child fills an
+  absent 20 Hours child's place.
+
+**This product claims none of it, and the split matters.** Funded hours come from attendance events,
+so an absent day is zero. For a **casual or conditional** child that is exactly what 6-4 requires —
+the calculation is already right. For a **permanently enrolled** child it **under-claims**, and
+losing a centre funding it is owed is the same class of failure as over-claiming.
+
+**The blocker is the schema.** `enrolments` has no permanent/casual distinction — "casual" appears
+nowhere in this repo — and 6-4 turns on exactly that axis. Not built, deliberately: absence funding
+needs an enrolment type, a three-week window per absence spell, a monthly frequent-absence check and
+a record of reconfirmations. A feature with decisions in it, not a patch.
+
+**A framing correction.** "Invoices come from bookings, funding from attendance" is incomplete rather
+than wrong — funding for an absent day comes from the *booking*, since there are no attended hours.
+`bookings` and the `absent` status with its reason already hold the input the Three Week Rule needs,
+so the data is closer to this than the model is.
+
+**The disclaimer was narrowed rather than removed.** It said the caps had not been checked against
+the Handbook; they have been, and that sentence was on its way to being the same false caveat the
+ratio banner was just rid of. It now says the figures count attended hours only and the total may be
+lower than what the service is entitled to claim. A test that asserted the old wording is corrected
+with the reasoning written into it, and it now also asserts the *direction* of the error, so nobody
+can later reword this into implying an over-claim.
+
+`FUNDING_RULES_VERIFIED` stays `false` — for a precise, documented reason now instead of a vague one.
+
+Gates: typecheck ×5, lint, 458 core tests, check:docs.
+
 ## 2026-08-18 (fifth) — The app ran on a phone, and found a defect three hours old
 
 `eas build --platform android --profile production` produced versionCode 4 (the remote counter

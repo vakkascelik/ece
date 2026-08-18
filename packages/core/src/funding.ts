@@ -11,12 +11,39 @@
  * 20 per week, the age band they apply to (3 or older, under 6), and the three four-monthly funding
  * periods in `ministryFundingPeriods`.
  *
- * **Still unconfirmed**, and why the flag has not moved: the Frequent Absence and 3-Week Continuous
- * Absence rules, which decide whether an absence is claimable and which this file does not model at
- * all; and whether anything else in the Funding Handbook bears on the calculation. A flag that says
- * "verified" while a whole class of claimable day is missing would be worse than one that says
- * nothing — the same discipline as the ratio bands in `ratios.ts`: figures are data with a stated
- * basis, the flag travels with every calculation, and the UI says so.
+ * **Read 2026-08-18, and now a known gap rather than an unknown one.** Chapter 6 of the Funding
+ * Handbook — sections 6-4, 6-5 and 6-7 — says absence funding is real:
+ *
+ *   6-4  Funding may be claimed for hours a **permanently enrolled** child did not attend, if the
+ *        absence falls under one of the absence rules. For a **casual or conditional** child,
+ *        funding is on attendance ONLY, and a booked no-show must not be claimed.
+ *   6-5  Three Week Rule: claim every enrolled-but-absent session within three weeks of the FIRST
+ *        day of absence. Nothing from the fourth week on. Funding resumes when the child returns,
+ *        and stops the moment a parent says the child is not coming back — even mid-window, or the
+ *        Ministry recovers it.
+ *   6-7  Frequent Absence Rule: attendance must match the enrolment agreement for at least half of
+ *        each calendar month. Flagged in month 1, reconfirmed in month 2, month 3 claimable only if
+ *        reconfirmed, month 4 not claimable and the agreement must change.
+ *
+ * **This file claims none of it, and cannot yet.** Funded hours come from attendance events, so an
+ * absent day contributes zero. Two things follow, and the second is why the gap is not a bug here:
+ *
+ * - For a casual or conditional child, attendance-only is **exactly what 6-4 requires**. This
+ *   calculation is already correct for them.
+ * - For a permanently enrolled child it **under-claims**, and losing a centre funding it is owed is
+ *   the same class of failure as over-claiming — it is the reason a broken day is named rather than
+ *   silently zeroed.
+ *
+ * The blocker is the schema, not the arithmetic: `enrolments` has no permanent/casual distinction,
+ * and 6-4 turns on exactly that. Adding absence funding means an enrolment type, a three-week
+ * window per absence spell, monthly frequent-absence checks and a record of reconfirmations. That is
+ * a feature with decisions in it, not a patch, so it is named here and in `exportDisclaimer` rather
+ * than half-built.
+ *
+ * **The flag stays `false` for that reason**, and it is now precise about why: the rules are read,
+ * the caps and periods are confirmed, and a whole class of claimable day is not implemented. A flag
+ * reading "verified" over that would be worse than one that says nothing — the same discipline as
+ * the ratio bands in `ratios.ts`.
  *
  * There are **no funding rates here at all** — no dollars per child-hour. A rate is a number the
  * Ministry publishes and changes, and inventing one would let a centre budget against a figure this
@@ -275,8 +302,14 @@ export function exportDisclaimer(summary: FundingSummary): string {
     );
   }
   if (!summary.verified) {
+    /*
+      Narrowed 2026-08-18. This used to say the caps had not been checked; they have been, and the
+      sentence was becoming the false-caveat problem the ratio banner just went through. What is
+      actually missing is absence funding, so the disclaimer names it — a manager can act on "you
+      may be able to claim more than this", and cannot act on "something is unverified".
+    */
     parts.push(
-      'The daily and weekly caps applied here have not been checked against the ECE Funding Handbook.',
+      'These figures count attended hours only. Under sections 6-4 to 6-7 of the Funding Handbook a service may also claim funding for days a permanently enrolled child was booked but absent, and this system does not calculate that — so the total may be lower than what you are entitled to claim.',
     );
   }
   return parts.join(' ');

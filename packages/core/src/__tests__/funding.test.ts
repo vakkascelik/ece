@@ -200,9 +200,23 @@ describe('summariseFunding and the disclaimer', () => {
     expect(text).toContain('re-run');
   });
 
-  it('warns that the caps are unchecked while the flag is false', () => {
+  it('names absence funding as the gap while the flag is false', () => {
+    /*
+      This asserted the disclaimer said the caps had "not been checked against the ECE Funding
+      Handbook". The caps were checked on 2026-08-18 and found correct, so that sentence was on its
+      way to being the same false caveat the ratio banner had just been rid of — a disclaimer that
+      states something untrue teaches people to skip the disclaimers.
+
+      What the flag actually covers now is narrower and worth stating in words a manager can act on:
+      the export counts attended hours only, and sections 6-4 to 6-7 allow a claim for a permanently
+      enrolled child who was booked and absent. "You may be entitled to more than this" is
+      actionable. "Something is unverified" is not.
+    */
     const text = exportDisclaimer(summariseFunding(period, []));
-    expect(text).toContain('not been checked against the ECE Funding Handbook');
+    expect(text).toContain('attended hours only');
+    expect(text).toContain('booked but absent');
+    // And it must not overstate the direction of the error: this under-claims, never over-claims.
+    expect(text).toContain('lower than what you are entitled to claim');
   });
 });
 

@@ -224,9 +224,11 @@ The caps were right. What the check found was a rule nobody had noticed was miss
 |---|---|
 | **Confirmed 2026-08-18** | 20 Hours ECE at 6 hours per day and 20 per week, **for a child aged 3 or older and under 6** — a Ministry business rule, from the specifications the Ministry supplied. `DEFAULT_CAPS` was correct and its basis string now names the source |
 | **Also confirmed** | The three four-monthly funding periods: February–May, June–September, October–January. Now in `ministryFundingPeriods()`, offered rather than imposed — the period stays caller-supplied |
-| **Still unverified** | The **Frequent Absence** and **3-Week Continuous Absence** rules, which decide whether a funded absence may be claimed and which this product does not model at all. An absence is claimable in some circumstances, and nothing here knows which |
-| **How the product behaves** | `FUNDING_RULES_VERIFIED` is **still `false`**, and deliberately so: a flag reading "verified" over a calculation missing a whole class of claimable day would be worse than one that admits nothing has been read end to end |
-| **To close it** | Read the Funding Handbook's absence provisions, decide whether to model them or to say plainly that absences are out of scope, then flip the flag in a commit recording who read what |
+| **Read 2026-08-18** | Chapter 6 sections **6-4, 6-5 and 6-7**. The absence rules are now sourced, and they are real: funding may be claimed for hours a **permanently enrolled** child did not attend. For a **casual or conditional** child it is attendance only, and a booked no-show must never be claimed |
+| **Still not implemented** | All of it. Funded hours come from attendance events, so an absent day contributes zero. For a casual child that is **exactly right**; for a permanently enrolled child it **under-claims** |
+| **The blocker is the schema** | `enrolments` has no permanent/casual distinction — the word "casual" appears nowhere in this repo — and 6-4 turns on precisely that axis |
+| **How the product behaves** | `FUNDING_RULES_VERIFIED` stays **`false`**, and the disclaimer no longer says the caps are unchecked (they are checked). It now names the actual gap: the figures count attended hours only, and a service may be entitled to claim more |
+| **To close it** | Build it, or decide absence funding is out of scope and say so in the product. Building it needs an enrolment type, a three-week window per absence spell, monthly frequent-absence checks and a record of reconfirmations — a feature with decisions in it, not a patch |
 
 **The age band was not checked anywhere, and that was a real gap.** `twenty_hours_ece` is a boolean
 a centre ticks on the enrolment, and until 2026-08-18 nothing compared it against the child's age.
