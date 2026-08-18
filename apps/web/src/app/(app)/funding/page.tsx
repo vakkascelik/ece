@@ -156,7 +156,24 @@ export default async function FundingPage({
                 {summary.children.map((c) => (
                   <tr key={c.childId}>
                     <td>{nameOf.get(c.childId) ?? 'a former child'}</td>
-                    <td>{c.twentyHoursEce ? 'yes' : 'no'}</td>
+                    <td>
+                      {c.twentyHoursEce ? 'yes' : 'no'}
+                      {/*
+                        The flag sits in this cell rather than in a column of its own, because the
+                        problem IS this cell: the entitlement runs from the third birthday to the
+                        sixth, and a tick outside that band is a wrong attestation, not a wrong
+                        attendance record. A symbol and a word, never colour alone (WCAG 1.4.1).
+                      */}
+                      {c.ineligibleDates.length > 0 && (
+                        <>
+                          {' '}
+                          <span className="flag flag-warn">
+                            {'▲'} outside the age band on {c.ineligibleDates.length} day
+                            {c.ineligibleDates.length === 1 ? '' : 's'}
+                          </span>
+                        </>
+                      )}
+                    </td>
                     <td>{c.attendedHours.toFixed(2)}</td>
                     <td>
                       <strong>{c.fundedHours.toFixed(2)}</strong>

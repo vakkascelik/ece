@@ -7,6 +7,55 @@ itself, and from the wiki pages, which hold the durable *why*. This file is the 
 
 ---
 
+## 2026-08-18 (second) — The specifications were opened, and item 6 turned out to be half right
+
+The follow-up email went to the Ministry, and the seven specification documents were decrypted and
+read the same day. The caps this repo had guessed at were **correct**. What was missing was a rule
+nobody had thought to look for.
+
+**The 20 Hours entitlement is age-bounded and nothing checked it.** The Ministry states 6 hours a
+day and 20 a week *for a child aged 3 or older and under 6*. `DEFAULT_CAPS` had the hours;
+`twenty_hours_ece` is a boolean a centre ticks on the enrolment and it was trusted without
+question. Tick it on a two-year-old and `/funding` produced capped 20 Hours figures for a child
+with no entitlement — against a rule the Ministry runs automated checks on and raises with vendors.
+Low severity today, because the output is a preparation figure a human keys in, and it takes a
+mis-tick to trigger. It is still exactly the class of thing this product exists to catch.
+
+`childFunding` now returns `ineligibleDates`. The three decisions inside it are in
+[funding-and-billing](llm-wiki/wiki/funding-and-billing.md): the age is computed as at each day and
+never as at today; the hours are still counted, because only the entitlement is in doubt and the
+attestation belongs to the centre; and an unknown date of birth flags nothing, which is not the
+same as eligible. It surfaces in the cell that is actually wrong — the 20 Hours column, symbol and
+word, never colour alone — and as dates rather than a count in the CSV, for the same reason the
+unresolved-days column carries dates.
+
+**Mutation-tested, because nine new tests passed first try.** `>=` → `>` on the sixth birthday
+failed 1; `<` → `<=` on the third failed 3; and computing the age at `period.from` instead of the
+day being counted failed 3. That third one is the point: it is the same failure `replayDay` exists
+to prevent, where today's ages rewrite history in the centre's favour.
+
+**Also landed:** `ministryFundingPeriods()` — February–May, June–September, October–January,
+offered rather than imposed, so a manager stops inventing date ranges on an official-looking total.
+
+**`FUNDING_RULES_VERIFIED` is still `false`, deliberately.** Item 6 is now narrowed rather than
+closed: the Frequent Absence and 3-Week Continuous Absence rules decide when a recorded absence is
+claimable, and this product does not model them at all. A flag reading "verified" over a
+calculation missing a whole class of claimable day would be worse than one that admits nothing has
+been read end to end. The flip is a separate, deliberate act by the person who reads those
+provisions.
+
+Gates: typecheck ×5, lint, 450 core tests (+9) plus 106 across the other workspaces, tokens, docs
+links, build. `check:bundle` reports first-load JS at **113.0kB against a 106kB limit** — the
+pre-existing 7kB overage recorded on 2026-08-14, unchanged and still unattributed; this work is
+route-scoped and the funding page is 495 B. `test:rls` not run: no migration, no policy, no grant.
+
+**The seven specifications are marked [SENSITIVE] / In confidence.** The decrypted text lives
+outside this repository and no extract of it has been committed. What is recorded here and in the
+wiki are derived facts that are independently public — the caps, the age band and the period dates
+are in the ECE Funding Handbook and on the RS7 form. The password remains uncommitted.
+
+---
+
 ## 2026-08-18 — The Ministry answered, and the answer cost this repo a claim it had made six times
 
 Three emails from the Ministry's Early Learning Information team, replying to the enquiry the owner

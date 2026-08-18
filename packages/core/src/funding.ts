@@ -4,11 +4,19 @@
  * ─────────────────────────────────────────────────────────────────────────────
  * READ THIS BEFORE RELYING ON THE NUMBERS
  *
- * `FUNDING_RULES_VERIFIED` is **false**. The caps and the funding-period boundaries below are a
- * good-faith reading and **nobody has checked them against the ECE Funding Handbook**. They are the
- * same class of claim as the ratio bands in `ratios.ts`, and the same discipline applies: the
- * figures are data with a stated basis, the flag travels with every calculation, the UI says so,
- * and correcting a cap is a one-line change.
+ * `FUNDING_RULES_VERIFIED` is **false**, and what that now covers is narrower than it was.
+ *
+ * **Confirmed 2026-08-18** against the Ministry's ELI data collection business rules and the RS7
+ * return specification, both supplied by the Ministry: the 20 Hours ECE caps of 6 hours per day and
+ * 20 per week, the age band they apply to (3 or older, under 6), and the three four-monthly funding
+ * periods in `ministryFundingPeriods`.
+ *
+ * **Still unconfirmed**, and why the flag has not moved: the Frequent Absence and 3-Week Continuous
+ * Absence rules, which decide whether an absence is claimable and which this file does not model at
+ * all; and whether anything else in the Funding Handbook bears on the calculation. A flag that says
+ * "verified" while a whole class of claimable day is missing would be worse than one that says
+ * nothing — the same discipline as the ratio bands in `ratios.ts`: figures are data with a stated
+ * basis, the flag travels with every calculation, and the UI says so.
  *
  * There are **no funding rates here at all** — no dollars per child-hour. A rate is a number the
  * Ministry publishes and changes, and inventing one would let a centre budget against a figure this
@@ -34,6 +42,7 @@
  * believe a return was filed because a screen looked finished.
  */
 
+import { ageInMonths } from './children';
 import { attendedHours, toHours, type HoursEvent } from './hours';
 
 /** Has anybody checked these against the Funding Handbook? Flipping this is a claim about policy. */
@@ -56,8 +65,21 @@ export const DEFAULT_CAPS: FundingCaps = {
   maxHoursPerDay: 6,
   maxHoursPerWeek: 20,
   basis:
-    'Commonly stated 20 Hours ECE caps of 6 hours per day and 20 per week. NOT verified against the ECE Funding Handbook.',
+    '20 Hours ECE: 6 hours per day and 20 per week, for a child aged 3 or older and under 6. Confirmed 2026-08-18 against the Ministry ELI data collection business rules.',
 };
+
+/**
+ * The 20 Hours ECE age band, in whole months.
+ *
+ * The entitlement runs from a child's third birthday to their sixth: "3 years or older but less
+ * than 6 years old". The Ministry states this as a business rule it checks automatically and raises
+ * with vendors, which is what makes it worth enforcing here rather than trusting the tick box.
+ *
+ * Months rather than years because `ageInMonths` does calendar arithmetic and a birthday must land
+ * on the day it falls, not somewhere inside a rounding error.
+ */
+const TWENTY_HOURS_MIN_MONTHS = 36;
+const TWENTY_HOURS_MAX_MONTHS = 72;
 
 /**
  * A funding period.
@@ -90,6 +112,20 @@ export interface ChildFunding {
   unresolvedDates: string[];
   /** Days where the daily cap bit, so a manager can see why attended and funded differ. */
   cappedDates: string[];
+  /**
+   * Days this child was attested for 20 Hours ECE and was outside the 3-to-under-6 band.
+   *
+   * **The hours are still counted.** Two reasons, and the second is the one that decides it: the
+   * hours are not in doubt — only the entitlement is — so excluding them would be the estimating
+   * this file exists not to do; and the attestation belongs to the centre, which is the party that
+   * can fix it. So this names the problem and leaves the arithmetic alone, the same way a capped
+   * day is reported rather than silently trimmed.
+   *
+   * Empty when the child has no date of birth, which is not the same as "eligible" — it means no
+   * check was possible. An attested child with no date of birth is an enrolment somebody has not
+   * finished, and it shows up as that on the child's record rather than as a funding figure.
+   */
+  ineligibleDates: string[];
   twentyHoursEce: boolean;
 }
 
@@ -105,6 +141,14 @@ export interface FundingSummary {
    */
   complete: boolean;
   unresolvedChildCount: number;
+  /**
+   * Children attested for 20 Hours ECE on at least one day they were outside the age band.
+   *
+   * Separate from `complete`, because it is a different kind of problem: an incomplete record
+   * cannot be calculated, while this one calculates fine and may not be claimable. Folding it into
+   * `complete` would either block an export over somebody else's tick box or hide it entirely.
+   */
+  ineligibleChildCount: number;
   verified: boolean;
   capsBasis: string;
 }
@@ -134,6 +178,8 @@ export function childFunding(input: {
   timeZone: string;
   period: FundingPeriod;
   twentyHoursEce: boolean;
+  /** Needed only to check the 20 Hours age band. Null means the check cannot run — see `ineligibleDates`. */
+  dateOfBirth?: string | null;
   caps?: FundingCaps;
 }): ChildFunding {
   const caps = input.caps ?? DEFAULT_CAPS;
@@ -144,11 +190,21 @@ export function childFunding(input: {
   const unresolved = inPeriod.filter((d) => !d.complete);
 
   const cappedDates: string[] = [];
+  const ineligibleDates: string[] = [];
   const perDay = complete.map((day) => {
     const hours = toHours(day.minutes);
     // Caps apply only to the 20 Hours ECE entitlement. Without the attestation there is nothing
     // here to cap, and pretending otherwise would understate an ordinary fee-paying enrolment.
     if (!input.twentyHoursEce) return { date: day.date, hours };
+    // Age as at the day being counted, never as at today. A child who turned three in March was
+    // not entitled in February, and using today's age would rewrite that in the centre's favour —
+    // the same reasoning `replayDay` applies to the ratio bands.
+    if (input.dateOfBirth) {
+      const months = ageInMonths(input.dateOfBirth, day.date);
+      if (months < TWENTY_HOURS_MIN_MONTHS || months >= TWENTY_HOURS_MAX_MONTHS) {
+        ineligibleDates.push(day.date);
+      }
+    }
     if (hours > caps.maxHoursPerDay) {
       cappedDates.push(day.date);
       return { date: day.date, hours: caps.maxHoursPerDay };
@@ -178,6 +234,7 @@ export function childFunding(input: {
     unresolvedHours: toHours(unresolved.reduce((t, d) => t + d.minutes, 0)),
     unresolvedDates: unresolved.map((d) => d.date),
     cappedDates,
+    ineligibleDates,
     twentyHoursEce: input.twentyHoursEce,
   };
 }
@@ -190,6 +247,7 @@ export function summariseFunding(period: FundingPeriod, children: ChildFunding[]
     totalFundedHours: Math.floor(children.reduce((t, c) => t + c.fundedHours, 0) * 100) / 100,
     complete: unresolvedChildCount === 0,
     unresolvedChildCount,
+    ineligibleChildCount: children.filter((c) => c.ineligibleDates.length > 0).length,
     verified: FUNDING_RULES_VERIFIED,
     capsBasis: (children[0] ? DEFAULT_CAPS : DEFAULT_CAPS).basis,
   };
@@ -211,12 +269,44 @@ export function exportDisclaimer(summary: FundingSummary): string {
       `${summary.unresolvedChildCount} ${summary.unresolvedChildCount === 1 ? 'child has' : 'children have'} days that could not be calculated because the attendance record is incomplete. Those days are excluded from the totals below — resolve them and re-run before using these figures.`,
     );
   }
+  if (summary.ineligibleChildCount > 0) {
+    parts.push(
+      `${summary.ineligibleChildCount} ${summary.ineligibleChildCount === 1 ? 'child is' : 'children are'} marked as 20 Hours ECE on days when they were under 3 or 6 and over. Their hours are included as recorded — check the enrolment before claiming, because the entitlement runs from the third birthday to the sixth.`,
+    );
+  }
   if (!summary.verified) {
     parts.push(
       'The daily and weekly caps applied here have not been checked against the ECE Funding Handbook.',
     );
   }
   return parts.join(' ');
+}
+
+/**
+ * The Ministry's three funding periods for a calendar year.
+ *
+ * Added 2026-08-18. `FundingPeriod` is still supplied by the caller — a centre may want an
+ * arbitrary window, and a period that cannot be chosen is a screen somebody works around. What
+ * changed is that the real boundaries are now known, so a manager no longer has to invent dates on
+ * a document that looks official.
+ *
+ * The periods are four-monthly and one of them straddles the new year: February–May, June–September,
+ * and October–January. `year` names the year the period **starts** in, so `2026` gives an
+ * October 2026 – January 2027 period.
+ *
+ * Not modelled here, deliberately: the submission window (a period may be submitted from the first
+ * of the month after it ends, and the electronic cut-off is three months later — 31 August,
+ * 31 December, 30 April respectively). That belongs with a reminder somebody has asked for, and
+ * this product cannot submit anything, so a cut-off date here would describe a deadline it plays no
+ * part in.
+ */
+export function ministryFundingPeriods(year: number): FundingPeriod[] {
+  const next = year + 1;
+  return [
+    { label: `February–May ${year}`, from: `${year}-02-01`, to: `${year}-05-31` },
+    { label: `June–September ${year}`, from: `${year}-06-01`, to: `${year}-09-30` },
+    { label: `October ${year} – January ${next}`, from: `${year}-10-01`, to: `${next}-01-31` },
+  ];
 }
 
 // ---------------------------------------------------------------------------

@@ -4,6 +4,7 @@ import {
   DEFAULT_CAPS,
   exportDisclaimer,
   FUNDING_RULES_VERIFIED,
+  ministryFundingPeriods,
   summariseFunding,
   summariseVariance,
   type FundingPeriod,
@@ -30,11 +31,19 @@ const fullDay = (day: number) => [ev('in', at(day, 8)), ev('out', at(day, 16))];
 
 describe('these test the arithmetic, not the policy', () => {
   it('carries the unverified flag to the caller', () => {
-    // The caps are a good-faith reading of the Funding Handbook that nobody has checked. A green
-    // suite means they are applied correctly, not that they are right.
+    // A green suite means the caps are APPLIED correctly, not that policy has been read. The flag
+    // is the only thing that speaks to the second, and it must reach the caller unchanged.
     const summary = summariseFunding(period, []);
     expect(summary.verified).toBe(FUNDING_RULES_VERIFIED);
-    expect(summary.capsBasis).toContain('NOT verified');
+  });
+
+  it('states where the caps came from, in the string the export prints', () => {
+    // This used to assert the basis contained "NOT verified". The caps were confirmed against the
+    // Ministry's own business rules on 2026-08-18, so that assertion was pinning a disclaimer that
+    // had become untrue. What has to hold now is that the basis names a source and the age band —
+    // an empty or vague basis on an official-looking figure is the failure this string prevents.
+    expect(DEFAULT_CAPS.basis).toMatch(/Ministry/);
+    expect(DEFAULT_CAPS.basis).toMatch(/3 or older and under 6/);
   });
 });
 
@@ -230,5 +239,89 @@ describe('summariseVariance', () => {
     expect(v.rows).toEqual([]);
     expect(v.shortfallCents).toBe(0);
     expect(v.unstated).toBe(0);
+  });
+});
+
+describe('the 20 Hours age band', () => {
+  // "3 years or older but less than 6 years old" — a Ministry business rule it checks
+  // automatically. The tick box on the enrolment is the centre's claim; this is the check on it.
+  const attested = (dateOfBirth: string | null, days: number[]) =>
+    childFunding({
+      childId: 'c',
+      events: days.flatMap((d) => fullDay(d)),
+      timeZone: NZ,
+      period,
+      twentyHoursEce: true,
+      dateOfBirth,
+    });
+
+  it('flags a child who is too young, and still counts the hours', () => {
+    const r = attested('2024-08-05', [3]);
+    expect(r.ineligibleDates).toEqual(['2026-08-03']);
+    // The hours are not in doubt — only the entitlement is. Dropping them would be the estimating
+    // this whole file refuses to do.
+    expect(r.attendedHours).toBe(8);
+    expect(r.fundedHours).toBe(6);
+  });
+
+  it('flags only the days BEFORE a third birthday that falls mid-period', () => {
+    // Turns 3 on Wednesday 5 August. Monday and Tuesday are outside the entitlement; Wednesday
+    // onward is inside it. Using today's age instead would wrongly clear all five.
+    const r = attested('2023-08-05', [3, 4, 5, 6, 7]);
+    expect(r.ineligibleDates).toEqual(['2026-08-03', '2026-08-04']);
+  });
+
+  it('treats the third birthday itself as eligible and the sixth as not', () => {
+    // Both boundaries pinned, because "3 or older" and "less than 6" are inclusive at one end and
+    // exclusive at the other, and a mutation at either end has to fail something.
+    expect(attested('2023-08-05', [5]).ineligibleDates).toEqual([]);
+    expect(attested('2020-08-05', [4]).ineligibleDates).toEqual([]);
+    expect(attested('2020-08-05', [5]).ineligibleDates).toEqual(['2026-08-05']);
+  });
+
+  it('flags nothing when the date of birth is unknown, which is not the same as eligible', () => {
+    expect(attested(null, [3]).ineligibleDates).toEqual([]);
+  });
+
+  it('flags nothing for a child who is not attested, whatever their age', () => {
+    const r = childFunding({
+      childId: 'c',
+      events: fullDay(3),
+      timeZone: NZ,
+      period,
+      twentyHoursEce: false,
+      dateOfBirth: '2024-08-05',
+    });
+    expect(r.ineligibleDates).toEqual([]);
+    // And no cap applied either — there is no entitlement to cap.
+    expect(r.fundedHours).toBe(8);
+  });
+
+  it('counts the children in the summary and says so in the disclaimer', () => {
+    const summary = summariseFunding(period, [attested('2024-08-05', [3]), attested('2023-08-05', [5])]);
+    expect(summary.ineligibleChildCount).toBe(1);
+    // Separate from `complete`: the record is calculable, the entitlement is what is in doubt.
+    expect(summary.complete).toBe(true);
+    expect(exportDisclaimer(summary)).toContain('under 3 or 6 and over');
+  });
+});
+
+describe('the Ministry funding periods', () => {
+  it('gives the three four-monthly periods, with October straddling the new year', () => {
+    const p = ministryFundingPeriods(2026);
+    expect(p.map((x) => [x.from, x.to])).toEqual([
+      ['2026-02-01', '2026-05-31'],
+      ['2026-06-01', '2026-09-30'],
+      ['2026-10-01', '2027-01-31'],
+    ]);
+  });
+
+  it('leaves no gap and no overlap between consecutive years', () => {
+    // The October period ends 31 January and the next February period starts the next day. A gap
+    // here would silently drop a month of hours out of every claim made from these dates.
+    const y2026 = ministryFundingPeriods(2026);
+    const y2027 = ministryFundingPeriods(2027);
+    expect(y2026[2]!.to).toBe('2027-01-31');
+    expect(y2027[0]!.from).toBe('2027-02-01');
   });
 });

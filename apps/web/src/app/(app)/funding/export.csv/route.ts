@@ -59,6 +59,10 @@ export async function GET(request: Request) {
       // The disclaimer, as data. A file whose totals exclude three days must say which
       // three on the row they came from, or somebody keys the total into ELI Web.
       { header: 'Unresolved days', value: (c) => c.unresolvedDates.join(' ') },
+      // Dates, not a count, for the same reason as the column above: the fix is on the
+      // enrolment, and a manager checking a wrong attestation needs to know which days
+      // put the child outside the third-to-sixth-birthday band.
+      { header: '20 Hours days outside age band', value: (c) => c.ineligibleDates.join(' ') },
     ],
   });
 }

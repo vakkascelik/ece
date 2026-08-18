@@ -723,8 +723,13 @@ export async function readFundingPeriod(
       appear on both pages, counting their hours twice in a funding claim, or on neither,
       dropping them from it. `id` is the primary key, so the order is total.
     */
-    fetchAll<{ id: string }>('readFundingPeriod (children)', (from, to) =>
-      db.from('children').select('id').eq('centre_id', input.centreId).order('id').range(from, to),
+    fetchAll<{ id: string; date_of_birth: string | null }>('readFundingPeriod (children)', (from, to) =>
+      db
+        .from('children')
+        .select('id, date_of_birth')
+        .eq('centre_id', input.centreId)
+        .order('id')
+        .range(from, to),
     ),
     fetchAll<AttendanceRow>('readFundingPeriod (events)', (from, to) =>
       db
@@ -771,13 +776,16 @@ export async function readFundingPeriod(
   }
 
   const results = children
-    .map(({ id }) =>
+    .map(({ id, date_of_birth }) =>
       childFunding({
         childId: id,
         events: byChild.get(id) ?? [],
         timeZone: input.timeZone,
         period: input.period,
         twentyHoursEce: attested.get(id) === true,
+        // Only used for the 20 Hours age band. Selected here rather than looked up per child,
+        // because the read is already paged and a second query per child is a thousand round trips.
+        dateOfBirth: date_of_birth,
       }),
     )
     // A child with no events in the period did not attend, and a row of zeros in an export is noise

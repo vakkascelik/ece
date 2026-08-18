@@ -5,6 +5,33 @@ says so.*
 
 ---
 
+2026-08-18 (second) — **The specifications were opened, and the first thing they found was a rule
+this product did not have.** Extended: [[funding-and-billing]] with what reading them changed.
+Narrowed: [[unverified-claims]] item 6, and its Key Point.
+
+The 20 Hours ECE caps of 6 hours a day and 20 a week are **right**. What was missing was the age
+band they attach to — 3 or older, under 6. `twenty_hours_ece` is a boolean a centre ticks, and
+nothing compared it to the child's age, so a mis-ticked two-year-old produced capped 20 Hours
+figures for a child with no entitlement, against a rule the Ministry checks automatically.
+
+The fix names it rather than silently correcting it: `ineligibleDates` per child, age computed **as
+at each day** rather than as at today, hours still counted. Three mutations were run against the
+new tests and all three failed on the right assertions — the two birthday boundaries, and swapping
+the as-at date for the period start. The last is the one that matters, because it is the failure
+`replayDay` already exists to prevent: today's age would clear a whole period retrospectively in
+the centre's favour.
+
+Also from the specs: the three funding periods (February–May, June–September, October–January),
+now `ministryFundingPeriods()`. Offered, not imposed — the period stays caller-supplied, because a
+centre may want an arbitrary window.
+
+**`FUNDING_RULES_VERIFIED` stays `false`,** and item 6 now says exactly why: the Frequent Absence
+and 3-Week Continuous Absence rules decide when a recorded absence is claimable, and this product
+does not model them at all. Flipping the flag with a whole class of claimable day missing would be
+worse than leaving it. The item went from "nobody has read this" to a named, bounded gap.
+
+---
+
 2026-08-18 — **The Ministry replied. One claim this repo made in six places was wrong, and the
 question that mattered most was not answered.** Rewritten: [[funding-and-billing]]. Extended:
 [[unverified-claims]] with items 37 and 38, and four new Key Points.

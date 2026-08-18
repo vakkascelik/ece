@@ -46,9 +46,11 @@ Nothing here is a bug. They are known gaps with known closures.
   on is tested; `expo-sqlite` is not.
 - **Push notification delivery has never run once.** The data model and the quiet-hours logic
   are built and tested; delivery needs an EAS build on a real device.
-- **The funding caps and period boundaries are unverified.** `FUNDING_RULES_VERIFIED` is `false`,
-  and the funding export says so on every render. There are deliberately **no funding rates**
-  anywhere in the product.
+- **The funding caps and periods are confirmed; the absence rules are not.** Item 6, narrowed
+  2026-08-18: the 6/day, 20/week caps and their 3-to-under-6 age band are right, and the three
+  four-monthly periods are known. `FUNDING_RULES_VERIFIED` stays `false` because the Frequent
+  Absence and 3-Week Continuous Absence rules are not modelled at all. There are deliberately **no
+  funding rates** anywhere in the product.
 - **Two legal citations in the user-facing documents are unchecked.** The agent rule that
   makes the *centre* the responsible agency, and the section numbers and fine in the breach
   runbook. The substance of both is sound; the citations have not been read.
@@ -178,19 +180,32 @@ real device: that suppressing foreground banners is the correct behaviour, and t
 importance Android channel with no sound override is right for notices about a child's day. Both are
 judgement calls about not training people to silence the app.
 
-### 6. Funding caps and period boundaries
+### 6. Funding caps and period boundaries — **narrowed 2026-08-18**
+
+The caps were right. What the check found was a rule nobody had noticed was missing.
 
 | | |
 |---|---|
-| **What is asserted** | 20 Hours ECE capped at 6 hours per day and 20 per week |
-| **Where** | `packages/core/src/funding.ts` — `DEFAULT_CAPS` |
-| **Basis** | Commonly stated figures. **Not read against the ECE Funding Handbook.** |
-| **How the product behaves** | `FUNDING_RULES_VERIFIED` is `false`; `summariseFunding` carries the flag; `exportDisclaimer` states it; the funding page repeats it in its own section |
-| **To close it** | Read the current Funding Handbook, correct the caps if wrong, then flip the flag in a commit recording who read what |
+| **Confirmed 2026-08-18** | 20 Hours ECE at 6 hours per day and 20 per week, **for a child aged 3 or older and under 6** — a Ministry business rule, from the specifications the Ministry supplied. `DEFAULT_CAPS` was correct and its basis string now names the source |
+| **Also confirmed** | The three four-monthly funding periods: February–May, June–September, October–January. Now in `ministryFundingPeriods()`, offered rather than imposed — the period stays caller-supplied |
+| **Still unverified** | The **Frequent Absence** and **3-Week Continuous Absence** rules, which decide whether a funded absence may be claimed and which this product does not model at all. An absence is claimable in some circumstances, and nothing here knows which |
+| **How the product behaves** | `FUNDING_RULES_VERIFIED` is **still `false`**, and deliberately so: a flag reading "verified" over a calculation missing a whole class of claimable day would be worse than one that admits nothing has been read end to end |
+| **To close it** | Read the Funding Handbook's absence provisions, decide whether to model them or to say plainly that absences are out of scope, then flip the flag in a commit recording who read what |
 
-**Funding periods are a parameter, not a constant.** The Ministry publishes period boundaries this
-product does not know, so the export makes the operator choose the dates and says why — putting a
-guessed date range on an official-looking figure would be worse than asking.
+**The age band was not checked anywhere, and that was a real gap.** `twenty_hours_ece` is a boolean
+a centre ticks on the enrolment, and until 2026-08-18 nothing compared it against the child's age.
+A mis-ticked two-year-old produced capped 20 Hours figures for a child with no entitlement, against
+a rule the Ministry checks automatically and raises with vendors.
+
+The fix **names it and leaves the arithmetic alone**: `ineligibleDates` per child, computed with the
+age as at each day rather than as at today — a child who turned three in March was not entitled in
+February, the same reasoning `replayDay` applies to the ratio bands. The hours are still counted,
+because the hours are not in doubt; only the entitlement is, and the attestation belongs to the
+centre. Excluding them would be the estimating this product refuses to do.
+
+**Funding periods are offered, not imposed.** The boundaries are known now, so a manager no longer
+has to invent a date range on an official-looking figure — but an arbitrary window stays available,
+because a period that cannot be chosen is a screen somebody works around.
 
 **There are no funding rates anywhere.** Not one dollar-per-child-hour. A rate is a number the
 Ministry publishes and changes, and inventing one would let a centre budget against a figure this

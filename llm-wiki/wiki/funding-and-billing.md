@@ -193,6 +193,42 @@ Three things to take from the covering emails without opening a single attachmen
 What is **not** in doubt, and was not in doubt before any of these emails: this product cannot
 submit today, and everything it produces is a preparation export.
 
+### Reading them found a rule that was missing (2026-08-18)
+
+The seven documents were opened the same day. Two things came out of them that changed code.
+
+**The caps were right and the age band was absent.** The Ministry states 20 Hours ECE as 6 hours a
+day and 20 a week **for a child aged 3 or older and under 6**. `DEFAULT_CAPS` had the hours and
+nothing in this product had the ages: `twenty_hours_ece` is a boolean a centre ticks on the
+enrolment, and it was trusted without question. Tick it on a two-year-old and the funding export
+produced capped 20 Hours figures for a child with no entitlement — against a rule the Ministry
+checks automatically and raises with vendors.
+
+`childFunding` now returns `ineligibleDates`, and three decisions in it are worth not
+re-litigating:
+
+- **The age is computed as at each day, never as at today.** A child who turned three in March was
+  not entitled in February. Using today's age would clear the whole period retrospectively, in the
+  centre's favour — the same failure `replayDay` avoids with the ratio bands, and the mutation that
+  swaps the date fails three tests.
+- **The hours are still counted.** The hours are not in doubt; only the entitlement is. Excluding
+  them would be the estimating this whole file refuses to do, and the attestation belongs to the
+  centre, which is the party that can fix it. So the product names the problem and leaves the
+  arithmetic alone — the same treatment a capped day gets.
+- **An unknown date of birth flags nothing, and that is not the same as eligible.** It means no
+  check was possible. An attested child with no date of birth is an unfinished enrolment, which
+  shows up on the child's record rather than as a funding figure.
+
+**The funding periods are known and are offered rather than imposed.** February–May,
+June–September, October–January — four-monthly, three a year, one straddling the new year.
+`ministryFundingPeriods(year)` returns them; the period stays a caller-supplied parameter, because
+a centre may want an arbitrary window and a period that cannot be chosen is a screen somebody works
+around. What has gone is the need to invent a date range on a document that looks official.
+
+Not modelled, and now visible as a gap rather than an unknown: the **Frequent Absence** and
+**3-Week Continuous Absence** rules, which decide when a recorded absence is claimable. That is why
+`FUNDING_RULES_VERIFIED` is still `false` — see [[unverified-claims]] item 6.
+
 So the output is a **preparation export**: figures a manager keys into ELI Web. Every label says
 "preparation" and none say "return", "submit" or "file". That is not pedantry — a screen that looks
 like it filed something is a screen after which nobody files anything. `exportDisclaimer()` generates
