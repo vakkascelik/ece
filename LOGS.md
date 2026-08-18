@@ -7,6 +7,62 @@ itself, and from the wiki pages, which hold the durable *why*. This file is the 
 
 ---
 
+## 2026-08-18 — The Ministry answered, and the answer cost this repo a claim it had made six times
+
+Three emails from the Ministry's Early Learning Information team, replying to the enquiry the owner
+sent on 2026-08-14. No code was written; five documents were corrected.
+
+**The finding: "50 services" is a capability requirement.** *"The product must be capable of
+supporting a minimum of 50 services across the relevant licence types."* This repo had read the
+Ministry's page in the pessimistic direction and asserted, in `README.md`, `packages/core/src/funding.ts`,
+`packages/api/src/billing.ts`, the funding page and the roadmap twice, that approval requires fifty
+services *already using* the system before a vendor may apply. That is wrong, and it was not a
+harmless wrong: it is the sentence that put an ELI integration under the roadmap's "what this plan
+deliberately does not do", on the reasoning that a two-centre pilot could never reach the threshold.
+There is no threshold. All six are corrected in place, each keeping the wrong sentence visible —
+the same treatment the Privacy Act erasure claim got.
+
+The Phase 5 entry further down this file still carries the wrong claim, and stays that way on
+purpose: this file is a dated narrative, and a correction is a later entry saying so — which is
+this one. The same applies to the 2026-08-14 entry, which recorded the ambiguity and guessed the
+right way without being able to prove it.
+
+The practical position is nonetheless unchanged: applications are **still closed**, *"currently
+still in the review phase"*, with no end date given. What changed is the shape of the barrier, and
+that is worth knowing before anyone plans around it.
+
+**The finding that matters more is a non-answer.** The enquiry's last question was the product's own
+premise: may a licensed service keep its Chapter 6 enrolment, attendance and absence records in
+software that is not a Ministry-approved SMS, provided it meets Chapter 6 including the §6-3
+criteria, and submits through ELI Web? The reply — *"To integrate with ELI, a vendor must be an
+approved Student Management System (SMS) provider"* — answers a question about vendor integration.
+This product does not integrate with ELI and does not propose to; it prints figures a manager keys
+in by hand, which is what a paper roll does. So the premise is **unconfirmed**, and
+[unverified-claims item 37](llm-wiki/wiki/unverified-claims.md) now says so, explicitly refusing
+both the optimistic and the pessimistic reading. It has to be re-asked in wording that cannot be
+answered as a vendor question.
+
+Also unanswered: the security, privacy and assurance requirements for approval. The question named
+a security assessment, penetration testing and a privacy impact assessment; the reply covered fees
+(there are none) and stopped.
+
+**Seven specifications arrived, password-protected, and nobody has read them** — NSI GINS 6.19, ECE
+NSI GINS Appendix 1.41, InfoHub Specification 1.3, ELI Data Collection Specification 11, ELI Event
+10.0 (the mandatory XSD schema), RS7 Return Specification 6.0, Teacher Data Collection Specification
+1.1. Item 38 exists to stop the next reader citing a document nobody has opened. **The password is
+not written down in this repository**, and that is deliberate. Two facts did come out of the
+covering email without opening anything: RS7 returns are described as **four-monthly**, and the
+"vendor integration and operational support approach document" turns out to be the vendor's *own*
+proposed integration design submitted for Ministry approval — not a specification handed down, so
+producing it is work rather than reading.
+
+Gates: no schema change, no policy change, no runtime behaviour change — the edits are prose and
+comments. `typecheck`, `lint`, `test`, `tokens:check`, `check:docs` and `build` were run; `test:rls`
+was **not**, because nothing it asserts was touched, and that is stated here rather than implied by
+its absence.
+
+---
+
 ## 2026-08-14 — §6-3 attendance verification: built, tested, and stopped at the door of the database
 
 The session that turned competitor research into a migration. Little Pearls' manager listed the

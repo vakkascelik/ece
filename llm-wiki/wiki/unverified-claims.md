@@ -24,9 +24,19 @@ Nothing here is a bug. They are known gaps with known closures.
   **roster forecast** all render a notice while it is. This is the highest-priority item in
   the repo, and the forecast raised its cost: a live banner is read by somebody already in
   the room, while a forecast is acted on a week early by *not* calling a reliever.
+- **Whether a service may keep its Chapter 6 records outside an approved SMS is still
+  unconfirmed** — and that is the premise the whole product rests on. Asked of the Ministry on
+  2026-08-14; the 2026-08-18 reply answered a question about *vendor integration* instead.
+  Neither permitted nor forbidden. Item 37, and it should have been on this page since Phase 5.
 - **No licensing criteria are loaded, and none are seeded.** The criteria-gap feature
   cannot function until somebody imports a checked set. Deliberate — see
   [[compliance-and-evidence]].
+- **"50 services" was a customer count in this repo's six statements of it and is a
+  *capability* requirement in the Ministry's** — confirmed 2026-08-18, all six corrected. ELI
+  integration is gated on a review with no published end date, not on having fifty customers.
+  See [[funding-and-billing]].
+- **Seven ELI/NSI specification documents are on disk and none has been read.** Their names and
+  versions are facts; nothing in this repo may cite their contents. Item 38.
 - **The seven-year retention window is now sourced; what it is measured *from* is not.**
   §6-3 gives the 7 years. Whether the clock starts when a child leaves — which is what the
   purge function does — is still an assumption. Item 3, narrowed 2026-08-14.
@@ -851,6 +861,53 @@ and the status is deliberately called `overdue` rather than the market's `failed
 not read as a regulatory outcome. Recorded here rather than left in a code comment because the
 next person to add a reminder email will want to know the number is not load-bearing.
 
+### 37. Whether a service may keep its Chapter 6 records outside an approved SMS
+
+**This is the premise the product rests on, and asking the Ministry directly did not settle
+it.** Added 2026-08-18, and it should have been on this page from Phase 5.
+
+| | |
+|---|---|
+| **What is assumed** | A licensed service may maintain its Chapter 6 enrolment, attendance and absence records in software that is not a Ministry-approved SMS, provided it meets Chapter 6's requirements — including the §6-3 criteria for electronic verification — and a person keys the resulting figures into ELI Web |
+| **Where it matters** | Everywhere. `/attendance`, the kiosk, `/funding`, the §6-3 verification built across `0061`–`0065`, and the pitch to any centre. If this is wrong, the product is a duplicate record rather than the record |
+| **Asked** | 2026-08-14, `ELI.queries@education.govt.nz`, quoting Chapter 6's own statement that providing data through ELI does not replace the enrolment, attendance and absence records required for funding |
+| **Answered 2026-08-18** | *"To integrate with ELI, a vendor must be an approved Student Management System (SMS) provider."* |
+| **Why that is not an answer** | It is a statement about **vendor integration**. The question was about **where a service's records may live**. This product does not integrate with ELI and does not propose to; it produces figures a person keys in by hand, which is the same act as keying them off a paper roll. The reply neither permits nor forbids that |
+| **Current status** | **Unconfirmed. Not contradicted, not confirmed** — and it must be recorded as neither. The temptation to read the reply as a yes (it does not mention services at all) or as a no (it mentions approval) should be resisted in both directions |
+| **To close it** | Re-ask, narrowed so it cannot be answered as a vendor question: name the service, not the vendor, and ask whether the service meets its Chapter 6 obligations by keeping those records in general-purpose software and submitting through ELI Web. If the Ministry will not answer a compliance question in the abstract, the fallback is the same question routed through a licensed service's own advisor, or read out of the Funding Handbook and the regulations directly |
+
+**What the same reply did settle** — recorded in [[funding-and-billing]] rather than repeated
+here: "50 services" is a **capability** requirement, not a customer count, which corrects a
+claim this repo made in six places; integration applications are still closed with no published
+end date; and the Ministry charges no fees for integration or certification.
+
+**And what it did not answer at all:** the security, privacy and assurance requirements a
+vendor must satisfy — the enquiry named a security assessment, penetration testing and a
+privacy impact assessment, and the reply addressed fees only. So the cost and shape of approval
+on the assurance side is still unknown. That is a gap in planning, not in the product.
+
+### 38. Seven ELI/NSI specification documents are on disk and none has been read
+
+Received 2026-08-18 as password-protected attachments: NSI GINS 6.19, ECE NSI GINS Appendix
+1.41, InfoHub Specification 1.3, ELI Data Collection Specification 11, ELI Event 10.0 (the
+mandatory XSD validation schema), RS7 Return Specification 6.0, and Teacher Data Collection
+Specification 1.1.
+
+Their **names and versions** are facts. Their **contents are not**, and nothing in this repo may
+cite them until somebody opens them. That includes the temptation to assume what an RS7 spec
+must contain: the covering email calls the RS7 return **four-monthly**, which is already one
+more fact about funding periods than [[funding-and-billing]] had, and it is a fact from an
+email rather than from the specification.
+
+Two consequences worth naming now:
+
+- **Item 6 has a source it did not have.** The funding caps and the period boundaries are in
+  the Handbook and the RS7 spec respectively. `FUNDING_RULES_VERIFIED` stays `false` until they
+  are read, and reading them is now a task rather than a search.
+- **The password is not in this repository, deliberately.** It was sent in plain text to one
+  mailbox. A credential committed to git is in every clone forever, which is the same reasoning
+  that keeps the service-role key out of the mobile workspace.
+
 ## See Also
 
 - [[kiosk-and-pins]] — the door tablet, and what it can and cannot know
@@ -863,4 +920,4 @@ next person to add a reminder email will want to know the number is not load-bea
 - [[funding-and-billing]] — why nothing is estimated, and what cannot be submitted
 - [[reporting]] — occupancy, attendance trends, and enquiry conversion
 
-*Last updated: 2026-08-09*
+*Last updated: 2026-08-18*

@@ -663,9 +663,12 @@ interface PaymentRowShape {
  * Funded hours per child for a period, computed from attendance events.
  *
  * **This cannot submit anything, and nothing here pretends to.** Submitting a funding return
- * requires being a Ministry-approved student management system integrated with ELI; the Ministry is
- * not accepting integration applications, and approval requires supporting 50 services before
- * applying. So the output is figures a manager keys into ELI Web.
+ * requires being a Ministry-approved student management system integrated with ELI, and the Ministry
+ * is not accepting integration applications — still under review as at 2026-08-18, on the Ministry's
+ * own word, with no published end date. So the output is figures a manager keys into ELI Web.
+ *
+ * (This comment used to say approval also required supporting 50 services before applying. It does
+ * not: that requirement is a capability, not a customer count. Corrected 2026-08-18.)
  *
  * Reads events for the whole period per child rather than a pre-aggregated total, because the
  * calculation has to resolve corrections and refuse to guess at incomplete days — neither of which

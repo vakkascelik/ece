@@ -20,9 +20,15 @@
  * WHAT THIS CANNOT DO, BY DESIGN
  *
  * It cannot submit anything. Submitting a funding return requires being a Ministry-approved student
- * management system integrated with ELI, the Ministry is not accepting integration applications, and
- * approval requires supporting 50 services *before* applying. So the output is a **preparation
- * export**: figures a manager keys into ELI Web themselves.
+ * management system integrated with ELI, and the Ministry is not accepting integration applications
+ * — confirmed by the Ministry on 2026-08-18 as still under review, with no published end date. So
+ * the output is a **preparation export**: figures a manager keys into ELI Web themselves.
+ *
+ * CORRECTED 2026-08-18: this comment used to add "and approval requires supporting 50 services
+ * *before* applying". That is wrong. The requirement is that the product be *capable* of supporting
+ * 50 services across the licence types, not that fifty already use it. Left visible rather than
+ * deleted because the customer-count reading is what put an ELI integration in the roadmap's
+ * "deliberately not doing this" list. See llm-wiki/wiki/funding-and-billing.md.
  *
  * Every label in the product says "preparation", never "return" or "submission", so nobody can
  * believe a return was filed because a screen looked finished.

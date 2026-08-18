@@ -779,8 +779,23 @@ centre budget against a figure this product made up.
 ### RS7 preparation, never submission
 
 Submitting a funding return requires being a Ministry-approved student management system integrated
-with ELI; the Ministry is not accepting integration applications, and approval requires supporting 50
-services *before* applying. That is the one thing the regulatory position genuinely forecloses.
+with ELI, and the Ministry is not accepting integration applications — still under review as at
+2026-08-18, on the Ministry's own word, with no published end date.
+
+**A correction, 2026-08-18.** This paragraph used to end: *"and approval requires supporting 50
+services before applying. That is the one thing the regulatory position genuinely forecloses."* The
+Ministry has now answered the question directly: **the product must be *capable* of supporting a
+minimum of 50 services across the licence types.** It is a capability requirement, not a customer
+count, so nothing here is foreclosed by having one pilot centre — the barrier is a review with no
+end date, which is a different thing from an unreachable threshold. The wrong reading is recorded
+rather than erased because it is why an ELI integration sits under "deliberately not doing this" in
+[docs/roadmap-phases-8-13.md](docs/roadmap-phases-8-13.md).
+
+What is still **unconfirmed** is the premise underneath all of this: whether a licensed service may
+keep its Chapter 6 enrolment, attendance and absence records in software that is not an approved
+SMS and key its figures into ELI Web itself. That was asked and was not answered — the reply
+addressed vendor integration instead. See
+[unverified-claims item 37](llm-wiki/wiki/unverified-claims.md).
 
 So every label says "preparation" and none say "return", "submit" or "file". A screen that looks like
 it filed something is a screen after which nobody files anything. Funding *periods* are chosen by the

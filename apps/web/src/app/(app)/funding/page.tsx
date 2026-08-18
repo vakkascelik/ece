@@ -19,9 +19,12 @@ import { appPath } from '@/lib/origin';
  * RS7 preparation.
  *
  * **This is not a return and it cannot submit one.** Submitting a funding return requires being a
- * Ministry-approved student management system integrated with ELI; the Ministry is not accepting
- * integration applications, and approval requires supporting 50 services *before* applying. So this
- * produces figures a manager keys into ELI Web themselves.
+ * Ministry-approved student management system integrated with ELI, and the Ministry is not accepting
+ * integration applications — still under review as at 2026-08-18, with no published end date. So
+ * this produces figures a manager keys into ELI Web themselves.
+ *
+ * (Corrected 2026-08-18: the "50 services" requirement is a capability, not a customer count. This
+ * comment had it the other way round.)
  *
  * Every label says "preparation". None say "return", "submit" or "file". That is not pedantry: a
  * screen that looks like it filed something is a screen after which nobody files anything.

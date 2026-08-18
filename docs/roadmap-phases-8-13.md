@@ -513,8 +513,11 @@ Estimates are engineering-days for one developer who knows this codebase, and th
 | 13 | Money and platform | 10–15 | — |
 | — | Te Whāriki tagging + importer | 5–8 | — |
 
-**Build order if the goal is 50 services** (the ELI application threshold, and therefore the only
-number that changes the product's strategic position): **10 → 11 → 8 → 9 → 13 → 12**. Staff
+**Build order if the goal is 50 services** (**corrected 2026-08-18** — this used to call 50 "the
+ELI application threshold, and therefore the only number that changes the product's strategic
+position". It is not a threshold: the Ministry requires the product be *capable* of supporting 50
+services, not that fifty use it. The build order below still stands on its commercial merits, which
+is why it is unchanged): **10 → 11 → 8 → 9 → 13 → 12**. Staff
 sign-in and the forward forecast are what a multi-site not-for-profit or a kindergarten
 association buys, and one association is fifty services. The registers are table stakes that stop
 you losing a deal; the forecast is the thing that wins one.
@@ -526,8 +529,11 @@ registers are what they use every day.
 
 ## What this plan deliberately does not do
 
-- **An ELI integration.** Foreclosed: approval requires supporting 50 services before you may
-  apply, and the Ministry is not accepting applications. See
+- **An ELI integration.** Not possible today, because the Ministry is not accepting applications
+  — still under review as at 2026-08-18, with no published end date. **Corrected 2026-08-18:**
+  this line used to say "Foreclosed: approval requires supporting 50 services before you may
+  apply." That was wrong — the 50 is a capability requirement, not a customer count, confirmed
+  by the Ministry. "Foreclosed" was too strong and it was the word doing the work here. See
   [funding-and-billing](../llm-wiki/wiki/funding-and-billing.md).
 - **Stripe.** The reasoning in the wiki still holds while the price is NZ$0.
 - **A portfolio product.** See Tier 4.

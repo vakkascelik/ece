@@ -5,6 +5,48 @@ says so.*
 
 ---
 
+2026-08-18 — **The Ministry replied. One claim this repo made in six places was wrong, and the
+question that mattered most was not answered.** Rewritten: [[funding-and-billing]]. Extended:
+[[unverified-claims]] with items 37 and 38, and four new Key Points.
+
+Three emails from Halaholo Mataele, Senior Advisor, Early Learning Information, Te Mahau, answering
+the enquiry the owner sent on 2026-08-14.
+
+**"50 services" is a capability, not a customer count.** *"The product must be capable of supporting
+a minimum of 50 services across the relevant licence types."* The 2026-08-14 entry below recorded
+that this repo had read an ambiguous sentence in the pessimistic direction and that the reading was
+load-bearing; it was, and it was wrong. Corrected in six places in the same commit — `README.md`,
+`packages/core/src/funding.ts`, `packages/api/src/billing.ts`, the funding page, and
+`docs/roadmap-phases-8-13.md` twice, where it had put an ELI integration under "deliberately not
+doing this". Every correction is visible rather than silent, per the precedent set by the Privacy
+Act erasure claim and the state-chip contrast claim.
+
+**The Chapter 6 question was not answered, and it is the premise the product rests on.** Asked:
+may a licensed service keep its enrolment, attendance and absence records in a system that is not
+an approved SMS, meet §6-3 itself, and submit through ELI Web? Answered: *"To integrate with ELI, a
+vendor must be an approved Student Management System (SMS) provider."* That is a statement about
+vendor integration; the question was about where a service's records may live. **Unconfirmed, not
+contradicted** — and the page says so in both directions, because reading it as a yes and reading
+it as a no are both assertions nobody has earned. New item 37, which should have existed since
+Phase 5.
+
+**Applications are still closed** — *"currently still in the review phase"*, no end date. So the
+practical position is unchanged; only the shape of the barrier is. **No fees** for integration or
+certification. The security/privacy/assurance half of that same question — security assessment,
+penetration testing, privacy impact assessment — went unanswered, and is recorded as unanswered.
+
+**Seven specification documents arrived and none has been read**: NSI GINS 6.19, ECE NSI GINS
+Appendix 1.41, InfoHub Specification 1.3, ELI Data Collection Specification 11, ELI Event 10.0 (a
+mandatory XSD schema), RS7 Return Specification 6.0, Teacher Data Collection Specification 1.1. New
+item 38, which exists to stop the next reader citing a document nobody has opened. Their names and
+versions are facts; their contents are not. **The password sent with them is deliberately not in
+this repository.** Two things did come from the covering emails: RS7 returns are *four-monthly*
+(one more fact about funding periods than the repo had), and the "vendor integration and
+operational support approach document" is not a specification handed down — it is the vendor's own
+proposed design, submitted for approval. That is a deliverable, and writing it is work.
+
+---
+
 2026-08-17 (fourth) — **The manager reviews the live site and catches what the sourcing rules
 could not: two claims sourced from the centre's own documents that should not be published.**
 Corrected: [[public-website]], `/philosophy`, `/centres`. Regenerated: the pearl artwork.

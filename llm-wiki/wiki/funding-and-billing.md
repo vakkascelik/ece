@@ -98,19 +98,100 @@ Both halves came from one reading of one page, and the page says something narro
    customer count. This repo assumed the customer count, which is the reading under which the
    whole thing is foreclosed.
 
-The distinction decides whether ELI integration is a year away or unreachable, so it is being
+The distinction decides whether ELI integration is a year away or unreachable, so it was
 resolved by asking rather than by re-reading: an enquiry to `ELI.queries@education.govt.nz`
 covering both points, plus a request for the ELI and NSI specification documents, which are
-available on request only. **Sent by the owner on 2026-08-14; reply pending.**
+available on request only. Sent by the owner on 2026-08-14.
 
-What is **not** in doubt: this product cannot submit today, and everything it produces is a
-preparation export. That has not changed and nothing below it depends on the corrected
-sentences.
+### ANSWERED 2026-08-18 — and the pessimistic reading was wrong
 
-One consequence worth naming: the capability reading requires supporting **sessional and
-home-based** services, and `ratios.ts` models all-day centre-based only. See
-[[unverified-claims]] item 1 — the tables are parameterised, so that gap is data rather than
-logic, but it is a gap.
+Three emails from Halaholo Mataele, Senior Advisor, Early Learning Information, Te Mahau |
+Education Services. What was asked, and what came back:
+
+| Asked | Answered |
+|---|---|
+| Has the July 2026 review happened; are applications open? | *"We are currently still in the review phase. Once the review process has been completed, we will provide an update on the outcome and any next steps."* **No date given** |
+| Is "50 services" a customer count or a capability? | *"The product must be capable of supporting a minimum of 50 services across the relevant licence types."* **Capability** |
+| Are there fees for integration, certification or ongoing participation? | *"The Ministry does not charge any fees for integration, certification."* |
+| What security, privacy or assurance requirements must a vendor satisfy — a security assessment, penetration testing, a privacy impact assessment? | **Not answered.** The reply addressed fees only, and the question was one sentence in the same paragraph |
+| May a service keep its Chapter 6 records outside an approved SMS and submit through ELI Web? | **Not answered as asked** — see below |
+
+**"50 services" is a capability requirement, and the customer-count reading was the
+load-bearing one.** There is no threshold of fifty paying services before a vendor may apply,
+so ELI integration is not foreclosed by having one pilot centre. This repo asserted the
+opposite in six places from Phase 5 onward — `README.md`, `packages/core/src/funding.ts`,
+`packages/api/src/billing.ts`, the funding page, `docs/roadmap-phases-8-13.md` twice — and all
+six are corrected in the same commit as this page. The wrong sentence stays recorded here
+rather than being quietly deleted, because it decided a roadmap item: the roadmap listed an
+ELI integration under *"what this plan deliberately does not do"* on exactly this reasoning.
+
+**Applications are still closed**, so nothing can be applied for today, and the practical
+position for this product is unchanged. What changed is the shape of the barrier: it is now a
+review with no published end date rather than a customer count that a two-centre pilot could
+never reach. When it lifts, what stands behind it is an approval process, not fifty customers.
+
+One consequence now confirmed rather than inferred: the capability requirement covers
+**centre-based, home-based, sessional and all-day** licensed models, and `ratios.ts` models
+all-day centre-based only. See [[unverified-claims]] item 1 — the tables are parameterised, so
+that gap is data rather than logic, but it is a real gap against a stated requirement.
+
+### The Chapter 6 question was not answered, and it is the one that matters
+
+The question asked whether a licensed service may maintain its Chapter 6 enrolment, attendance
+and absence records in a system that is **not** a Ministry-approved SMS, provided the service
+meets Chapter 6's record-keeping and verification requirements — including the §6-3 criteria
+for electronic verification — and submits to ELI through ELI Web.
+
+The reply was: *"To integrate with ELI, a vendor must be an approved Student Management System
+(SMS) provider."*
+
+That answers a question about **vendor integration**. The question was about **where a
+service's records may live**. They are different: this product does not integrate with ELI and
+does not propose to. It produces figures a manager keys into ELI Web by hand, which is the same
+act as keying them off a paper roll. Nothing in the reply says a service may not do that, and
+nothing in it says a service may.
+
+So the premise the whole product rests on is **unconfirmed** — not contradicted, not confirmed
+— and must be recorded as neither. It has to be re-asked, narrowed to the service's obligation
+rather than the vendor's, because as phrased it invited exactly the answer it got. Tracked as
+[[unverified-claims]] item 37.
+
+### The specification documents arrived, and nobody has read them
+
+Seven, as password-protected attachments, listed here because their **names and versions** are
+now a fact even though their contents are not:
+
+| Document | What the covering email says it is |
+|---|---|
+| NSI GINS 6.19 | Technical spec for interfacing to the National Student Index; REST instructions in §5; must be read with the ECE NSI GINS Appendix |
+| ECE NSI GINS Appendix 1.41 | General and functional requirements for Search, Add and Update of the NSI |
+| InfoHub Specification 1.3 | Technical spec for interfacing to Info Hub |
+| ELI Data Collection Specification 11 | Data collection **and validation** requirements for ELI Events and ECE Returns |
+| ELI Event 10.0 | Appendix A of the above. **Mandatory XSD validation schema** for every message sent to ELI |
+| RS7 Return Specification 6.0 | Technical spec for automating the four-monthly RS7 returns submitted by ECE services |
+| Teacher Data Collection Specification 1.1 | Additional collection, for service types receiving the Waha Rumaki/PITA return only |
+
+**The password is in the email and is deliberately not written down in this repository**, the
+same reasoning that keeps the service-role key out of the mobile workspace: a credential in git
+is a credential in every clone forever, and this one was sent in plain text to one mailbox.
+
+Three things to take from the covering emails without opening a single attachment:
+
+- **The "ELI/NSI SMS vendor integration and operational support approach document" is not a
+  specification handed down — it is the vendor's own proposed integration design, submitted for
+  the Ministry's review and approval.** The earlier note on this page called it a spec available
+  on request. It is a deliverable, and writing it is work.
+- **RS7 returns are four-monthly.** The Ministry's own wording. This product makes funding
+  periods an operator-chosen parameter precisely because the boundaries were unknown; the RS7
+  spec is where they are, and it is now on disk unread. See [[unverified-claims]] item 6.
+- **The canonical sources were named**: the [ECE Funding
+  Handbook](https://www.education.govt.nz/early-childhood/funding-and-data/funding-handbooks/ece-funding-handbook)
+  and the Ministry's laws-and-regulations page for early learning services. Both were already
+  public and neither has been read end to end — this changes nothing about items 1, 3, 6 and 36
+  except that the Ministry has confirmed which pages it regards as authoritative.
+
+What is **not** in doubt, and was not in doubt before any of these emails: this product cannot
+submit today, and everything it produces is a preparation export.
 
 So the output is a **preparation export**: figures a manager keys into ELI Web. Every label says
 "preparation" and none say "return", "submit" or "file". That is not pedantry — a screen that looks
@@ -369,4 +450,4 @@ claim only what it actually proves.
 - [[unverified-claims]] — the caps, and the absence of rates
 - [[compliance-and-evidence]] — the other thing attendance is evidence for
 
-*Last updated: 2026-08-09*
+*Last updated: 2026-08-18*
