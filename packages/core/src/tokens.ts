@@ -189,7 +189,7 @@ export const brandLittlePearls = {
    * this block says none of their colours can. Because these are not their colours. Their teal is a
    * pale ground (`#83afaf`, white on it 2.41:1); this is the same hue taken *down* rather than up,
    * far enough that the relationship holds by eye and the contrast problem inverts — white on
-   * `oceanDeep` is 12.26:1. It is the `tealInk` move again, applied to a background instead of to
+   * `oceanDeep` is 9.11:1. It is the `tealInk` move again, applied to a background instead of to
    * text.
    *
    * MEASURED AGAINST ALL THREE DEPTHS, NOT JUST THE DARKEST, and that is the whole point of the
@@ -199,16 +199,28 @@ export const brandLittlePearls = {
    * about the text at the bottom of it; that is the same mistake the `Ink` variants above were
    * corrected for, one surface later.
    *
-   *     white on deep 12.26   mid 10.37   shallow  8.57
-   *     muted on deep  8.09   mid  6.84   shallow  5.66
-   *     soft  on deep  7.26   mid  6.14   shallow  5.08   <- worst pair, still AA with room
+   * LIGHTENED AND TURNED TOWARD TURQUOISE, 2026-08-25, at the owner's request. Hue moved 183 -> 192,
+   * lightness +7 points, saturation +6. The brightening is as much saturation as lightness on
+   * purpose: past about hue 195 the band stops reading as turquoise and starts reading as petrol,
+   * and lightness alone just makes it chalky.
+   *
+   * The two secondary tones had to move with it, and NOT by walking them up to a shared contrast
+   * threshold — that was tried, it satisfies every pair, and it lands muted and soft within 0.3
+   * lightness points of each other and of white, which silently deletes the three-step hierarchy
+   * this block exists to provide. They are instead derived from fixed contrast targets on
+   * `oceanShallow` (5.40 and 4.80), which pins the gap between them at 5.5 lightness points rather
+   * than letting it close.
+   *
+   *     white on deep  9.11   mid  7.86   shallow  6.43
+   *     muted on deep  7.69   mid  6.63   shallow  5.42
+   *     soft  on deep  6.85   mid  5.91   shallow  4.83   <- worst pair, still AA with room
    */
-  oceanDeep: '#0d3b3e',
-  oceanMid: '#12474a',
-  oceanShallow: '#16545a',
+  oceanDeep: '#104f5f',
+  oceanMid: '#15596b',
+  oceanShallow: '#19677b',
   onOcean: '#ffffff',
-  onOceanMuted: '#bfd7d1',
-  onOceanSoft: '#a9cfc7',
+  onOceanMuted: '#e6edef',
+  onOceanSoft: '#d3e2e6',
 } as const;
 
 /**
@@ -271,8 +283,11 @@ export const LITTLE_PEARLS_CONTRAST_PAIRS: readonly {
    * ratio is at its worst. The handoff quotes only the `oceanDeep` figures, so taking them on trust
    * would have left the three pairs that actually matter unchecked.
    *
-   * `soft` on `oceanShallow` at 5.08:1 is the floor. It holds AA, so the eyebrow may stay the
-   * quietest thing in the band — but it is the pair that breaks first if anyone lightens the water.
+   * `soft` on `oceanShallow` at 4.83:1 is the floor. It holds AA, so the eyebrow may stay the
+   * quietest thing in the band — but it is the pair that breaks first if anyone lightens the water,
+   * and the 2026-08-25 lightening proved it: it is the pair that decided how far the water could
+   * go. Anyone lightening it again should re-derive `onOceanMuted` and `onOceanSoft` from their
+   * contrast targets on `oceanShallow` in the same pass, not afterwards.
    */
   { fg: brandLittlePearls.onOcean, bg: brandLittlePearls.oceanDeep, min: 4.5, label: 'white on ocean deep' },
   { fg: brandLittlePearls.onOcean, bg: brandLittlePearls.oceanMid, min: 4.5, label: 'white on ocean mid' },

@@ -124,7 +124,7 @@ are the same hue family as their own teal, taken down rather than up.
 
 **These are the one part of Little Pearls' palette that can carry white text**, which contradicts
 the rule stated everywhere else on this page — because they are not their colours. The `tealInk`
-move, applied to a background instead of to text. White on `--ocean-deep` is 12.26:1.
+move, applied to a background instead of to text. White on `--ocean-deep` is 9.11:1.
 
 #### Nine contrast pairs for what looks like three
 
@@ -135,11 +135,23 @@ bottom of it. All nine combinations are measured and asserted in `LITTLE_PEARLS_
 
 | | deep | mid | shallow |
 |---|---|---|---|
-| white | 12.26 | 10.37 | 8.57 |
-| `--on-ocean-muted` | 8.09 | 6.84 | 5.66 |
-| `--on-ocean-soft` | 7.26 | 6.14 | **5.08** |
+| white | 9.11 | 7.86 | 6.43 |
+| `--on-ocean-muted` | 7.69 | 6.63 | 5.42 |
+| `--on-ocean-soft` | 6.85 | 5.91 | **4.83** |
 
 The floor holds AA with room. It is also the pair that breaks first if anybody lightens the water.
+
+**And it did break first, on 2026-08-25.** The owner asked for the band lighter and more turquoise;
+hue moved 183 &rarr; 192, lightness +7, saturation +6, giving `--ocean-deep` `#104f5f`,
+`--ocean-mid` `#15596b` and `--ocean-shallow` `#19677b`. The figures above are the re-measured ones.
+
+The trap was not the floor, it was the *hierarchy*. Walking `--on-ocean-muted` and
+`--on-ocean-soft` up until each cleared 4.5 on the lightened shallow end passes all ten assertions
+and lands both within 0.3 lightness points of each other and of white &mdash; the three-step
+white / muted / soft reading this band is built on, silently gone, with a green suite. They are now
+derived from **fixed contrast targets** on `--ocean-shallow` (5.40 and 4.80) rather than from a
+shared threshold, which pins the gap between them at 5.5 lightness points instead of letting it
+close. Anyone lightening the water again has to re-derive both in the same pass, not afterwards.
 
 This is the *third* time on this site that a colour checked against one background has turned out to
 say nothing about the others — the `Ink` variants were corrected for it, the footer swap below hit

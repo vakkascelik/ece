@@ -521,8 +521,8 @@ a:hover { text-decoration-thickness: 2px; }
  * `LITTLE_PEARLS_CONTRAST_PAIRS` rather than trusted from the handoff, which quotes its figures
  * against `--ocean-deep` only and never against the lighter end the gradient actually reaches:
  *
- *     white on ocean mid    10.37:1  PASS   <- .foot-head, and every link
- *     muted on ocean mid     6.84:1  PASS   <- body text
+ *     white on ocean mid     7.86:1  PASS   <- .foot-head, and every link
+ *     muted on ocean mid     6.63:1  PASS   <- body text
  *     #1b1a18 on ocean mid   1.18:1  FAILS  <- what this footer's text was, one commit ago
  *
  * That last line is the point of writing this down. The background changed and the text colour did
@@ -584,7 +584,7 @@ a:hover { text-decoration-thickness: 2px; }
   font-size: var(--text-sm);
   /* White against the body text's `--on-ocean-muted`, so the label separates from its values the
      way it did on coral — by weight, case, letter-spacing *and* a lift in tone, never by hue
-     alone. 10.37:1 on the band's lightest point. */
+     alone. 7.86:1 on the band's lightest point. */
   color: var(--on-ocean);
 }
 .foot p { margin: 0 0 var(--space-1); }
@@ -1186,7 +1186,7 @@ figure.photo-figure figcaption {
 .foot h3 { color: var(--on-ocean); }
 
 /*
- * The lower-contrast pair, and the one to watch. `--on-ocean-muted` on `--ocean-shallow` is 5.66:1
+ * The lower-contrast pair, and the one to watch. `--on-ocean-muted` on `--ocean-shallow` is 5.42:1
  * — comfortably AA, and the *worst* case in the band because the gradient is lightest exactly where
  * this paragraph sits. Do not lighten the water without re-running `npm run tokens`.
  */
@@ -1613,8 +1613,9 @@ figure.photo-figure figcaption {
   max-width: none;
 }
 .eyebrow--ink { color: var(--ink); }
-/* `--on-ocean-soft` on the shallow end of the band is 5.08:1 — the lowest pair on this site, and
-   the one that breaks first if the water is ever lightened. */
+/* `--on-ocean-soft` on the shallow end of the band is 4.83:1 — the lowest pair on this site, and
+   the one that breaks first if the water is ever lightened. It decided how far the 2026-08-25
+   lightening could go. */
 .eyebrow--ocean { color: var(--on-ocean-soft); }
 
 .eyebrow__dot {
@@ -1696,7 +1697,7 @@ figure.photo-figure figcaption {
 /* --- Buttons on the ocean --------------------------------------------------------- */
 
 /*
- * The primary button INVERTS on a band: white ground, `--ocean-deep` text at 12.26:1. `--teal-ink`
+ * The primary button INVERTS on a band: white ground, `--ocean-deep` text at 9.11:1. `--teal-ink`
  * on teal water would be a button nobody can find, and the ocean is a surface that never becomes an
  * accent — so the accent's job passes to the paper colour for as long as the band lasts.
  */
