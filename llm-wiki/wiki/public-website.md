@@ -1169,3 +1169,32 @@ This also closes CONTENT-GAPS gap 7, which had recorded a disagreement between t
 third-party directory about Mt Roskill's opening time. The rule was "their own site wins until the
 centre says otherwise". The centre has now said otherwise, so the directory is superseded rather
 than outvoted.
+
+## The redirects became permanent, and why sooner rather than later
+
+Promoted to **308** on 2026-08-26 — the six legacy URLs and the apex-to-www canonical redirect in
+`middleware.ts` — a few hours after the domain went live rather than the week the cutover runbook
+had planned.
+
+The reasoning for shipping them temporary still stands and is kept in both files: a permanent
+redirect is cached for the life of a browser profile, so a wrong one cannot be fixed by deploying.
+This repo has been bitten by exactly that, when a 308 pointed the Railway preview at the old site
+and clearing it needed every visitor to clear their own cache.
+
+What changed is that the caution had spent its purpose. All six were measured against the live
+domain and all six were right. Meanwhile the waiting was not free: **Google reads a 307 as "keep the
+old URL indexed and do not pass its signals on"**, so every day they stayed temporary was a day the
+2018 URLs held ranking that belongs to the pages replacing them. Careful before the evidence,
+decisive after it — staying careful past the point of measurement is just cost.
+
+**Nothing has ever seen this site's search data.** There is no `google-site-verification` anywhere —
+not a TXT in the zone, not a file in the old docroot, not a meta tag — so littlepearls.org.nz has
+never been in Search Console. That is worst possible timing: every URL on the site changed today,
+and Search Console is precisely the instrument for watching a crawler follow redirects and for
+noticing impressions fall off a cliff. Registering it, with DNS verification so it survives the next
+hosting change, is the outstanding task.
+
+A note on the sitemap while it was being read: `changefreq` and `priority` are emitted and **Google
+ignores both**. The one field it does use, `lastmod`, is deliberately omitted — a build timestamp
+would claim every page changed on every deploy, which is a lie a crawler can measure. That trade is
+right; it just means the two fields that are there do nothing.

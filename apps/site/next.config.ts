@@ -120,6 +120,31 @@ const nextConfig: NextConfig = {
   // addition is a deliberate edit rather than a default.
   images: { remotePatterns: [] },
 
+  /**
+   * The 2018 site's URLs, kept alive.
+   *
+   * All six are in the old sitemap, so all six are what Google indexed and what eight years of
+   * inbound links point at; every one of them 404'd on this build before this existed. The list
+   * and the reasoning for each mapping live in `src/lib/legacyRoutes.ts`, where a test can reach
+   * them — a redirect map that nothing asserts is a map that rots without anybody noticing.
+   *
+   * PROMOTED TO PERMANENT 2026-08-26, once the live domain was serving and all six were verified
+   * against it. They shipped as temporary on purpose — a permanent redirect is cached for the life
+   * of a browser profile and is the one mistake a deploy cannot fix, which is a good reason to be
+   * careful and a bad reason to stay careful forever.
+   *
+   * The cost of waiting was not neutral. Google reads a 307 as "keep the old URL indexed and do not
+   * pass its signals on", so every day these stayed temporary was a day the 2018 URLs held ranking
+   * that belongs to the pages replacing them. The caution had a purpose; once the redirects were
+   * measured working, it had only a price.
+   *
+   * Redirects run before rewrites in Next's pipeline, so none of these can collide with the
+   * `/portal` mount below.
+   */
+  async redirects() {
+    return legacyRedirects(true);
+  },
+
   /*
    * One rule, and the bare `/portal` is covered by it.
    *
@@ -139,25 +164,6 @@ const nextConfig: NextConfig = {
    * file behaves exactly as it did before, so the whole arrangement is switched on and off by
    * one variable on each service rather than by a revert.
    */
-  /**
-   * The 2018 site's URLs, kept alive.
-   *
-   * All six are in the old sitemap, so all six are what Google indexed and what eight years of
-   * inbound links point at; every one of them 404'd on this build before this existed. The list
-   * and the reasoning for each mapping live in `src/lib/legacyRoutes.ts`, where a test can reach
-   * them — a redirect map that nothing asserts is a map that rots without anybody noticing.
-   *
-   * `permanent: false` until the cutover is verified. A permanent redirect is cached for the life
-   * of a browser profile and is therefore the one mistake a deploy cannot fix; see the note in
-   * middleware.ts, which learned it the hard way.
-   *
-   * Redirects run before rewrites in Next's pipeline, so none of these can collide with the
-   * `/portal` mount below.
-   */
-  async redirects() {
-    return legacyRedirects(false);
-  },
-
   async rewrites() {
     if (!portalMount || !portalOrigin) return [];
     return [

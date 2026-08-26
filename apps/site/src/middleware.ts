@@ -107,10 +107,13 @@ export function middleware(request: NextRequest) {
      * failure mode you cannot fix by deploying. 307 costs a little ranking consolidation, which is
      * worth nothing on a site that is not live yet, and buys the ability to be wrong recoverably.
      *
-     * Once the real domain is serving and verified, promoting this to 308 is a one-line change and
-     * a deliberate one.
+     * PROMOTED TO 308 ON 2026-08-26, deliberately, once the real domain was serving and the apex
+     * had been observed redirecting to www against live DNS. The reasoning above is why it was 307
+     * for as long as it was, and it is kept rather than deleted: if this ever needs changing again,
+     * the temporary form is the safe place to start from, and 308 is what you promote to after
+     * measuring — not what you reach for first.
      */
-    return NextResponse.redirect(target, 307);
+    return NextResponse.redirect(target, 308);
   }
 
   // On the request, so Next can read the nonce and stamp its own inline scripts with it.

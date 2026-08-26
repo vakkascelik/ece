@@ -5,6 +5,25 @@ says so.*
 
 ---
 
+2026-08-26 (third) — **The redirects went permanent, and a comment had been orphaned from its
+code.** Extended: [[public-website]].
+
+The six legacy redirects and the canonical apex-to-www redirect are 308 now, hours after the domain
+went live rather than the week the runbook planned. Shipping them temporary was right — a permanent
+redirect is cached for the life of a browser profile and is the one mistake a deploy cannot fix —
+but once all six were measured working against the live domain, the caution had only a price left:
+Google reads a 307 as "keep the old URL indexed and do not pass its signals on".
+
+Found while making the change: when `redirects()` was added to `apps/site/next.config.ts`, it was
+inserted *between* the `/portal` rewrites comment and `rewrites()` itself, stranding a long comment
+two functions above the code it described. The stranded block contains the sentence **"a wrong
+comment outlives the code it explains"**. It has been moved back.
+
+Also recorded: littlepearls.org.nz has never been in Google Search Console — no verification TXT, no
+file, no meta tag — which is the worst possible week for that to be true.
+
+---
+
 2026-08-26 (second) — **The cutover completed, and the live site immediately showed two stale
 facts.** Extended: [[public-website]], [[domain-cutover]]. Closed: CONTENT-GAPS gap 7.
 
