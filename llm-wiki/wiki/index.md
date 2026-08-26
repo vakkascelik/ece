@@ -117,6 +117,9 @@ and [`../schema.md`](../schema.md) for the page template.
 
 - [[deployment]] — one Railway service for every centre, why that is forced rather than chosen,
   and a security header that made the whole product read-only
+- [[domain-cutover]] — moving littlepearls.org.nz onto Railway: the CNAME that made the
+  mail fix a no-op, an SOA minimum read as a record TTL, a cPanel zone four years out of step
+  with the one being served, and a verification tool that invented five failures
 
 ## Public website
 

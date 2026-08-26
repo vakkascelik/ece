@@ -963,6 +963,26 @@ Two consequences worth naming now:
   mailbox. A credential committed to git is in every clone forever, which is the same reasoning
   that keeps the service-role key out of the mobile workspace.
 
+### 39. Why cPanel's zone and the served zone disagree by four years
+
+`littlepearls.org.nz`'s zone file, read out of cPanel over UAPI on 2026-08-26, reports SOA serial
+`2026021300`. Both authoritative nameservers — and the account's own box, asked directly — serve
+`2022020104`. Every record matches; only the serial diverges.
+
+**Nobody has established which is authoritative for edits, or whether a change made in cPanel's Zone
+Editor would ever reach public DNS.** The obvious hypothesis is that InMotion's DNS cluster is not
+taking updates from this account, but that is a hypothesis and the test for it is a live DNS change
+on a domain a childcare centre's email depends on.
+
+It is unresolved on purpose rather than by oversight. [[domain-cutover]] was reshaped so that **no
+DNS change is ever made in cPanel** — every edit happens in Cloudflare after delegation — which
+makes the question moot instead of answered. That is a deliberate trade: the project avoids an
+expensive discovery and, in exchange, nobody learns whether this account's DNS editor works.
+
+Anyone who later needs to edit DNS at InMotion for this account — for `pif.org.nz`, say, or after a
+rollback — **must not assume the Zone Editor is effective**. Change one record, then query
+`ns1.inmotionhosting.com` directly and confirm the serial moved.
+
 ## See Also
 
 - [[kiosk-and-pins]] — the door tablet, and what it can and cannot know

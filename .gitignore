@@ -28,3 +28,8 @@ build/
 **/e2e/.artifacts/
 apps/web/test-results/
 apps/web/playwright-report/
+
+# cPanel audit output — holds real mailbox addresses for a client's domain,
+# i.e. personal data, same category as .backups/. The zone file is promoted into
+# docs/ by hand after review; the rest never leaves this machine.
+.audit/

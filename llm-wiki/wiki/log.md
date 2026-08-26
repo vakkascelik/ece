@@ -5,6 +5,44 @@ says so.*
 
 ---
 
+2026-08-26 — **A DNS plan written from outside the server was wrong three times, once fatally.** New
+page: [[domain-cutover]]. Extended: [[public-website]], [[deployment]]. Indexed: [[index]].
+
+The mail fix in the first draft did not work. It moved the MX from the apex to
+`mail.littlepearls.org.nz` on the stated grounds that "that A record already exists" — and `mail` is
+a **CNAME to the apex**, as are `smtp`, `ftp` and `www`. The MX would have kept following the apex
+onto Railway and delivered a childcare centre's email to a container with no SMTP listener. It would
+have tested clean right up until the last step, because the apex still pointed at InMotion while it
+was being tested. `nslookup` had printed an `Aliases:` line saying exactly this and it was read as an
+A record.
+
+Two more from the same cause. The nine-day timeline was built around lowering TTLs from 86400, which
+is the SOA **minimum** — negative-cache lifetime, not record lifetime. Every record was already at
+900 seconds and the plan collapsed to three days. And nine records existed that no outside-in sweep
+had found, because a sweep can only ask about names somebody thought to guess.
+
+The generalisable form: **an outside-in DNS survey cannot see record types, only resolved values.**
+It answers "what does this resolve to" and is silently unable to answer "how".
+
+Also found, and it reframes the project: `littlepearls.org.nz` is an addon domain on `pif.org.nz`'s
+cPanel account, and **`pif.org.nz` already made this exact move** — Cloudflare DNS-only, apex
+flattened onto Railway, mail at Google. Every structural decision in the runbook is already working
+on the sibling domain. Which also means the InMotion account is residue: its only live function is
+this website and seven mailboxes, so "do not cancel it" is a mail-archive argument, not a hosting
+one.
+
+`scripts/dns-diff.ts` is the gate the delegation's safety rests on, and its first version reported
+five differences that did not exist — one c-ares resolver handle shared across concurrent queries,
+matching responses to the wrong question. **A verification tool that invents failures is worse than
+none**, because the day it is right it gets waved through. One resolver per query now, sequential,
+and the reason is in the file so the parallelism does not come back as an optimisation.
+
+Corrected in the same session: this log's own earlier claim that Railway requires a CNAME *and* a
+TXT per custom domain. Queried directly, it requires one CNAME, `purpose: TRAFFIC_ROUTE`, and
+validates ownership through it. The `_railway-verify` records on `pif.org.nz` are residue.
+
+---
+
 2026-08-18 (sixth) — **The absence rules were read, and this product under-claims funding.** Item 6
 narrowed again: [[unverified-claims]]. Extended: [[funding-and-billing]] with a new section.
 

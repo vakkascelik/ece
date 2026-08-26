@@ -41,7 +41,10 @@
     "drill:rowcap": "node --env-file-if-exists=.env.local --import tsx scripts/drill-rowcap.ts",
     "audit:site": "node --import tsx scripts/audit-site.ts",
     "schedule:run": "node --env-file-if-exists=.env.local --import tsx scripts/run-scheduled.ts",
-    "icons:mobile": "tsx scripts/mobile-icons.ts"
+    "icons:mobile": "tsx scripts/mobile-icons.ts",
+    "audit:cpanel": "node --env-file-if-exists=.env.migration --import tsx scripts/audit-cpanel.ts",
+    "cf:plan": "node --env-file-if-exists=.env.migration --import tsx scripts/cloudflare-zone-plan.ts",
+    "dns:diff": "node --env-file-if-exists=.env.migration --import tsx scripts/dns-diff.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",

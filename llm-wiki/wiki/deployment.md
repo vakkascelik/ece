@@ -394,4 +394,36 @@ does not exist until somebody makes it and points it at this file.
 - [[attendance-verification]] — the chase this cron runs, and its ledger
 - [[unverified-claims]] — CI has still never run
 
-*Last updated: 2026-08-14*
+## The variables that follow a hostname
+
+Set 2026-08-26, ahead of the domain cutover ([[domain-cutover]]).
+
+**`SITE_CANONICAL_HOST=www.littlepearls.org.nz`** on the website service. The long-standing advice
+was to leave this unset until the domain resolved, because setting it early once 308'd the Railway
+preview URL to the old website it replaces. That advice is now obsolete and the file says so: the
+two exemptions in `middleware.ts` — `/api/health` and any `*.up.railway.app` host — mean the
+variable does only the job it is good at. Verified after the redeploy: health 200, preview root 200,
+neither redirected, and `/api/health` stopped reporting it in `usingDefaultsFor`.
+
+**`ECE_ALLOWED_ORIGINS`** on the console now carries `www.littlepearls.org.nz` and
+`littlepearls.org.nz` alongside the Railway host. Purely additive, exact hosts, no wildcard.
+
+**Three variables deliberately not moved yet**: Supabase `site_url`, `SITE_APP_URL` and
+`ECE_PUBLIC_URL` all point at `little-pearls-production.up.railway.app/portal`. Repointing them at
+the real domain before DNS moves would aim every invitation and password-reset link at a hostname
+still serving the **old InMotion site**. They move after the DNS flip, not before. This is the
+mirror image of the `SITE_CANONICAL_HOST` trap: one variable is safe early because the code exempts
+the preview host, and these three are not because nothing exempts a dead link.
+
+**Custom domains are attached but not resolving.** `littlepearls.org.nz` → `a8po7i7y.up.railway.app`
+and `www.littlepearls.org.nz` → `57ajsiwm.up.railway.app`, both at
+`CERTIFICATE_STATUS_TYPE_VALIDATING_OWNERSHIP` until the CNAMEs point here. Two facts worth keeping:
+**Railway issues no TXT record** — one CNAME per domain with `purpose: TRAFFIC_ROUTE`, and ownership
+is validated through it — and **the apex and `www` get different targets**, one per custom domain
+rather than one per service.
+
+Adding a custom domain silently rewrote `RAILWAY_STATIC_URL` and `RAILWAY_SERVICE_LITTLE_PEARLS_URL`
+to `littlepearls.org.nz`, a hostname currently serving the old site. Checked rather than assumed:
+nothing in this repo reads either variable. Worth knowing before something starts to.
+
+*Last updated: 2026-08-26*

@@ -1103,3 +1103,44 @@ An earlier attempt separated the credit with a `border-top`, which was wrong for
 this stylesheet: `p` caps at 66ch globally, so the border stopped mid-footer and read as an underline
 struck through the line above rather than as a divider. Space does the job the line was being asked
 to do — the same conclusion the weave reached, one section up.
+
+## The 2018 URLs, and the gap that was nearly shipped
+
+Every URL the old site published 404'd on this build, and nothing in the repo redirected them.
+Measured against the live service, not inferred: `/index.html`, `/our-staff---career.html`,
+`/contact-us.html`, `/enrolment---fees.html`, `/our-centres.html` and the philosophy PDF all
+returned 404. Those six are the whole of the old `sitemap.xml` — which is to say they are what
+Google indexed and what eight years of inbound links point at.
+
+The map is in `src/lib/legacyRoutes.ts` rather than inline in `next.config.ts` **so a test can
+reach it**. `legacyRoutes.test.ts` walks `src/app` for `page.tsx` files and asserts every
+destination is a route that actually exists, so renaming a page breaks CI instead of breaking a
+redirect nobody is watching. A redirect map is a promise about code that lives somewhere else, and
+nothing else in the build checks it.
+
+`permanent: false`, and this is the third time that reasoning has appeared on this site: a 308 is
+cached for the life of a browser profile, making it the one mistake a deploy cannot fix. They are
+promoted after the live domain is verified, deliberately — the same conclusion `middleware.ts`
+reached about its canonical redirect, arrived at again from a different direction.
+
+**The philosophy PDF redirects to `/philosophy` and the file is not republished.** Its "shoe-free
+inside" claim was retracted by the manager on 2026-08-17. Re-serving the file to preserve a URL
+would put a known-false claim back on a live site, which is a worse outcome than a redirect that
+lands somewhere adjacent.
+
+One thing the map does not carry: the old site links to a **Twitter** account and this one does not,
+while Facebook, Instagram and Flickr were all carried across. Unresolved — it needs the manager, and
+it is a content question rather than a routing one.
+
+Two things the cutover ends by itself, both found while looking for hidden dependencies: the old
+host has **directory listings enabled** on `/images/`, `/assets/`, `/scripts/` and `/Website Files/`,
+and a **2.5 MB `Website Files.zip` is publicly downloadable** from the site root — the entire site
+source, left there by Adobe Muse. Neither survives the move to Railway, which is the only reason
+neither was urgent.
+
+The site also has **no analytics of any kind** — no Google Analytics, no Tag Manager, no pixel, no
+verification tag, no verification TXT in the zone. Nothing to migrate, and equally **no baseline**:
+there is no before-and-after measurement available for this migration unless one is created before
+the cutover, and afterwards is too late.
+
+See [[domain-cutover]] for the DNS side.
