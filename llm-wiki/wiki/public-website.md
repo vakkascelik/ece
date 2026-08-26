@@ -1144,3 +1144,28 @@ there is no before-and-after measurement available for this migration unless one
 the cutover, and afterwards is too late.
 
 See [[domain-cutover]] for the DNS side.
+
+## Two facts the 2018 site had wrong, and the four files that held them
+
+Corrected by the centre on 2026-08-26, relayed by the owner: the day is **7.30am–5.30pm**, half an
+hour shorter than the old site said, and the youngest age accepted is **6 months**, not 3. Both
+had been carried across from the 2018 copy in good faith, because the old site was the only source
+there was.
+
+Neither is cosmetic. A stale closing time is a family arriving at 5.45pm; a stale age floor is a
+parent enquiring about a four-month-old and being told no after they had planned around it.
+
+The interesting part is where they lived: `CENTRE_FACTS`, the `<meta name="description">` in
+`layout.tsx`, the rooms page description, and a JSON-LD `openingHours` block. Four files, two
+facts, no check comparing them — and **the JSON-LD is the one nobody would have looked at**, while
+being the copy a parent reads in a Google knowledge panel without ever opening the site. Editing
+`CENTRE_FACTS` alone would have left three of the four quietly wrong.
+
+`src/lib/__tests__/centreFacts.test.ts` now asserts all four agree, including parsing the human
+hours into schema.org's `Mo-Fr 07:30-17:30` shape to compare them. Typecheck could never have
+caught this: they are strings, and a stale string is a valid string.
+
+This also closes CONTENT-GAPS gap 7, which had recorded a disagreement between the old site and a
+third-party directory about Mt Roskill's opening time. The rule was "their own site wins until the
+centre says otherwise". The centre has now said otherwise, so the directory is superseded rather
+than outvoted.

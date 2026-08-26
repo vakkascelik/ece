@@ -9,7 +9,7 @@ import { CENTRE_FACTS, ROOMS } from '@/lib/centres';
 export const metadata: Metadata = {
   title: 'Our rooms',
   description:
-    'Three age-group rooms at Little Pearls: Infant (3 months to 2 years), Toddler (2 to 3½) and ' +
+    'Three age-group rooms at Little Pearls: Infant (6 months to 2 years), Toddler (2 to 3½) and ' +
     'Preschool (3½ to 5), all guided by Te Whāriki.',
 };
 

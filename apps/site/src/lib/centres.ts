@@ -108,13 +108,21 @@ export const EITHER_CENTRE = 'either';
 /**
  * Shared facts that are true of both centres.
  *
- * `hours` is the one to be careful with: their site says 7.30am–6.00pm, and a third-party
- * directory says Mt Roskill opens at 7.00am. Their own site wins until the centre says otherwise,
- * and the disagreement is recorded in CONTENT-GAPS.md rather than averaged away.
+ * `hours` and `ages` were both corrected by the centre on 2026-08-26, relayed by the owner, and
+ * both moved in the direction that matters to a parent: the day is **half an hour shorter** than
+ * the old site said, and the youngest age accepted is **three months older**.
+ *
+ * That is the whole reason these live in one place. The 2018 site said 7.30am–6.00pm and 3 months,
+ * and those figures had been copied into a page description, a rooms description and a JSON-LD
+ * block — four files that would have drifted apart the first time one of them was edited alone.
+ *
+ * It also closes CONTENT-GAPS.md gap 7. A third-party directory claimed Mt Roskill opened at
+ * 7.00am and the rule was "their own site wins until the centre says otherwise". The centre has
+ * now said otherwise, so the directory is not merely outvoted, it is superseded.
  */
 export const CENTRE_FACTS = {
-  hours: 'Weekdays, 7.30am to 6.00pm',
-  ages: '3 months to 5 years',
+  hours: 'Weekdays, 7.30am to 5.30pm',
+  ages: '6 months to 5 years',
   structure: 'Not-for-profit, community established',
   careersEmail: 'career@littlepearls.org.nz',
   tagline: 'Every child is precious like a pearl',
@@ -184,7 +192,10 @@ export const SOCIAL_LINKS = [
 export const ROOMS = [
   {
     name: 'Infant',
-    ages: '3 months to 2 years',
+    // 6 months, not 3 — corrected by the centre 2026-08-26. Must agree with CENTRE_FACTS.ages,
+    // which starts at the same number; a test asserts it rather than trusting the two to be
+    // edited together.
+    ages: '6 months to 2 years',
     ratio: '1 adult to 3 children',
     approach:
       'A home-like room built on respect. Their programme draws on Pikler and RIE, the schema concept, and Te Whāriki.',

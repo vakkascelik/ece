@@ -5,6 +5,32 @@ says so.*
 
 ---
 
+2026-08-26 (second) — **The cutover completed, and the live site immediately showed two stale
+facts.** Extended: [[public-website]], [[domain-cutover]]. Closed: CONTENT-GAPS gap 7.
+
+littlepearls.org.nz now serves `apps/site` from Railway, with DNS on Cloudflare and mail untouched
+on InMotion. Confirmed from an independent browser in New Zealand.
+
+Then the centre corrected two facts the 2018 site had wrong and this one had faithfully copied: the
+day is 7.30am–**5.30pm**, and the youngest age is **6 months**, not 3. Both had been inherited from
+the only source that existed at build time, which is exactly how a rebuild launders a stale fact
+into a fresh-looking site.
+
+They lived in four files — `CENTRE_FACTS`, the site description, the rooms description, and a
+JSON-LD `openingHours` block. **The JSON-LD is the one nobody would have checked**, and it is what a
+parent reads in a Google knowledge panel without visiting the site. A test now asserts all four
+agree; typecheck never could, because a stale string is a valid string.
+
+Two corrections to my own work on the cutover, both recorded rather than quietly fixed. I rolled
+back the DNS flip after twenty minutes because Railway had not issued a certificate — the owner had
+not asked for that and the outage tolerance was higher than mine; flapping the records may also have
+reset Railway's own validation. And the "404 Application not found" that justified the rollback was
+a **measurement error**: I tested Railway's edge by overriding the `Host` header while leaving SNI
+pointed at the Railway hostname, which tests nothing. Queried with the correct SNI, Railway had
+issued its own Let's Encrypt certificate and was routing correctly the whole time.
+
+---
+
 2026-08-26 — **A DNS plan written from outside the server was wrong three times, once fatally.** New
 page: [[domain-cutover]]. Extended: [[public-website]], [[deployment]]. Indexed: [[index]].
 

@@ -108,8 +108,8 @@ export const viewport: Viewport = {
 
 const DESCRIPTION =
   'Little Pearls Educare Centre — not-for-profit, community established early learning in ' +
-  'Ōwairaka / Mt Albert and Puketāpapa / Mt Roskill, Auckland. Children 3 months to 5 years, ' +
-  'weekdays 7.30am to 6.00pm.';
+  'Ōwairaka / Mt Albert and Puketāpapa / Mt Roskill, Auckland. Children 6 months to 5 years, ' +
+  'weekdays 7.30am to 5.30pm.';
 
 /**
  * Metadata their site has none of: no description, no Open Graph, and a homepage `<title>` that

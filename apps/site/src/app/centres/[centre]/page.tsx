@@ -81,7 +81,7 @@ export default async function CentrePage({ params }: { params: Promise<{ centre:
     },
     telephone: centre.phone,
     email: centre.email,
-    openingHours: 'Mo-Fr 07:30-18:00',
+    openingHours: 'Mo-Fr 07:30-17:30',
   };
 
   return (

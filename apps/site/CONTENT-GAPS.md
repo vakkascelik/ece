@@ -93,10 +93,28 @@ sourced here, and the manager's own instruction for the site's voice is to avoid
 build expectations. The numbers are on the page; the comparison waits for Schedule 2 to be read, and
 possibly forever.
 
-### 7. Mt Roskill's opening time
+### 7. Mt Roskill's opening time — CLOSED 2026-08-26
 
-Their site says 7.30am for both centres. A third-party directory says Mt Roskill opens at 7.00am.
-Their own site wins, and the disagreement is recorded rather than averaged.
+Their site said 7.30am for both centres; a third-party directory said Mt Roskill opened at 7.00am.
+The rule was "their own site wins until the centre says otherwise, and the disagreement is recorded
+rather than averaged."
+
+**The centre has said otherwise.** Relayed by the owner on 2026-08-26: the day is
+**7.30am–5.30pm**, and the youngest age accepted is now **6 months**, not 3. Both figures on the
+2018 site were stale — the closing time by half an hour, the age floor by three months.
+
+So the directory is not outvoted, it is superseded, and this gap is closed. Two things worth
+keeping from it:
+
+- **The direction of both corrections matters to a parent.** A shorter day and a higher minimum age
+  are the kind of stale facts that turn into a family arriving at 5.45pm, or enquiring about a
+  four-month-old. Neither is a cosmetic edit.
+- **Both figures lived in four files** — `CENTRE_FACTS`, the site description, the rooms
+  description, and a JSON-LD `openingHours` block that Google reads for the knowledge panel. The
+  JSON-LD is the one nobody would have eyeballed, and it is the copy a parent sees in search
+  results without visiting the site. `src/lib/__tests__/centreFacts.test.ts` now asserts all four
+  agree, because nothing else in the build compares them: they are strings, and typecheck cannot
+  see a stale one.
 
 ### 8. Is the on-site chef at both centres?
 
