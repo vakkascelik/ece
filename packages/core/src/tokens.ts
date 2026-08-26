@@ -200,27 +200,50 @@ export const brandLittlePearls = {
    * corrected for, one surface later.
    *
    * LIGHTENED AND TURNED TOWARD TURQUOISE, 2026-08-25, at the owner's request. Hue moved 183 -> 192,
-   * lightness +7 points, saturation +6. The brightening is as much saturation as lightness on
-   * purpose: past about hue 195 the band stops reading as turquoise and starts reading as petrol,
-   * and lightness alone just makes it chalky.
+   * lightness +7 points, saturation +6.
    *
-   * The two secondary tones had to move with it, and NOT by walking them up to a shared contrast
-   * threshold — that was tried, it satisfies every pair, and it lands muted and soft within 0.3
-   * lightness points of each other and of white, which silently deletes the three-step hierarchy
-   * this block exists to provide. They are instead derived from fixed contrast targets on
-   * `oceanShallow` (5.40 and 4.80), which pins the gap between them at 5.5 lightness points rather
-   * than letting it close.
+   * TURNED FURTHER TOWARD TURQUOISE, 2026-08-27, same request again — and this pass went the other
+   * way on hue, because the 2026-08-25 note had the direction wrong. **Turquoise is nearer hue 180,
+   * not past 192.** Moving 183 -> 192 walked away from it, toward petrol; this moves 192 -> 188,
+   * back toward it. The "past 195 it reads petrol" warning was right about where the cliff is and
+   * wrong about which side of it we were on.
    *
-   *     white on deep  9.11   mid  7.86   shallow  6.43
-   *     muted on deep  7.69   mid  6.63   shallow  5.42
-   *     soft  on deep  6.85   mid  5.91   shallow  4.83   <- worst pair, still AA with room
+   * HSL LIGHTNESS IS UNCHANGED, AND THE BAND IS STILL LIGHTER. That is not a contradiction: HSL
+   * lightness is not perceptual luminance, and green contributes most of it. Turning toward green
+   * at a fixed L raises real luminance on its own — white on `oceanShallow` falls 6.43 -> 5.90,
+   * which is the band getting brighter, measured. Asking for lighter *and* greener sounds like two
+   * requests and is mostly one.
+   *
+   * WHY NOT ALSO RAISE L, WHICH IS WHAT WAS ASKED FOR. Because the three text tones have to keep
+   * clearing 4.5:1 on `oceanShallow`, and as the ground brightens they all race toward white and
+   * stack up against it. Computed across the whole frontier: at +4L the derived `muted` *is* pure
+   * white and the hierarchy this block exists to provide is gone; at +7L `muted` and `soft` are the
+   * same colour. The band is already near its ceiling. Turning the hue spends the remaining
+   * headroom on the part of the request that was visible.
+   *
+   * The two secondary tones are re-derived here, from the same fixed contrast targets on
+   * `oceanShallow` the last pass used (5.40 and 4.80) — deliberately unchanged, because lowering
+   * them is the tempting way to buy a lighter band and it buys it out of the AA margin.
+   *
+   *     white on deep  8.55   mid  7.20   shallow  5.90
+   *     muted on deep  7.84   mid  6.60   shallow  5.41
+   *     soft  on deep  6.98   mid  5.87   shallow  4.82   <- worst pair, still AA with room
+   *
+   * The steps between the three tones are 4.5 and 5.5 lightness points, down from 8.0 and 6.0.
+   * Tighter, still legible as a hierarchy. That number is the real budget for any future
+   * lightening, not the contrast ratios — the ratios still pass long after the tones have merged.
+   *
+   * ONE THING MOVED THAT IS NOT A COLOUR: `.btn-onocean`'s border went 55% -> 60% white. At 55% it
+   * measured 2.95:1 on the new shallow, under the 3:1 WCAG 1.4.11 asks of a control's boundary. It
+   * had 3.81 on the old water. A non-text contrast requirement failing because a *background*
+   * changed is the kind of thing no colour-token test catches.
    */
-  oceanDeep: '#104f5f',
-  oceanMid: '#15596b',
-  oceanShallow: '#19677b',
+  oceanDeep: '#10545f',
+  oceanMid: '#15606b',
+  oceanShallow: '#196e7b',
   onOcean: '#ffffff',
-  onOceanMuted: '#e6edef',
-  onOceanSoft: '#d3e2e6',
+  onOceanMuted: '#f1f6f6',
+  onOceanSoft: '#e0eaeb',
 } as const;
 
 /**

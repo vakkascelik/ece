@@ -1198,3 +1198,47 @@ A note on the sitemap while it was being read: `changefreq` and `priority` are e
 ignores both**. The one field it does use, `lastmod`, is deliberately omitted — a build timestamp
 would claim every page changed on every deploy, which is a lie a crawler can measure. That trade is
 right; it just means the two fields that are there do nothing.
+
+## Three changes on 2026-08-27, and the one that fought back
+
+**The careers form is gone.** Email only, on the owner's instruction. The trade is recorded in
+[[recruitment]]: applications go back to living in a shared mailbox with no record of who was
+replied to. Worth knowing what it takes with it — the site no longer imports
+`@ece/api/recruitment`, so **the enrolment enquiry is now the only reason this container reaches
+Postgres at all.** `/careers` fell from a form to 154 B of route.
+
+**Enrolment enquiries now email `enrolment@littlepearls.org.nz`**, a mailbox created the same day.
+The Postgres write stays, and that is the interesting part of the design rather than caution: the
+row decides what happens when the email fails. An enquiry that exists only as an email is gone if
+the send throws or a filter eats it, and the family has already been told "we will be in touch". So
+`sendEnquiryNotification` never throws, never changes what the form says, and logs loudly. Sent
+after the write and outside the per-centre loop — "either centre" writes two rows for one family,
+and two identical emails would read as two families.
+
+SMTP goes to their own `mail.littlepearls.org.nz` on 465 rather than through a sending service: no
+new vendor, no new API key, and no new DKIM records on a domain that was migrated the day before.
+`lib/mailer.ts` is `server-only`, so importing it from a client component fails the build instead of
+putting an SMTP password in the browser bundle — checked after building, along with grepping
+`.next/static` for the password itself.
+
+### The ocean, and why "lighter" was mostly one request
+
+Asked for lighter and more turquoise. It came out as **hue 192 → 188 at unchanged HSL lightness**,
+and the reasoning is worth keeping because it is counter-intuitive twice over.
+
+First, the 2026-08-25 pass had the direction wrong. It moved 183 → 192 and called that "toward
+turquoise"; turquoise is nearer 180, so that walked away from it. Second, **HSL lightness is not
+perceptual luminance** — green carries most of it, so turning toward green at fixed L makes the band
+genuinely brighter. White on `oceanShallow` fell 6.43 → 5.90, measured. Lighter and greener sound
+like two requests and are mostly one.
+
+Raising L as well was computed across the whole frontier and rejected: the three text tones all have
+to clear 4.5:1 on `oceanShallow`, and as the ground brightens they stack against white. At +4L the
+derived `muted` **is** pure white; at +7L `muted` and `soft` are the same colour. The band is near
+its ceiling, and **the real budget for any future lightening is the lightness gap between the three
+tones, not the contrast ratios** — the ratios still pass long after the tones have merged.
+
+One casualty that no test would have caught: `.btn-onocean`'s 55% white border measured **2.95:1**
+on the new water, under the 3:1 WCAG 1.4.11 asks of a control's boundary. It is 60% now. A non-text
+contrast requirement failing because a *background* moved sits outside the token contrast pairs and
+outside axe's colour-contrast rule.

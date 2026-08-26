@@ -17,7 +17,6 @@
     "paths": {
       "@/*": ["./src/*"],
       "@ece/core": ["../../packages/core/src/index.ts"],
-      "@ece/api/recruitment": ["../../packages/api/src/recruitment.ts"],
       "@ece/api/enquiries": ["../../packages/api/src/enquiries.ts"]
     }
   },
@@ -25,12 +24,18 @@
   "// note": [
     "THIS CHANGED, and the previous note said it would have to be justified here when it did.",
     "It used to read: no @ece/api path, this app never talks to Supabase, the public site has",
-    "no database access at all. That was true until the careers form, which has to create a",
+    "no database access at all. That was true until the careers form, which had to create a",
     "row somewhere. What is still true is the part that mattered: the service-role key stays",
     "in apps/web and never comes here, and `anon` still has no table grant, which",
     "review:security asserts at high severity.",
     "",
-    "The path is deliberately to ONE MODULE and not to @ece/api's index. recruitment.ts has no",
+    "THE RECRUITMENT PATH IS GONE AGAIN, 2026-08-27. The careers form was removed on the",
+    "owner's instruction and applications go by email now, so the site no longer imports",
+    "@ece/api/recruitment. One path left, and one reason left for this container to reach",
+    "Postgres at all: the enrolment enquiry form. Remove that and this note can go back to",
+    "what it originally said.",
+    "",
+    "The path is deliberately to ONE MODULE and not to @ece/api's index. enquiries.ts has no",
     "runtime imports — both of its imports are types, which erase — so this brings in the one",
     "function the site needs and not createServiceClient, which the public container has no",
     "business being able to construct.",

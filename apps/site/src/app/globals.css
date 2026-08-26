@@ -1722,15 +1722,23 @@ figure.photo-figure figcaption {
 .btn.btn-invert:hover { background: var(--aqua-pale); border-color: var(--aqua-pale); color: var(--ocean-deep); }
 
 /*
- * The secondary. 55% WHITE AND NOT THE HANDOFF'S 45%, which is a measured change rather than a
+ * The secondary. 60% WHITE AND NOT THE HANDOFF'S 45%, which is a measured value rather than a
  * preference: composited over `--ocean-shallow` — the bottom of the hero gradient, which is exactly
  * where these buttons sit — 45% white gives 3.08:1 against its own background. WCAG 1.4.11 asks 3:1
- * for the visual boundary of a control, so the handoff's value passes by 0.08 at the one point on
- * the page it is actually used. 55% gives 3.81:1 and is indistinguishable by eye.
+ * for the visual boundary of a control, so the handoff's value passed by 0.08 at the one point on
+ * the page it is actually used.
+ *
+ * WAS 55%, WHICH BROKE WHEN THE WATER DID NOT. The 2026-08-27 turquoise pass lightened
+ * `--ocean-shallow`, and 55% white fell from 3.81:1 to **2.95:1** — under the threshold, purely
+ * because the ground moved. 60% restores it to 3.20:1.
+ *
+ * Worth naming as a class of bug: this is a **non-text** contrast requirement, so it lives outside
+ * the token contrast pairs and outside axe's colour-contrast rule. Nothing in the build would have
+ * failed. Any future change to the ocean has to re-check this line by hand.
  */
 .btn.btn-onocean {
   background: transparent;
-  border-color: rgba(255, 255, 255, 0.55);
+  border-color: rgba(255, 255, 255, 0.6);
   color: var(--on-ocean);
 }
 .btn.btn-onocean:hover { background: rgba(255, 255, 255, 0.1); color: var(--on-ocean); }

@@ -4,6 +4,7 @@ import { enquiryProblem, isPastDate } from '@ece/core';
 import { submitEnquiry, AGE_BANDS, type AgeBand } from '@ece/api/enquiries';
 import { CENTRES, CENTRE_FACTS, EITHER_CENTRE } from '@/lib/centres';
 import { anonDb } from '@/lib/db';
+import { sendEnquiryNotification } from '@/lib/mailer';
 
 export interface EnquiryResult {
   ok: boolean;
@@ -135,6 +136,34 @@ export async function enquire(
         'up from there.',
     };
   }
+
+  /*
+    Notify enrolment@littlepearls.org.nz — added 2026-08-27 on the owner's instruction.
+
+    AFTER the write and OUTSIDE the per-centre loop, both deliberately. After, because the row is
+    the record and the email is only how somebody finds out about it: if this throws, an enquiry
+    still exists and can be worked; if it ran first and the write then failed, the centre would be
+    told about an enquiry that is not anywhere. Outside the loop, because "either centre" writes two
+    rows for one family and two identical emails would read as two families.
+
+    Awaited rather than fired and forgotten. A floating promise in a serverless handler is a promise
+    the runtime may kill when the response is sent, which is a notification that works locally and
+    silently does not in production.
+
+    The result is not checked, and that is the point — see the note in lib/mailer.ts. The family has
+    already been told the truth about the thing that matters, which is whether their enquiry was
+    saved.
+  */
+  await sendEnquiryNotification({
+    contactName,
+    email,
+    phone,
+    centres: centres.map((c) => c.name),
+    ageBand,
+    wantedFrom,
+    wantedDays,
+    message,
+  });
 
   if (failed > 0) {
     return {

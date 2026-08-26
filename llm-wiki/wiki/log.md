@@ -5,6 +5,33 @@ says so.*
 
 ---
 
+2026-08-27 — **Careers form removed, enrolment enquiries now email, and the ocean turned toward
+turquoise by going back the way it came.** Extended: [[public-website]], [[recruitment]].
+
+Three owner requests. The first two are small and their costs are written down: the careers form is
+gone and applications live in a shared mailbox again — the exact problem [[recruitment]] was built
+to solve, and that page now corrects its own opening sentence. Enrolment enquiries email
+`enrolment@littlepearls.org.nz`, a mailbox created the same day, while still writing the row, because
+the row is what makes a failed send survivable.
+
+The third was the interesting one. "Lighter and more turquoise" turned out to be mostly one request:
+**HSL lightness is not perceptual luminance**, green carries most of it, so turning toward turquoise
+at fixed L brightens the band on its own — white on `oceanShallow` 6.43 → 5.90, measured. It also
+meant reversing the previous pass, which had moved 183 → 192 and described it as turning *toward*
+turquoise. Turquoise is nearer 180.
+
+Raising lightness as well was computed rather than attempted: at +4L the derived `onOceanMuted` is
+pure white and at +7L `muted` and `soft` are the same colour. **The budget for lightening this band
+is the lightness gap between the three text tones, not their contrast ratios** — the ratios keep
+passing long after the hierarchy has merged into white.
+
+And one bug of a kind nothing in the build checks: `.btn-onocean`'s 55% white border fell to 2.95:1
+against the new water, under WCAG 1.4.11's 3:1 for a control's boundary. It broke because a
+*background* changed, which puts it outside the token contrast pairs and outside axe's contrast
+rule. 60% now.
+
+---
+
 2026-08-26 (third) — **The redirects went permanent, and a comment had been orphaned from its
 code.** Extended: [[public-website]].
 

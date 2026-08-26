@@ -245,3 +245,27 @@ somebody would look. Measured against the live database.
 It was also wrong about the domain. `(at set, by null)` is not half a record; it is the honest
 description of a move made by somebody whose account has since been removed. The useless state is the
 reverse. `0026` makes the invariant one-directional: if we know who, we know when.
+
+## CORRECTION 2026-08-27 — the public careers form was removed
+
+On the owner's instruction: *"sending email is enough"*. `apps/site` no longer renders a form, no
+longer imports `@ece/api/recruitment`, and the careers page now points at
+`career@littlepearls.org.nz` and nothing else.
+
+**This page's opening claim is now wrong and is left standing above, corrected here rather than
+edited away.** It says job applications go "from the careers page on the public website into the
+platform". They do not any more. The migration, the policy, the definer function, the manager's
+screen and the `rls_isolation.sql` assertions all remain — the write path exists and is still the
+only way somebody holding nothing but the anon key can write to this database. What changed is that
+**nothing on the public internet uses it today**.
+
+The *Why it exists* section above is worth re-reading as the cost of the decision, not as an
+argument against it. Every application is back in a shared mailbox: no status, no record of who was
+replied to, nothing to answer with when somebody asks why they never heard back, and a deletion
+request that can only be honoured by hunting through mail folders. That was true in 2018, it was the
+reason for the form, and it is true again.
+
+Two things follow. If the form ever comes back, the schema is still here and it is a page component,
+not a migration. And **the enrolment enquiry form is now the only public write path in use** — if
+that also moves to email, `anon` returns to reaching nothing at all, and the honest one-line summary
+this page opens with becomes true again.

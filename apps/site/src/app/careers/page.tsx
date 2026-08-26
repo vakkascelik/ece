@@ -2,13 +2,12 @@ import type { Metadata } from 'next';
 import { Eyebrow } from '../Eyebrow';
 import { PageBand } from '../PageBand';
 import { CENTRE_FACTS } from '@/lib/centres';
-import { ApplicationForm } from './ApplicationForm';
 
 export const metadata: Metadata = {
   title: 'Careers',
   description:
-    'Work at Little Pearls Educare Centre in Mt Albert or Mt Roskill. Apply online, or send ' +
-    'your CV to career@littlepearls.org.nz.',
+    'Work at Little Pearls Educare Centre in Mt Albert or Mt Roskill. Send your CV to ' +
+    'career@littlepearls.org.nz.',
 };
 
 /**
@@ -23,11 +22,20 @@ export const metadata: Metadata = {
  * No named staff and no photographs, because their site publishes none and naming a person needs
  * that person's agreement.
  *
- * WHAT CHANGED HERE: the page used to say "email us your CV" and nothing else, which meant every
- * application lived in a shared mailbox — no record of who was replied to, and nothing to answer
- * with if somebody asks why they never heard back. The form now creates a record in the centre's
- * own system. The CV still goes by email, because there is no attachment path yet and saying so
- * is better than a form that looks complete and loses half the application.
+ * THE APPLICATION FORM WAS REMOVED, 2026-08-27, on the owner's instruction: "sending email is
+ * enough". This reverses a deliberate decision and the reasoning it reversed is kept, because it
+ * is the cost of the change rather than an argument against it.
+ *
+ * The form existed because "email us your CV" meant every application lived in a shared mailbox —
+ * no record of who had been replied to, and nothing to answer with if somebody asked why they never
+ * heard back. That problem is real and it is now back. It was also never fully solved: the form
+ * could not take attachments, so every applicant had to email a CV *as well as* filling it in, and
+ * a form that captures half an application while looking complete has its own failure mode.
+ *
+ * What goes with it, and this is the part worth knowing: the site no longer imports
+ * `@ece/api/recruitment`, so **the public container's only remaining reason to reach Postgres is
+ * the enrolment enquiry form**. If that ever moves to email too, the marketing site returns to
+ * having no database access at all — which is what `tsconfig.json`'s note was written to protect.
  */
 export default function CareersPage() {
   return (
@@ -62,13 +70,15 @@ export default function CareersPage() {
           <Eyebrow>Apply</Eyebrow>
           <h2 className="section-title">Tell us about yourself</h2>
           <p>
-            Only the centre’s manager and owner can see what you send, and you can ask us to delete
-            it at any time. Please also email your CV to{' '}
-            <a href={`mailto:${CENTRE_FACTS.careersEmail}`}>{CENTRE_FACTS.careersEmail}</a> — this
-            form cannot take attachments yet.
+            Email your CV and a note about what you are looking for to{' '}
+            <a href={`mailto:${CENTRE_FACTS.careersEmail}`}>{CENTRE_FACTS.careersEmail}</a>. Tell us
+            which centre suits you — Ōwairaka / Mt Albert, Puketāpapa / Mt Roskill, or either — and
+            we will let you know what is open.
           </p>
-
-          <ApplicationForm />
+          <p>
+            Only the centre’s manager and owner will see it, and you can ask us to delete it at any
+            time.
+          </p>
         </section>
       </div>
     </>

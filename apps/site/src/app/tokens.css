@@ -27,12 +27,12 @@
   --coral-ink: #c12727;
   --ink: #595959;
   --surface: #ffffff;
-  --ocean-deep: #104f5f;
-  --ocean-mid: #15596b;
-  --ocean-shallow: #19677b;
+  --ocean-deep: #10545f;
+  --ocean-mid: #15606b;
+  --ocean-shallow: #196e7b;
   --on-ocean: #ffffff;
-  --on-ocean-muted: #e6edef;
-  --on-ocean-soft: #d3e2e6;
+  --on-ocean-muted: #f1f6f6;
+  --on-ocean-soft: #e0eaeb;
 
   /* Spacing */
   --space-0: 0px;
@@ -101,14 +101,14 @@
  *   coral ink on sand    4.85:1  passes AA (needs 4.5:1)
  *   heading on shell     16.25:1  passes AA (needs 4.5:1)
  *   heading on sand      14.41:1  passes AA (needs 4.5:1)
- *   white on ocean deep  9.11:1  passes AA (needs 4.5:1)
- *   white on ocean mid   7.86:1  passes AA (needs 4.5:1)
- *   white on ocean shallow 6.43:1  passes AA (needs 4.5:1)
- *   muted on ocean deep  7.69:1  passes AA (needs 4.5:1)
- *   muted on ocean mid   6.63:1  passes AA (needs 4.5:1)
- *   muted on ocean shallow 5.42:1  passes AA (needs 4.5:1)
- *   soft on ocean deep   6.85:1  passes AA (needs 4.5:1)
- *   soft on ocean mid    5.91:1  passes AA (needs 4.5:1)
- *   soft on ocean shallow 4.83:1  passes AA (needs 4.5:1)
- *   ocean deep on white  9.11:1  passes AA (needs 4.5:1)
+ *   white on ocean deep  8.55:1  passes AA (needs 4.5:1)
+ *   white on ocean mid   7.20:1  passes AA (needs 4.5:1)
+ *   white on ocean shallow 5.90:1  passes AA (needs 4.5:1)
+ *   muted on ocean deep  7.84:1  passes AA (needs 4.5:1)
+ *   muted on ocean mid   6.60:1  passes AA (needs 4.5:1)
+ *   muted on ocean shallow 5.41:1  passes AA (needs 4.5:1)
+ *   soft on ocean deep   6.98:1  passes AA (needs 4.5:1)
+ *   soft on ocean mid    5.87:1  passes AA (needs 4.5:1)
+ *   soft on ocean shallow 4.82:1  passes AA (needs 4.5:1)
+ *   ocean deep on white  8.55:1  passes AA (needs 4.5:1)
  */
