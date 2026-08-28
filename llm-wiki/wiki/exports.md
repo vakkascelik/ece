@@ -22,6 +22,9 @@ holds — see below — and the CSV layer is new.
 - **An export route is a new read path** and re-checks the capability itself. Two exports are
   deliberately *stricter* than the page they sit on.
 - **PDF is still the browser's print dialogue**, and now has a button rather than a sentence.
+- **A single incident is now printable too** — `/incidents/[id]/print`, added 2026-08-28 to
+  replace the per-row PDF icon in 1Place. Same argument as the binder, one record wide. See
+  [[incident-register]].
 
 ## Details
 
@@ -195,4 +198,4 @@ forget because there is no such column — the safer arrangement, not a gap.
 - [[compliance-and-evidence]] — the binder, and what a print stylesheet gives up
 - [[tenancy-and-rls]] — the boundary underneath every one of these routes
 
-*Last updated: 2026-08-09*
+*Last updated: 2026-08-28*

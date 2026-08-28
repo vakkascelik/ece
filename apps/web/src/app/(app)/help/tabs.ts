@@ -117,6 +117,24 @@ export const TABS: TabDoc[] = [
       'The daily checks list covers a fixed recent window. An area with no check shown has not been recorded in that time — which is not the same as having been checked and found fine.',
   },
   {
+    href: '/checklists',
+    label: 'Checklists',
+    capability: 'recordDailyPractice',
+    what: 'Routine checks — the walk round the playground before the gate opens, the kitchen check, the monthly audit.',
+    how: 'A manager writes the questions and publishes them. Anyone can then fill the form in, and once it is signed off it cannot be changed — a correction is a new run, so what somebody was actually asked stays readable.',
+    limit:
+      'A checklist is only called due when somebody has said how often it should happen. Where no interval is set, the screen shows how long it has been and says nothing about whether that is late — this product does not invent a frequency, because a number here would read to your team as the rule.',
+  },
+  {
+    href: '/tasks',
+    label: 'Tasks',
+    capability: 'recordDailyPractice',
+    what: 'Jobs the centre is carrying — a gate to fix, a light to replace, a hazard somebody has to come back to.',
+    how: 'Anyone can file one. Finishing a task needs a sentence saying what was done: a closed task with no account of it answers nothing the first time somebody asks whether the gate was actually fixed.',
+    limit:
+      'Enrolment enquiries are not tasks. They have their own screen, with the age band, the waitlist and the conversion report attached.',
+  },
+  {
     href: '/visitors',
     label: 'Visitors',
     capability: 'recordDailyPractice',

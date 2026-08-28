@@ -1,5 +1,5 @@
-import { listChildren, listIncidents } from '@ece/api';
-import { summariseIncidents, supersededIds, todayInZone } from '@ece/core';
+import { listChildren, listIncidents, listRooms } from '@ece/api';
+import { liveRooms, summariseIncidents, supersededIds, todayInZone } from '@ece/core';
 import { requireCapability } from '@/lib/auth';
 import { dayWindow, shiftLocalDate } from '@/lib/dayWindow';
 import { serverDb } from '@/lib/supabase';
@@ -42,9 +42,10 @@ export default async function IncidentsPage({
   const { fromUtc } = dayWindow(start, ctx.centre.timezone);
   const { toUtc } = dayWindow(today, ctx.centre.timezone);
 
-  const [children, incidents] = await Promise.all([
+  const [children, incidents, rooms] = await Promise.all([
     listChildren(db, ctx.centre.id),
     listIncidents(db, ctx.centre.id, fromUtc, toUtc),
+    listRooms(db, ctx.centre.id),
   ]);
 
   const nameOf = new Map(children.map((c) => [c.id, `${c.firstName} ${c.lastName}`]));
@@ -141,6 +142,7 @@ export default async function IncidentsPage({
         occurredWallClock: wallClockOf(target.occurredAt),
         description: target.description,
         location: target.location,
+        roomId: target.roomId,
         firstAidGiven: target.firstAidGiven,
         witnessName: target.witnessName,
       }
@@ -214,6 +216,7 @@ export default async function IncidentsPage({
         childOptions={children.map((c) => ({ id: c.id, name: `${c.firstName} ${c.lastName}` }))}
         defaultWallClock={defaultWallClock}
         basedOn={basedOn}
+        rooms={liveRooms(rooms).map((r) => ({ id: r.id, name: r.name }))}
       />
 
       <IncidentList rows={rows} />

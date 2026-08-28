@@ -2809,6 +2809,519 @@ select pg_temp.expect(
 set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
 
 -- ===========================================================================
+-- ROOMS, TASKS AND CHECKLISTS — 0066, 0067, 0068, 0069
+--
+-- The 1Place replacement (docs/replacing-1place.md). Three boundaries are being
+-- asserted here and only one of them is the usual one.
+--
+--  1. `tasks` and the whole checklist chain are staff-only, the 0034 boundary.
+--  2. `rooms` is DELIBERATELY NOT — a parent reads it, and that difference is the
+--     single most reviewable decision in these four migrations, so it gets an
+--     assertion that fails loudly if somebody "fixes" it to match its neighbours.
+--  3. Two boundaries that are about TIME rather than about people: a published
+--     template version stops being editable, and a completed run stops being
+--     editable. Neither is expressible as a grant, both are in USING clauses, and
+--     nothing but this notices if one is dropped.
+-- ===========================================================================
+
+set local role postgres;
+
+-- ---------------------------------------------------------------------------
+-- Rooms
+-- ---------------------------------------------------------------------------
+
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+
+insert into public.rooms (id, centre_id, name, sort)
+values ('0d111111-1111-4111-8111-111111111111',
+        'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'RLS Toddler Room', 10);
+
+select pg_temp.expect(
+  (select count(*) from public.rooms where centre_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') = 1,
+  'an owner can create a room'
+);
+
+-- Two live rooms with the same name in one centre make every picker ambiguous.
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.rooms (centre_id, name)
+    values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'rls toddler room');
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'a second LIVE room with the same name is refused, case-insensitively');
+end $$;
+
+/*
+ * An educator does not invent the floor plan mid-shift.
+ *
+ * `rooms` is the only table in these four migrations whose writes are narrower than
+ * its reads, and the reason is that a room created by accident pollutes every picker
+ * in the product until somebody notices.
+ */
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+do $$
+declare code text := 'none (the insert SUCCEEDED)';
+begin
+  begin
+    insert into public.rooms (centre_id, name)
+    values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Filed by an educator');
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '42501', 'an EDUCATOR cannot create a room, got ' || code);
+end $$;
+
+select pg_temp.expect(
+  (select count(*) from public.rooms where id = '0d111111-1111-4111-8111-111111111111') = 1,
+  'but an educator reads the room list — they file hazards against it'
+);
+
+/*
+ * THE ASSERTION THIS TABLE EXISTS TO PROTECT.
+ *
+ * Every other register in 0034 uses `caller_staff_centre_ids()` and a reviewer
+ * copying that pattern onto `rooms` would break nothing visible — until a family
+ * opens an incident about their own child and the place it happened is blank,
+ * because `incidents.room_id` joins to a table the policy refuses them.
+ *
+ * A room name is a noun the family says every morning. The hazard register is a list
+ * of risks the centre has recorded about itself. They are not the same disclosure.
+ */
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.rooms where id = '0d111111-1111-4111-8111-111111111111') = 1,
+  'a PARENT reads the room list — deliberately unlike every other centre register'
+);
+
+do $$
+declare code text := 'none (the insert SUCCEEDED)';
+begin
+  begin
+    insert into public.rooms (centre_id, name)
+    values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Filed by a parent');
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '42501', 'but cannot create one, got ' || code);
+end $$;
+
+set local request.jwt.claims = '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.rooms) = 0,
+  'and another centre reads no room of this one'
+);
+
+-- Archived, never deleted: a closed room still holds last year's incidents.
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+do $$
+declare ok boolean := false;
+begin
+  begin
+    delete from public.rooms where id = '0d111111-1111-4111-8111-111111111111';
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'nobody can DELETE a room — it is archived, not removed');
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- Tasks
+-- ---------------------------------------------------------------------------
+
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+
+insert into public.tasks (id, centre_id, room_id, title, category, priority, created_by)
+values ('0d222222-2222-4222-8222-222222222222',
+        'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        '0d111111-1111-4111-8111-111111111111',
+        'RLS test: the gate latch sticks', 'maintenance', 'high',
+        '55555555-5555-4555-8555-555555555555');
+
+select pg_temp.expect(
+  (select count(*) from public.tasks where centre_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') = 1,
+  'an educator can file a task — the person who finds it is the person who reports it'
+);
+
+/*
+ * Finishing means saying how. The `hazards` constraint, moved one table across.
+ *
+ * A queue where "Closed" carries no account of what was done is a queue nobody
+ * trusts, and the first time somebody asks whether the gate was actually fixed there
+ * is no answer in the record.
+ */
+do $$
+declare ok boolean := false;
+begin
+  begin
+    update public.tasks set status = 'closed'
+     where id = '0d222222-2222-4222-8222-222222222222';
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'a task cannot be closed without a resolution');
+end $$;
+
+do $$
+declare ok boolean := false;
+begin
+  begin
+    -- A resolution with no timestamp is the same half-record from the other side.
+    update public.tasks set status = 'resolved', resolution = 'Oiled the hinge.'
+     where id = '0d222222-2222-4222-8222-222222222222';
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'nor with a resolution and no resolved_at — both halves or neither');
+end $$;
+
+update public.tasks
+   set status = 'resolved', resolution = 'Oiled the hinge and replaced the striker plate.',
+       resolved_at = now()
+ where id = '0d222222-2222-4222-8222-222222222222';
+
+select pg_temp.expect(
+  (select status = 'resolved' from public.tasks
+    where id = '0d222222-2222-4222-8222-222222222222'),
+  'and it CAN be resolved with both'
+);
+
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.tasks) = 0,
+  'a PARENT reads no task — the queue is the centre''s account of what is broken'
+);
+
+set local request.jwt.claims = '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.tasks) = 0,
+  'and another centre reads none of them'
+);
+
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+do $$
+declare ok boolean := false;
+begin
+  begin
+    delete from public.tasks where id = '0d222222-2222-4222-8222-222222222222';
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'and nobody can DELETE one — a filed task is a record that somebody saw something');
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- Checklists
+-- ---------------------------------------------------------------------------
+
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+
+insert into public.checklist_templates (id, centre_id, name, folder, recur_days, created_by)
+values ('0d333333-3333-4333-8333-333333333333',
+        'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        'RLS Daily Playground Check', 'Daily', 1,
+        '11111111-1111-4111-8111-111111111111');
+
+insert into public.checklist_template_versions (id, template_id, version)
+values ('0d444444-4444-4444-8444-444444444444',
+        '0d333333-3333-4333-8333-333333333333', 1);
+
+insert into public.checklist_items (id, version_id, sort, prompt, response_type, required)
+values ('0d555555-5555-4555-8555-555555555555',
+        '0d444444-4444-4444-8444-444444444444', 1, 'Is the gate latched?', 'yes_no', true),
+       ('0d666666-6666-4666-8666-666666666666',
+        '0d444444-4444-4444-8444-444444444444', 2, 'Anything else to note?', 'text', false);
+
+select pg_temp.expect(
+  (select count(*) from public.checklist_items
+    where version_id = '0d444444-4444-4444-8444-444444444444') = 2,
+  'a manager can build a draft checklist version and its items'
+);
+
+/*
+ * A DRAFT VERSION CANNOT BE FILLED IN.
+ *
+ * A form somebody is still writing produces evidence against questions that were
+ * never agreed. Enforced by the trigger, not a policy, because the fact being tested
+ * lives two tables away from the row being written.
+ */
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.checklist_runs (version_id, centre_id, client_uuid, created_by)
+    values ('0d444444-4444-4444-8444-444444444444',
+            'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', gen_random_uuid(),
+            '11111111-1111-4111-8111-111111111111');
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'a run against an UNPUBLISHED version is refused');
+end $$;
+
+update public.checklist_template_versions
+   set published_at = now(), published_by = '11111111-1111-4111-8111-111111111111'
+ where id = '0d444444-4444-4444-8444-444444444444';
+
+/*
+ * AND ONCE PUBLISHED IT STOPS BEING EDITABLE.
+ *
+ * The USING clause removes the row from the update's view, so PostgREST reports zero
+ * rows rather than an error — which every writer in `@ece/api` already treats as a
+ * refusal. Asserted by reading the row back, because a silent no-op is exactly the
+ * failure a behavioural test can miss.
+ */
+update public.checklist_template_versions
+   set published_at = now() - interval '10 days'
+ where id = '0d444444-4444-4444-8444-444444444444';
+select pg_temp.expect(
+  (select published_at > now() - interval '1 hour'
+     from public.checklist_template_versions
+    where id = '0d444444-4444-4444-8444-444444444444'),
+  'a PUBLISHED version cannot be edited — the update matches no row'
+);
+
+update public.checklist_items set prompt = 'Rewritten after publication'
+ where id = '0d555555-5555-4555-8555-555555555555';
+select pg_temp.expect(
+  (select prompt = 'Is the gate latched?' from public.checklist_items
+    where id = '0d555555-5555-4555-8555-555555555555'),
+  'nor can its items — a wording change must not rewrite completed evidence'
+);
+
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.checklist_items (version_id, prompt)
+    values ('0d444444-4444-4444-8444-444444444444', 'Added after publication');
+    -- The policy refuses this, so reaching here means the row went in.
+    ok := not found;
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok,
+    'and no item can be ADDED to it — that would make every completed run retroactively incomplete');
+end $$;
+
+/*
+ * A RUN'S DENORMALISED CENTRE MUST MATCH ITS TEMPLATE'S.
+ *
+ * Written as `postgres` on purpose. As an ordinary caller the insert policy refuses a
+ * foreign centre_id first, so the trigger never runs and the assertion would pass for
+ * the wrong reason — the mistake the `security_invoker` note further down describes.
+ * Bypassing RLS isolates the trigger, which is the thing under test.
+ */
+set local role postgres;
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.checklist_runs (version_id, centre_id, client_uuid)
+    values ('0d444444-4444-4444-8444-444444444444',
+            'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', gen_random_uuid());
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok,
+    'a run whose centre_id disagrees with its template''s centre is refused, even bypassing RLS');
+end $$;
+
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+
+insert into public.checklist_runs (id, version_id, centre_id, room_id, client_uuid, created_by)
+values ('0d777777-7777-4777-8777-777777777777',
+        '0d444444-4444-4444-8444-444444444444',
+        'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        '0d111111-1111-4111-8111-111111111111',
+        '0d999999-9999-4999-8999-999999999999',
+        '55555555-5555-4555-8555-555555555555');
+
+select pg_temp.expect(
+  (select count(*) from public.checklist_runs
+    where id = '0d777777-7777-4777-8777-777777777777') = 1,
+  'an educator can start a run against a published version — they walk the playground, not the manager'
+);
+
+/*
+ * A "NO" MUST SAY WHAT WAS WRONG.
+ *
+ * The direct descendant of `safety_checks_failure_has_note`, which 0034 called the
+ * single most useful constraint in that file. Without it a run reads "gate latch: no"
+ * and the next person learns nothing, which destroys the only reason to keep the form.
+ */
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.checklist_answers (run_id, item_id, value)
+    values ('0d777777-7777-4777-8777-777777777777',
+            '0d555555-5555-4555-8555-555555555555', 'no');
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'an answer of NO with no note is refused — the note is the point of the row');
+end $$;
+
+/*
+ * COMPLETING WITH A REQUIRED ITEM UNANSWERED IS REFUSED.
+ *
+ * The trigger's reason for existing. Without it "complete" means the person pressed
+ * the button, and a signed checklist with blank required lines is exactly the
+ * confidently-wrong artefact that makes a manager stop counting.
+ */
+do $$
+declare ok boolean := false;
+begin
+  begin
+    update public.checklist_runs
+       set completed_at = now(), signed_by = '55555555-5555-4555-8555-555555555555'
+     where id = '0d777777-7777-4777-8777-777777777777';
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'a run cannot be COMPLETED while a required item is unanswered');
+end $$;
+
+insert into public.checklist_answers (run_id, item_id, value, note)
+values ('0d777777-7777-4777-8777-777777777777',
+        '0d555555-5555-4555-8555-555555555555', 'no', 'Striker plate bent, coned off.');
+
+-- The optional item stays blank on purpose: `required = false` has to mean something.
+update public.checklist_runs
+   set completed_at = now(), signed_by = '55555555-5555-4555-8555-555555555555'
+ where id = '0d777777-7777-4777-8777-777777777777';
+
+select pg_temp.expect(
+  (select completed_at is not null from public.checklist_runs
+    where id = '0d777777-7777-4777-8777-777777777777'),
+  'and CAN be completed once every REQUIRED item is answered — the optional one stays blank'
+);
+
+/*
+ * A COMPLETED RUN IS FROZEN, AND SO ARE ITS ANSWERS.
+ *
+ * Same mechanism as a published version and the same reasoning as `incidents`: an
+ * amendment is a new record, never an edit to the one that was signed.
+ */
+update public.checklist_runs set note = 'Edited after signing'
+ where id = '0d777777-7777-4777-8777-777777777777';
+select pg_temp.expect(
+  (select note is null from public.checklist_runs
+    where id = '0d777777-7777-4777-8777-777777777777'),
+  'a COMPLETED run cannot be edited'
+);
+
+update public.checklist_answers set value = 'yes', note = null
+ where run_id = '0d777777-7777-4777-8777-777777777777';
+select pg_temp.expect(
+  (select value = 'no' from public.checklist_answers
+    where run_id = '0d777777-7777-4777-8777-777777777777'),
+  'and neither can an answer inside it'
+);
+
+do $$
+declare ok boolean := false;
+begin
+  begin
+    delete from public.checklist_runs where id = '0d777777-7777-4777-8777-777777777777';
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'nobody can DELETE a run — an abandoned one is itself a fact about the day');
+end $$;
+
+-- An educator may fill a form in and may not invent one.
+do $$
+declare code text := 'none (the insert SUCCEEDED)';
+begin
+  begin
+    insert into public.checklist_templates (centre_id, name)
+    values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Written by an educator');
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '42501', 'an EDUCATOR cannot create a template, got ' || code);
+end $$;
+
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.checklist_templates) = 0
+  and (select count(*) from public.checklist_template_versions) = 0
+  and (select count(*) from public.checklist_items) = 0
+  and (select count(*) from public.checklist_runs) = 0
+  and (select count(*) from public.checklist_answers) = 0,
+  'a PARENT reads no template, version, item, run or answer'
+);
+
+set local request.jwt.claims = '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.checklist_templates) = 0
+  and (select count(*) from public.checklist_runs) = 0
+  and (select count(*) from public.checklist_answers) = 0,
+  'and another centre reads nothing of this one''s checklists'
+);
+
+-- ---------------------------------------------------------------------------
+-- Hazard assessment (0069)
+-- ---------------------------------------------------------------------------
+
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+
+insert into public.hazards (id, centre_id, description, risk, likelihood, consequence, identified_by)
+values ('0d888888-8888-4888-8888-888888888888',
+        'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        'RLS test hazard with an assessment.', 'medium', 4, 3,
+        '55555555-5555-4555-8555-555555555555');
+
+select pg_temp.expect(
+  (select risk_score = 12 from public.hazards
+    where id = '0d888888-8888-4888-8888-888888888888'),
+  'risk_score is generated from likelihood x consequence'
+);
+
+/*
+ * AND NOTHING BANDS IT.
+ *
+ * `risk` is what a person decided; `risk_score` is arithmetic over two other
+ * judgements. The row above is 12 out of 25 and its risk is 'medium' because somebody
+ * said so, not because 12 falls in a band — no sourced grid exists for this product
+ * (unverified-claims). This assertion fails the day somebody derives one from the
+ * other, which is the change that would quietly turn an unsourced convention into a
+ * compliance threshold.
+ */
+select pg_temp.expect(
+  (select risk = 'medium' from public.hazards
+    where id = '0d888888-8888-4888-8888-888888888888'),
+  'and does NOT override the risk a person recorded — no band is applied anywhere'
+);
+
+do $$
+declare ok boolean := false;
+begin
+  begin
+    update public.hazards set likelihood = 9
+     where id = '0d888888-8888-4888-8888-888888888888';
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'a likelihood outside 1-5 is refused');
+end $$;
+
+update public.hazards set likelihood = null
+ where id = '0d888888-8888-4888-8888-888888888888';
+select pg_temp.expect(
+  (select risk_score is null from public.hazards
+    where id = '0d888888-8888-4888-8888-888888888888'),
+  'and a score derived from one number is no score at all'
+);
+
+set local role postgres;
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.hazards (centre_id, description, risk, risk_score)
+    values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Written score.', 'low', 25);
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok,
+    'nobody can write risk_score directly, service_role included — it is generated');
+end $$;
+
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+
+-- ===========================================================================
 -- VISITORS (0035) AND IMMUNISATION (0036)
 --
 -- Two tables with two different boundaries, which is why they are two migrations.
@@ -6806,7 +7319,14 @@ begin
           and a.attnum > 0
           and not a.attisdropped
           and a.attname in ('centre_id', 'child_id', 'invoice_id', 'guardian_id',
-                            'staff_member_id', 'post_id')
+                            'staff_member_id', 'post_id',
+                            -- 0068: the checklist chain. `checklist_template_versions`
+                            -- hangs off a template, `checklist_items` off a version,
+                            -- `checklist_answers` off a run. Added here in the same
+                            -- commit as the branches in `audit_trigger()` — without
+                            -- both halves this assertion passes and means nothing,
+                            -- which is the 0059 failure exactly.
+                            'template_id', 'version_id', 'run_id')
      );
 
   perform pg_temp.expect(

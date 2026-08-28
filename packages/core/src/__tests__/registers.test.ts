@@ -17,6 +17,7 @@ const incident = (over: Partial<Incident> & Pick<Incident, 'id' | 'occurredAt'>)
   childId: 'k1',
   kind: 'injury',
   location: null,
+  roomId: null,
   description: 'Grazed knee.',
   firstAidGiven: null,
   treatedBy: null,

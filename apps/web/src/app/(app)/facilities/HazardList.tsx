@@ -1,8 +1,19 @@
 'use client';
 
 import { useActionState, useEffect, useState } from 'react';
-import { HAZARD_RISKS, compareHazardUrgency, type Hazard } from '@ece/core';
+import {
+  CONSEQUENCE_LABELS,
+  HAZARD_RISKS,
+  LIKELIHOOD_LABELS,
+  compareHazardUrgency,
+  type Hazard,
+} from '@ece/core';
 import { addHazard, closeHazard, setHazardControl, type Result } from './actions';
+
+export interface RoomOption {
+  id: string;
+  name: string;
+}
 
 export interface HazardRow {
   hazard: Hazard;
@@ -10,6 +21,7 @@ export interface HazardRow {
   resolvedLabel: string | null;
   /** Whole days open, computed on the server. Null once resolved. */
   daysOpen: number | null;
+  roomName: string | null;
 }
 
 const RISK_LABELS: Record<(typeof HAZARD_RISKS)[number], string> = {
@@ -25,7 +37,7 @@ const RISK_LABELS: Record<(typeof HAZARD_RISKS)[number], string> = {
  * reviewer that anything ever gets fixed, which is most of what a hazard register is
  * evidence of.
  */
-export function HazardList({ rows }: { rows: HazardRow[] }) {
+export function HazardList({ rows, rooms }: { rows: HazardRow[]; rooms: RoomOption[] }) {
   const [adding, setAdding] = useState(false);
   const sorted = [...rows].sort((a, b) => compareHazardUrgency(a.hazard, b.hazard));
 
@@ -61,7 +73,7 @@ export function HazardList({ rows }: { rows: HazardRow[] }) {
           </button>
         </p>
       ) : (
-        <AddForm onDone={() => setAdding(false)} />
+        <AddForm rooms={rooms} onDone={() => setAdding(false)} />
       )}
     </div>
   );
@@ -94,9 +106,9 @@ function Row({ row }: { row: HazardRow }) {
     <tr>
       <td>
         <strong>{h.description}</strong>
-        {h.area && (
+        {(row.roomName || h.area) && (
           <div className="sub" style={{ fontSize: '0.8125rem' }}>
-            {h.area}
+            {[row.roomName, h.area].filter(Boolean).join(' · ')}
           </div>
         )}
         {error && (
@@ -116,6 +128,18 @@ function Row({ row }: { row: HazardRow }) {
         >
           {RISK_LABELS[h.risk]}
         </span>
+        {/*
+          The score sits BESIDE the risk, never replacing it. `risk` is what a person
+          decided; the score is arithmetic over two other judgements. Nothing in this
+          product maps one onto the other, because no banding of 1-25 onto
+          low/medium/high is sourced anywhere in this repo — see 0069 and
+          unverified-claims. A disagreement between the two is information.
+        */}
+        {h.riskScore !== null && (
+          <div className="sub" style={{ fontSize: '0.8125rem' }}>
+            Score {h.riskScore}/25
+          </div>
+        )}
       </td>
       <td>
         {h.control ? (
@@ -202,7 +226,7 @@ function Row({ row }: { row: HazardRow }) {
   );
 }
 
-function AddForm({ onDone }: { onDone: () => void }) {
+function AddForm({ rooms, onDone }: { rooms: RoomOption[]; onDone: () => void }) {
   const [state, action, pending] = useActionState<Result | null, FormData>(addHazard, null);
 
   useEffect(() => {
@@ -222,9 +246,26 @@ function AddForm({ onDone }: { onDone: () => void }) {
         <input id="description" name="description" type="text" required />
       </div>
 
+      {rooms.length > 0 && (
+        <div className="field">
+          <label htmlFor="roomId">Which room (optional)</label>
+          <select id="roomId" name="roomId" defaultValue="">
+            <option value="">Not recorded</option>
+            {rooms.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       <div className="field">
-        <label htmlFor="area">Where (optional)</label>
-        <input id="area" name="area" type="text" />
+        <label htmlFor="area">Where else (optional)</label>
+        <input id="area" name="area" type="text" placeholder="By the front path" />
+        <p className="sub" style={{ fontSize: '0.8125rem' }}>
+          For anywhere a room does not cover. Both can be used.
+        </p>
       </div>
 
       <div className="field">
@@ -236,6 +277,45 @@ function AddForm({ onDone }: { onDone: () => void }) {
             </option>
           ))}
         </select>
+      </div>
+
+      {/*
+        Optional, and staying optional. A hazard spotted in a playground is recorded in
+        thirty seconds, and demanding a two-part assessment before the row exists is how
+        a register stops being used.
+      */}
+      <div className="field">
+        <label htmlFor="likelihood">How likely (optional)</label>
+        <select id="likelihood" name="likelihood" defaultValue="">
+          <option value="">Not assessed</option>
+          {[1, 2, 3, 4, 5].map((n) => (
+            <option key={n} value={n}>
+              {n} — {LIKELIHOOD_LABELS[n]}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="field">
+        <label htmlFor="consequence">How bad if it happened (optional)</label>
+        <select id="consequence" name="consequence" defaultValue="">
+          <option value="">Not assessed</option>
+          {[1, 2, 3, 4, 5].map((n) => (
+            <option key={n} value={n}>
+              {n} — {CONSEQUENCE_LABELS[n]}
+            </option>
+          ))}
+        </select>
+        <p className="sub" style={{ fontSize: '0.8125rem' }}>
+          If you set both, a score out of 25 is shown beside the risk. It is your centre’s own
+          arithmetic — this product does not turn a score into low, medium or high, because no
+          such scale is set out in the regulations we can cite.
+        </p>
+      </div>
+
+      <div className="field">
+        <label htmlFor="reviewIntervalDays">Review every, in days (optional)</label>
+        <input id="reviewIntervalDays" name="reviewIntervalDays" type="number" min={1} max={730} />
       </div>
 
       <div className="field">

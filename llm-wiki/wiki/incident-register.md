@@ -25,6 +25,27 @@ The machinery is small. The difficulty is entirely in who may read what, and whe
   cannot use the register to prove anything.
 - Four tables were rejected in favour of four tables. See below — the generic one was the
   obvious design and it breaks the audit log.
+- **`room_id` was added in 0066** and `location` stays beside it. Not redundant: an incident
+  happens on the front path, at the park, in somebody else's car park, and a room picker can say
+  none of that. The room is for the cases a filter should group.
+- **`/incidents/[id]/print` renders one report as a document** (2026-08-28), replacing the PDF
+  icon on every row of 1Place's incident list. Same mechanism as the compliance binder — a print
+  stylesheet, no headless browser, no second rendering of the truth that could drift from the
+  screen. **It carries no signature line**, deliberately: this product has no signature on an
+  incident, and printing a blank one would invite a centre to treat the paper as the record, at
+  which point everything this schema does about immutability is decoration. A draft prints with a
+  banner saying so, because a manager reviewing one before it goes final wants it on paper and
+  refusing would push that reading somewhere this product cannot see.
+
+## What 1Place does that this does not, and why that is the right way round
+
+Little Pearls' 1Place shows a flat *Status: Pending* and an *Unsigned* queue where this has
+`draft → final`, `parent_notified_at`, `acknowledged_at` and `supersedes`. The migration off it
+maps *Unsigned* to `draft` and *Pending* to `final`; it does **not** add a mutable status column
+to match. Their "Incident Category" field was blank on every row in the screenshots, and
+`incident_kind` — injury, illness, behaviour, near_miss, other — already covers the Type/Category
+split more usefully than an unused enum would. See [[checklists]] and
+[`docs/replacing-1place.md`](../../docs/replacing-1place.md).
 
 ## Details
 

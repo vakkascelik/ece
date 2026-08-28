@@ -76,13 +76,42 @@ export async function addHazard(_prev: unknown, form: FormData): Promise<Result>
   if (description.length < 3) return { error: 'Describe the hazard.' };
   if (!risk) return { error: 'How serious is it?' };
 
+  /*
+    Likelihood and consequence are optional and stay optional.
+
+    A hazard spotted in a playground is recorded in thirty seconds, and demanding a
+    two-part assessment before the row exists is how a register stops being used. The
+    score is generated from them in Postgres when both are present, and is null when
+    either is missing — a score derived from one number is not a score.
+
+    Nothing here converts the score into `risk`. See the header of 0069: no banding of
+    a 1-25 product onto low/medium/high is sourced anywhere in this repo, and applying
+    one would turn a convention into a compliance threshold.
+  */
+  const scale = (k: string): number | null => {
+    const raw = str(form, k);
+    if (!raw) return null;
+    const n = Number(raw);
+    return Number.isInteger(n) && n >= 1 && n <= 5 ? n : null;
+  };
+  const interval = (): number | null => {
+    const raw = str(form, 'reviewIntervalDays');
+    if (!raw) return null;
+    const n = Number(raw);
+    return Number.isInteger(n) && n >= 1 && n <= 730 ? n : null;
+  };
+
   try {
     await recordHazard(db, {
       centreId: ctx.centre.id,
       description,
       risk,
       area: str(form, 'area') || null,
+      roomId: str(form, 'roomId') || null,
       control: str(form, 'control') || null,
+      likelihood: scale('likelihood'),
+      consequence: scale('consequence'),
+      reviewIntervalDays: interval(),
     });
   } catch (e) {
     return actionError(e, 'facilities.addHazard');

@@ -120,13 +120,14 @@ export async function recordDrill(
 // ---------------------------------------------------------------------------
 
 const HAZARD_COLUMNS =
-  'id, centre_id, description, area, risk, control, identified_at, identified_by, reviewed_at, resolved_at, resolution';
+  'id, centre_id, description, area, room_id, risk, control, identified_at, identified_by, reviewed_at, resolved_at, resolution, likelihood, consequence, risk_score, review_interval_days';
 
 interface HazardRow {
   id: string;
   centre_id: string;
   description: string;
   area: string | null;
+  room_id: string | null;
   risk: HazardRisk;
   control: string | null;
   identified_at: string;
@@ -134,6 +135,11 @@ interface HazardRow {
   reviewed_at: string | null;
   resolved_at: string | null;
   resolution: string | null;
+  likelihood: number | null;
+  consequence: number | null;
+  /** Generated in Postgres. Read-only: nobody can write it, service_role included. */
+  risk_score: number | null;
+  review_interval_days: number | null;
 }
 
 const toHazard = (r: HazardRow): Hazard => ({
@@ -148,6 +154,11 @@ const toHazard = (r: HazardRow): Hazard => ({
   reviewedAt: r.reviewed_at,
   resolvedAt: r.resolved_at,
   resolution: r.resolution,
+  roomId: r.room_id,
+  likelihood: r.likelihood,
+  consequence: r.consequence,
+  riskScore: r.risk_score,
+  reviewIntervalDays: r.review_interval_days,
 });
 
 export async function listHazards(db: Db, centreId: string): Promise<Hazard[]> {
@@ -169,7 +180,11 @@ export async function recordHazard(
     description: string;
     risk: HazardRisk;
     area?: string | null;
+    roomId?: string | null;
     control?: string | null;
+    likelihood?: number | null;
+    consequence?: number | null;
+    reviewIntervalDays?: number | null;
   },
 ): Promise<Hazard> {
   const { data: auth } = await db.auth.getUser();
@@ -180,7 +195,13 @@ export async function recordHazard(
       description: input.description.trim(),
       risk: input.risk,
       area: input.area?.trim() || null,
+      room_id: input.roomId ?? null,
       control: input.control?.trim() || null,
+      // `risk_score` is generated and is deliberately absent: writing it is refused
+      // by Postgres, which is the correct privilege for a derived value.
+      likelihood: input.likelihood ?? null,
+      consequence: input.consequence ?? null,
+      review_interval_days: input.reviewIntervalDays ?? null,
       identified_by: auth.user?.id ?? null,
     })
     .select(HAZARD_COLUMNS)
@@ -202,14 +223,22 @@ export async function updateHazard(
   patch: {
     control?: string | null;
     risk?: HazardRisk;
+    roomId?: string | null;
     reviewedAt?: string | null;
     resolvedAt?: string | null;
     resolution?: string | null;
+    likelihood?: number | null;
+    consequence?: number | null;
+    reviewIntervalDays?: number | null;
   },
 ): Promise<void> {
   const row: Record<string, unknown> = {};
   if (patch.control !== undefined) row.control = patch.control?.trim() || null;
   if (patch.risk !== undefined) row.risk = patch.risk;
+  if (patch.roomId !== undefined) row.room_id = patch.roomId;
+  if (patch.likelihood !== undefined) row.likelihood = patch.likelihood;
+  if (patch.consequence !== undefined) row.consequence = patch.consequence;
+  if (patch.reviewIntervalDays !== undefined) row.review_interval_days = patch.reviewIntervalDays;
   if (patch.reviewedAt !== undefined) row.reviewed_at = patch.reviewedAt;
   if (patch.resolvedAt !== undefined) row.resolved_at = patch.resolvedAt;
   if (patch.resolution !== undefined) row.resolution = patch.resolution?.trim() || null;

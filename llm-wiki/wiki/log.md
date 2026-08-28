@@ -3939,4 +3939,65 @@ local stand-in serving a real PNG, and the cache measured at two upstream calls 
 requests. Recorded as gap 16 in `apps/site/CONTENT-GAPS.md` that **nobody has read Google's terms on
 how long their content may be cached** — the TTLs are a guess in the safe direction, not a finding.
 
-*Log last updated: 2026-08-16*
+2026-08-28 — **Rooms, tasks and checklists shipped, replacing four 1Place modules.** New page
+[[checklists]]; migrations 0066–0072; plan in `docs/replacing-1place.md`. The measured facts first,
+because they reshaped the plan.
+
+**Both 1Place export files the owner supplied are empty.** 243 rows claimed in the header, 0 rows
+exported; the images file, 6 claimed and 0 exported. A file describing 198 people is 4,460 bytes.
+It is a Dexie dump of the browser's offline cache with the structure intact and the contents
+absent, so no migration can be built from it. What it *was* worth is the keyPath on each table,
+which separates real record stores from cache blobs — `people` (198), `person_types` (3) and
+`images` (6) are hard counts; `checklist_templates: 12` is a cache entry count and is not evidence
+of twelve templates, however likely that is.
+
+**Three defects, all mine, all caught by a check rather than by reading.**
+
+The worst: **0068 re-declared `audit_trigger()` from 0059's prose header instead of from 0059's
+source.** Three things had moved on — the column is `actor_id` not `actor`, `entity_id` is
+`coalesce(id, guardian_id, post_id)` rather than a uuid cast, and an UPDATE that changed nothing
+returns early under the key `changed` and not `columns`. Every audited write in the product raised
+42703 from the moment the migration landed. `test:rls` caught it on the first run after. Fixed
+forward in 0070 rather than by editing 0068, because `npm run migrate` refuses a file whose
+checksum moved after it was applied and that refusal is the rule working. **A comment describing a
+function is not the function**, and re-declaring a shared one is the single edit where that
+shortcut is guaranteed to be expensive.
+
+Second: **the EXECUTE grant on `checklist_run_guard` was left at its default**, so a SECURITY
+DEFINER function was reachable by `anon` and `review:security` went from clean to HIGH. Fixed in
+0072, which is a copy of 0031 — the identical omission eleven days earlier, in the migration that
+added `enforce_incident_transition`. 0031's header already records the lesson and says it was
+found by a check rather than by review. That did not stop the repeat, because **a lesson in a
+migration header is only read by somebody already reading that migration.** The check is what
+caught both.
+
+Third: the audit trigger on `checklist_template_versions` was named `checklist_versions_audit`,
+after the table's short name. Both coverage guards match `tgname = relname || '_audit'`, so the
+table reported as missing a trigger it had. Renamed in 0071. The convention is what lets a
+catalogue query answer "is everything audited" without a hand-maintained list, and a
+hand-maintained list is what let `shifts` and `staff_leave` go unaudited for eighteen migrations.
+
+**One decision that breaks a rule this wiki states, on purpose.** `rooms` is readable by a parent,
+where [[centre-registers]] establishes `caller_staff_centre_ids()` for everything belonging to the
+building. `incidents.room_id` is why: a staff-only room list makes the family read "your child was
+hurt" with the place blanked out, so the record would be less informative to its intended audience
+than the paper form it replaced. [[centre-registers]] was corrected first, per the contradiction
+clause, and `rls_isolation.sql` now carries an assertion that fails if somebody narrows it back.
+
+**A bundle finding that was not what it looked like.** `check:bundle` reported apps/web at 113.0kB
+against a 106kB budget after `SyncStatus` went into the app layout, and the obvious reading was
+that a static import of `flush` had pulled `@supabase/supabase-js` into the shared first-load
+chunk. Measurement said otherwise: 113.0kB with the import, 113.0kB without it, and 113.0kB on a
+clean checkout of `main` with none of this work applied. **The overage is pre-existing and
+unrelated.** The store/flush split was kept anyway — reading the queue now imports nothing at
+runtime by construction rather than by the bundler's current preference — but the comments written
+while the wrong hypothesis was live were rewritten to say what was actually measured. An
+improvement is not a fix, and a plausible cause is not a measured one.
+
+Deferred and written down rather than left silent: **checklist photos**, because routing them into
+`media` opens a path into the consent-gated table from a staff-only screen and a photo of a broken
+latch with a toddler in the background is child media; and **the offline path for runs**, whose
+`client_uuid` column exists and is unique but whose value is still generated on the server —
+[[unverified-claims]] §21's narrower successor.
+
+*Log last updated: 2026-08-28*

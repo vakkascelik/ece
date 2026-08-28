@@ -35,7 +35,7 @@ import type { Db } from './index';
 // `GenericStringError[]` and every downstream cast becomes a lie the compiler accepts.
 // Costs one long line; buys the return type.
 const INCIDENT_COLUMNS =
-  'id, centre_id, child_id, kind, occurred_at, location, description, first_aid_given, treated_by, witness_name, reported_by, status, parent_notified_at, notified_by, acknowledged_at, acknowledged_by, supersedes';
+  'id, centre_id, child_id, kind, occurred_at, location, room_id, description, first_aid_given, treated_by, witness_name, reported_by, status, parent_notified_at, notified_by, acknowledged_at, acknowledged_by, supersedes';
 
 interface IncidentRow {
   id: string;
@@ -44,6 +44,7 @@ interface IncidentRow {
   kind: IncidentKind;
   occurred_at: string;
   location: string | null;
+  room_id: string | null;
   description: string;
   first_aid_given: string | null;
   treated_by: string | null;
@@ -64,6 +65,7 @@ const toIncident = (r: IncidentRow): Incident => ({
   kind: r.kind,
   occurredAt: r.occurred_at,
   location: r.location,
+  roomId: r.room_id,
   description: r.description,
   firstAidGiven: r.first_aid_given,
   treatedBy: r.treated_by,
@@ -124,6 +126,7 @@ export interface OpenIncidentInput {
   occurredAt: string;
   description: string;
   location?: string | null;
+  roomId?: string | null;
   firstAidGiven?: string | null;
   witnessName?: string | null;
   /** Set only when this is an amendment to an incident that has been finalised. */
@@ -149,6 +152,7 @@ export async function openIncident(db: Db, input: OpenIncidentInput): Promise<In
       occurred_at: input.occurredAt,
       description: input.description.trim(),
       location: input.location?.trim() || null,
+      room_id: input.roomId ?? null,
       first_aid_given: input.firstAidGiven?.trim() || null,
       witness_name: input.witnessName?.trim() || null,
       supersedes: input.supersedes ?? null,
@@ -176,6 +180,7 @@ export async function updateIncidentDraft(
     occurredAt?: string;
     description?: string;
     location?: string | null;
+    roomId?: string | null;
     firstAidGiven?: string | null;
     witnessName?: string | null;
   },
@@ -185,6 +190,7 @@ export async function updateIncidentDraft(
   if (patch.occurredAt !== undefined) row.occurred_at = patch.occurredAt;
   if (patch.description !== undefined) row.description = patch.description.trim();
   if (patch.location !== undefined) row.location = patch.location?.trim() || null;
+  if (patch.roomId !== undefined) row.room_id = patch.roomId;
   if (patch.firstAidGiven !== undefined) row.first_aid_given = patch.firstAidGiven?.trim() || null;
   if (patch.witnessName !== undefined) row.witness_name = patch.witnessName?.trim() || null;
   if (Object.keys(row).length === 0) return;

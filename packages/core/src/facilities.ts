@@ -108,6 +108,8 @@ export interface Hazard {
   centreId: string;
   description: string;
   area: string | null;
+  /** 0066. `area` stays for the free text that is not a room — the front path, the verge. */
+  roomId: string | null;
   risk: HazardRisk;
   control: string | null;
   identifiedAt: string;
@@ -115,6 +117,16 @@ export interface Hazard {
   reviewedAt: string | null;
   resolvedAt: string | null;
   resolution: string | null;
+
+  /*
+   * 0069. `riskScore` is generated in Postgres and is read-only here — likelihood ×
+   * consequence, 1–25, null unless both are set. Nothing converts it into `risk`:
+   * see the note in `worklist.ts` explaining why there is no `riskBand()`.
+   */
+  likelihood: number | null;
+  consequence: number | null;
+  riskScore: number | null;
+  reviewIntervalDays: number | null;
 }
 
 const RISK_ORDER: Record<HazardRisk, number> = { high: 0, medium: 1, low: 2 };

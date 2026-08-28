@@ -1,10 +1,16 @@
+import { listRooms } from '@ece/api';
+import { sortRooms } from '@ece/core';
 import { requireCapability } from '@/lib/auth';
+import { serverDb } from '@/lib/supabase';
 import { PageHeader } from '../PageHeader';
 import './settings.css';
+import { RoomList } from './RoomList';
 import { SettingsForm } from './SettingsForm';
 
 export default async function SettingsPage() {
   const ctx = await requireCapability('manageCentre');
+  const db = await serverDb();
+  const rooms = await listRooms(db, ctx.centre.id);
 
   return (
     <>
@@ -23,6 +29,7 @@ export default async function SettingsPage() {
         aiFeatures={ctx.centre.aiFeatures}
         licensedPlaces={ctx.centre.licensedPlaces}
       />
+      <RoomList rooms={sortRooms(rooms)} />
     </>
   );
 }

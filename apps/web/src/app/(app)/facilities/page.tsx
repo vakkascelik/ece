@@ -1,7 +1,9 @@
-import { listDrills, listHazards, listSafetyChecks } from '@ece/api';
+import { listDrills, listHazards, listRooms, listSafetyChecks } from '@ece/api';
 import {
   SAFETY_AREAS,
   daysSince,
+  liveRooms,
+  roomName,
   drillStatuses,
   latestByArea,
   summariseHazards,
@@ -38,10 +40,11 @@ export default async function FacilitiesPage() {
   const { fromUtc } = dayWindow(shiftLocalDate(today, -(SAFETY_WINDOW_DAYS - 1)), ctx.centre.timezone);
   const { toUtc } = dayWindow(today, ctx.centre.timezone);
 
-  const [hazards, drills, checks] = await Promise.all([
+  const [hazards, drills, checks, rooms] = await Promise.all([
     listHazards(db, ctx.centre.id),
     listDrills(db, ctx.centre.id),
     listSafetyChecks(db, ctx.centre.id, fromUtc, toUtc),
+    listRooms(db, ctx.centre.id),
   ]);
 
   const now = new Date().toISOString();
@@ -68,6 +71,9 @@ export default async function FacilitiesPage() {
     identifiedLabel: dayOnly.format(new Date(hazard.identifiedAt)),
     resolvedLabel: hazard.resolvedAt ? dayOnly.format(new Date(hazard.resolvedAt)) : null,
     daysOpen: hazard.resolvedAt === null ? daysSince(hazard.identifiedAt, now) : null,
+    // Resolved against every room including archived ones: a hazard found in a room
+    // that has since closed still has to say where it was.
+    roomName: roomName(rooms, hazard.roomId),
   }));
 
   const statuses = drillStatuses(drills, now, ctx.centre.drillIntervalDays);
@@ -146,7 +152,10 @@ export default async function FacilitiesPage() {
       </div>
 
       <h2>Hazards</h2>
-      <HazardList rows={hazardRows} />
+      <HazardList
+        rows={hazardRows}
+        rooms={liveRooms(rooms).map((r) => ({ id: r.id, name: r.name }))}
+      />
 
       <h2>Emergency drills</h2>
       <DrillLog

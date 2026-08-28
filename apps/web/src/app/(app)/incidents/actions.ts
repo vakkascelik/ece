@@ -68,6 +68,7 @@ export async function openDraft(_prev: unknown, form: FormData): Promise<Result>
       occurredAt,
       description,
       location: str(form, 'location') || null,
+      roomId: str(form, 'roomId') || null,
       firstAidGiven: str(form, 'firstAidGiven') || null,
       witnessName: str(form, 'witnessName') || null,
       supersedes: str(form, 'supersedes') || null,
@@ -172,6 +173,7 @@ export async function saveDraft(_prev: unknown, form: FormData): Promise<Result>
       occurredAt,
       description,
       location: str(form, 'location') || null,
+      roomId: str(form, 'roomId') || null,
       firstAidGiven: str(form, 'firstAidGiven') || null,
       witnessName: str(form, 'witnessName') || null,
     });

@@ -32,6 +32,14 @@ export interface Incident {
   kind: IncidentKind;
   occurredAt: string;
   location: string | null;
+  /**
+   * 0066. Which room, when the centre keeps a room list.
+   *
+   * `location` stays alongside it and is not redundant: an incident happens on the
+   * front path, at the park, in the car park of somewhere else entirely, and a room
+   * picker cannot say any of that. The room is for the cases a filter should group.
+   */
+  roomId: string | null;
   description: string;
   firstAidGiven: string | null;
   treatedBy: string | null;

@@ -167,6 +167,17 @@ function Row({ row }: { row: IncidentRow }) {
             </Link>
           </p>
         )}
+        {/*
+          Offered on drafts too. A manager reviewing a report before it goes final
+          often wants it on paper, and refusing would push that reading into a copy
+          pasted somewhere this product cannot see. The printed page carries a banner
+          saying it is a draft.
+        */}
+        <p style={{ margin: '0.35rem 0 0' }}>
+          <Link href={`/incidents/${i.id}/print`} className="small">
+            Print
+          </Link>
+        </p>
       </td>
     </tr>
   );

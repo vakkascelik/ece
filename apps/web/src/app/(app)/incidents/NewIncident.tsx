@@ -49,18 +49,26 @@ export interface BasedOn {
   occurredWallClock: string;
   description: string;
   location: string | null;
+  roomId: string | null;
   firstAidGiven: string | null;
   witnessName: string | null;
+}
+
+export interface RoomOption {
+  id: string;
+  name: string;
 }
 
 export function NewIncident({
   childOptions,
   defaultWallClock,
   basedOn,
+  rooms,
 }: {
   childOptions: ChildOption[];
   defaultWallClock: string;
   basedOn?: BasedOn | null;
+  rooms: RoomOption[];
 }) {
   // Opened already when correcting or amending: the person arrived by pressing Edit
   // or Amend, and
@@ -249,9 +257,34 @@ export function NewIncident({
         </p>
       </div>
 
+      {rooms.length > 0 && (
+        <div className="field">
+          <label htmlFor="roomId">Which room (optional)</label>
+          <select id="roomId" name="roomId" defaultValue={basedOn?.roomId ?? ''}>
+            <option value="">Not recorded</option>
+            {rooms.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {/*
+        Kept alongside the room picker rather than replaced by it. An incident happens
+        on the front path, at the park, in somebody else's car park — and a room list
+        can say none of that. The room is for the cases a filter should group.
+      */}
       <div className="field">
-        <label htmlFor="location">Where (optional)</label>
-        <input id="location" name="location" type="text" defaultValue={basedOn?.location ?? ''} />
+        <label htmlFor="location">Where else (optional)</label>
+        <input
+          id="location"
+          name="location"
+          type="text"
+          defaultValue={basedOn?.location ?? ''}
+          placeholder="By the front gate"
+        />
       </div>
 
       <div className="field">

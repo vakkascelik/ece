@@ -50,6 +50,11 @@ and [`../schema.md`](../schema.md) for the page template.
   antibiotics, and the first assertion that a purge reaches a table nobody can `DELETE`
 - [[centre-registers]] — drills, hazards and safety checks: the phase where the boundary is one
   line, and the one predicate that would have handed a parent the hazard register
+- [[checklists]] — replacing 1Place: a room list the product hangs off and which a parent may
+  read (deliberately unlike its neighbours), a work queue, and a checklist engine whose runs
+  point at a template *version* so a wording change cannot rewrite last year's evidence; plus
+  the two defects the checks caught — a shared function re-declared from its own comment, and an
+  EXECUTE grant left at its default for the second time in eleven days
 - [[sleep-checks]] — the register that refuses to say how often, and why a default interval
   would be worse than none: it would talk a centre into a breach behind a green screen
 - [[staff-as-people]] — the identity question Phase 10 hangs off: three notions of a person that

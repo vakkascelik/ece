@@ -228,6 +228,10 @@ export * from './billing';
 export * from './recruitment';
 export * from './registers';
 export * from './facilities';
+
+// Rooms, tasks and checklists — 0066 to 0069. Note the boundary is NOT uniform in
+// here: `rooms` is readable by a parent and everything else in the file is staff-only.
+export * from './worklist';
 export * from './staff';
 // Definer functions only — a kiosk holds no table grant, so there is nothing here to
 // select from and no query for a later reader to widen.

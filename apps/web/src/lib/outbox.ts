@@ -1,145 +1,41 @@
-import { classifyWriteFailure, type AttendanceKind, type QueuedAttendance } from '@ece/core';
+import { classifyWriteFailure } from '@ece/core';
 import { recordAttendance, type Db } from '@ece/api';
+import { OUTBOX_EVENT, type OutboxEntry } from './outboxStore';
 
 /**
- * The web outbox.
+ * The outbox's sending half.
  *
- * WHY THE WEB APP NEEDS ONE AT ALL
- *
- * Because the same build runs on a tablet bolted to the wall by the door, and that tablet
- * loses wifi. Until now a sign-in made while it was down simply failed: the tap errored, the
- * child was on nobody's roll, and the ratio counted one fewer person than the room held —
- * wrong in the dangerous direction. `attendance/actions.ts` used to justify having no queue
- * with "there is no offline gap to preserve, unlike on a tablet". The tablet *is* this app.
- *
- * SAME CONTRACT AS `apps/mobile/lib/outbox.ts`, DELIBERATELY
- *
- * Different storage, identical rules, because these are the rules that make a queue safe and
- * they were learned once already:
- *
- * 1. **The key is generated once, at enqueue** — never per attempt. `client_uuid` is what
- *    makes a retry a no-op instead of a second sign-in. A unique violation on it means the
- *    write already landed, so it is treated as success, not as an error.
- * 2. **A permanently refused write is not retried forever.** `classifyWriteFailure` reads the
- *    Postgres error; a dead entry stops blocking everything behind it.
- * 3. **Queued events count toward the ratio.** `buildRoll` in `@ece/core` does that merge, and
- *    it is the reason the ratio is computed on the client here rather than on the server.
- *
- * WHY localStorage AND NOT IndexedDB
- *
- * The queue holds attendance events — roughly 150 bytes each, a few dozen at worst on the
- * worst morning. IndexedDB buys asynchronous access and a schema for a payload that fits in a
- * fraction of a percent of the 5MB localStorage budget, at the cost of a wrapper nobody would
- * enjoy reading. If this ever queues media, that trade changes.
- *
- * It is synchronous, which is a feature here: the roll re-renders from the queue in the same
- * tick as the tap, so the row shows its chip immediately.
+ * Re-exports the storage half so existing importers are untouched — `RollClient` wants
+ * both and always did. Anything that only needs to *read* the queue should import
+ * `./outboxStore` directly: this module reaches `@supabase/supabase-js`, which is not a
+ * dependency a component living in a layout should hold statically. See the header of
+ * `outboxStore.ts` — including the measurement showing the current bundle overage is
+ * pre-existing and is NOT caused by this.
  */
 
+export * from './outboxStore';
+
 const KEY = 'ece.outbox.attendance';
-/** Fired on the window so every component reading the queue re-renders together. */
-export const OUTBOX_EVENT = 'ece:outbox';
-
-export interface OutboxEntry extends QueuedAttendance {
-  /**
-   * WHO MADE THIS TAP. Every read and every write is scoped to it.
-   *
-   * `recordAttendance` stamps `recorded_by` from `auth.uid()` at **flush time**, not at enqueue
-   * time, and that single fact decides the whole shared-tablet story. Without this field: leave
-   * educator A's three queued sign-ins on the tablet by the door, let B sign in, and **B's token
-   * flushes A's observations** — recorded as B, in a table with no UPDATE grant for anybody, so the
-   * misattribution is permanent. A's queue also counted into B's ratio, because `pending()` returned
-   * everything in the browser.
-   *
-   * `llm-wiki/wiki/offline-outbox.md` has described this scoping as a property of the outbox since
-   * the mobile queue was built. It was true of mobile and **not** of this one — on the app that
-   * actually runs on the tablet by the door, which is the argument that justified building a web
-   * outbox at all.
-   *
-   * An entry written by the previous build has no `userId` and therefore matches nobody, so it sits
-   * inert. Acceptable rather than migrated: the web outbox shipped a day before this fix and nobody
-   * has used the product — there are no child records in any centre. Inventing a migration for data
-   * that does not exist would be the worse choice.
-   */
-  userId: string;
-  createdAt: string;
-  attempts: number;
-  lastError: string | null;
-  /** Set when the server refused it in a way retrying cannot fix. */
-  deadAt: string | null;
-}
-
-/** Scoping predicate, in one place so no reader can forget it. */
-const mine = (userId: string) => (e: OutboxEntry) => e.userId === userId;
 
 function read(): OutboxEntry[] {
-  if (typeof window === 'undefined') return [];
   try {
     const raw = window.localStorage.getItem(KEY);
-    if (!raw) return [];
-    const parsed: unknown = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as OutboxEntry[]) : [];
+    return raw ? (JSON.parse(raw) as OutboxEntry[]) : [];
   } catch {
-    // A corrupt or quota-blocked store must not take the roll down with it. An unreadable
-    // queue is treated as empty rather than thrown, because the roll still has to render.
     return [];
   }
 }
 
 function write(entries: OutboxEntry[]): void {
-  if (typeof window === 'undefined') return;
   try {
     window.localStorage.setItem(KEY, JSON.stringify(entries));
   } catch {
-    /* Private mode, or the quota is gone. Nothing useful to do from here. */
+    // Storage full or blocked. Nothing useful to do here; the roll still shows the tap.
   }
   window.dispatchEvent(new Event(OUTBOX_EVENT));
 }
 
-/** Everything still worth showing on the roll — dead entries are not pending, they are stuck. */
-export function pending(userId: string): OutboxEntry[] {
-  return read().filter(mine(userId)).filter((e) => e.deadAt === null);
-}
-
-export function deadEntries(userId: string): OutboxEntry[] {
-  return read().filter(mine(userId)).filter((e) => e.deadAt !== null);
-}
-
-/** The shape `describeSignOut` in `@ece/core` wants. */
-export function snapshot(userId: string): { unsent: number; dead: number } {
-  const all = read().filter(mine(userId));
-  return {
-    unsent: all.filter((e) => e.deadAt === null).length,
-    dead: all.filter((e) => e.deadAt !== null).length,
-  };
-}
-
-/**
- * Record a sign-in or sign-out locally.
- *
- * `at` is stamped here, at the moment of the tap, and never at flush time. The whole point of
- * a queue is that the time survives the gap — a child who arrived at 8:05 did not arrive when
- * the wifi came back at 9:20, and attendance times decide funded hours.
- */
-export function enqueue(input: {
-  childId: string;
-  kind: AttendanceKind;
-  userId: string;
-}): OutboxEntry {
-  const entry: OutboxEntry = {
-    clientUuid: crypto.randomUUID(),
-    userId: input.userId,
-    childId: input.childId,
-    kind: input.kind,
-    at: new Date().toISOString(),
-    createdAt: new Date().toISOString(),
-    attempts: 0,
-    lastError: null,
-    deadAt: null,
-  };
-  write([...read(), entry]);
-  return entry;
-}
+const mine = (userId: string) => (e: OutboxEntry) => e.userId === userId;
 
 export interface FlushResult {
   sent: number;
@@ -316,8 +212,3 @@ async function flushOnce(db: Db, userId: string): Promise<FlushResult> {
  * only record that children are in a building, and a function that discards them would
  * eventually be called by something trying to be helpful.
  */
-export function discardDead(userId: string): void {
-  // Only this person's dead entries. Another educator's stuck record is not this person's to
-  // discard, and it stays for them to deal with.
-  write(read().filter((e) => e.deadAt === null || e.userId !== userId));
-}

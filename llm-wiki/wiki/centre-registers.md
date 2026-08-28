@@ -17,6 +17,11 @@ asserting.
 
 - **`caller_staff_centre_ids()`, not `caller_centre_ids()`.** A parent is a member of the centre.
   The obvious predicate hands them the hazard register.
+  **One later table deliberately breaks this rule** — `rooms` (0066) is readable by a parent,
+  because `incidents.room_id` would otherwise render blank for the family the incident exists to
+  inform. A room name is a noun; this register is a list of risks the centre recorded about
+  itself. See [[checklists]] for the full argument, and note it before copying the predicate
+  above onto something new.
 - **A failed safety check must say what was wrong.** Enforced by a `CHECK`.
 - **Closing a hazard requires saying how.** `resolved_at` and `resolution` are a pair.
 - **Nothing here can be deleted**, by anybody. A hazard is closed, not removed.
@@ -24,6 +29,13 @@ asserting.
   centre states one.
 - `safety_checks` is append-only with the same `client_uuid` contract as everything else in the
   registers.
+- **Hazards gained an assessment in 0069** — `likelihood`, `consequence`, a generated
+  `risk_score`, and `review_interval_days` — and **nothing bands the score**. `risk` stays a
+  person's judgement and is not derived from the arithmetic; the two are allowed to disagree,
+  and a disagreement is information. [[unverified-claims]] item 40 explains why no grid is
+  applied, and it closes the day somebody sources one.
+- **All three tables gained `room_id` in 0066**, nullable. `hazards.area` stays alongside it for
+  the free text a room list cannot express — the verge, the front path.
 
 ## Details
 

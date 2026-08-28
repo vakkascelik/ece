@@ -983,8 +983,36 @@ Anyone who later needs to edit DNS at InMotion for this account — for `pif.org
 rollback — **must not assume the Zone Editor is effective**. Change one record, then query
 `ns1.inmotionhosting.com` directly and confirm the serial moved.
 
+### 40. No risk-matrix banding is sourced, so none is applied
+
+`hazards` gained `likelihood` and `consequence` (1–5 each) in 0069, and a generated
+`risk_score` that is their product, 1–25. **Nothing in this product turns that number into
+low, medium or high.**
+
+1Place's hazard form shows a Risk Score beside Likelihood and Consequence, and every
+risk-matrix product on the market bands the product onto three or four levels. The bands look
+official. A 5×5 grid banded at 15 and 8 is one widely used convention; banding at 12 and 6 is
+another. **Neither appears in any New Zealand ECE regulation anybody here has read**, and the
+difference decides whether a hazard is escalated to a manager.
+
+So `hazards.risk` — low/medium/high — stays what a person decided, sitting beside the score
+rather than being computed from it. They are allowed to disagree, and a disagreement is
+information: it means somebody looked at the numbers and judged differently, which is what
+professional judgement is. The screen shows both and says nothing about how they should relate.
+
+Multiplication is arithmetic and not a claim about the world, which is why storing the product
+is fine and banding it is not. There is deliberately no `riskBand()` function in
+`@ece/core/worklist.ts`, and the file says so where somebody would go looking to add one.
+
+**What would close this:** a specific grid Little Pearls is expected to use, from a source that
+can be cited — their own health-and-safety policy, an insurer's requirement, or a Ministry
+document. A centre's own stated method is enough; it just has to be *theirs* and written down,
+rather than this product's invention presented as a threshold. Until then the honest output is
+a number out of 25 and a word a person chose.
+
 ## See Also
 
+- [[checklists]] — where the hazard assessment fields live, and the rest of the 1Place work
 - [[kiosk-and-pins]] — the door tablet, and what it can and cannot know
 - [[attendance-and-ratios]] — where the ratio bands are used
 - [[attendance-verification]] — the feature item 36 is about

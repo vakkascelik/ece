@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { can, PRODUCT_NAME } from '@ece/core';
 import { requireCtx } from '@/lib/auth';
+import { appPath } from '@/lib/origin';
 import { signOut } from '../login/actions';
 import { DoorwayMark } from '../DoorwayMark';
 import { NavGroup } from './NavGroup';
@@ -9,6 +10,7 @@ import { NavGroupMemory } from './NavGroupMemory';
 import { NavIcon } from './NavIcon';
 import { NavLink } from './NavLink';
 import { SideRail } from './SideRail';
+import { SyncStatus } from './SyncStatus';
 import { SignOutControl } from './SignOutControl';
 import { groupKey } from './navGroups';
 import { closedGroups } from './navGroups.server';
@@ -117,6 +119,16 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
             {can(ctx.role, 'recordDailyPractice') && (
               <NavLink href="/facilities" icon={<NavIcon name="facilities" />}>Site safety</NavLink>
             )}
+            {/* The routine checks, and the jobs they generate. Both replace 1Place, and both
+                sit under Records rather than Today for the reason Incidents does: they are
+                documents somebody files, not a screen somebody watches. Checklists first —
+                a task usually exists because a check found something. */}
+            {can(ctx.role, 'recordDailyPractice') && (
+              <NavLink href="/checklists" icon={<NavIcon name="checklists" />}>Checklists</NavLink>
+            )}
+            {can(ctx.role, 'recordDailyPractice') && (
+              <NavLink href="/tasks" icon={<NavIcon name="tasks" />}>Tasks</NavLink>
+            )}
             {can(ctx.role, 'recordDailyPractice') && (
               <NavLink href="/excursions" icon={<NavIcon name="excursions" />}>Excursions</NavLink>
             )}
@@ -215,6 +227,14 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       </SideRail>
 
       <main className="main" id="main">
+        {/*
+          Above the page rather than in the rail, and on every screen.
+
+          It renders nothing at all when the device is online, the server answers and
+          the queue is empty — which is almost always. A permanent "all good" badge is
+          furniture people stop seeing, and a warning nobody sees cannot warn anybody.
+        */}
+        <SyncStatus userId={ctx.userId} healthHref={appPath('/api/health')} />
         {children}
       </main>
     </div>

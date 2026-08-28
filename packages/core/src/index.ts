@@ -312,6 +312,11 @@ export * from './registers';
 // in the policies, not in the arithmetic.
 export * from './facilities';
 
+// Rooms, tasks and checklists — the 1Place replacement. Grouped by phase, the same
+// choice facilities.ts makes. Note what is NOT exported: no riskBand(), because no
+// banding of a likelihood x consequence score is sourced anywhere in this repo.
+export * from './worklist';
+
 // Staff as people: the roster, who is signed in, and the certificate count that
 // states a fact and never a funding consequence.
 export * from './staff';

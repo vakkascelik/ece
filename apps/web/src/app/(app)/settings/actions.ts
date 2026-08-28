@@ -1,8 +1,9 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { updateCentre } from '@ece/api';
+import { createRoom, updateCentre, updateRoom } from '@ece/api';
 import { RATIO_SOURCES, type RatioSource } from '@ece/core';
+import { actionError } from '@/lib/actionError';
 import { requireCapability } from '@/lib/auth';
 import { serverDb } from '@/lib/supabase';
 
@@ -142,5 +143,87 @@ export async function saveCentre(_prev: unknown, form: FormData) {
 
   revalidatePath('/settings');
   revalidatePath('/');
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Rooms (0066)
+//
+// Here rather than on a page of their own because a room list is configuration, edited
+// when a centre is set up and roughly never afterwards — and `manageCentre` is already
+// the gate on this screen. The tables that reference a room are read by educators; the
+// list itself is written by the two roles that own the floor plan.
+// ---------------------------------------------------------------------------
+
+export type RoomResult = { error: string } | { ok: true };
+
+const roomStr = (f: FormData, k: string): string => (f.get(k) ?? '').toString().trim();
+
+export async function addRoom(_prev: unknown, form: FormData): Promise<RoomResult> {
+  const ctx = await requireCapability('manageCentre');
+  const db = await serverDb();
+
+  const name = roomStr(form, 'name');
+  if (name.length < 2) return { error: 'What is the room called?' };
+
+  const sortRaw = roomStr(form, 'sort');
+  const sort = sortRaw ? Number(sortRaw) : 0;
+  if (!Number.isInteger(sort)) return { error: 'The order has to be a whole number.' };
+
+  try {
+    await createRoom(db, { centreId: ctx.centre.id, name, sort });
+  } catch (e) {
+    return actionError(e, 'settings.addRoom');
+  }
+
+  revalidatePath('/settings');
+  return { ok: true };
+}
+
+export async function renameRoom(_prev: unknown, form: FormData): Promise<RoomResult> {
+  await requireCapability('manageCentre');
+  const db = await serverDb();
+
+  const id = roomStr(form, 'id');
+  const name = roomStr(form, 'name');
+  if (!id) return { error: 'Which room?' };
+  if (name.length < 2) return { error: 'What is the room called?' };
+
+  const sortRaw = roomStr(form, 'sort');
+  const sort = sortRaw ? Number(sortRaw) : 0;
+  if (!Number.isInteger(sort)) return { error: 'The order has to be a whole number.' };
+
+  try {
+    await updateRoom(db, id, { name, sort });
+  } catch (e) {
+    return actionError(e, 'settings.renameRoom');
+  }
+
+  revalidatePath('/settings');
+  return { ok: true };
+}
+
+/**
+ * Take a room out of every picker, and leave its history alone.
+ *
+ * There is no delete and there is no grant for one. A closed room still has last
+ * year's incidents pointing at it, and the evidence binder has to keep rendering
+ * them — which is the whole reason 0066 archives instead.
+ */
+export async function archiveRoom(_prev: unknown, form: FormData): Promise<RoomResult> {
+  await requireCapability('manageCentre');
+  const db = await serverDb();
+
+  const id = roomStr(form, 'id');
+  if (!id) return { error: 'Which room?' };
+  const restoring = roomStr(form, 'restore') === 'yes';
+
+  try {
+    await updateRoom(db, id, { archivedAt: restoring ? null : new Date().toISOString() });
+  } catch (e) {
+    return actionError(e, 'settings.archiveRoom');
+  }
+
+  revalidatePath('/settings');
   return { ok: true };
 }
