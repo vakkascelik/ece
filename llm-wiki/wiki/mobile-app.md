@@ -137,8 +137,14 @@ parent tapping "yes" to an excursion on their phone is the most obviously useful
 for a family. `CONSENT_DETAIL` wording is used verbatim — "in the private journal your whānau reads"
 and "on our website and social media" are different questions and families answer them differently,
 so paraphrasing for a small screen would change what was asked. Two labelled buttons, never a switch:
-a mis-tap on a toggle silently records the opposite of a decision about photographs of a child. Three
-states rendered, not two — "not asked" is a different fact from "withheld".
+a mis-tap on a toggle silently records the opposite of a decision about photographs of a child.
+
+**Four states rendered, not two, since 2026-08-29** — given, declined, *asked and waiting*, and
+never asked. The middle one arrived with `consent_requests` (0073). Before it this screen printed
+"Not asked yet" for anything unanswered, which the moment the centre could record an ask became a
+false statement to a family about their own child; [[asking-for-consent]] has the reasoning.
+`consentProgress` in core keeps the two apart and both apps read it, which is what stops the phone
+and the console disagreeing about whether a family was ever asked.
 
 **No custody section anywhere on mobile.** `viewCustody` excludes parents, and an empty heading would
 tell a parent that a court order exists. See [[consent-gated-media]] for the same reasoning applied
@@ -174,4 +180,4 @@ the argument for the move.
 - [[invitations]] — why account creation cannot happen here
 - [[unverified-claims]] — the device drills, and the store-submission blockers
 
-*Last updated: 2026-08-05*
+*Last updated: 2026-08-29*

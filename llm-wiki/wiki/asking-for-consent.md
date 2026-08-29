@@ -112,6 +112,23 @@ reason is written beside them.
 scopes an inbox to its owner, so it counted nothing and read as "never sent". Now asserted as
 the recipient, which also proves the part that matters: it reached somebody who can open it.
 
+### Mobile was ahead, then behind, for half a day
+
+Worth recording because it is the ordinary cost of a change that lands on one surface.
+
+`TamarikiScreen` has shown consent gaps **to parents** since it was built — *"here a gap is exactly
+what the parent can act on"* — while the web child record deliberately hid them. So on the question
+of telling families, mobile was already right and web was the one that changed.
+
+But `ChildScreen` printed **"Not asked yet"** for anything unanswered, and the moment 0073 let the
+centre record an ask, that became a sentence the product could not stand behind: a family reading it
+about their own child might have been asked three times. Fixed the same day by having both apps read
+`consentProgress` from core, which is the point of the helper living there — two renderings of the
+same three states cannot drift into disagreeing about whether anybody was asked.
+
+[[mobile-app]] calls a parent tapping "yes" on their phone the most obviously useful thing the app
+does, so this is the screen the wording is actually read on.
+
 ## Rejected
 
 - **A scheduler or chase ledger.** 0065 built one for attendance verification because a

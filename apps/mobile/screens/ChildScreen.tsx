@@ -5,6 +5,7 @@ import { useRoute } from '@react-navigation/native';
 import {
   getChild,
   listAttendanceToday,
+  listConsentRequests,
   listConsents,
   listGuardiansOfChild,
   listHealthConditions,
@@ -12,12 +13,13 @@ import {
 } from '@ece/api';
 import {
   CONSENT_DETAIL,
-  REQUIRED_CONSENTS,
+  consentProgress,
   formatAge,
   initials,
   todayInZone,
   type Child,
   type ConsentKind,
+  type ConsentRequest,
   type ConsentState,
   type HealthCondition,
 } from '@ece/core';
@@ -52,6 +54,7 @@ export function ChildScreen() {
   const [child, setChild] = useState<Child | null>(null);
   const [conditions, setConditions] = useState<HealthCondition[]>([]);
   const [consents, setConsents] = useState<ConsentState[]>([]);
+  const [requests, setRequests] = useState<ConsentRequest[]>([]);
   const [ownGuardianId, setOwnGuardianId] = useState<string | null>(null);
   const [signedInAt, setSignedInAt] = useState<string | null>(null);
   const [busy, setBusy] = useState<ConsentKind | null>(null);
@@ -59,10 +62,14 @@ export function ChildScreen() {
 
   const load = useCallback(async () => {
     try {
-      const [c, health, current, whanau, attendance] = await Promise.all([
+      const [c, health, current, asks, whanau, attendance] = await Promise.all([
         getChild(supabase, params.childId),
         listHealthConditions(supabase, params.childId),
         listConsents(supabase, params.childId),
+        // 0073. Without this the screen below says "Not asked yet" about a decision the
+        // centre may have asked for three times, which is a false statement to make to a
+        // family about their own child.
+        listConsentRequests(supabase, params.childId),
         listGuardiansOfChild(supabase, params.childId),
         // Their own child only: the policy on attendance keys on guardianship, which the RLS
         // suite asserts directly ("cannot read another family's attendance either").
@@ -71,6 +78,7 @@ export function ChildScreen() {
       setChild(c);
       setConditions(health);
       setConsents(current);
+      setRequests(asks);
       const state = attendance.find((s) => s.childId === params.childId);
       setSignedInAt(state?.kind === 'in' ? state.at : null);
       // Which guardian record is *this* person's, so a recorded decision is attributed to them
@@ -205,8 +213,8 @@ export function ChildScreen() {
             The centre needs to add you as a guardian before you can record consent here.
           </Text>
         )}
-        {REQUIRED_CONSENTS.map((kind) => {
-          const current = consents.find((c) => c.kind === kind);
+        {consentProgress(consents, requests).map((p) => {
+          const kind = p.kind;
           return (
             <View key={kind} style={styles.card}>
               <Text style={styles.name}>{CONSENT_DETAIL[kind].label}</Text>
@@ -215,12 +223,27 @@ export function ChildScreen() {
                   differently — paraphrasing for a small screen would change what was asked. */}
               <Text style={theme.body}>{CONSENT_DETAIL[kind].detail}</Text>
 
+              {/*
+                THREE STATES, and the middle one is why 0073 exists.
+
+                This used to read "Not asked yet" for anything unanswered, which after 0073 can
+                be false — the centre may have asked, and telling a family nobody asked them is
+                worse than saying nothing. `consentProgress` keeps "never asked" and "asked and
+                waiting" apart, and the wording says which.
+
+                The web app got this on 2026-08-29 and this screen did not, for half a day. It
+                matters more here: mobile-app.md calls a parent tapping "yes" on their phone the
+                most obviously useful thing this app does, so this is the screen the sentence is
+                actually read on.
+              */}
               <Text style={[theme.muted, styles.note]}>
-                {current === undefined
-                  ? 'Not asked yet'
-                  : current.granted
+                {p.state === 'answered'
+                  ? p.granted
                     ? 'You have given this'
-                    : 'You have declined this'}
+                    : 'You have declined this'
+                  : p.state === 'awaiting'
+                    ? `The centre asked on ${new Date(p.requestedAt).toLocaleDateString('en-NZ')} — still waiting on you`
+                    : 'Not asked yet'}
               </Text>
 
               {ownGuardianId && (
