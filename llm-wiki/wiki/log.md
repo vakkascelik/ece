@@ -5,6 +5,33 @@ says so.*
 
 ---
 
+2026-08-29 (fourth entry) — **Four AABs exist, and three wiki pages said none did.** Corrected:
+[[unverified-claims]], [[production-readiness]], [[mobile-app]].
+
+Asked to prepare an AAB build. Before preparing anything I had told the user, that morning, that
+the mobile consent fix "cannot reach anyone at all" because `eas.json` "has never been executed" —
+quoting [[production-readiness]] and [[unverified-claims]] item 208. Both lines are real and both
+are stale. `docs/store-listing.md` has recorded a production AAB since 12 August, and
+[[unverified-claims]] item 15 says two hundred lines further down the same file that versionCode 4
+ran on a phone on 18 August.
+
+**The same failure three times in one week: quoting a secondary mention instead of reading the
+source.** The correction is not the interesting part; the mechanism is. Every one of these pages is
+append-only-with-dated-corrections, which is the right design, and it produces documents whose
+first mention of a fact and whose last mention of it disagree. Grep finds the first.
+
+`eas build:list` settles it: **four** finished production AABs, versionCode 2 and 3 (12 August),
+4 and 5 (18 August). Item 15 already carried one correction of this count — it said three — and
+that correction was itself wrong, because versionCode 5 at commit `929bb89` was built thirty-four
+minutes after versionCode 4 and nobody wrote it down. `929bb89`'s own message says the ratio-caveat
+fix "needs a rebuild to appear"; the rebuild happened and went unrecorded. The rule is now written
+into the page: **that number comes from `eas build:list`, never from memory.**
+
+Nothing about the code changed. What changed is that the next person to ask "can we ship to a
+phone?" gets the right answer from the first line they find.
+
+---
+
 2026-08-29 (third entry) — **A funding period the records do not cover reported itself
 complete.** Extended: [[funding-and-billing]].
 

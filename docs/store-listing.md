@@ -1,8 +1,10 @@
 # Store submission
 
 Everything a submission needs, written down before there is an account to submit with.
-**Nothing here has been submitted.** As at 2026-08-12 an Android production AAB exists — the first
-build ever produced from this repo — and it has been submitted nowhere and installed on nothing.
+**Nothing here has been submitted.** As at 2026-08-29 there are **four finished Android production
+AABs** — versionCode 2 and 3 (12 August), 4 and 5 (18 August), per `eas build:list`, which is the
+only source for this count that has ever been right. versionCode 4 was installed on an Android
+phone on 18 August and ran. Nothing has been submitted to any store.
 
 Two of these sections are declarations about children's personal information under oath,
 more or less — Google's Data Safety form and Apple's privacy questionnaire. Both are easy
@@ -13,10 +15,10 @@ rather than typed into a web form at midnight.
 
 | Blocked | On |
 |---|---|
-| ~~Any build at all~~ | Done 2026-08-12: project `@vakkascelik/ece`, production AAB built on EAS |
+| ~~Any build at all~~ | Done 2026-08-12: project `@vakkascelik/ece`, production AAB built on EAS. Four as at 2026-08-29, versionCode 2–5 |
 | iOS build | Apple Developer Program, US$99/year |
 | Android build | Play Console, US$25 once |
-| Airplane-mode drill | A development build on a device |
+| Airplane-mode drill | A development build on a device, **and a child enrolled against the tenant** — the 18 August run had an empty roll, so nothing was queued and `expo-sqlite` still has not executed |
 | Push delivery | A build (Expo push tokens only come from one) **and** a worker that reads the queue |
 | Store listing | Icon, splash, screenshots, and a published privacy policy URL |
 
@@ -219,5 +221,9 @@ is the only item on this page that depends on hosting rather than on writing.
 
 ---
 
-*Last updated 2026-08-04. Nothing here has been submitted; no build exists; no account
-exists.*
+*Last updated 2026-08-29. Nothing here has been submitted. Four production AABs exist and one of
+them has run on a phone; there is still no Play Console account and no Apple Developer account.*
+
+*The footer of this file said "no build exists" for seventeen days after the body of it said one
+did, and that contradiction was quoted as current on 2026-08-29. A dated footer that is not
+updated with the body is worse than no footer, because it looks like a verification.*

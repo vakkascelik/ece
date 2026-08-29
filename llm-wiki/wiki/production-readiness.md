@@ -218,6 +218,11 @@ exactly the error the corrected paragraph above committed.
 
 - **No EAS build**, so no airplane-mode drill on a device and no push delivery. `eas.json`
   exists with the profiles chosen and commented; it has never run.
+  **Superseded 2026-08-29.** True of Phase 6 and false since: `eas build:list` shows four
+  finished production AABs — versionCode 2 and 3 on 12 August, 4 and 5 on 18 August — and
+  versionCode 4 was installed on a phone and ran. The line stays because this section is a
+  record of what Phase 6 could not do, but it has now been quoted twice as if it described
+  today, so it says so itself. Current state: [[unverified-claims]] item 15.
 - **No screen reader pass.** [[unverified-claims]] item 12.
 - **No store submission.** No Expo account, no Apple Developer account, no Play Console.
   Also no icon, splash or screenshots.

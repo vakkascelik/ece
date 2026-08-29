@@ -166,7 +166,14 @@ doctrine the outbox uses, and a disabled button teaches people to give up.
 
 ### What has never run
 
-Everything on a device. The airplane-mode drill, the screen-reader pass, the touch-target audit, the
+**Corrected 2026-08-29.** This said "everything on a device", and that stopped being true on
+18 August, when versionCode 4 was installed on an Android phone and booted, signed in, resolved
+the tenant and rendered the roll. Module load, auth, tenant resolution and the ratio bar are
+executed code. The page was edited earlier the same day this correction was written and the
+sentence survived, which is how a stale absolute gets quoted back as current.
+
+What has still never run on a device is everything that needs a *loaded* roll — the phone that
+ran it had no children enrolled. The airplane-mode drill, the screen-reader pass, the touch-target audit, the
 sign-out refusal, and whether the Supabase session is even large enough to take the chunked
 SecureStore path. `expo-sqlite` cannot execute in this repo's test runner, which is why the most
 consequential offline logic was moved into `@ece/core` as pure functions — `classifyWriteFailure` and
