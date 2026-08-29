@@ -26,6 +26,12 @@ is necessary and not sufficient, because consent can be withdrawn *after* the up
 - **Photographs are fine once a family has agreed** — this page is the enforcement, not a ban.
   How the question actually gets put to them is [[asking-for-consent]], added 2026-08-29,
   because until then nothing in the product ever asked.
+- **The gate is about publication, not photography** (owner, 2026-08-29). `photo_internal` gates
+  the whānau journal, `photo_public` gates website/social/print. An evidence photo on an incident
+  or checklist is a different purpose, takes no consent, and must live *outside* `media` when
+  built — see [[unverified-claims]] item 42 and [[checklists]]. The one-sentence summary at the
+  top of this page is true while `media` is the only photo store in the system, and should be
+  rewritten the day it is not.
 - The bug that made this a restrictive policy is worth reading below: it hid correctly from whānau
   and not at all from staff, which is exactly why it survived a first review.
 

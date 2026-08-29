@@ -192,12 +192,16 @@ Four things that will decide whether this works:
    checklist a document somebody can quietly change, which is the opposite of what a checklist is
    for.
 
-3. **Photos collide with the consent gate.** `media` and `0015_consent_gate_restrictive` exist
-   because a photo containing a child is consent-gated. A photo of a broken latch is not. A photo
-   of a broken latch *with a child in the background* is. The engine must decide which store a
-   checklist photo lands in, and the honest default is: checklist photos are staff-only evidence,
-   never surfaced to parents, and never joined to `media_children`. Do not let a checklist become a
-   side door into the media gate.
+3. **Photos do not collide with the consent gate — corrected 2026-08-29, on the owner's
+   direction.** This item originally said a checklist photo with a child in the background was
+   consent-gated child media, and the photo work was deferred on it. The correction: photo consent
+   exists for *publication* — `photo_internal` is the whānau journal, `photo_public` is
+   website/social/print — and an evidence photo is internal documentation, a purpose consent was
+   never about. [unverified-claims 42](../llm-wiki/wiki/unverified-claims.md) records the limits
+   of that ruling. What survives, with a better reason: checklist photos are staff-only evidence
+   in their own store, never routed through `media`, never joined to `media_children` — not
+   because the gate refuses them but because parking no-consent-needed photos in the consent-gated
+   table either blocks legitimate evidence or teaches people to bypass the gate.
 
 4. **This is the most offline-dependent write in the product** — a walk round the playground before
    the gate opens, in the rain, on the worst wifi in the building. Which runs straight into the
@@ -229,8 +233,11 @@ wiki.
 
 ### Still open after A–F
 
-- **Checklist photos.** 1Place has them. Deferred because `media` is consent-gated and a photo of
-  a broken latch with a toddler in the background is child media — see the header of 0068.
+- **Checklist photos.** 1Place has them. Originally deferred as a consent question; corrected
+  2026-08-29 — consent is for publication, not documentation (§3.2 item 3), so what remains is
+  the ordinary work of a separate evidence store outside `media`. The header of 0068 still gives
+  the old reason and cannot be edited (migrations are checksummed after apply); this file and
+  [checklists](../llm-wiki/wiki/checklists.md) are the correction.
 - **The offline path for checklist runs.** `client_uuid` exists and is unique, so the contract is
   in place; the value is still generated server-side. Generalising `apps/web/src/lib/outbox.ts`
   from attendance to runs is the work, and it is gated on `drill:offline` per §3.2.
@@ -403,9 +410,11 @@ missing signature line.
   Mount Roskill--Carpark - Mt Roskill"), then the type (Sickness | Incident). Mandatory scoping at
   creation, which supports the phase A shape.
 - **Incidents carry photos** ("Photos From Details Section", each with a taken-date). 2461's photo
-  is a child's arm — child media by definition — so incident photos land in the same consent-gate
-  question as checklist photos (§4, "Still open"), with the harder twist that the subject of an
-  incident photo is nearly always the child.
+  is a child's arm. This bullet originally called that "child media by definition" and a
+  consent-gate question; corrected 2026-08-29 — it is not (§3.2 item 3). An incident photo is
+  evidence: staff-only, plus — plausibly — the child's own guardian on a final report, the same
+  audience as the report text. Whether the photo rides the report's RLS is a decision for when it
+  is built, not one this correction makes.
 - **A body map** ("Please indicate where the person was injured", four child outlines) sits in the
   Details form and prints on the PDF. Unmarked on 2461 while "What part of the body was injured"
   is filled — the dropdown is what staff actually use.

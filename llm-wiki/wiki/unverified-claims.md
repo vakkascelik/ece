@@ -1071,6 +1071,34 @@ small illustration of the problem.
 | **Not a defect** | The credential guards. They fail loudly rather than skipping quietly, which is the difference between "not checked" and a green tick over nothing. Softening them with `continue-on-error` would be the worst available fix |
 | **To close it** | Two decisions, neither of them a code change. **Attribute the 7kB** — raising the limit to make it pass is the move AGENTS.md forbids by name. And **decide whether the service-role key belongs in GitHub Actions secrets**, which is a question about where that key lives rather than a chore |
 
+### 42. Evidence photos take no photo consent — an owner's ruling, not a sourced rule
+
+Added 2026-08-29, on the owner's direction the same day: photo consent exists for
+*publication* — the whānau journal (`photo_internal`) and website/social/print
+(`photo_public`) — and an incident or checklist photo is internal documentation, which needs no
+consent. This corrects the deferral reason recorded in [[checklists]], in
+`docs/replacing-1place.md` §3.2, and in the header of migration 0068 (which is checksummed and
+stays wrong on disk; the wiki pages carry the correction).
+
+The ruling is consistent with how the Privacy Act 2020 works — the IPPs regulate collection and
+use by *purpose* (IPP 1 lawful purpose, IPP 3 transparency, IPPs 10–11 use and disclosure limited
+to purpose), rather than requiring consent for a service to document its own incident — and with
+what NZ media-consent forms conventionally cover, which is sharing. **What nobody here has read:**
+the Office of the Privacy Commissioner's guidance for early learning services on documentation
+photos, and — more binding than the statute — **Little Pearls' own enrolment agreement.** If that
+agreement promises photographs are only ever taken with consent, full stop, then an evidence
+photo breaks a promise even where it breaks no law.
+
+What this ruling must **not** be read to license: routing evidence photos through `media` with
+the gate waived, any parent-facing surface for them beyond — plausibly — the child's own guardian
+on a final incident report, or weakening `photo_internal`. The journal gate stays: a family
+declining photos in the whānau feed is a live decision the product already enforces, and it is a
+different question from evidence.
+
+**What would close this:** reading the enrolment agreement's photograph clause, or OPC guidance
+that addresses documentation photos in early learning services. Either is a one-page read, and
+the first one Little Pearls can hand over today.
+
 ## See Also
 
 - [[checklists]] — where the hazard assessment fields live, and the rest of the 1Place work

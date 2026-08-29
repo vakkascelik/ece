@@ -40,7 +40,9 @@ was looked at. A checklist is a form somebody filled in.
   useful constraint in 0034.
 - **There is no scheduler.** "Due" is computed from the template's stated interval and
   the last completed run — the `drill_interval_days` shape, with the same null contract.
-- **No photos yet**, and the reason is the consent gate. See below.
+- **No photos yet.** The reason this page first gave — the consent gate — was wrong; consent is
+  for publication, not documentation (owner, 2026-08-29). See below, and [[unverified-claims]]
+  item 42.
 - **Finishing a task requires saying how**, the `hazards` constraint moved one table
   across.
 - Enrolment enquiries are **not** tasks, though 1Place files them as tickets.
@@ -108,17 +110,23 @@ The third is the trigger's reason for existing. Asserted in `rls_isolation.sql`
 including the case that makes `required = false` mean something: a run completes with an
 optional item left blank.
 
-### No photos, and it is the consent gate
+### No photos — and the reason this page first gave was wrong
 
-1Place attaches photos to checklist answers. This does not, yet, and the reason is
-`0015_consent_gate_restrictive`: `media` is gated on consent because a photo may contain
-a child. A photo of a broken latch is not child media; **a photo of a broken latch with
-a toddler in the background is**, and neither the person taking it nor a column default
-can tell the difference.
+1Place attaches photos to checklist answers. This does not, yet. This section originally said
+the blocker was `0015_consent_gate_restrictive` — that a photo of a broken latch with a toddler
+in the background is child media and therefore consent-gated. **Corrected 2026-08-29, on the
+owner's direction: it is not.** Photo consent exists for publication — `photo_internal` is the
+whānau journal, `photo_public` is website/social/print — and an evidence photo is internal
+documentation, a purpose consent was never about. [[unverified-claims]] item 42 records the
+limits of that ruling. The header of 0068 still gives the old reason and cannot be edited,
+because migrations are checksummed after apply; this paragraph is the correction.
 
-Routing checklist photos into `media` opens a path into the gated table from a
-staff-only screen. That gets its own migration and its own thinking rather than being
-appended to one introducing five tables. Recorded here rather than left as a silent gap.
+The second paragraph's instinct survives with a better reason: checklist photos still must not
+route through `media` — not because the gate refuses them, but because the gate is for a
+different purpose. Parking no-consent-needed photos in the consent-gated table means either the
+gate blocks legitimate evidence or the evidence path teaches people to route around the gate. A
+separate evidence store — own table, own storage prefix, staff-only policy — is its own
+migration; the work is now ordinary rather than blocked.
 
 ### No scheduler, deliberately
 

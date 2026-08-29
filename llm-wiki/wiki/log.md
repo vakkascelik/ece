@@ -5,6 +5,32 @@ says so.*
 
 ---
 
+2026-08-29 (ninth entry) — **Consent is for publication, not documentation — the photo deferral
+was blocked on the wrong thing.** Corrected: [[checklists]] (Key Point and the "No photos"
+section, whose title asserted the wrong reason), [[incident-register]]'s plan via
+`docs/replacing-1place.md` (§3.2 item 3, the "Still open" bullet, and the §7.5 incident-photos
+bullet written *yesterday*). Extended: [[consent-gated-media]] (a scope Key Point),
+[[unverified-claims]] (item 42 is new).
+
+The owner's direction: photo consent exists for publishing — the whānau journal
+(`photo_internal`) and website/social/print (`photo_public`) — and an incident or checklist
+photo is internal documentation, which takes no consent. Three pages and one migration header
+(0068, checksummed, stays wrong on disk) had recorded the consent gate as the blocker for
+evidence photos; all the pages now carry the correction, dated.
+
+Two things deliberately preserved through the correction. The design constraint survives with a
+better reason: evidence photos still must not route through `media` — not because the gate
+refuses them but because parking no-consent-needed photos in the consent-gated table either
+blocks legitimate evidence or teaches a bypass. And the ruling went to [[unverified-claims]]
+rather than onto topic pages as law, because what nobody here has read is Little Pearls' own
+enrolment agreement — which binds harder than the statute if it promises photos are only taken
+with consent — and OPC guidance on documentation photos. The evidence-photo work is now
+ordinary rather than blocked.
+
+Docs-only change; `check:docs` is the applicable gate.
+
+---
+
 2026-08-29 (eighth entry) — **The third 1Place batch answers two open questions and corrects two
 claims.** Extended: [[checklists]] (which templates are actually used), [[incident-register]] (two
 status axes, the Investigation tab, drawn signatures). Corrected: [[incident-register]] — "Incident
