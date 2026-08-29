@@ -37,8 +37,9 @@ Nothing here is a bug. They are known gaps with known closures.
   *capability* requirement in the Ministry's** — confirmed 2026-08-18, all six corrected. ELI
   integration is gated on a review with no published end date, not on having fifty customers.
   See [[funding-and-billing]].
-- **Seven ELI/NSI specification documents are on disk and none has been read.** Their names and
-  versions are facts; nothing in this repo may cite their contents. Item 38.
+- ~~**Seven ELI/NSI specification documents are on disk and none has been read.**~~ **False
+  within hours of being written** — they were decrypted and read on 2026-08-18 and the age-band
+  rule came out of them. Corrected 2026-08-29. Item 38.
 - **The seven-year retention window is now sourced; what it is measured *from* is not.**
   §6-3 gives the 7 years. Whether the clock starts when a child leaves — which is what the
   purge function does — is still an assumption. Item 3, narrowed 2026-08-14.
@@ -963,7 +964,7 @@ vendor must satisfy — the enquiry named a security assessment, penetration tes
 privacy impact assessment, and the reply addressed fees only. So the cost and shape of approval
 on the assurance side is still unknown. That is a gap in planning, not in the product.
 
-### 38. Seven ELI/NSI specification documents are on disk and none has been read
+### 38. Seven ELI/NSI specification documents are on disk and none has been read — **CLOSED 2026-08-18, corrected here 2026-08-29**
 
 Received 2026-08-18 as password-protected attachments: NSI GINS 6.19, ECE NSI GINS Appendix
 1.41, InfoHub Specification 1.3, ELI Data Collection Specification 11, ELI Event 10.0 (the
@@ -976,11 +977,28 @@ must contain: the covering email calls the RS7 return **four-monthly**, which is
 more fact about funding periods than [[funding-and-billing]] had, and it is a fact from an
 email rather than from the specification.
 
-Two consequences worth naming now:
+**They were read the same day, and this entry was never updated.** `LOGS.md`, *2026-08-18
+(second) — The specifications were opened*: decrypted and read, the caps this repo had guessed at
+were confirmed correct, and a rule nobody had thought to look for came out of them — the 20 Hours
+entitlement is bounded to a child **aged 3 or older and under 6**, which `twenty_hours_ece` was
+trusting without question. `childFunding` gained `ineligibleDates` because of it. So the documents
+are not only opened, they have already changed the product.
+
+The entry stood for eleven days saying the opposite, in the one place whose entire job is being
+exact about what has and has not happened. It stayed wrong because the reading happened in a later
+session on the same day and the correction went to `LOGS.md` and [[funding-and-billing]] instead.
+**A page that records "not yet" has to be revisited by whoever does the thing** — nothing else
+closes it, and nothing failed when it went stale.
+
+`FUNDING_RULES_VERIFIED` is nonetheless **still `false`**, and deliberately: item 6 was narrowed
+rather than closed, because the Frequent Absence and Three Week Continuous Absence rules were not
+in these documents and were sourced separately from Chapter 6 the same evening.
+
+Two consequences named at the time:
 
 - **Item 6 has a source it did not have.** The funding caps and the period boundaries are in
-  the Handbook and the RS7 spec respectively. `FUNDING_RULES_VERIFIED` stays `false` until they
-  are read, and reading them is now a task rather than a search.
+  the Handbook and the RS7 spec respectively. ~~`FUNDING_RULES_VERIFIED` stays `false` until they
+  are read~~ — they have been read; the flag stays `false` for the narrower reason above.
 - **The password is not in this repository, deliberately.** It was sent in plain text to one
   mailbox. A credential committed to git is in every clone forever, which is the same reasoning
   that keeps the service-role key out of the mobile workspace.
