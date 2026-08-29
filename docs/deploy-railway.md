@@ -323,9 +323,12 @@ stale. Purge it if not. The one thing not to do is leave a known password on a p
 page and forget which it belongs to. The demo centres are named `DEMO — … (invented data)`
 for the same reason.
 
-**The real tenant holds no child data**, so nothing about Little Pearls is exposed by
-deploying. That remains true until professional indemnity insurance is in place — see
-[tenant-little-pearls](tenant-little-pearls.md).
+**The real tenant holds no child data yet**, so nothing about Little Pearls is exposed by
+deploying — a statement of the current roll rather than of a restriction. The
+professional-indemnity gate that used to qualify this sentence was lifted by owner decision on
+2026-08-29; see [tenant-little-pearls](tenant-little-pearls.md). Once real children are
+entered this paragraph stops being true, and the demo-tenant advice above matters more, not
+less.
 
 ## Deploying the public website — a second service
 

@@ -119,12 +119,23 @@ It is a function parameter (`p_retention_years integer default 7`) so it can be 
 without a migration. The figure assumes funding-relevant records must survive a Ministry
 funding audit. **Unconfirmed** — see [[unverified-claims]].
 
-### The insurance gate
+### The insurance gate, and its removal — 2026-08-29
 
-Phase 1's schema and screens were built before professional indemnity insurance was in place,
-on the reasoning that writing the code puts nobody's information anywhere. The line not to
-cross without cover is a real child's allergies being typed in. The services agreement with
-Little Pearls exists; the insurance did not as at 2026-08-04.
+From 2026-08-04 this product held itself to a rule of its own devising: schema and screens could
+be built, because writing code puts nobody's information anywhere, but *"the line not to cross
+without cover is a real child's allergies being typed in"*.
+
+**The owner removed that gate on 2026-08-29**, after it was traced to a bullet in a day-one list
+of open questions rather than to any external requirement — no statute, no Ministry criterion, no
+clause in the services agreement, and no mention anywhere in `privacy-statement.md`,
+`breach-response.md` or `AGENTS.md`. The full record, including what the rule conflated, is in
+[`docs/tenant-little-pearls.md`](../../docs/tenant-little-pearls.md) under *The gate that was
+lifted*, and [[unverified-claims]] item 35 is closed by decision rather than by an answer.
+
+**Nothing on the rest of this page changes.** Insurance was never what protects the data — the
+retention schedule, the purge path, the redaction in error reports and the RLS boundary are, and
+all four are untouched. A commercial caution being lifted is not a licence to relax any of them,
+and if this entry is ever read as one, it has been misread.
 
 ### Error reports are a disclosure surface
 

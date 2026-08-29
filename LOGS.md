@@ -839,8 +839,10 @@ nobody can reach trains its reader to skim, so severity is now a function of rea
 
 Little Pearls Educare Centre exists as two tenants: `little-pearls-mt-albert` (MoE 46365) and
 `little-pearls-mt-roskill` (MoE 47407), both Pacific/Auckland, owner the platform operator, and
-**zero children, guardians or health records** — which is the correct state while professional
-indemnity insurance is still outstanding.
+**zero children, guardians or health records** — which was, at the time, held to be the correct
+state while professional indemnity insurance was outstanding. *(That gate was removed by owner
+decision on 2026-08-29; see `docs/tenant-little-pearls.md`. The roll is still empty, but nothing
+now requires it to be.)*
 
 The facts came from the centre's own site (two addresses, two phone numbers, weekdays 7.30am to
 6.00pm, three months to five years, not-for-profit and community established). The service

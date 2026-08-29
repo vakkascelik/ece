@@ -367,10 +367,10 @@ Two constraints the mapper hits immediately:
 | **A** | Ask Infocare, in one message, for both the export **and** the partnership conversation — §11 | nothing | an email |
 | **B** | The `/funding` record-start banner, §3 mitigation 2 | nothing | small |
 | **C** | `source_system` / `source_ref` on `children` and `guardians`, §4 | nothing | small — one migration, a grant, an assertion |
-| **D** | `scripts/import-infocare.ts` — parse, validate, match, refuse, dry-run report. **No write path** | A for the real column names; **not** the insurance gate | medium |
+| **D** | `scripts/import-infocare.ts` — parse, validate, match, refuse, dry-run report. **No write path** | A, for the real column names — nothing else | medium |
 | **E** | The write path behind `--commit`, with the §2 ownership table as its spec | C, D | medium |
 | **F** | Dry-run against the real file, read the guardianship report end to end, fix, repeat | A, D | a morning |
-| **G** | Run it | **the insurance gate** — §12 | minutes |
+| **G** | Run it | **the export arriving.** Nothing else — the insurance gate that used to sit here was removed 2026-08-29 | minutes |
 | **H** | Forward bookings for the term, so the cutover date has a roll behind it | G | small |
 | **I** | Wiki page; `unverified-claims` entries for anything Infocare asserted that nobody here verified | E | small |
 
@@ -421,12 +421,13 @@ read it, and it decides whether the dual-run has an end date.
 
 ## 12. Open questions
 
-1. **Is the professional indemnity insurance in place?** Blocks Phase G entirely.
-   [`tenant-little-pearls.md`](tenant-little-pearls.md): *"No child record goes in until
-   professional indemnity insurance is in place"* — absent as at 2026-08-05, never rechecked. Needs
-   a date and a policy reference, because *"somebody said yes once" is the shape of claim this repo
-   keeps having to correct*.
-2. **The cutover date** for attendance — the day Doorway's own record begins. §3's banner and §5
+> **Removed 2026-08-29: the professional-indemnity gate.** This list opened with it, and it made
+> the whole import conditional on a fact nobody had checked. The owner lifted it after it was
+> traced to a bullet in a day-one list of open questions rather than to any external requirement —
+> see [`tenant-little-pearls.md`](tenant-little-pearls.md), *The gate that was lifted*. **The only
+> thing now blocking this import is that Infocare has not produced an export.**
+
+1. **The cutover date** for attendance — the day Doorway's own record begins. §3's banner and §5
    both depend on it.
 3. **Does the export carry the NSN, and Infocare's own record id?** Without the NSN, §7 collapses
    to name-plus-date-of-birth matching and the import gets materially riskier. Without the record

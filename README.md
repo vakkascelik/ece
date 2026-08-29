@@ -1227,7 +1227,9 @@ verified: [docs/tenant-little-pearls.md](docs/tenant-little-pearls.md).
 | MoE service number | `46365` | `47407` |
 | Children, guardians, health records | **0** | **0** |
 
-Zero is the correct number until the insurance gate is closed. The owner is the platform
+Zero because nobody has entered any yet, not because anything forbids it — the
+professional-indemnity gate that used to sit here was removed by owner decision on 2026-08-29
+(see [tenant-little-pearls](docs/tenant-little-pearls.md)). The owner is the platform
 operator, not the centre — the manager gets an account through the invitation flow when they
 are ready, which is one command and a link they open themselves rather than an account created
 for a real mailbox before anybody asked for one.
@@ -1383,14 +1385,15 @@ qualifies; "it probably will not get that big" does not.
   unchecked. So is the citation for the agent rule that makes the centre the responsible
   agency. The substance of both is sound; see items 10 and 11 in
   [unverified-claims](llm-wiki/wiki/unverified-claims.md).
-- **Professional indemnity insurance is the remaining gate on real data.** The
-  services agreement with Little Pearls is in place; the insurance is not. Their two
-  centres now exist as tenants and hold **zero** children, guardians or health records —
-  everything else in the database is either `Demo-Seed` or an audit fixture, which is
-  fine, because writing the code puts nobody's information anywhere. The line not to
-  cross without the cover is a real child's allergies being typed into it.
-  Under-5 records are among the most sensitive personal information in the
-  country, and a breach is notifiable under the Privacy Act 2020.
+- **The real roll is still empty, and that is now a fact rather than a rule.** Little Pearls'
+  two centres exist as tenants and hold **zero** children, guardians or health records;
+  everything else in the database is either `Demo-Seed` or an audit fixture. The
+  professional-indemnity gate that used to make this a prohibition was removed by owner
+  decision on 2026-08-29, after being traced to a bullet in a day-one list of open questions
+  rather than to any external requirement — the record, including what it conflated, is in
+  [tenant-little-pearls](docs/tenant-little-pearls.md). What protects the data was never the
+  insurance: it is RLS, the retention schedule, the consent gate and the breach runbook, and
+  none of those moved.
 - **The retention period is a guess that needs checking.** Seven years from the date
   a child leaves, on the assumption that funding-relevant records must survive a
   Ministry funding audit. It is a parameter rather than a constant precisely so it can

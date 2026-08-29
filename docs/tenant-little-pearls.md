@@ -1,7 +1,7 @@
 # First tenant — Little Pearls Educare Centre
 
-Created 2026-08-05. Two centres, one owner account, **zero personal information** — which is
-the correct state until the insurance gate is closed.
+Created 2026-08-05. Two centres, one owner account, and no child records yet — because nobody
+has entered any, not because anything forbids it. See *The gate that was lifted* below.
 
 ## What exists
 
@@ -87,50 +87,80 @@ directory's word for it.
 with no amounts anywhere in the product on purpose. An invented rate is a rate a family gets
 billed.
 
-## What must not happen yet
+## The gate that was lifted — 2026-08-29
 
-**No child record goes in until professional indemnity insurance is in place.** The services
-agreement exists; the insurance did not as at 2026-08-05. The line is not "the schema exists"
-— it is a real child's allergies being typed in, and the two centres above hold nothing but a
-name, a service number and a timezone precisely so that line has not been crossed.
+**Decision by the owner, 2026-08-29: the professional-indemnity gate is removed and is not a
+blocker on anything.** Recorded here with a date rather than deleted, because
+[unverified-claims](../llm-wiki/wiki/unverified-claims.md) item 35 makes exactly that
+demand of anybody removing a caution — *"what it must not do is quietly assume the answer is
+yes because the sentence warning about it was deleted"*. This is not a claim that cover is
+held. It is a decision to proceed without settling the question.
 
-See [privacy-statement](privacy-statement.md) for what will be held when it is, and
-[retention](retention.md) for how long.
+### What the gate was, and where it actually came from
 
-### Somebody has now asked to cross it — 2026-08-16
+From 2026-08-05 this page carried: *"No child record goes in until professional indemnity
+insurance is in place."* It is why both centres held nothing but a name, a service number and
+a timezone for twenty-five days, and it blocked the enquiry-form change the manager asked for
+on 2026-08-16.
 
-**The centre manager asked for the enquiry form to collect a child's date of birth**, as the
-centre's old website does. This is the first request that runs directly at the gate above, so
-the state of it is recorded here rather than settled in a commit message.
+Traced on 2026-08-29 to commit `0af24a0`, **2026-08-04** — the first scaffold commit, before
+Little Pearls existed as a tenant — where it appears not as a requirement but as one bullet in
+a list of *open questions and decisions not yet made*:
 
-**Nothing was built.** The form, `enrolment_applications`, `submit_enrolment_application` and
-the catalogue assertion in `rls_isolation.sql` are all untouched.
+> **Nothing holds child data yet**, and it should not until there is a written agreement and
+> professional indemnity insurance in place. Under-5 records are among the most sensitive
+> personal information in the country.
 
-**The shape that was agreed, for when it is unblocked: month and year of birth — "March 2024"
-— not an exact date.** It answers what the centre actually needs from an enquiry (which room,
-which month the transition falls in, and where the family sits on a waitlist) and stops short
-of a value that identifies one child on its own.
+That is the whole provenance. It was this project's own prudence at inception, and it
+hardened into a gate that four other documents then cited as though it were external.
+**No external source was ever named, because there is none in the repo**:
+`privacy-statement.md`, `breach-response.md` and `AGENTS.md` mention insurance and liability
+zero times between them.
 
-That reverses a decision made deliberately in migration **0054**, which dropped exactly this
-field and called it *"a date of birth with the day filed off … finer than a band, and it invites
-exactly the field the page refuses."* That reasoning was sound and the reversal is a change of
-requirements, not a correction of it — so 0054's argument has to be answered in whatever
-supersedes it rather than quietly overwritten.
+### What it conflated, which is why it was the wrong shape
 
-**THE ONE FACT THAT BLOCKS IT, and nobody here can answer it: is the professional indemnity
-insurance in place now?** The date above is 2026-08-05 and it has not been rechecked. Every
-argument on this page depends on it, and the answer is a fact the owner holds. Record it here
-with the date it was confirmed — and, if yes, the insurer or policy reference, because "somebody
-said yes once" is the shape of claim this repo keeps having to correct.
+Insurance does not decide whether under-5 records may lawfully be held. The Privacy Act 2020
+requires reasonable security safeguards — the argument the whole of
+[tenancy-and-rls](../llm-wiki/wiki/tenancy-and-rls.md) exists to make — and says nothing
+about the operator being insured. What cover answers is a different question: whether the
+operator can absorb a claim if there is a breach. That is commercial, and it never belonged
+in front of an engineering backlog.
 
-If the answer is **yes**, this becomes an ordinary product change: a migration superseding 0054,
-a new function signature, the `child_name` catalogue assertion in `rls_isolation.sql` rewritten
-to pin the *new* boundary rather than deleted, and [privacy-statement](privacy-statement.md)
-updated to say the platform now holds a child's birth month from a public form.
+Two things the old wording never pinned down, and which anybody revisiting this should note:
+it never said **whose** policy (the operator's, not the centre's — Little Pearls carries its
+own cover as an employer and licensed service, which is irrelevant to this), and professional
+indemnity is probably not even the right product. The cover that responds to a data breach is
+normally **cyber liability**. The repo named one and likely meant the other for twenty-five
+days without anybody noticing.
 
-If the answer is **no**, it stays as it is. The enquiry keeps the coarse age band, and the
-centre takes a birth date the way it does today — in the conversation the enquiry exists to
-start.
+### What is unchanged
+
+Everything that actually protects the data. RLS is still the boundary,
+[privacy-and-retention](../llm-wiki/wiki/privacy-and-retention.md) still governs what is held
+and for how long, [breach-response](breach-response.md) still exists, and consent is still
+gated. Lifting a self-imposed commercial caution changes none of that, and none of those
+should ever be relaxed on the strength of this entry.
+
+See [privacy-statement](privacy-statement.md) for what is held, and [retention](retention.md)
+for how long.
+
+### What this unblocks, and what nobody has built
+
+**The enquiry form's date of birth**, asked for by the centre manager on 2026-08-16 and
+untouched since. The shape agreed then still stands and is still the right one: **month and
+year — "March 2024" — not an exact date.** It gives the centre the room, the transition month
+and a waitlist position, and stops short of a value that identifies one child on its own.
+
+It reverses migration **0054**, which dropped exactly this field and called it *"a date of
+birth with the day filed off … finer than a band, and it invites exactly the field the page
+refuses."* That reasoning was sound; the reversal is a change of requirements rather than a
+correction, so 0054's argument must be answered in whatever supersedes it rather than quietly
+overwritten. Building it means a migration, a new function signature, the `child_name`
+catalogue assertion in `rls_isolation.sql` rewritten to pin the *new* boundary rather than
+deleted, and [privacy-statement](privacy-statement.md) updated.
+
+**Nothing of that is built.** It is now an ordinary piece of work waiting to be asked for,
+not a blocked one.
 
 ## The trap this uncovered
 
@@ -159,9 +189,10 @@ The public site's careers page now writes into this tenant. It is the **first an
 which somebody who is not a member of this centre can create a row here, and it is worth being clear
 about what that does and does not mean for the gate below.
 
-**It does not touch the insurance gate.** A job applicant is an adult writing about themselves.
+**It involves no child data at all.** A job applicant is an adult writing about themselves.
 There is no child, no date of birth, no guardianship question, and nothing a family has to have
-consented to. Both centres still hold no child record.
+consented to. (This paragraph used to say it "does not touch the insurance gate"; that gate was
+lifted on 2026-08-29 — see above. The point it was making stands on its own.)
 
 **Only Taner and the owner can see an application** — not educators. Applications arrive at whichever
 centre the applicant chose, or at both if they chose "either", and appear under **Applications** in
@@ -192,9 +223,9 @@ fragment, and nothing in the web app reads a fragment, so it cannot establish a 
 
 Two things this does not change:
 
-- **No child record still means no child record.** The insurance gate below is untouched. A manager
-  signing in to look around is the point; entering a real child's allergies is not, and both
-  centres still hold nothing but a name, a service number and a timezone.
+- **A manager signing in to look around is the point**, and at the time of writing both centres
+  still held nothing but a name, a service number and a timezone. That was a statement of fact
+  rather than a restriction, and after 2026-08-29 it is only a statement of fact.
 - **He will see an empty product**, which is correct. If he only runs one site, revoke the other
   membership from People once he has accepted — one click, and the audit trail keeps the record of
   who invited whom.

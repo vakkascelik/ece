@@ -22,7 +22,7 @@ be argued with, not because they will hold.
 | Track | What | Blocked on | Can start |
 |---|---|---|---|
 | **1 — Groundwork** | The funding guard and the integration key (the date-defaults phase turned out to be already fixed — §Phase 2) | **nothing** | now |
-| **2 — The roll** | The Infocare importer, and running it | Infocare's export; the insurance gate | build now, run later |
+| **2 — The roll** | The Infocare importer, and running it | Infocare's export — and nothing else since 2026-08-29 | build now, run later |
 | **3 — Parity** | VisTab and Educa, and the 1Place leftovers | screenshots; one decision about photos | assessment now |
 
 **Track 1 waits for nobody and contains the only item that can produce a wrong number on a
@@ -39,13 +39,18 @@ three of the phases below are blocked behind them.
 
 | Ask | To | Blocks |
 |---|---|---|
-| **Is the professional indemnity insurance in place?** With a date and a policy reference | the owner | Phase 7 — the entire import run |
 | **The Infocare export, per module — and the partnership conversation**, in one message ([`importing-infocare.md`](importing-infocare.md) §11) | Infocare | Phases 5, 6, 7 |
 | **Screenshots of VisTab and Educa**, the way the 1Place ones were taken | the centre manager | Phases 9, 10 |
 | **The room list and the twelve checklist templates** | the centre manager | nothing — but 1Place is not actually replaced until this is entered, and the screens read as broken while empty |
 
-Two of these have been outstanding since 2026-08-05 and 2026-08-28 respectively and neither has
-moved. Sending them again with a deadline is cheaper than any code in this document.
+**This list was four items and is now three.** The fourth was *"is the professional indemnity
+insurance in place?"*, which blocked the entire import run. The owner removed that gate on
+2026-08-29 after it was traced to a bullet in a day-one list of open questions rather than to any
+external requirement — see [`tenant-little-pearls.md`](tenant-little-pearls.md), *The gate that was
+lifted*. Nothing in this plan waits on it any more.
+
+Of the three that remain, one has been outstanding since 2026-08-28. Sending them again with a
+deadline is cheaper than any code in this document.
 
 ---
 
@@ -186,8 +191,9 @@ Depends on 3, 4, 5.
 
 ## Phase 7 — Run it
 
-**Blocked on the insurance gate.** Dry run, read the guardianship report end to end, fix the file,
-repeat, then `--commit`.
+**Blocked on the export arriving, and nothing else** — the insurance gate that used to sit here
+was removed on 2026-08-29. Dry run, read the guardianship report end to end, fix the file, repeat,
+then `--commit`.
 
 **Size: a morning, mostly reading.** Not a code phase.
 
@@ -257,7 +263,7 @@ a queue to add a second writer to.
 Phase 0  ────────────────────────────────────────────────  (asks, today)
          │           │              │
 Track 1  1 ── 2 ── 3 │              │        starts now, blocks nothing
-Track 2       4 ── 5 ── 6 ── 7 ── 8 │        7 blocked on insurance
+Track 2       4 ── 5 ── 6 ── 7 ── 8 │        7 blocked on the export only
 Track 3                    9a ── 9b │        9a/10a blocked on screenshots
                           10a ──10b │
                              11a, 11b        after 9a + 10a
@@ -266,9 +272,9 @@ Track 3                    9a ── 9b │        9a/10a blocked on screenshots
 **If only one thing gets built this week, build Phase 1.** It is small, blocked on nothing, and is
 the only item on this page that can prevent a wrong figure reaching a funding return.
 
-**If the insurance answer comes back "no", Track 2 stops at Phase 6** and that is fine — the
-importer sits finished and tested against fixtures until the answer changes. Track 1 and Track 3
-are unaffected.
+**If Infocare never sends an export, Track 2 stops at Phase 6** and that is fine — the importer
+sits finished and tested against fixtures until a file arrives, and a hand-built file in the §9
+shape would drive it just as well for a first roll. Track 1 and Track 3 are unaffected.
 
 **If Infocare grants the partnership**, Phases 5–8 do not become wasted: Phase 4's ownership table
 is the sync contract, Phase 3's `source_ref` is the join key, and the importer becomes the fallback

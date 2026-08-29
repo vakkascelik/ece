@@ -5,6 +5,57 @@ says so.*
 
 ---
 
+2026-08-29 (second entry) — **The insurance gate is removed by owner decision, and it was never
+external.** Extended: [[privacy-and-retention]], [[unverified-claims]] (item 35 closed),
+[[public-website]], [[parent-self-service]], [[console-handover]]. Docs:
+`tenant-little-pearls.md`, `README.md`, `deploy-railway.md`, `CONTENT-GAPS.md`, both Infocare
+plans, `LOGS.md`.
+
+The owner directed: remove it, and never let it block again. Done in ten files.
+
+**Recorded rather than deleted, on item 35's own instruction.** That item exists because a caution
+was once removed from the overview card, and it says: *"what it must not do is quietly assume the
+answer is yes because the sentence warning about it was deleted."* So item 35 is **closed by
+decision, not by an answer** — the question it asks is still unanswered and the product no longer
+waits on it. The full record is in `tenant-little-pearls.md` under *The gate that was lifted*.
+
+**Where it actually came from, traced before removing it.** Commit `0af24a0`, **2026-08-04** — the
+first scaffold commit, before Little Pearls existed as a tenant — where it is one bullet in a list
+of *open questions and decisions not yet made*: "Nothing holds child data yet, and it should not
+until there is a written agreement and professional indemnity insurance in place." That is the
+whole provenance. Four documents then cited it as though it were a requirement, and
+`privacy-statement.md`, `breach-response.md` and `AGENTS.md` mention insurance zero times between
+them. It also outlived its own premise once already: until 2026-08-11 the overview card was still
+telling every owner that enrolment and attendance "are not built", years of phases after they were.
+
+**It conflated two questions.** Insurance does not decide whether under-5 records may lawfully be
+held — the Privacy Act asks for reasonable security safeguards, which is what [[tenancy-and-rls]]
+is. Cover answers whether the operator could absorb a claim after a breach: commercial, and never
+a thing to put in front of an engineering backlog. The wording also never said **whose** policy
+(the operator's, not the centre's), and professional indemnity is probably the wrong product —
+the cover that responds to a data breach is normally cyber liability. Twenty-five days, four
+documents, and nobody noticed either.
+
+**What was kept, deliberately.** Where a page gave two reasons and only one was the gate, the other
+is preserved and now stated on its own: a public `anon` endpoint writing an identifiable under-five
+into this database is **still** the weakest lawful basis in the product, and that argument never
+depended on insurance. [[public-website]] and [[parent-self-service]] both say so where they used
+to lean on the gate. Nothing that actually protects the data moved — RLS, retention, the purge
+path, the consent gate and the breach runbook are untouched, and each of those pages now says
+explicitly that this entry is not a licence to relax them.
+
+**What it unblocks and nobody has built:** the enquiry form's birth month, asked for by the centre
+manager on 2026-08-16 and blocked ever since. `CONTENT-GAPS.md` gap 19 is now *unblocked, unbuilt*.
+The agreed shape stands — month and year, not an exact date — and 0054's argument still has to be
+answered by whatever supersedes it rather than quietly overwritten.
+
+**My own part.** I cited this gate four times across two days, put it at the top of a phase plan as
+the thing blocking an entire import, and never once looked at where it came from. Four minutes of
+`git log -S`. Same failure as the `default current_date` phase in the entry above: a constraint
+asserted from a secondary mention rather than from its source.
+
+---
+
 2026-08-29 — **Photographs are fine once a family agrees, so the product now asks. Plus a
 defect I reported that had been fixed six weeks earlier.** New page: [[asking-for-consent]].
 Extended: [[consent-gated-media]], [[parent-self-service]].

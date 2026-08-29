@@ -853,7 +853,7 @@ currently wired to read either file, and continuing through the rest of the app 
 way `daily-registers.md` became three narrower pages rather than one: page by page, checked
 each time rather than assumed.
 
-### 35. Whether professional indemnity insurance is in place — the overview no longer says
+### 35. ~~Whether professional indemnity insurance is in place~~ — CLOSED by decision, 2026-08-29
 
 Added 2026-08-11, when the overview card asserting the opposite was corrected.
 
@@ -878,10 +878,32 @@ comfortable one. What it must not do is quietly assume the answer is yes because
 warning about it was deleted — which is precisely why removing a caution is recorded here
 instead of disappearing into a diff.
 
-**To close it:** the owner confirms whether professional indemnity cover is held for this
-service. If it is not, that is a business decision about a live product holding under-5
-records and belongs somewhere more prominent than a card on the overview — not a sentence
-nobody reads on the screen they skip past.
+**CLOSED 2026-08-29 — by decision, not by an answer.** The owner directed that the gate be
+removed and never block again. That is the third of the three outcomes this item anticipated:
+not "cover is held", not "cover will be bought first", but *proceed without settling it*. The
+question this item asks is therefore still unanswered, and the product no longer waits on it.
+
+Two things found while closing it, both of which say the item was the wrong shape rather than
+merely unanswered:
+
+**It was never external.** Traced to commit `0af24a0`, 2026-08-04 — the first scaffold commit,
+before Little Pearls existed as a tenant — where it is one bullet in a list of *open questions
+and decisions not yet made*. Four documents then cited it as though it were a requirement.
+`privacy-statement.md`, `breach-response.md` and `AGENTS.md` mention insurance zero times
+between them.
+
+**It conflated two questions.** Insurance does not decide whether under-5 records may lawfully
+be held; the Privacy Act 2020 asks for reasonable security safeguards, which is what
+[[tenancy-and-rls]] is. Cover answers whether the operator can absorb a claim after a breach —
+commercial, and never a thing to put in front of an engineering backlog. The old wording also
+never said **whose** policy (the operator's, not the centre's), and professional indemnity is
+probably the wrong product: the cover that responds to a data breach is normally cyber
+liability.
+
+The full record is in [`docs/tenant-little-pearls.md`](../../docs/tenant-little-pearls.md)
+under *The gate that was lifted*. **Nothing that actually protects the data changed** — RLS,
+[[privacy-and-retention]], [[consent-gated-media]] and the breach runbook are untouched, and
+none of them should ever be relaxed on the strength of this entry.
 
 ### 36. The twelve §6-3 criteria were extracted by a tool, not read by a person
 

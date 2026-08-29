@@ -523,9 +523,11 @@ as a smaller screen.
 **The overview told every owner the product does less than it does.** `/` rendered "Nothing holds
 child data yet — enrolment, attendance and daily records are not built" on sign-in, unconditionally,
 long after all three were built. Corrected to what is actually held, in AGENTS.md §1's wording.
-The clause it carried about professional indemnity insurance is now item 35 in
-[[unverified-claims]] rather than quietly deleted: the product asserts neither that cover exists
-nor that it does not, and removing a caution is a decision rather than a tidy-up.
+The clause it carried about professional indemnity insurance became item 35 in
+[[unverified-claims]] rather than being quietly deleted: the product asserted neither that cover
+existed nor that it did not, and removing a caution is a decision rather than a tidy-up. That
+principle is why item 35 is now **closed by an owner decision dated 2026-08-29** with its
+provenance written down, rather than simply disappearing when the gate was lifted.
 
 **A child's anaphylaxis response plan was in a `title` attribute** on `/children` —
 where the EpiPen is kept, whether to ring 111 — which is meaning available to a mouse and to

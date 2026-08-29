@@ -319,10 +319,11 @@ highlight will destroy a badly-placed face.
 
 Added 2026-08-16. **Asked for by the centre manager**, who wants what the old website collects.
 
-Nothing has been built and the form is unchanged. The reason is not reluctance — it is one fact
-nobody here can check: `docs/tenant-little-pearls.md` gates every piece of child data on
-**professional indemnity insurance being in place**, and records it as absent on 2026-08-05. That
-date has not been rechecked.
+**UNBLOCKED 2026-08-29.** Nothing has been built and the form is unchanged, but the reason it was
+blocked is gone: the professional-indemnity gate in `docs/tenant-little-pearls.md` was lifted by
+owner decision on that date, after being traced to a day-one bullet in a list of open questions
+rather than to any external requirement. This is now an ordinary piece of work waiting to be asked
+for.
 
 The shape agreed for when it is unblocked is **month and year — "March 2024" — not an exact date**.
 It gives the centre the room, the transition month and a waitlist position, and stops short of a
@@ -333,11 +334,11 @@ Worth saying to the manager, because it changes what "like the current website" 
 form posts to a 2018 Adobe Muse PHP mailer whose delivery could not be verified** — see gap 11. It
 is not a working precedent for collecting a birth date; it is a form that may not reach anybody.
 
-**To close it:** the owner confirms whether the indemnity insurance is in place, with the date and
-the policy reference. Yes makes this an ordinary product change — a migration, a new function
-signature, the catalogue assertion in `rls_isolation.sql` rewritten to pin the new boundary rather
-than deleted, and the privacy statement updated. No leaves it exactly as it is, and the centre takes
-a birth date in the conversation the enquiry exists to start.
+**To close it:** build it. A migration superseding 0054, a new function signature, the `child_name`
+catalogue assertion in `rls_isolation.sql` rewritten to pin the *new* boundary rather than deleted,
+and the privacy statement updated to say the platform now holds a child's birth month from a public
+form. 0054's argument against the field has to be answered in whatever supersedes it rather than
+quietly overwritten — the reversal is a change of requirements, not a correction.
 
 ### 20. ERO reports exist and the site does not point at them
 

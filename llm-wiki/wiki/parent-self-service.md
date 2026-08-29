@@ -185,6 +185,16 @@ verify is their guardian.
 > conversation with an *adult*, whose name is already on the row. The page was right and the
 > schema was wrong, so the schema changed.
 
+**Note added 2026-08-29: the first of those two reasons is gone; the second is not.** The
+insurance gate quoted above was lifted by owner decision — see
+[`docs/tenant-little-pearls.md`](../../docs/tenant-little-pearls.md). What survives is the
+argument that does the real work here and never depended on it: **a public, unauthenticated
+endpoint writing an identifiable under-five into this database is the weakest lawful basis in
+the product, because nobody has signed anything, and the centre does not need a child's name to
+phone a guardian back.** That is still true, and it is why the form still asks for an age band
+rather than a name. The manager's 2026-08-16 request for a birth *month and year* is a separate
+and narrower question, now unblocked and still unbuilt.
+
 What is asked instead is a **coarse age band** — `expecting`, `under-2`, `2-and-over` —
 which answers "which room, roughly when" and nothing else. `expecting` is a real case:
 families join waitlists before the child is born, and a nullable birth month could not say

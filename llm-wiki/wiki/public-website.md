@@ -60,8 +60,8 @@ Three defects made it urgent rather than cosmetic, all measured rather than asse
 - **The navigation collapses behind a Menu button below 48rem.** On a phone the seven links were two
   permanently-open rows under the brand, pushing the page's own heading most of a screen down.
 - **The enquiry form does not ask for a child's date of birth, and a request to add one is open.**
-  See *The date of birth that has not been added* below — it is gated on an insurance question
-  nobody in this repo can answer, and the agreed shape when it is unblocked is a birth **month**.
+  See *The date of birth that has not been added* below. **Unblocked 2026-08-29** when the
+  insurance gate was removed; still unbuilt, and the agreed shape is a birth **month**.
 - **The site has a standing editorial voice, set by the centre manager on 2026-08-17:** plain,
   simple, warm, authentic — and **no assertive claims**, in the manager's words because "they show
   off, they bind people, and they build expectations." Copy decisions cite this now: it is why the
@@ -350,8 +350,10 @@ assertion in `rls_isolation.sql` are all untouched.
 It runs at three things at once, and it is worth seeing them as one mechanism rather than three
 objections:
 
-1. **`docs/tenant-little-pearls.md`** gates every piece of child data on professional indemnity
-   insurance, recorded as absent on 2026-08-05 and not rechecked since.
+1. ~~**`docs/tenant-little-pearls.md`** gates every piece of child data on professional indemnity
+   insurance.~~ **Gone — removed by owner decision 2026-08-29**, after being traced to a bullet in a
+   day-one list of open questions rather than to any external requirement. Two of the three
+   objections below survive it, and they were always the substantial ones.
 2. **Migration 0054** dropped exactly this field, having been written into 0052 by mistake. Its
    reasoning: a birth month is *"a date of birth with the day filed off … finer than a band, and it
    invites exactly the field the page refuses"*.
@@ -377,8 +379,15 @@ one child on its own. It reverses 0054 knowingly, so whatever supersedes that mi
 answer its argument rather than overwrite it, and the catalogue assertion should be *rewritten to
 pin the new boundary* rather than deleted.
 
-**The one blocking fact is not a code question:** is the indemnity insurance in place now? Recorded
-in `tenant-little-pearls.md` under *Somebody has now asked to cross it*, and as gap 19.
+**Nothing blocks it any more.** The insurance question that used to sit here was closed by
+decision on 2026-08-29 — `tenant-little-pearls.md`, *The gate that was lifted*, and gap 19. What
+remains is not a blocker but a cost: 0054's argument has to be answered by whatever supersedes it,
+and the catalogue assertion rewritten to pin the new boundary rather than deleted. It is ordinary
+work nobody has asked for yet.
+
+Worth keeping in view even so: this is a public `anon` endpoint, and that objection never depended
+on insurance. A birth month from an unauthenticated form is still the weakest lawful basis in the
+product, which is an argument for the coarse shape already agreed rather than against building it.
 
 ### Their palette cannot carry text, and finding that out took two attempts
 
@@ -596,11 +605,11 @@ Three findings stopped a direct port:
    whose rows cannot be removed through any credential the product holds is a permanent spam store,
    in a queue whose *order* is meaningful.
 
-And the substantive one: `docs/tenant-little-pearls.md` records that this tenant holds "zero
-personal information" and that **no child record goes in until professional indemnity insurance is
-in place**. A public endpoint writing an identifiable under-five into that database crosses the line
-that document exists to hold, with the weakest lawful basis in the product — nobody has signed
-anything and no consent conversation has happened.
+And the substantive one, which never depended on the insurance gate that was removed on
+2026-08-29: **a public endpoint writing an identifiable under-five into this database is the weakest
+lawful basis in the product** — nobody has signed anything and no consent conversation has happened.
+That is an argument about an unauthenticated write, and lifting a commercial caution does not touch
+it.
 
 **The centre does not need a child's legal name to phone a guardian back.** So the enquiry page
 currently does what their form actually achieves — it gets a family talking to the centre — using
@@ -635,9 +644,10 @@ quiet-duplicate rule and the two designs that were rejected.
 
 **The enquiry form is still not built, and none of the three findings above have gone away.** A job
 application is a very different object from a childcare enquiry: an applicant is an adult writing
-about themselves, so there is no child, no date of birth, no guardianship question and no insurance
-gate. `waitlist.child_name` is still `NOT NULL`, nobody still has DELETE on `waitlist`, and
-`docs/tenant-little-pearls.md` still forbids putting an identifiable under-five in this database. The
+about themselves, so there is no child, no date of birth and no guardianship question.
+`waitlist.child_name` is still `NOT NULL`, nobody still has DELETE on `waitlist`, and an identifiable
+under-five arriving through an unauthenticated endpoint is still the weakest lawful basis in the
+product — the one objection here that was never about insurance and survives its removal. The
 recommendation there stands as written: a separate `public.enquiries` table with the guardian's
 details and a coarse age band, which staff promote to `waitlist` by hand.
 
@@ -958,10 +968,11 @@ It is a feature, not a visual fix: a table, a policy, a grant, an assertion in `
 flood guard, a screen in the app to read enquiries, and its own wiki entry. Roughly the size of
 [[recruitment]].
 
-It does **not** run into the insurance gate, for the same reason the careers form does not — the
-shape already written down in `enrolment/page.tsx` is the guardian's own details, a coarse age band,
-a hoped start date and a centre. No child's name and no date of birth. `docs/tenant-little-pearls.md`
-holds the line at a child record, and this is not one.
+It collects **no child record at all**, for the same reason the careers form does not — the shape
+already written down in `enrolment/page.tsx` is the guardian's own details, a coarse age band, a
+hoped start date and a centre. No child's name and no date of birth. (This paragraph used to say it
+"does not run into the insurance gate"; that gate was removed on 2026-08-29, and the point it was
+making — that this is not a child record — stands on its own.)
 
 ### What was checked
 
