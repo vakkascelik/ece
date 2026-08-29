@@ -65,11 +65,17 @@ Nothing here is a bug. They are known gaps with known closures.
   2026-08-09.** Caught a real bug doing it: the drill's own centre lookup broke the moment
   this project held two centres with "albert" in the slug. What is still open is narrower:
   the `expo-sqlite` queue on a real device, which was always item 15's claim, not this one's.
-- **The mobile app has never run on a device.** Not the airplane-mode drill, not the sign-out
-  refusal, not the chunked session storage. Two bugs in that path were already found by reading it.
-- **Three store-submission blockers are not code**: the ratio flag puts a disclaimer on the hero
-  screenshot, Apple wants a Support URL that does not exist, and a personal Play account needs
-  twelve testers for fourteen days.
+- ~~**The mobile app has never run on a device.**~~ **False since 2026-08-18**, corrected here
+  2026-08-29 — versionCode 4 booted, signed in, resolved the tenant and rendered the roll. What is
+  still true is narrower and is what this line should have said all along: **nothing that needs a
+  loaded roll has ever run**, because that phone had no children enrolled. Not the airplane-mode
+  drill, not the sign-out refusal, not the chunked session storage, and `expo-sqlite` has still
+  never executed. Two bugs in that path were already found by reading it. Item 15.
+- **Two store-submission blockers are not code**: Apple wants a Support URL that does not exist,
+  and a personal Play account needs twelve testers for fourteen days. ~~The ratio flag puts a
+  disclaimer on the hero screenshot~~ — **cleared 2026-08-18**, and cleared the way item 16
+  demanded rather than the way it warned against: Schedule 2 was read and the bands were correct.
+  This summary said "three" for eleven days after it became two.
 - **No adversarial security testing of any kind.** Sixteen automated checks pass; nobody has
   attacked it. Auth rate limits and session policy are unread Supabase defaults, and the
   service-role key has never been rotated.
@@ -1050,6 +1056,21 @@ document. A centre's own stated method is enough; it just has to be *theirs* and
 rather than this product's invention presented as a threshold. Until then the honest output is
 a number out of 25 and a word a person chose.
 
+### 41. CI has never been green, and nothing that needs credentials has run in it
+
+Added 2026-08-29. [[deployment]] links here for it and the item did not exist, which is its own
+small illustration of the problem.
+
+| | |
+|---|---|
+| **What exists** | `.github/workflows/ci.yml`, since 2026-08-05, firing on every push to `main` and every pull request. Three jobs: `typecheck · lint · tests · build`, `RLS isolation`, and `e2e · accessibility` |
+| **What has happened** | **137 runs. Zero successes.** Not one green run in the project's life, per the GitHub Actions API on 2026-08-29 |
+| **Why, job by job** | The build job passes typecheck, lint, tokens, doc links, unit tests and `build`, then fails on **Performance budgets** — `check:bundle`, first-load JS 113.0kB against a 106kB limit, the overage recorded on 2026-08-14 as pre-existing and unattributed. The other two fail on their own **credential guards**: `SUPABASE_DB_URL` and `SUPABASE_SERVICE_ROLE_KEY` are not in repository secrets |
+| **What that makes unverified** | `test:rls`, migration status, the restore drill, `review:security` and the Playwright accessibility audit have **never executed in CI** — every one of them has only ever run locally, by hand, on this machine. And `Bundle mobile` (`expo export --platform android`) is skipped on every run because it sits after the budget step, so a gate written specifically to catch a Metro-vs-TypeScript resolution failure has never once fired |
+| **The second-order problem** | A build that has been red since run 1 carries no signal. The 137th failure is indistinguishable from the first real one, and nothing in this repo would look different if a genuine regression landed tomorrow |
+| **Not a defect** | The credential guards. They fail loudly rather than skipping quietly, which is the difference between "not checked" and a green tick over nothing. Softening them with `continue-on-error` would be the worst available fix |
+| **To close it** | Two decisions, neither of them a code change. **Attribute the 7kB** — raising the limit to make it pass is the move AGENTS.md forbids by name. And **decide whether the service-role key belongs in GitHub Actions secrets**, which is a question about where that key lives rather than a chore |
+
 ## See Also
 
 - [[checklists]] — where the hazard assessment fields live, and the rest of the 1Place work
@@ -1062,5 +1083,6 @@ a number out of 25 and a word a person chose.
 - [[consent-gated-media]] — where consent decisions finally do work
 - [[funding-and-billing]] — why nothing is estimated, and what cannot be submitted
 - [[reporting]] — occupancy, attendance trends, and enquiry conversion
+- [[deployment]] — item 41's detail: the three CI jobs and what each one skips
 
-*Last updated: 2026-08-18*
+*Last updated: 2026-08-29*

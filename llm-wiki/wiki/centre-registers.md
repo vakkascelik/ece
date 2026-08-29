@@ -329,3 +329,5 @@ Child book handed over at the door at 8am has to be recordable by the person who
 - [[sleep-checks]] — the same "no interval until you state one" pattern
 - [[tenancy-and-rls]] — why `parent` being a role *inside* the tenant is the thing to design against
 - [[unverified-claims]] — where the drill frequency belongs
+
+*Last updated: 2026-08-28 — date taken from this file's last commit, because the page was written without the footer `llm-wiki/schema.md` requires and no other record of it exists.*

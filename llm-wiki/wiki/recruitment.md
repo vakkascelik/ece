@@ -269,3 +269,5 @@ Two things follow. If the form ever comes back, the schema is still here and it 
 not a migration. And **the enrolment enquiry form is now the only public write path in use** — if
 that also moves to email, `anon` returns to reaching nothing at all, and the honest one-line summary
 this page opens with becomes true again.
+
+*Last updated: 2026-08-27 — date taken from this file's last commit, because the page was written without the footer `llm-wiki/schema.md` requires and no other record of it exists.*

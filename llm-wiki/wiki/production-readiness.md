@@ -27,8 +27,10 @@ the code would have surfaced.
 - **The restore drill is mutation-tested.** A drill that passes is worthless until you have
   watched it fail.
 - **Performance is governed in gzipped bytes**, not in a Lighthouse score.
-- **Nothing has been submitted to a store, and no build exists.** The configuration and the
-  declarations are written; that is preparation, not progress.
+- **Nothing has been submitted to a store.** ~~and no build exists~~ — **false since
+  2026-08-12**, corrected 2026-08-29: `eas build:list` shows five finished production AABs
+  (versionCode 2–6) and versionCode 4 ran on a phone on 18 August. The declarations are still
+  only written, and that half is still preparation rather than progress.
 - **No screen reader has ever touched this product.** See [[unverified-claims]] item 12.
 
 ## Details
@@ -240,4 +242,4 @@ exactly the error the corrected paragraph above committed.
 - [[tenancy-and-rls]] — the append-only guarantee that made a centre undeletable
 - [[conventions]] — where the audit and the budgets fit in the verification set
 
-*Last updated: 2026-08-04*
+*Last updated: 2026-08-29*

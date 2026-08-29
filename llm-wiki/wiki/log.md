@@ -5,6 +5,57 @@ says so.*
 
 ---
 
+2026-08-29 (sixth entry) — **CI has run 137 times and has never been green, and the repository is
+public.** Extended: [[deployment]], [[security-review]], [[unverified-claims]] (item 41 is new).
+Corrected: [[production-readiness]], [[emergency-broadcast]], [[i18n]]. Nine footers.
+
+Asked to update the wiki. What a staleness sweep found is worth more than the sweep.
+
+**[[deployment]] said "CI has still never run", and pointed at an [[unverified-claims]] item that
+did not exist.** `.github/workflows/ci.yml` has fired on every push since 2026-08-05. The GitHub
+Actions API reports **137 runs and zero successes** — never once green, including all three pushes
+made today.
+
+Three jobs, three failures, one defect. The build job passes typecheck, lint, tokens, doc links,
+unit tests and `build`, then fails on **Performance budgets** — `check:bundle`, 113.0kB against a
+106kB limit, the overage this repo has called "pre-existing and unattributed" since 14 August and
+which turns out to have been failing CI that whole time. The other two fail on their own credential
+guards: neither `SUPABASE_DB_URL` nor `SUPABASE_SERVICE_ROLE_KEY` is in repository secrets, so
+`test:rls`, migration status, the restore drill, `review:security` and the accessibility audit have
+**never executed in CI at all**.
+
+Those guards are right and must not be softened. They fail loudly rather than skipping quietly,
+which is the difference between "not checked" and a green tick over nothing.
+
+**The consequence nobody would have predicted:** `Bundle mobile` sits immediately after the budget
+step, so `expo export --platform android` — the gate written specifically to catch a package that
+resolves through TypeScript's path mapping but not through Metro's — is skipped on every run. A 7kB
+budget overage has been suppressing a monorepo correctness check for two weeks.
+
+And a build red since run 1 carries no signal. The 137th failure looks exactly like the first real
+one would.
+
+**The repository is public** — `"private": false`, confirmed by an unauthenticated API call, and
+written down nowhere until now. No credential is exposed: `.gitignore` covers `.env*`, `.backups/`
+and `.audit/`, and the only committed keys are the project URL and anon key, which are already in
+every browser bundle. What is public is everything else — every RLS policy, [[security-review]]'s
+own list of what is not covered, [[unverified-claims]]' full catalogue, a named real customer, the
+breach runbook, the DNS plan. Not a vulnerability; a good map, attached to a childcare business. It
+may be deliberate. It was not written down, so it was not a decision anybody could point at.
+
+**Three more stale absolutes**, same shape as this morning's four: [[production-readiness]] still
+said "no build exists"; [[unverified-claims]]' summary still said "the mobile app has never run on a
+device" and "three store-submission blockers" when one was cleared on 18 August;
+[[emergency-broadcast]] still said push needs "an EAS build and a real device" when both exist.
+
+**And I did it myself, today.** Three pages I edited this morning kept their old `Last updated`
+footers — including [[production-readiness]], while I was committing an essay about `store-listing`'s
+footer saying "no build exists" seven paragraphs below a body that said one did. Six other pages
+never had the footer `schema.md` requires at all; those are dated from their last commit, and say so.
+Nothing checks any of this, which is why all nine were wrong or missing.
+
+---
+
 2026-08-29 (fifth entry) — **versionCode 6, and a grep that cannot see te reo.** Extended:
 [[mobile-app]], [[i18n]], [[unverified-claims]].
 

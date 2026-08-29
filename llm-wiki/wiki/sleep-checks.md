@@ -104,3 +104,5 @@ obviously a snapshot is the safer lie to not tell.
 - [[incident-register]] — the other Phase 8 table
 - [[unverified-claims]] — item 23
 - [[attendance-and-ratios]] — `RATIO_TABLES_VERIFIED`, the pattern this follows
+
+*Last updated: 2026-08-08 — date taken from this file's last commit, because the page was written without the footer `llm-wiki/schema.md` requires and no other record of it exists.*

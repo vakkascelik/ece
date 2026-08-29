@@ -386,13 +386,49 @@ its ledger row; the next day's tick re-plans from what actually landed.
 **Not yet created in the Railway dashboard.** The config is reviewable here; the service
 does not exist until somebody makes it and points it at this file.
 
+### CI has run 137 times and has never once passed
+
+`.github/workflows/ci.yml` has existed since 2026-08-05 and fires on every push to `main` and
+every pull request. As at 2026-08-29 the GitHub API reports **137 runs and zero successes** — not
+one green run in the project's life. This page's *See Also* said "CI has still never run", which
+was wrong twice over: it has run on every push, and it pointed at an [[unverified-claims]] item
+that did not exist.
+
+Three jobs, three different failures, and only one of them is a defect:
+
+| Job | Fails at | What it means |
+|---|---|---|
+| `typecheck · lint · tests · build` | **Performance budgets** (`npm run check:bundle`) | The real one. First-load JS is 113.0kB against a 106kB limit — the overage recorded on 2026-08-14 as "pre-existing and unattributed". Everything before it passes: typecheck, lint, tokens, doc links, unit tests, `build` |
+| `RLS isolation` | **Check credentials are configured** | `SUPABASE_DB_URL` is not in repository secrets, so `test:rls`, migration status, the restore drill and `review:security` are **skipped** and have never executed in CI |
+| `e2e · accessibility` | **Check credentials are configured** | `SUPABASE_SERVICE_ROLE_KEY` is not in repository secrets. The audit seeds its own tenant and cannot run without it |
+
+**The credential guards are working as designed and should not be softened.** They fail loudly
+instead of skipping quietly, which is the difference between "this was not checked" and a green
+tick over nothing. The fix is secrets, not a `continue-on-error`.
+
+**The consequence is the part that matters.** `Bundle mobile` — `expo export --platform android`,
+the step that catches a package resolving through TypeScript's path mapping but not through
+Metro's resolver — sits directly after `Performance budgets` and is therefore **skipped on every
+run**. A gate written specifically to catch a monorepo failure mode has never executed, because a
+7kB budget overage stops the job first.
+
+And a CI that has been red for its entire existence carries no signal at all. Nobody looks at a
+red build that is always red, which means the 137th failure is indistinguishable from the first
+real one. Every gate this repo runs is run **locally, by hand**, and reported that way — which is
+how it has stayed honest, and is also why nobody noticed.
+
+Fixing it is two separate decisions and neither is a wiki edit: **attribute the 7kB** (raising the
+limit to make it pass is the move AGENTS.md forbids by name), and **decide whether the
+service-role key goes into GitHub Actions secrets** — a real decision about where that key lives,
+not a chore.
+
 ## See Also
 
 - [[tenancy-and-rls]] — the boundary that makes one deployment safe
 - [[security-review]] — the headers, and what is checked on every run
 - [[invitations]] — why the container needs the service-role key
 - [[attendance-verification]] — the chase this cron runs, and its ledger
-- [[unverified-claims]] — CI has still never run
+- [[unverified-claims]] — item 41, the CI that has never been green
 
 ## The variables that follow a hostname
 
@@ -426,4 +462,4 @@ Adding a custom domain silently rewrote `RAILWAY_STATIC_URL` and `RAILWAY_SERVIC
 to `littlepearls.org.nz`, a hostname currently serving the old site. Checked rather than assumed:
 nothing in this repo reads either variable. Worth knowing before something starts to.
 
-*Last updated: 2026-08-26*
+*Last updated: 2026-08-29*

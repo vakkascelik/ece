@@ -302,3 +302,5 @@ worse rather than better. See [[unverified-claims]].
 - [[compliance-and-evidence]] — the admission this phase closes, and `staff_records`
 - [[attendance-and-ratios]] — what a ratio is derived from today
 - [[tenancy-and-rls]] — `caller_has_role` and the predicates used here
+
+*Last updated: 2026-08-08 — date taken from this file's last commit, because the page was written without the footer `llm-wiki/schema.md` requires and no other record of it exists.*

@@ -158,3 +158,5 @@ harness* has the same disease.
 - [[unverified-claims]] — item 22, the witness rule
 - [[conventions]] — the timezone rule, now enforced in both languages
 - [[privacy-and-retention]] — why the cascade is load-bearing
+
+*Last updated: 2026-08-08 — date taken from this file's last commit, because the page was written without the footer `llm-wiki/schema.md` requires and no other record of it exists.*

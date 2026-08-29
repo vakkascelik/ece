@@ -276,3 +276,5 @@ guard being ignored slowly.
 - [[privacy-and-retention]] — why `on delete cascade` on `child_id` is load-bearing
 - [[compliance-and-evidence]] — where this register will feed the binder
 - [[conventions]] — the new-table checklist this followed
+
+*Last updated: 2026-08-28 — date taken from this file's last commit, because the page was written without the footer `llm-wiki/schema.md` requires and no other record of it exists.*

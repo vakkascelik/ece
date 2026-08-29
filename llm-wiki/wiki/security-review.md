@@ -214,6 +214,27 @@ policy text alone.
 - **Storage object paths** are `<centre_id>/<uuid>.<ext>` and the read policy is checked, but
   no test attempts a traversal or an object enumeration.
 
+### The repository is public, and nothing in this wiki said so
+
+Recorded 2026-08-29, after an unauthenticated call to the GitHub API returned the repository:
+`vakkascelik/ece`, `"private": false`, `"visibility": "public"`, created 2026-08-04.
+
+**No credential is exposed by it.** `.gitignore` covers `.env*`, `.backups/` and `.audit/`; the
+only keys committed are the Supabase project URL and the anon key, both of which are already in
+every browser bundle and every shipped binary, and both of which are safe precisely because RLS
+is the boundary rather than the client.
+
+What *is* public is the rest of it, and it is worth naming rather than shrugging at: every RLS
+policy in source, this page's own list of what is not covered, [[unverified-claims]]' complete
+catalogue of what nobody has checked, `docs/tenant-little-pearls.md` naming a real customer, the
+breach runbook, and the DNS cutover plan. None of that is a vulnerability. Together it is an
+unusually good map for someone looking for one, attached to a named childcare business.
+
+This may well be deliberate — a public repository is a reasonable choice and this one is written
+as if it were read. It is recorded here because **it was written down nowhere**, which means it
+was not a decision anybody could point at, and because the honest place for "everything we have
+not checked is published" is the security page.
+
 ## See Also
 
 - [[tenancy-and-rls]] — the boundary these checks are checking
@@ -222,7 +243,7 @@ policy text alone.
 - [[model-calls]] — the audit exemption this review keeps a second copy of
 - [[unverified-claims]] — items 13 and 14 came from here
 
-*Last updated: 2026-08-04*
+*Last updated: 2026-08-29*
 
 
 ### The CSP was refusing every script on four routes, in production only

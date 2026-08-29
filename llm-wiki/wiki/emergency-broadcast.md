@@ -11,9 +11,12 @@ Migration `0056`–`0057`. Code: `packages/core/src/notifications.ts`,
 ## What "broadcast" does not mean yet, said before anything else
 
 `docs/roadmap-phases-8-13.md` scoped this as "a `notification_kind` and a fan-out. Build on
-push and email first." This project has neither. Push has never been executed once — an EAS
-build and a real device are needed, and unverified-claims item 5 has said so since before this
-feature existed. There is no email-sending integration of any kind, only Supabase Auth's own
+push and email first." This project has neither. Push has never been executed once, and
+unverified-claims item 5 has said so since before this feature existed. **The reason has changed
+and this line said otherwise until 2026-08-29:** it read "an EAS build and a real device are
+needed", and both now exist — five AABs, one of them installed and run. What is missing is a
+device that has been *asked* for a push token, and a worker: nothing reads the `notifications`
+queue and calls Expo's API. There is no email-sending integration of any kind, only Supabase Auth's own
 templates for password resets.
 
 Building a real email vendor integration to make "broadcast" live up to the word would be its
@@ -106,4 +109,4 @@ and needs a device this repo does not have.
 [[reporting]] · [[offline-outbox]] · [[unverified-claims]] · [[tenancy-and-rls]] ·
 [[parent-self-service]]
 
-*Last updated: 2026-08-09*
+*Last updated: 2026-08-29*
