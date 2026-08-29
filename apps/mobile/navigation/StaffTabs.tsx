@@ -31,6 +31,18 @@ export function StaffTabs() {
         tabBarInactiveTintColor: color.inkMuted,
         tabBarLabelStyle: { fontSize: font.size.sm },
         tabBarStyle: { backgroundColor: color.surface, borderTopColor: color.line },
+        // PROBE, NOT A FIX — delete it if versionCode 6 still shows the box.
+        // Every tab label on versionCode 4 rendered with a missing-glyph box above it.
+        // It is not a JS placeholder: the installed `BottomTabItem` does
+        // `if (icon === undefined) return null`, and no icon is given here. `✓` and `·`
+        // render correctly on the same screen, so it is not a font gap either. The suspect
+        // is the native Android tab bar via react-native-screens 4.x reserving a slot
+        // regardless. An explicit `() => null` is the one cheap test, and it can only be
+        // answered by a build — which is why it is riding this one.
+        // Watch for the opposite failure: supplying the function makes `icon !== undefined`,
+        // so the JS path now renders an empty icon container. If the box goes away but the
+        // labels sit lower, that is this line, not the bug.
+        tabBarIcon: () => null,
       }}
     >
       <Tab.Screen name="Roll" component={RollScreen} options={{ tabBarLabel: 'Roll' }} />
