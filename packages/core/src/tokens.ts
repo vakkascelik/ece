@@ -189,7 +189,8 @@ export const brandLittlePearls = {
    * this block says none of their colours can. Because these are not their colours. Their teal is a
    * pale ground (`#83afaf`, white on it 2.41:1); this is the same hue taken *down* rather than up,
    * far enough that the relationship holds by eye and the contrast problem inverts — white on
-   * `oceanDeep` is 9.11:1. It is the `tealInk` move again, applied to a background instead of to
+   * `oceanDeep` is 6.60:1 — 8.55:1 when this note was written, and the 2026-08-29 lightening spent
+   * exactly that difference. It is the `tealInk` move again, applied to a background instead of to
    * text.
    *
    * MEASURED AGAINST ALL THREE DEPTHS, NOT JUST THE DARKEST, and that is the whole point of the
@@ -237,9 +238,40 @@ export const brandLittlePearls = {
    * measured 2.95:1 on the new shallow, under the 3:1 WCAG 1.4.11 asks of a control's boundary. It
    * had 3.81 on the old water. A non-text contrast requirement failing because a *background*
    * changed is the kind of thing no colour-token test catches.
+   *
+   * LIGHTENED FROM THE DARK END, 2026-08-29. Third request for a lighter band, and the first one
+   * that actually delivers lighter — the two before it spent the ask on hue, because raising the
+   * whole gradient is genuinely impossible and both passes stopped there. This one moves the part
+   * that was never the problem.
+   *
+   * WHY THE WHOLE GRADIENT CANNOT RISE, computed across the frontier rather than argued:
+   *
+   *     +2.0L  white on shallow 5.30  -> `muted` at its 5.40 target is brighter than white
+   *     +4.5L  white on shallow 4.69  -> `soft` at its 4.80 target is brighter than white
+   *     +5.5L  white on shallow 4.45  -> **pure white fails AA**, and there is nothing above it
+   *
+   * So `oceanShallow` is frozen at #196e7b, and with it all three text tones and the button border.
+   * Every ratio below that involves `shallow` is byte-identical to the last pass on purpose.
+   *
+   * WHAT MOVED, AND WHY IT IS THE RIGHT HALF: the binding pair is at the *bottom* of the band,
+   * where the intro paragraph and the buttons sit. The *top* is where the eyebrow and the h1 sit
+   * and it had 4.05 of headroom over the 4.5 floor doing nothing. `oceanDeep` +4.7L and `oceanMid`
+   * +2.6L spends it. Area-weighted by the gradient's own stops, the band is **21% brighter in mean
+   * luminance** — a change you see, unlike the last two.
+   *
+   *     white on deep  6.60   mid  6.25   shallow  5.90
+   *     muted on deep  6.05   mid  5.73   shallow  5.41
+   *     soft  on deep  5.39   mid  5.10   shallow  4.82   <- still the worst pair, still untouched
+   *
+   * THE COST, WHICH IS REAL AND IS NOT A CONTRAST FIGURE: the gradient flattens from 7.2 lightness
+   * points of spread to 2.5. It is nearly a flat fill now. What keeps the band from reading as the
+   * painted wall the `::before` note warns about is that the light direction was never carried by
+   * this gradient — it is carried by the radial highlight at 78% 8%, which is untouched. Anyone
+   * lightening again should know the base gradient has no more to give: the next stop is deep
+   * meeting shallow, at which point the linear-gradient may as well be deleted.
    */
-  oceanDeep: '#10545f',
-  oceanMid: '#15606b',
+  oceanDeep: '#136674',
+  oceanMid: '#176a76',
   oceanShallow: '#196e7b',
   onOcean: '#ffffff',
   onOceanMuted: '#f1f6f6',

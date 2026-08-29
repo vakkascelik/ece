@@ -159,6 +159,57 @@ export default function HomePage() {
           </div>
         </section>
 
+        {/* --- Whānau --------------------------------------------------------------- */}
+        <hr className="rule" aria-hidden="true" />
+
+        {/*
+          MOVED UP FROM THE FOOD SECTION, 2026-08-29, on the owner's direction.
+
+          It was an `<h3>` in a sand box at the bottom of "A chef in the kitchen" — a statement about
+          partnership with families, filed under catering, four sections below the fold. Whatever the
+          reason for that was, it is not one the page could communicate: a reader who scrolled two
+          sections and stopped never saw the centre's own stated emphasis at all.
+
+          It is now the second thing in the body, directly after the pearl story, and the order is an
+          argument rather than a stack — the pearls say how a child grows here, and this says who
+          does it with us. "Why pearls" stays first because the manager asked for the analogy by name
+          and it is what the hero sets up.
+
+          THE COPY IS UNCHANGED AND IS THEIRS. Every word and its order is from their own About
+          text; the only edit is punctuation, splitting one sentence at its own list so the four
+          things they do can be four things rather than a clause. The `and` that opened the last
+          clause is kept, which is what makes it read as a continuation rather than a new claim.
+
+          It gets a real photograph and the second ground because the alternative to a small beige
+          box is not a bigger beige box.
+        */}
+        <section className="band band--split">
+          <div>
+            <Eyebrow>Ngā hononga</Eyebrow>
+            <h2 className="section-title">Whānau are part of it</h2>
+            <p className="whanau__lede">
+              Education is a partnership between whānau and the centre. We celebrate that through:
+            </p>
+            <ul className="whanau__ways">
+              <li>Parent-teacher meetings</li>
+              <li>Family whānau days</li>
+              <li>Dinners</li>
+              <li>Seminars</li>
+            </ul>
+            <p className="whanau__closer">
+              And ngā hononga, relationships, are the key to quality education.
+            </p>
+          </div>
+
+          {/*
+            `entrance` and not a photograph of children, which is the obvious pick and the wrong one.
+            This section is about the threshold between a family and the centre, and the entrance is
+            literally that — it is also the only unused photograph on this page that is about arriving
+            rather than about a room. Caption off: the prose beside it already says what it means.
+          */}
+          <Photo photo={PHOTOS.entrance} showCaption={false} />
+        </section>
+
         {/* --- Learning through play ------------------------------------------------ */}
         <hr className="rule" aria-hidden="true" />
 
@@ -243,17 +294,6 @@ export default function HomePage() {
             in the Heart Foundation&rsquo;s Healthy Heart Award and our menu follows their
             guidelines; ask to see the menu when you visit.
           </p>
-
-          {/* On the second ground. Ngā hononga is the centre's own emphasis, so it gets the one
-              section on this page that is visibly set apart. */}
-          <div className="band prose">
-            <h3>Whānau are part of it</h3>
-            <p>
-              Education is a partnership between whānau and the centre. We celebrate that through
-              parent-teacher meetings, family whānau days, dinners and seminars — and ngā hononga,
-              relationships, are the key to quality education.
-            </p>
-          </div>
         </section>
 
         {/* --- Where we are --------------------------------------------------------- */}

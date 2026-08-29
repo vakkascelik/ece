@@ -521,9 +521,9 @@ a:hover { text-decoration-thickness: 2px; }
  * `LITTLE_PEARLS_CONTRAST_PAIRS` rather than trusted from the handoff, which quotes its figures
  * against `--ocean-deep` only and never against the lighter end the gradient actually reaches:
  *
- *     white on ocean mid     7.86:1  PASS   <- .foot-head, and every link
- *     muted on ocean mid     6.63:1  PASS   <- body text
- *     #1b1a18 on ocean mid   1.18:1  FAILS  <- what this footer's text was, one commit ago
+ *     white on ocean mid     6.25:1  PASS   <- .foot-head, and every link
+ *     muted on ocean mid     5.73:1  PASS   <- body text
+ *     #1b1a18 on ocean mid   2.78:1  FAILS  <- what this footer's text was, one commit ago
  *
  * That last line is the point of writing this down. The background changed and the text colour did
  * not have to be *rediscovered*, but it did have to be re-derived from the other direction, and a
@@ -584,7 +584,7 @@ a:hover { text-decoration-thickness: 2px; }
   font-size: var(--text-sm);
   /* White against the body text's `--on-ocean-muted`, so the label separates from its values the
      way it did on coral — by weight, case, letter-spacing *and* a lift in tone, never by hue
-     alone. 7.86:1 on the band's lightest point. */
+     alone. 6.25:1 on the band's lightest point. */
   color: var(--on-ocean);
 }
 .foot p { margin: 0 0 var(--space-1); }
@@ -1118,6 +1118,84 @@ figure.photo-figure figcaption {
 /* The heading that opens a band should not add its usual top margin on top of the padding. */
 .band > :first-child { margin-top: 0; }
 .band > :last-child { margin-bottom: 0; }
+
+/*
+ * A band with a photograph beside the words. One user: the whānau section on the homepage, which
+ * moved here from the bottom of the food section on 2026-08-29 — see the note in `page.tsx`.
+ *
+ * A MODIFIER ON `.band` RATHER THAN A NEW GROUND, which is the whole reason it is two declarations
+ * and not twenty: the sand, the radius, the padding and the section margins are already right and
+ * are already the page's rhythm. Only the internal layout is new.
+ *
+ * `17rem` and not a fraction: these photographs are 720px squares, and a fractional column makes the
+ * picture grow with the window until it is the section and the words are the caption. A fixed column
+ * keeps the copy the subject at every width above the breakpoint.
+ *
+ * 56rem rather than the site's usual 60rem breakpoint, and that is measured rather than copied. The
+ * copy column here holds a 4-item chip row that wraps to three lines under about 39rem, and
+ * 56 - 17 - 2 = 37rem of copy is already past that. Below 56rem it stacks and the photograph goes
+ * full width, which is the only arrangement that does not squeeze both halves.
+ */
+.band--split { display: grid; gap: var(--space-6); align-items: center; }
+@media (min-width: 56rem) {
+  .band--split { grid-template-columns: minmax(0, 1fr) 17rem; padding: var(--space-7) var(--space-6); }
+}
+/* `.band`'s own first/last-child reset only reaches the grid children, not into the copy column. */
+.band--split > div > :first-child { margin-top: 0; }
+.band--split > div > :last-child { margin-bottom: 0; }
+/* The figure's bottom margin is for prose flow and is dead weight in a centred grid cell. */
+.band--split figure.photo-figure { margin: 0; }
+
+.whanau__lede {
+  font-size: var(--text-lg);
+  line-height: 1.6;
+  max-width: 38rem;
+  margin: 0 0 var(--space-4);
+}
+
+/*
+ * The four things the centre does, as chips.
+ *
+ * DELIBERATELY NOT PEARL DOTS, which was the first attempt and the obvious one. This page already
+ * carries a 420px pearl, three story pearls, three room dots and an eyebrow dot on every section —
+ * a fourth use is not a motif, it is wallpaper, and the one place the analogy has to stay sharp is
+ * the section that explains it. White on sand separates by fill, so these need no border either;
+ * `.card`'s sand hairline would be invisible on this ground.
+ *
+ * A list and not a sentence because it is four discrete things, and a screen reader announces "list,
+ * 4 items" — which is the information the original comma-separated clause had and did not convey.
+ */
+.whanau__ways {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 var(--space-5);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.whanau__ways li {
+  background: var(--surface);
+  border-radius: var(--radius-pill);
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--text-base);
+}
+
+/*
+ * The closing line, in the display serif — the same treatment as `.hero__tagline` and for the same
+ * reason. Both are the centre speaking about what it believes rather than describing what it does,
+ * and they are the only two lines on the site that are. `#1b1a18` on `--sand` is asserted in
+ * `LITTLE_PEARLS_CONTRAST_PAIRS`; `--teal-ink` would read here and is not used, because the accent
+ * means "you can click this" everywhere else on the page.
+ */
+.whanau__closer {
+  font-family: var(--font-display), Georgia, serif;
+  font-style: italic;
+  font-size: var(--text-xl);
+  line-height: 1.45;
+  color: #1b1a18;
+  max-width: 34ch;
+  margin: 0;
+}
 
 /* --- The ocean ---------------------------------------------------------------- */
 
@@ -1697,7 +1775,7 @@ figure.photo-figure figcaption {
 /* --- Buttons on the ocean --------------------------------------------------------- */
 
 /*
- * The primary button INVERTS on a band: white ground, `--ocean-deep` text at 9.11:1. `--teal-ink`
+ * The primary button INVERTS on a band: white ground, `--ocean-deep` text at 6.60:1. `--teal-ink`
  * on teal water would be a button nobody can find, and the ocean is a surface that never becomes an
  * accent — so the accent's job passes to the paper colour for as long as the band lasts.
  */

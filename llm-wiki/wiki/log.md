@@ -5,6 +5,51 @@ says so.*
 
 ---
 
+2026-08-29 (seventh entry) — **The third request for a lighter ocean was the first one granted, by
+lightening the end nobody had checked.** Extended: [[public-website]] (two new sections). Corrected:
+[[public-website]] — "white on `--ocean-deep` is 9.11:1" and the nine-pair table were both stale by
+two passes and were being read as current.
+
+Two changes to the Little Pearls homepage, on the owner's direction.
+
+**The ocean.** Asked for a lighter band — the third time, after 2026-08-25 and 2026-08-27, both of
+which concluded it was at its ceiling and spent the request on hue instead. Recomputing the frontier
+confirmed the ceiling is real: raise all three depths together and at +2.0L the derived
+`--on-ocean-muted` has to be brighter than white, at +5.5L *pure white* fails AA on
+`--ocean-shallow`. But the binding pair is at the **bottom** of the gradient, where the intro
+paragraph and the buttons sit, and the complaint is about the top, where the `<h1>` sits on 4.05 of
+unused headroom. `--ocean-deep` +4.7L and `--ocean-mid` +2.6L, `--ocean-shallow` frozen byte for
+byte: the band is **21% brighter in mean luminance** with every shallow-column ratio unchanged. The
+generalisation, which cost two passes to find: *the ceiling on a gradient belongs to whichever end
+the text sits on, not to the gradient.*
+
+The cost is real and no gate can see it — the gradient's spread falls 7.2 → 2.5 lightness points and
+is now nearly a flat fill. It survives only because the light direction was always carried by the
+`::before` radial, not by the gradient. **There is nothing left in the base gradient**; the next step
+is deep meeting shallow.
+
+**Whānau moved up.** The centre's own partnership statement was an `<h3>` in a sand box at the bottom
+of the section about the on-site chef. It is now second in the body, with the four things they do as
+a real list and a photograph beside it. Copy unchanged and theirs — the only edit is splitting one
+sentence at its own list. Built as a `.band--split` modifier rather than a new ground, and
+deliberately *without* pearl dots: the page already has eight of them and a ninth beside the section
+explaining the analogy is wallpaper.
+
+**One thing checked and found not to be a defect,** recorded because it nearly went in the report as
+one. A full-page screenshot rendered the 420px hero pearl as a blank white sphere while the 64–98px
+story pearls showed their photographs — which looks exactly like the sheen-washout bug
+`.pearl--photo` was written to fix. Sampling the actual viewport pixels gave `rgb(225,202,182)` at
+the child's face. The photograph is there; the screenshot was the artefact. `.pearl` reads no ocean
+token, so the lightening could not have touched it either way.
+
+Gates: `typecheck`, `lint`, `test` (617 across six workspaces), `tokens:check`, `build`, and
+`audit:site` — 20 page views, no violations, no horizontal overflow — all pass. Plus the visual pass
+`scripts/audit-site.ts` says is mandatory rather than optional, at 1440px and 390px, with a
+clipped-text check against each element's nearest clipping ancestor (the assertion that file notes
+does not exist yet; written here as a throwaway, not added to the repo).
+
+---
+
 2026-08-29 (sixth entry) — **CI has run 137 times and has never been green, and the repository is
 public.** Extended: [[deployment]], [[security-review]], [[unverified-claims]] (item 41 is new).
 Corrected: [[production-readiness]], [[emergency-broadcast]], [[i18n]]. Nine footers.
@@ -4263,4 +4308,4 @@ latch with a toddler in the background is child media; and **the offline path fo
 `client_uuid` column exists and is unique but whose value is still generated on the server —
 [[unverified-claims]] §21's narrower successor.
 
-*Log last updated: 2026-08-28*
+*Log last updated: 2026-08-29*

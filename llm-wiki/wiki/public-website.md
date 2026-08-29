@@ -124,7 +124,8 @@ are the same hue family as their own teal, taken down rather than up.
 
 **These are the one part of Little Pearls' palette that can carry white text**, which contradicts
 the rule stated everywhere else on this page — because they are not their colours. The `tealInk`
-move, applied to a background instead of to text. White on `--ocean-deep` is 9.11:1.
+move, applied to a background instead of to text. White on `--ocean-deep` is 6.60:1 — it was 9.11:1
+when this was written, and three lightening passes have since spent the difference.
 
 #### Nine contrast pairs for what looks like three
 
@@ -138,6 +139,11 @@ bottom of it. All nine combinations are measured and asserted in `LITTLE_PEARLS_
 | white | 9.11 | 7.86 | 6.43 |
 | `--on-ocean-muted` | 7.69 | 6.63 | 5.42 |
 | `--on-ocean-soft` | 6.85 | 5.91 | **4.83** |
+
+**Those are the 2026-08-25 figures and they are kept as history, not as the current state** — three
+lightening passes have moved them since. Current values are in the 2026-08-29 section at the foot of
+this page; `LITTLE_PEARLS_CONTRAST_PAIRS` in `packages/core/src/tokens.ts` is the only figure that
+is checked rather than written down, and it is the one to trust.
 
 The floor holds AA with room. It is also the pair that breaks first if anybody lightens the water.
 
@@ -1253,3 +1259,71 @@ One casualty that no test would have caught: `.btn-onocean`'s 55% white border m
 on the new water, under the 3:1 WCAG 1.4.11 asks of a control's boundary. It is 60% now. A non-text
 contrast requirement failing because a *background* moved sits outside the token contrast pairs and
 outside axe's colour-contrast rule.
+
+### The ocean, third request: lighten the end that was never the problem
+
+2026-08-29. The owner asked for a lighter band for the third time. The two previous passes
+(2026-08-25, 2026-08-27) both concluded the band was at its ceiling and spent the request on hue
+instead. **They were right about the ceiling and wrong about which part of the band it applied to.**
+
+The frontier, recomputed rather than taken from the previous note. Raising all three depths together:
+
+| | white on shallow | consequence |
+|---|---|---|
+| +2.0L | 5.30 | `--on-ocean-muted` at its 5.40 target is brighter than white |
+| +4.5L | 4.69 | `--on-ocean-soft` at its 4.80 target is brighter than white |
+| +5.5L | 4.45 | **pure white fails AA**, and there is nothing above white |
+
+So `--ocean-shallow` is frozen at `#196e7b`, and with it all three text tones and the `.btn-onocean`
+border. That is genuinely immovable and the earlier passes were correct to say so.
+
+What they missed: **the binding pair is at the bottom of the band and the darkness complaint is
+about the top.** The intro paragraph and both buttons sit at the shallow end; the eyebrow and the
+`<h1>` sit at the deep end, which had 4.05 of headroom over the 4.5 floor doing nothing at all.
+`--ocean-deep` +4.7L and `--ocean-mid` +2.6L spend it, giving `#136674` and `#176a76`. Weighted by
+the gradient's own stops the band is **21% brighter in mean luminance** — visible, where the
+previous two passes were arguable.
+
+| | deep | mid | shallow |
+|---|---|---|---|
+| white | 6.60 | 6.25 | 5.90 |
+| `--on-ocean-muted` | 6.05 | 5.73 | 5.41 |
+| `--on-ocean-soft` | 5.39 | 5.10 | **4.82** |
+
+Every figure in the `shallow` column is byte-identical to the previous pass, on purpose.
+
+**The cost is not a contrast figure and no check can see it.** The gradient's spread falls from 7.2
+lightness points to 2.5 — it is nearly a flat fill. What stops it reading as the painted wall that
+`.band-ocean::before` was written to prevent is that the light direction was never carried by this
+gradient in the first place; it is carried by the radial highlight at `78% 8%`, untouched. **The
+base gradient now has nothing left to give**: the next lightening step is `deep` meeting `shallow`,
+at which point the `linear-gradient` may as well be deleted and the band declared a fill.
+
+Generalising the three passes: *the ceiling on a gradient is not a property of the gradient, it is a
+property of whichever end the text sits on.* Two passes of analysis treated the band as one colour
+and left a third of the available range unspent.
+
+### Whānau moved out of the food section
+
+Same commit, on the owner's direction. The centre's own statement that "education is a partnership
+between whānau and the centre" was an `<h3>` in a sand box at the *bottom of the section about the
+on-site chef* — position six on the homepage, four sections below the fold. It is now second in the
+body, directly after "Why pearls".
+
+The ordering is an argument rather than a stack: the pearl story says how a child grows here, this
+says who does it with us. "Why pearls" keeps first place because the manager asked for the analogy
+by name and it is what the hero sets up.
+
+**The copy is unchanged and is theirs** — same words, same order. The only edit is punctuation: one
+sentence is split at its own list so "parent-teacher meetings, family whānau days, dinners and
+seminars" can be four items instead of a clause, which is also what makes a screen reader announce
+"list, 4 items". The `and` opening the final clause is kept so it still reads as a continuation.
+
+Two implementation notes worth keeping. The layout is a `.band--split` modifier rather than a new
+ground — the sand, radius, padding and section rhythm were already right, so only the internal grid
+is new, and it is two declarations. And the four items are **deliberately not pearl dots**: the
+homepage already carries a 420px pearl, three story pearls, three room dots and an eyebrow dot per
+section, and a fourth use is wallpaper rather than a motif — least of all in the section next to the
+one that explains what the pearls mean.
+
+*Page last updated: 2026-08-29*
