@@ -250,10 +250,27 @@ story photos are the same question and deciding it three times separately is how
 answers happen.
 
 **The offline path for checklist runs.** `checklist_runs.client_uuid` exists and is unique; the
-value is still generated server-side. Gated on `drill:offline`, which
-[`unverified-claims`](../llm-wiki/wiki/unverified-claims.md) §21 says has never been run against
-the web queue. **Phase 11b is: run the drill first**, then decide. A queue nobody has tested is not
-a queue to add a second writer to.
+value is still generated server-side.
+
+**Corrected 2026-08-29.** This phase previously said the work was gated on `drill:offline`, "which
+[`unverified-claims`](../llm-wiki/wiki/unverified-claims.md) §21 says has never been run against the
+web queue". **That is wrong: item 21 is closed.** The drill ran on 2026-08-09, 10/10 against live
+Postgres through the same `recordAttendance` the web outbox calls — duplicate keys recognised, a
+corrected time surviving the outage, a 20-day-old event refused with the code the outbox treats as
+permanent. It also found a real defect while running: the drill matched its demo centre with
+`.like('slug', '%albert%')`, one future centre name away from writing invented events into a real
+tenant.
+
+So the queue is tested and this is not blocked on testing it. What item 21 leaves open is narrower
+and still true: **work made offline on the web survives only while the tab stays open** — the queue
+is in `localStorage` and persists, but the app is server-rendered with no service worker, so a
+reload with no connection gives the browser's error page. Mobile is a binary and does survive a
+restart.
+
+That is the real question for checklist runs, and it is a harder one than it looks: a checklist is
+filled in over minutes in a store room with bad signal, which is exactly the situation where
+somebody reloads. Queueing runs without a service worker adds a second writer to a queue that
+cannot survive the reload its users will perform.
 
 ---
 
