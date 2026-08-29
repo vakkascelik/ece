@@ -5,6 +5,40 @@ says so.*
 
 ---
 
+2026-08-29 (tenth entry) — **Phases H and I written — incident investigations and evidence
+photos — and not one line of them has touched a database, because every credential is dead.**
+Extended: [[incident-register]] (two new sections: the 0074 investigation and the 0075 photos),
+[[checklists]] (photos built, Key Point updated), [[consent-gated-media]] (the one-sentence
+summary rewritten, as its own bullet said it must be the day `media` stopped being the only
+photo store), [[unverified-claims]] (item 43 is new, and it is the load-bearing one). Corrected:
+`docs/replacing-1place.md` §3.2 — it cited unverified-claims item 21 as saying the web outbox had
+never been through `drill:offline`, when item 21 had recorded the opposite since 2026-08-09,
+nineteen days before the citation was written. A citation to the honesty register that inverts
+the register is the exact failure the register exists to prevent.
+
+The build: 0074 (`incident_investigations` — a row is a decision, `required` NOT NULL; WorkSafe
+as yes/no-and-date with no rule; `hazard_id` as the pointer that replaces 1Place's boolean) and
+0075 (`evidence_photos` + the second storage bucket ever — one table for two parents, frozen
+with a finalised incident or signed run via the policies' USING clauses, object deletable only
+while no row references it, so the app deletes row-then-object, the reverse of `deleteMedia`).
+`/incidents/[id]` is new: the investigation form, the photos, and the ratio at the moment of the
+incident **computed from the attendance register** — `snapshotAt` over `replayDay`, centre-wide
+and saying so, null rendered as "cannot be computed" because inventing an empty room would be
+the report asserting more than the data supports. 1Place asks staff to remember that number into
+a text box; this is the first place the product is structurally better than the thing it
+replaces rather than equally good with stricter policies. The offline path for runs was mapped
+(the completion-idempotency crux, the two classifyWriteFailure misclassifications, the
+started_at honesty problem) and deliberately not built — the plan is `replacing-1place.md` §8.
+
+Gates: `typecheck`, `lint`, `test` (505/11/6), `tokens:check`, `check:docs`, `build` pass;
+`check:bundle` fails on item 41's pre-existing 7kB, unchanged at 113.0kB. `snapshotAt` was
+mutation-tested (`<=` → `<` fails its boundary assertion). **`migrate`, `test:rls`,
+`review:security` and `drill:restore` have NOT run**: `SUPABASE_DB_URL` is empty and the PAT
+returns 401 on every Management API call. By AGENTS.md §5 this change is not done; item 43 says
+exactly what remains and closes only when all four are green.
+
+---
+
 2026-08-29 (ninth entry) — **Consent is for publication, not documentation — the photo deferral
 was blocked on the wrong thing.** Corrected: [[checklists]] (Key Point and the "No photos"
 section, whose title asserted the wrong reason), [[incident-register]]'s plan via

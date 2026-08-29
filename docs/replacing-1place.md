@@ -207,12 +207,14 @@ Four things that will decide whether this works:
    the gate opens, in the rain, on the worst wifi in the building. Which runs straight into the
    prerequisite below.
 
-**Prerequisite, and it is a real one.** [unverified-claims §21](../llm-wiki/wiki/unverified-claims.md)
-records that the web outbox has never been through `drill:offline`. Generalising the outbox from
-attendance to checklist runs is a refactor of code whose behaviour under real failure is unknown.
-Run the drill before starting §C, not during it — this is the same warning
-[roadmap-phases-8-13](roadmap-phases-8-13.md) §0 gives about Phase 8, and it has not been actioned
-since.
+**Prerequisite — corrected 2026-08-29: this claim was stale when it was written.**
+This paragraph said [unverified-claims §21](../llm-wiki/wiki/unverified-claims.md) "records that
+the web outbox has never been through `drill:offline`". Item 21 in fact records the opposite and
+had since 2026-08-09: the drill ran 10/10 against live Postgres, found and fixed a real defect in
+its own centre-matching, and was CLOSED — nineteen days before this document cited it as open.
+The generalisation is therefore not gated on the drill; it is gated on the design work in §8,
+which is real but different. A citation to the honesty register that inverts what the register
+says is the exact failure the register exists to prevent.
 
 ---
 
@@ -230,17 +232,17 @@ wiki.
 | **E** | **Hazard parity** — likelihood, consequence, risk score, review frequency | Small | **Done** — 0069, with no banding. [[unverified-claims]] 40 |
 | **F** | **Sync status and drafts** — a Connection Status equivalent | Small | **Done** — `SyncStatus` in the app layout. The separate "drafts list" was dropped: draft incidents already live on `/incidents` and unfinished runs on `/checklists`, and a third list of the same rows is a place for them to disagree |
 | **G** | **Migration** — import people/rooms/incidents/tasks/checklist history | Unknown | **Blocked on §0.** Nothing to import |
+| **H** | **Incident investigations** — the tab §7.3 found: required/date, WorkSafe advisement, hazard link, computed ratio at the time | Small–medium | **Written 2026-08-29** — 0074, `/incidents/[id]`, `snapshotAt` in core. NOT yet applied or RLS-verified: [unverified-claims 43](../llm-wiki/wiki/unverified-claims.md) |
+| **I** | **Evidence photos** — incidents and checklist runs, the store the 2026-08-29 consent correction unblocked | Small–medium | **Written 2026-08-29** — 0075, the `evidence` bucket, upload on `/incidents/[id]` and the run screen, photos on the print page, sweeper extended. Same caveat: item 43 |
 
 ### Still open after A–F
 
-- **Checklist photos.** 1Place has them. Originally deferred as a consent question; corrected
-  2026-08-29 — consent is for publication, not documentation (§3.2 item 3), so what remains is
-  the ordinary work of a separate evidence store outside `media`. The header of 0068 still gives
-  the old reason and cannot be edited (migrations are checksummed after apply); this file and
+- **Checklist photos.** ~~Originally deferred as a consent question; corrected 2026-08-29~~ —
+  **built 2026-08-29 as phase I** (0075). The header of 0068 still gives the old reason and
+  cannot be edited (migrations are checksummed after apply); this file and
   [checklists](../llm-wiki/wiki/checklists.md) are the correction.
-- **The offline path for checklist runs.** `client_uuid` exists and is unique, so the contract is
-  in place; the value is still generated server-side. Generalising `apps/web/src/lib/outbox.ts`
-  from attendance to runs is the work, and it is gated on `drill:offline` per §3.2.
+- **The offline path for checklist runs.** Still open, and now *designed*: §8 holds the change
+  list. The drill-gating this bullet used to cite was stale — see the correction in §3.2.
 - **Entering the rooms and the twelve templates.** Both are data, and neither can be recovered
   from the exports.
 
@@ -432,6 +434,55 @@ per room (Infant - Mt Albert, Preschool - Mt Albert, …) and a centre-level **D
 room — and the second site is named for the first time: **Mt Albert**. Daily × per-room × two
 sites makes checklist runs the bulk of phase G by row count, and puts the no-scheduler design in
 [checklists](../llm-wiki/wiki/checklists.md) on the highest-frequency cadence there is.
+
+---
+
+## 8. The offline path for checklist runs — designed 2026-08-29, deliberately not built
+
+Phases H and I landed the same day this was mapped, and this did not, on purpose: it reshapes
+the attendance queue — the most trust-bearing offline surface in the product — and half-landing
+it beside two schema changes is how this repo's recorded defects happened. What follows is the
+survey's yield, so the next session starts from a plan rather than a rediscovery.
+
+**The crux is completion, not starting.** `checklist_runs.client_uuid` makes *starting* a run
+idempotent, but `completeChecklistRun` is an UPDATE by id with no idempotency key, and a replay
+after a successful completion hits the `completed_at is null` policy → zero rows → a thrown
+`'nothing was signed off'` → classified transient → **a jammed queue retrying forever**. The fix
+is to make `completeChecklistRun` re-read and return `{outcome: 'duplicate'}` when already
+complete, matching `recordAttendance`'s contract. No schema change needed.
+
+The rest of the change list, in dependency order:
+
+1. `outboxStore.ts` — `OutboxEntry` stops extending `QueuedAttendance` and becomes mobile's
+   generalised `{clientUuid, userId, kind, payload, …}` shape (`apps/mobile/lib/outbox.ts`
+   already did this: `OutboxKind = 'attendance' | 'adults'`). The localStorage key
+   `ece.outbox.attendance` becomes a lie — rename with a migration read of the old key.
+2. `RollClient.tsx` must filter `pending(userId)` to attendance entries before `buildRoll`, or a
+   queued checklist answer gets merged into the roll.
+3. `outbox.ts`'s flush dispatches on `kind`; the flush loop must preserve chain order (start →
+   answers → complete), which insertion order gives incidentally and the `handled` map must not
+   break.
+4. An answer entry needs its run's id before the start entry has landed — store the run's
+   `client_uuid` in the payload and resolve at flush time via the lookup `startChecklistRun`
+   already performs.
+5. `classifyWriteFailure` is attendance-specific and will misclassify checklists both ways:
+   the run guard's four `raise exception`s are P0001 → default transient → retried forever
+   (they are permanent), and `checklist_runs_not_future` — the exact clock-drift analogue of
+   `attendance_not_future` — falls through to 23514 → permanent (it must be retry-later, the
+   precise bug that function's comments warn about).
+6. Time honesty: `started_at` defaults to `now()` at insert, so an offline walk-round flushed
+   at 9:20 records 9:20. `startChecklistRun` must send the device's `started_at`, as
+   attendance's `at` already does.
+7. `saveAnswer`/`signRun` become client enqueues; `beginRun`'s `randomUUID()` moves to the
+   device; the no-needs-note check gets a client copy; RLS becomes the only capability gate on
+   the offline path (0068's policies already cover it).
+8. `SyncStatus` and `SignOutControl` wording assumes every queued item is a child's sign-in;
+   a queued checklist answer must not block sign-out with that sentence.
+9. All 19 outbox tests are written against the attendance shape and need the generalised one.
+
+**Offline photos are out of scope for that work too:** the queue is localStorage because an
+attendance event is ~150 bytes; one photo blows the 5MB quota. An offline photo queue means
+IndexedDB blob storage — a separate design, not a bullet in this one.
 
 ---
 

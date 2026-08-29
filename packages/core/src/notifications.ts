@@ -15,6 +15,14 @@
  */
 export const MEDIA_BUCKET = 'media';
 
+/**
+ * The private storage bucket for evidence photos (0075) — incidents and checklist
+ * runs. A separate bucket from `media` on purpose: consent gates publication, and
+ * an evidence photo is internal documentation that must never enter the gated
+ * pipeline. Same drift argument as MEDIA_BUCKET for why the name lives here.
+ */
+export const EVIDENCE_BUCKET = 'evidence';
+
 export const NOTIFICATION_KINDS = ['post', 'message', 'attendance', 'reminder', 'emergency'] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
 

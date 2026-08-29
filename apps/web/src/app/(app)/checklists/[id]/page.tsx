@@ -6,11 +6,14 @@ import {
   listChecklistTemplates,
   listChecklistVersions,
   listRooms,
+  listRunPhotos,
+  signEvidenceUrl,
 } from '@ece/api';
 import { ITEMS_IN_ORDER, roomName, runProgress } from '@ece/core';
 import { requireCapability } from '@/lib/auth';
 import { serverDb } from '@/lib/supabase';
 import { PageHeader } from '../../PageHeader';
+import { EvidencePhotos } from '../../evidence/EvidencePhotos';
 import { RunForm } from './RunForm';
 
 /**
@@ -35,12 +38,21 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
   // as forbidden, which is the correct thing for a URL somebody could guess.
   if (!run) notFound();
 
-  const [items, answers, templates, rooms] = await Promise.all([
+  const [items, answers, templates, rooms, photos] = await Promise.all([
     listChecklistItems(db, [run.versionId]),
     listChecklistAnswers(db, [run.id]),
     listChecklistTemplates(db, ctx.centre.id),
     listRooms(db, ctx.centre.id),
+    listRunPhotos(db, run.id),
   ]);
+
+  const signedPhotos = await Promise.all(
+    photos.map(async (p) => ({
+      id: p.id,
+      caption: p.caption,
+      url: await signEvidenceUrl(db, p.storagePath),
+    })),
+  );
 
   const versions = await listChecklistVersions(db, templates.map((t) => t.id));
   const version = versions.find((v) => v.id === run.versionId) ?? null;
@@ -91,6 +103,18 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
         progress={progress}
         note={run.note}
         signed={run.completedAt !== null}
+      />
+
+      {/*
+        Photos ride the run, not an answer. A broken latch photographed mid-walk
+        belongs to the walk; per-answer attachment can come later if anybody asks
+        for it, and the schema (0075) would not need to change.
+      */}
+      <EvidencePhotos
+        photos={signedPhotos}
+        parent={{ kind: 'run', id: run.id }}
+        locked={run.completedAt !== null}
+        lockedReason="This run is signed, so its photos are frozen with it. A correction is a new run."
       />
     </>
   );

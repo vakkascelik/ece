@@ -2,10 +2,12 @@
 
 import { revalidatePath } from 'next/cache';
 import {
+  createIncidentInvestigation,
   finaliseIncident,
   openIncident,
   recordParentNotified,
   updateIncidentDraft,
+  updateIncidentInvestigation,
 } from '@ece/api';
 import { INCIDENT_KINDS, type IncidentKind } from '@ece/core';
 import { actionError } from '@/lib/actionError';
@@ -127,6 +129,77 @@ export async function markNotified(_prev: unknown, form: FormData): Promise<Resu
   }
 
   revalidatePath('/incidents');
+  return { ok: true };
+}
+
+/** `2026-08-29`, what `<input type="date">` submits. */
+const LOCAL_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Record or update the investigation.
+ *
+ * One action for both because the form cannot know which it is doing across two
+ * open tabs anyway — it sends `investigationId` when it rendered with a row, and a
+ * create that races another create fails on the unique index rather than making a
+ * second row. Not an upsert: `incident_id` is outside the UPDATE grant, and an
+ * upsert writes every column (the reasoning is on `createIncidentInvestigation`).
+ *
+ * There is deliberately no check here of the form "severity X so WorkSafe must…".
+ * The two WorkSafe fields record what the centre did; whether it was required is
+ * the centre's judgement, and encoding a threshold would be a regulatory claim
+ * nobody has sourced.
+ */
+export async function saveInvestigation(_prev: unknown, form: FormData): Promise<Result> {
+  const ctx = await requireCapability('recordDailyPractice');
+  const db = await serverDb();
+
+  const incidentId = str(form, 'incidentId');
+  const investigationId = str(form, 'investigationId');
+  const requiredRaw = str(form, 'required');
+  if (!incidentId) return { error: 'Which incident?' };
+  if (requiredRaw !== 'yes' && requiredRaw !== 'no') {
+    return { error: 'Decide whether an investigation was required — that decision is the record.' };
+  }
+
+  const investigatedOn = str(form, 'investigatedOn');
+  const worksafeRaw = str(form, 'worksafeAdvised');
+  const worksafeAdvisedOn = str(form, 'worksafeAdvisedOn');
+  if (investigatedOn && !LOCAL_DATE.test(investigatedOn)) return { error: 'When was it investigated?' };
+  if (worksafeAdvisedOn && !LOCAL_DATE.test(worksafeAdvisedOn)) {
+    return { error: 'When was WorkSafe advised?' };
+  }
+  if (worksafeAdvisedOn && worksafeRaw !== 'yes') {
+    // The CHECK refuses this too; catching it here says it in a sentence.
+    return { error: 'A date of advising WorkSafe needs “WorkSafe advised” set to yes.' };
+  }
+
+  const patch = {
+    required: requiredRaw === 'yes',
+    investigatedOn: investigatedOn || null,
+    worksafeAdvised: worksafeRaw === 'yes' ? true : worksafeRaw === 'no' ? false : null,
+    worksafeAdvisedOn: worksafeAdvisedOn || null,
+    hazardId: str(form, 'hazardId') || null,
+    medicalFollowup: str(form, 'medicalFollowup') || null,
+    agencyContacted: str(form, 'agencyContacted') || null,
+    outcome: str(form, 'outcome') || null,
+    notes: str(form, 'notes') || null,
+  };
+
+  try {
+    if (investigationId) {
+      await updateIncidentInvestigation(db, investigationId, patch);
+    } else {
+      await createIncidentInvestigation(db, {
+        centreId: ctx.centre.id,
+        incidentId,
+        ...patch,
+      });
+    }
+  } catch (e) {
+    return actionError(e, 'incidents.saveInvestigation');
+  }
+
+  revalidatePath(`/incidents/${incidentId}`);
   return { ok: true };
 }
 

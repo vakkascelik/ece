@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { deriveAdultCounts, replayDay, summariseDay } from '../ratioHistory';
+import { deriveAdultCounts, replayDay, snapshotAt, summariseDay } from '../ratioHistory';
 
 /**
  * Replaying a day into ratio history.
@@ -395,5 +395,48 @@ describe('deriveAdultCounts', () => {
     // The no-fallback rule, at the TypeScript end. A derived centre with no sign-ins
     // shows a breach rather than borrowing the typed count.
     expect(deriveAdultCounts([])).toEqual([]);
+  });
+});
+
+describe('snapshotAt', () => {
+  const day = () =>
+    replayDay({
+      adultSource: 'declared',
+      date: '2026-08-04',
+      attendance: [
+        { id: 1, corrects: null, childId: 'kid1', kind: 'in', at: T('20:00') },
+        { id: 2, corrects: null, childId: 'kid2', kind: 'in', at: T('20:30') },
+        { id: 3, corrects: null, childId: 'kid1', kind: 'out', at: T('21:00') },
+      ],
+      adultCounts: [{ adults: 1, at: T('19:55') }],
+      children,
+    });
+
+  it('returns the last snapshot at or before the instant — the step holds between events', () => {
+    // 20:15 is between kid1 arriving and kid2 arriving: exactly one child present.
+    const s = snapshotAt(day().snapshots, T('20:15'));
+    expect(s?.presentChildIds).toEqual(['kid1']);
+    expect(s?.assessment.adultsPresent).toBe(1);
+  });
+
+  it('an instant landing exactly on an event gets that event, not the one before', () => {
+    const s = snapshotAt(day().snapshots, T('20:30'));
+    expect(s?.presentChildIds).toEqual(['kid1', 'kid2']);
+  });
+
+  it('is null before the first event — no state is not empty state', () => {
+    // An incident at 07:00 on a day whose first sign-in is 20:00: the register
+    // records nothing about that moment, and "0 children, 0 adults" would be a
+    // fabrication. Null forces the caller to say "cannot be computed".
+    expect(snapshotAt(day().snapshots, T('19:00'))).toBeNull();
+  });
+
+  it('after the last event, the last state holds', () => {
+    const s = snapshotAt(day().snapshots, T('23:59'));
+    expect(s?.presentChildIds).toEqual(['kid2']);
+  });
+
+  it('is null on an empty day', () => {
+    expect(snapshotAt([], T('12:00'))).toBeNull();
   });
 });

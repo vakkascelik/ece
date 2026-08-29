@@ -53,14 +53,59 @@ other — covers the Type/Category split more usefully than an enum that echoes 
 (Corrected 2026-08-29 — this page previously said the field was blank on every row. Redundant,
 not unused; the conclusion stands.)
 
-Two things their incident module has that this does not, seen 2026-08-29: an **Investigation
-tab** — WorkSafe advisement, staff:child ratio at the time of the incident, first-aid-trained
-staff on scene; see [`docs/replacing-1place.md`](../../docs/replacing-1place.md) §7.3, including
-why the ratio should be computed here rather than typed — and **drawn signatures**, where staff,
+Two things their incident module had that this did not, seen 2026-08-29: an **Investigation
+tab** — closed the same day by 0074, see below — and **drawn signatures**, where staff,
 witness, management and parent all sign on the centre's device. The parent's squiggle carries the
 "family saw it" fact their Parent Notification fields leave blank on the same record;
 `acknowledged_at` written by the guardian's own account is the same fact with attribution, which
-is one more reason the no-signature-line stance above stands. See [[checklists]].
+is one more reason the no-signature-line stance above stands. The signatures stay unbuilt,
+deliberately. See [[checklists]].
+
+## The investigation (0074), and the ratio it refuses to ask for
+
+`incident_investigations` is a 1:1 sibling of `incidents`, not columns on it, because a
+finalised report freezes and an investigation happens *after* the report is finished —
+WorkSafe is advised days later, the hazard register the following week. Columns would force a
+choice between breaking the freeze and freezing the follow-up half-written.
+
+- **A row is a decision.** `required` is NOT NULL with no default: a row with `false` records
+  "considered, not required"; no row records that nobody has considered it. The
+  [[asking-for-consent]] third-state argument, third outing.
+- **Staff-only, on the same incident a guardian can read.** The asymmetry is the point and the
+  suite asserts it on one row: Priya acknowledges the final report, then reads not one line of
+  its investigation.
+- **The ratio is computed, never typed.** 1Place asks staff to remember "Staff : Child Ratio in
+  the child's room at the time" into a text box. `/incidents/[id]` replays the attendance
+  register instead — `replayDay` plus the new `snapshotAt` in `ratioHistory.ts` — and states its
+  limits on screen: centre-wide because attendance does not know rooms, and null (rendered as
+  "cannot be computed") when the register holds nothing before that moment, because "0 children"
+  would be a fabrication. A computed figure is a measurement; a remembered one is an assertion.
+- **WorkSafe is a yes/no and a date, never a rule.** Nothing decides when WorkSafe *must* be
+  advised — that is a regulatory claim nobody has sourced, the 0069 risk-band refusal again.
+- **"Hazard register updated" is `hazard_id`, a pointer.** The link is the yes; a boolean beside
+  a nullable pointer would be two answers to one question.
+- **No investigator picker.** `investigated_by` exists for the 1Place import; the UI does not
+  set it, because the audit log already attributes every write and tasks set the precedent of
+  shipping without assignment UI.
+- Mutable like [[checklists]]' hazards and tasks, not draft→final like the report: it is the
+  centre's own working document. No DELETE for anybody.
+
+## Photos (0075) — on the report, not of the family
+
+`evidence_photos` hangs off a draft incident (or an incomplete checklist run — one table, two
+parents, `num_nonnulls = 1`) and freezes with it: once final, no photo can be attached or
+removed, enforced in the policies' USING/WITH CHECK rather than a trigger. Storage is the
+second bucket in the schema's history, staff-only by folder, and an object is deletable only
+while no row references it — so the app deletes the row first, the reverse of `deleteMedia`'s
+order, and a frozen photo's object is beyond reach by construction. Not media, no consent, per
+the 2026-08-29 correction above; the generic-table objection this page makes about
+`child_register_events` does not apply because there is no payload and the audit trigger
+attributes by the row's own `centre_id` — the reasoning is in 0075's header.
+
+**Open decision, recorded not taken:** whether the child's own guardian sees the photos on a
+final report. 1Place prints them on the PDF the parent signs. Today the answer is no —
+staff-only, and the print page that carries photos is itself staff-only. Widening later is one
+policy line; narrowing later is a disclosure.
 
 ## Details
 

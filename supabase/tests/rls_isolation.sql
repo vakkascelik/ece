@@ -2335,6 +2335,142 @@ select pg_temp.expect(
 -- DELETE has been revoked for every role. See the assertion after the purge.
 
 -- ===========================================================================
+-- INCIDENT INVESTIGATIONS (0074)
+--
+-- The other half of the incident form. The boundary being tested is the deliberate
+-- asymmetry: Priya CAN read the finalised incident above — she acknowledged it —
+-- and must read not one line of its investigation, which is the centre's internal
+-- follow-up. Ed is still the caller from the block above.
+-- ===========================================================================
+
+insert into public.incident_investigations
+  (id, centre_id, incident_id, required, outcome, created_by)
+values
+  ('f0741111-1111-4111-8111-111111111111',
+   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+   'e1111111-1111-4111-8111-111111111111',
+   true, 'Path resealed by the sandpit.',
+   '55555555-5555-4555-8555-555555555555');
+
+select pg_temp.expect(
+  (select count(*) from public.incident_investigations
+    where id = 'f0741111-1111-4111-8111-111111111111') = 1,
+  'an educator can record the investigation of a finalised incident at their centre'
+);
+
+-- THE ONE. Same incident, same family, opposite answer to the report itself.
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.incident_investigations) = 0,
+  'a parent CANNOT READ the investigation of their own child''s final incident'
+);
+
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.incident_investigations (centre_id, incident_id, required)
+    values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+            'e1111111-1111-4111-8111-111111111111', false);
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'and a parent CANNOT WRITE one');
+end $$;
+
+-- Centre B: neither read it, nor pin an investigation of centre A's incident onto
+-- centre B. The second is the mismatch the insert policy's EXISTS is for — Bob's
+-- own centre satisfies the tenancy conjunct, and the incident lookup refuses.
+set local request.jwt.claims = '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.incident_investigations) = 0,
+  'another centre cannot READ an investigation'
+);
+
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.incident_investigations (centre_id, incident_id, required)
+    values ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+            'e1111111-1111-4111-8111-111111111111', true);
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok,
+    'an investigation cannot point at another centre''s incident, whatever centre_id it claims');
+end $$;
+
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+
+-- One row per incident, and the row is the decision.
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.incident_investigations (centre_id, incident_id, required)
+    values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+            'e1111111-1111-4111-8111-111111111111', false);
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok,
+    'a SECOND investigation of the same incident is refused — the decision already exists');
+end $$;
+
+-- A WorkSafe date asserts a WorkSafe yes.
+do $$
+declare ok boolean := false;
+begin
+  begin
+    update public.incident_investigations
+       set worksafe_advised_on = '2026-08-29'
+     where id = 'f0741111-1111-4111-8111-111111111111';
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok,
+    'a date of advising WorkSafe is refused while worksafe_advised is not yes');
+end $$;
+
+update public.incident_investigations
+   set worksafe_advised = true, worksafe_advised_on = '2026-08-29'
+ where id = 'f0741111-1111-4111-8111-111111111111';
+select pg_temp.expect(
+  (select worksafe_advised_on is not null from public.incident_investigations
+    where id = 'f0741111-1111-4111-8111-111111111111'),
+  'saying the yes and the date together works — the follow-up stays editable'
+);
+
+-- The pair of ids sits outside the UPDATE grant, so an investigation cannot drift
+-- to a different incident after the insert policy checked the match.
+do $$
+declare ok boolean := false;
+begin
+  begin
+    update public.incident_investigations
+       set incident_id = 'e1111111-1111-4111-8111-111111111111'
+     where id = 'f0741111-1111-4111-8111-111111111111';
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok,
+    'an investigation cannot be MOVED to a different incident — the column is outside the grant');
+end $$;
+
+do $$
+declare ok boolean := false;
+begin
+  begin
+    delete from public.incident_investigations
+     where id = 'f0741111-1111-4111-8111-111111111111';
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'nobody can DELETE an investigation — the verb is revoked');
+end $$;
+
+select pg_temp.expect(
+  (select count(*) from public.incident_investigations
+    where id = 'f0741111-1111-4111-8111-111111111111') = 1,
+  'and it is still there, so the refusal was real rather than a filtered no-op'
+);
+
+-- ===========================================================================
 -- MEDICATION ADMINISTRATION (0032)
 --
 -- `medication_authorities` records that a guardian said yes. This records that
@@ -3320,6 +3456,197 @@ end $$;
 
 set local role authenticated;
 set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+
+-- ===========================================================================
+-- EVIDENCE PHOTOS (0075)
+--
+-- Staff-only documentation on incidents and checklist runs, frozen with the
+-- parent. Ed builds his own fixtures — a fresh DRAFT incident for Ana and a fresh
+-- run against the published version from the checklists section — because the
+-- freeze is the thing under test and the earlier fixtures are already final or
+-- signed. Nothing here touches consent: that is the point of the table.
+-- ===========================================================================
+
+insert into public.incidents
+  (id, centre_id, child_id, kind, occurred_at, description, reported_by)
+values
+  ('ee751111-1111-4111-8111-111111111111',
+   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+   'a1111111-1111-4111-8111-111111111111',
+   'near_miss', now() - interval '30 minutes',
+   'Gate found unlatched. Nobody through it.',
+   '55555555-5555-4555-8555-555555555555');
+
+insert into public.checklist_runs (id, version_id, centre_id, client_uuid, created_by)
+values ('ee752222-2222-4222-8222-222222222222',
+        '0d444444-4444-4444-8444-444444444444',
+        'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', gen_random_uuid(),
+        '55555555-5555-4555-8555-555555555555');
+
+insert into public.evidence_photos (id, centre_id, incident_id, storage_path, uploaded_by)
+values ('ee753333-3333-4333-8333-333333333333',
+        'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        'ee751111-1111-4111-8111-111111111111',
+        'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/rls-photo-1.jpg',
+        '55555555-5555-4555-8555-555555555555');
+
+insert into public.evidence_photos (id, centre_id, run_id, storage_path, uploaded_by)
+values ('ee754444-4444-4444-8444-444444444444',
+        'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        'ee752222-2222-4222-8222-222222222222',
+        'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/rls-photo-2.jpg',
+        '55555555-5555-4555-8555-555555555555');
+
+select pg_temp.expect(
+  (select count(*) from public.evidence_photos
+    where centre_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') = 2,
+  'an educator can attach photos to a draft incident and to an open run'
+);
+
+-- Exactly one parent — both is a photo claiming two records, neither is an orphan
+-- the moment it is born.
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.evidence_photos (centre_id, incident_id, run_id, storage_path)
+    values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+            'ee751111-1111-4111-8111-111111111111',
+            'ee752222-2222-4222-8222-222222222222',
+            'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/rls-photo-both.jpg');
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'a photo cannot claim BOTH an incident and a run');
+end $$;
+
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.evidence_photos (centre_id, storage_path)
+    values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+            'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/rls-photo-none.jpg');
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'nor NEITHER');
+end $$;
+
+-- THE ONE for this table. Priya is Ana's guardian and the fixture incident is
+-- about Ana; the store is staff-only whatever the report's status, so she reads
+-- nothing — an asymmetry with the report itself that is deliberate and recorded
+-- in incident-register.md.
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.evidence_photos) = 0,
+  'a parent CANNOT READ evidence photos, including of their own child''s incident'
+);
+
+set local request.jwt.claims = '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.evidence_photos) = 0,
+  'another centre cannot READ evidence photos'
+);
+
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.evidence_photos (centre_id, incident_id, storage_path)
+    values ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+            'ee751111-1111-4111-8111-111111111111',
+            'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb/rls-photo-cross.jpg');
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok,
+    'a photo cannot point at another centre''s incident, whatever centre_id it claims');
+end $$;
+
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+
+-- While the parent is working material, a wrong photo comes straight off.
+delete from public.evidence_photos where id = 'ee753333-3333-4333-8333-333333333333';
+select pg_temp.expect(
+  (select count(*) from public.evidence_photos
+    where id = 'ee753333-3333-4333-8333-333333333333') = 0,
+  'a photo on a DRAFT incident can be removed by staff'
+);
+
+insert into public.evidence_photos (id, centre_id, incident_id, storage_path, uploaded_by)
+values ('ee755555-5555-4555-8555-555555555555',
+        'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        'ee751111-1111-4111-8111-111111111111',
+        'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/rls-photo-3.jpg',
+        '55555555-5555-4555-8555-555555555555');
+
+-- Finalise the report. Its photo freezes with it.
+update public.incidents set status = 'final'
+ where id = 'ee751111-1111-4111-8111-111111111111';
+
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.evidence_photos (centre_id, incident_id, storage_path)
+    values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+            'ee751111-1111-4111-8111-111111111111',
+            'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/rls-photo-late.jpg');
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok,
+    'a photo cannot be ATTACHED to a finalised report — the evidence is what was there when it went final');
+end $$;
+
+-- The delete policy's USING clause excludes a frozen parent, so this is a silent
+-- zero-row match rather than an error — asserted by the row surviving, the same
+-- shape as the published-version assertions above.
+delete from public.evidence_photos where id = 'ee755555-5555-4555-8555-555555555555';
+select pg_temp.expect(
+  (select count(*) from public.evidence_photos
+    where id = 'ee755555-5555-4555-8555-555555555555') = 1,
+  'nor REMOVED from one — the delete matches no row'
+);
+
+-- Same freeze on the run side. Answer the required item, sign the run, and its
+-- photo is beyond both verbs.
+insert into public.checklist_answers (run_id, item_id, value)
+values ('ee752222-2222-4222-8222-222222222222',
+        '0d555555-5555-4555-8555-555555555555', 'yes');
+
+update public.checklist_runs
+   set completed_at = now(), signed_by = '55555555-5555-4555-8555-555555555555'
+ where id = 'ee752222-2222-4222-8222-222222222222';
+
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.evidence_photos (centre_id, run_id, storage_path)
+    values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+            'ee752222-2222-4222-8222-222222222222',
+            'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/rls-photo-late-run.jpg');
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'a photo cannot be ATTACHED to a signed run');
+end $$;
+
+delete from public.evidence_photos where id = 'ee754444-4444-4444-8444-444444444444';
+select pg_temp.expect(
+  (select count(*) from public.evidence_photos
+    where id = 'ee754444-4444-4444-8444-444444444444') = 1,
+  'nor REMOVED from one'
+);
+
+-- No UPDATE exists at all — a photo is attached, not edited.
+do $$
+declare ok boolean := false;
+begin
+  begin
+    update public.evidence_photos set caption = 'Rewritten'
+     where id = 'ee755555-5555-4555-8555-555555555555';
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'a photo cannot be EDITED — the verb is revoked entirely');
+end $$;
 
 -- ===========================================================================
 -- VISITORS (0035) AND IMMUNISATION (0036)

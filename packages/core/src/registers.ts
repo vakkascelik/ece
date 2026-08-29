@@ -158,6 +158,64 @@ export function compareIncidentUrgency(a: Incident, b: Incident): number {
 }
 
 // ---------------------------------------------------------------------------
+// Incident investigations (0074)
+// ---------------------------------------------------------------------------
+
+/**
+ * The centre's follow-up on an incident. One row per incident, and the row itself
+ * is a decision: `required: false` with a row means "considered, not required";
+ * no row means nobody has considered it. Staff-only — a family reads the report,
+ * never this.
+ *
+ * There is no ratio field. The ratio at the time of the incident is computed from
+ * the attendance register at read (`replayDay` + `snapshotAt`), because a computed
+ * figure is a measurement where a typed one is an assertion — see the header of
+ * migration 0074.
+ */
+export interface IncidentInvestigation {
+  id: string;
+  centreId: string;
+  incidentId: string;
+  required: boolean;
+  /** A local date in the centre's calendar, or null. */
+  investigatedOn: string | null;
+  investigatedBy: string | null;
+  /** What the centre did. Null means not stated — never "no". No rule computes it. */
+  worksafeAdvised: boolean | null;
+  worksafeAdvisedOn: string | null;
+  /** The hazard-register entry this produced or updated. Presence is the "yes". */
+  hazardId: string | null;
+  medicalFollowup: string | null;
+  agencyContacted: string | null;
+  outcome: string | null;
+  notes: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Evidence photos (0075)
+// ---------------------------------------------------------------------------
+
+/**
+ * A staff-only documentation photo on exactly one of: an incident, a checklist
+ * run. Not media and never consent-gated — consent is for publication (owner
+ * ruling 2026-08-29, unverified-claims 42). Attach and remove only while the
+ * parent is a draft incident or an incomplete run; a finalised parent freezes
+ * its photos with it.
+ */
+export interface EvidencePhoto {
+  id: string;
+  centreId: string;
+  incidentId: string | null;
+  runId: string | null;
+  storagePath: string;
+  mimeType: string | null;
+  byteSize: number | null;
+  caption: string | null;
+  uploadedBy: string | null;
+  createdAt: string;
+}
+
+// ---------------------------------------------------------------------------
 // Medication given
 // ---------------------------------------------------------------------------
 

@@ -228,6 +228,9 @@ export * from './billing';
 export * from './recruitment';
 export * from './registers';
 export * from './facilities';
+// Evidence photos — 0075. Staff-only, and deliberately not part of ./engagement:
+// nothing in it touches consent, and keeping it apart is what keeps that true.
+export * from './evidence';
 
 // Rooms, tasks and checklists — 0066 to 0069. Note the boundary is NOT uniform in
 // here: `rooms` is readable by a parent and everything else in the file is staff-only.

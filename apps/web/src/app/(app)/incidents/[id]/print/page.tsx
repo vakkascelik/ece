@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { getChild, listIncidents, listRooms } from '@ece/api';
+import { getChild, listIncidentPhotos, listIncidents, listRooms, signEvidenceUrl } from '@ece/api';
 import { INCIDENT_KIND_LABELS, roomName, todayInZone } from '@ece/core';
 import { requireCapability } from '@/lib/auth';
 import { dayWindow, shiftLocalDate } from '@/lib/dayWindow';
@@ -61,7 +61,20 @@ export default async function IncidentPrintPage({ params }: { params: Promise<{ 
   // than forbidden, which is right for a URL somebody could guess.
   if (!incident) notFound();
 
-  const child = await getChild(db, incident.childId);
+  const [child, photos] = await Promise.all([
+    getChild(db, incident.childId),
+    listIncidentPhotos(db, incident.id),
+  ]);
+  // Signed for the print view only. This route is staff-only and the photos are
+  // staff-only evidence (0075) — a guardian never reaches this page, and the report
+  // they read on the child record carries no photos.
+  const signedPhotos = await Promise.all(
+    photos.map(async (p) => ({
+      id: p.id,
+      caption: p.caption,
+      url: await signEvidenceUrl(db, p.storagePath),
+    })),
+  );
 
   const when = new Intl.DateTimeFormat('en-NZ', {
     timeZone: ctx.centre.timezone,
@@ -153,6 +166,24 @@ export default async function IncidentPrintPage({ params }: { params: Promise<{ 
           </>
         )}
       </dl>
+
+      {signedPhotos.length > 0 && (
+        <section>
+          <h2>Photos</h2>
+          {signedPhotos.map((p) => (
+            <figure key={p.id} style={{ margin: '0 0 1rem', maxWidth: '24rem' }}>
+              {p.url ? (
+                // Plain img with a signed URL, never next/image — the optimiser caches
+                // the upstream URL past its 15-minute signature. Same trap as media.
+                <img src={p.url} alt={p.caption ?? 'Evidence photo'} style={{ width: '100%' }} />
+              ) : (
+                <p className="error">A photo is on file but could not be loaded for printing.</p>
+              )}
+              {p.caption && <figcaption className="sub">{p.caption}</figcaption>}
+            </figure>
+          ))}
+        </section>
+      )}
     </div>
   );
 }

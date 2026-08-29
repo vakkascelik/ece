@@ -178,6 +178,16 @@ function Row({ row }: { row: IncidentRow }) {
             Print
           </Link>
         </p>
+        {/*
+          The follow-up lives on its own page: the investigation, the computed
+          ratio at the time, the photos. Offered on every row — recording "not
+          required" on an old incident is itself the record.
+        */}
+        <p style={{ margin: '0.35rem 0 0' }}>
+          <Link href={`/incidents/${i.id}`} className="small">
+            Investigation
+          </Link>
+        </p>
       </td>
     </tr>
   );

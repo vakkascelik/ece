@@ -21,7 +21,7 @@
  * post depends on.
  */
 
-import { MEDIA_BUCKET } from '@ece/core';
+import { EVIDENCE_BUCKET, MEDIA_BUCKET } from '@ece/core';
 import { createServiceClient } from '@ece/api';
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -44,19 +44,31 @@ const doDelete = process.argv.includes('--delete');
  */
 const MIN_AGE_MINUTES = 60;
 
-async function main() {
-  const db = createServiceClient(url!, serviceKey!);
+type Db = ReturnType<typeof createServiceClient>;
 
+/**
+ * One bucket against the table that accounts for it. `media` and `evidence` (0075)
+ * have the same orphan mechanism — the object lands before the row — and the same
+ * path convention, so one sweep serves both. What differs is only which table's
+ * `storage_path` makes an object not-an-orphan.
+ */
+async function sweepBucket(
+  db: Db,
+  bucket: string,
+  table: string,
+  centres: { id: string }[],
+): Promise<void> {
   // Every path the database knows about. Service role, so RLS does not narrow it — and the
   // restrictive consent policy must not either: a file whose consent was withdrawn still has a
-  // row and is emphatically not an orphan.
+  // row and is emphatically not an orphan. (Evidence photos have no consent, but the same
+  // reasoning covers a frozen photo: it has a row, and it must never read as sweepable.)
   const known = new Set<string>();
   for (let from = 0; ; from += 1000) {
     const { data, error } = await db
-      .from('media')
+      .from(table)
       .select('storage_path')
       .range(from, from + 999);
-    if (error) die(`Reading media rows failed: ${error.message}`);
+    if (error) die(`Reading ${table} rows failed: ${error.message}`);
     const rows = (data ?? []) as { storage_path: string }[];
     for (const r of rows) known.add(r.storage_path);
     // PostgREST caps an unbounded select at 1000 rows, so this pages explicitly rather than
@@ -64,20 +76,17 @@ async function main() {
     if (rows.length < 1000) break;
   }
 
-  const { data: centres, error: centreError } = await db.from('centres').select('id');
-  if (centreError) die(`Reading centres failed: ${centreError.message}`);
-
   const cutoff = Date.now() - MIN_AGE_MINUTES * 60_000;
   const orphans: string[] = [];
   let seen = 0;
 
   // Objects are stored as `<centre_id>/<uuid>.<ext>`, so the listing is per centre folder.
-  for (const { id: centreId } of centres as { id: string }[]) {
+  for (const { id: centreId } of centres) {
     for (let offset = 0; ; offset += 100) {
       const { data, error } = await db.storage
-        .from(MEDIA_BUCKET)
+        .from(bucket)
         .list(centreId, { limit: 100, offset });
-      if (error) die(`Listing ${centreId} failed: ${error.message}`);
+      if (error) die(`Listing ${bucket}/${centreId} failed: ${error.message}`);
       const files = data ?? [];
       for (const f of files) {
         seen += 1;
@@ -91,19 +100,16 @@ async function main() {
     }
   }
 
-  console.log(`\n  ${seen} objects, ${known.size} referenced by a media row`);
+  console.log(`\n  ${bucket}: ${seen} objects, ${known.size} referenced by a ${table} row`);
   console.log(`  ${orphans.length} orphaned and older than ${MIN_AGE_MINUTES} minutes`);
 
-  if (orphans.length === 0) {
-    console.log('\n  Nothing to do.\n');
-    return;
-  }
+  if (orphans.length === 0) return;
 
   for (const path of orphans.slice(0, 20)) console.log(`    ${path}`);
   if (orphans.length > 20) console.log(`    … and ${orphans.length - 20} more`);
 
   if (!doDelete) {
-    console.log('\n  Report only. Re-run with --delete to remove them.\n');
+    console.log('  Report only. Re-run with --delete to remove them.');
     return;
   }
 
@@ -112,12 +118,23 @@ async function main() {
   let removed = 0;
   for (let i = 0; i < orphans.length; i += 100) {
     const batch = orphans.slice(i, i + 100);
-    const { error } = await db.storage.from(MEDIA_BUCKET).remove(batch);
+    const { error } = await db.storage.from(bucket).remove(batch);
     if (error) die(`Removing a batch failed after ${removed} deletions: ${error.message}`);
     removed += batch.length;
   }
 
-  console.log(`\n  Removed ${removed} orphaned object(s).\n`);
+  console.log(`  Removed ${removed} orphaned object(s).`);
+}
+
+async function main() {
+  const db = createServiceClient(url!, serviceKey!);
+
+  const { data: centres, error: centreError } = await db.from('centres').select('id');
+  if (centreError) die(`Reading centres failed: ${centreError.message}`);
+
+  await sweepBucket(db, MEDIA_BUCKET, 'media', centres as { id: string }[]);
+  await sweepBucket(db, EVIDENCE_BUCKET, 'evidence_photos', centres as { id: string }[]);
+  console.log('');
 }
 
 main().catch((err) => {

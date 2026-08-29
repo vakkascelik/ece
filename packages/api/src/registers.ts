@@ -18,6 +18,7 @@
 
 import {
   type Incident,
+  type IncidentInvestigation,
   type IncidentKind,
   type MedicationAdministration,
   type SleepCheck,
@@ -239,6 +240,126 @@ export async function acknowledgeIncident(
     .update({ acknowledged_at: at, acknowledged_by: guardianId })
     .eq('id', id);
   if (error) throw new Error(`acknowledgeIncident: ${error.message}`);
+}
+
+// ---------------------------------------------------------------------------
+// Incident investigations (0074)
+// ---------------------------------------------------------------------------
+
+const INVESTIGATION_COLUMNS =
+  'id, centre_id, incident_id, required, investigated_on, investigated_by, worksafe_advised, worksafe_advised_on, hazard_id, medical_followup, agency_contacted, outcome, notes';
+
+interface InvestigationRow {
+  id: string;
+  centre_id: string;
+  incident_id: string;
+  required: boolean;
+  investigated_on: string | null;
+  investigated_by: string | null;
+  worksafe_advised: boolean | null;
+  worksafe_advised_on: string | null;
+  hazard_id: string | null;
+  medical_followup: string | null;
+  agency_contacted: string | null;
+  outcome: string | null;
+  notes: string | null;
+}
+
+const toInvestigation = (r: InvestigationRow): IncidentInvestigation => ({
+  id: r.id,
+  centreId: r.centre_id,
+  incidentId: r.incident_id,
+  required: r.required,
+  investigatedOn: r.investigated_on,
+  investigatedBy: r.investigated_by,
+  worksafeAdvised: r.worksafe_advised,
+  worksafeAdvisedOn: r.worksafe_advised_on,
+  hazardId: r.hazard_id,
+  medicalFollowup: r.medical_followup,
+  agencyContacted: r.agency_contacted,
+  outcome: r.outcome,
+  notes: r.notes,
+});
+
+/** One incident's investigation, or null when nobody has considered one. */
+export async function getIncidentInvestigation(
+  db: Db,
+  incidentId: string,
+): Promise<IncidentInvestigation | null> {
+  const { data, error } = await db
+    .from('incident_investigations')
+    .select(INVESTIGATION_COLUMNS)
+    .eq('incident_id', incidentId)
+    .maybeSingle();
+  if (error) throw new Error(`getIncidentInvestigation: ${error.message}`);
+  return data ? toInvestigation(data as InvestigationRow) : null;
+}
+
+export interface InvestigationPatch {
+  required?: boolean;
+  investigatedOn?: string | null;
+  investigatedBy?: string | null;
+  worksafeAdvised?: boolean | null;
+  worksafeAdvisedOn?: string | null;
+  hazardId?: string | null;
+  medicalFollowup?: string | null;
+  agencyContacted?: string | null;
+  outcome?: string | null;
+  notes?: string | null;
+}
+
+const investigationPatchRow = (patch: InvestigationPatch): Record<string, unknown> => {
+  const row: Record<string, unknown> = {};
+  if (patch.required !== undefined) row.required = patch.required;
+  if (patch.investigatedOn !== undefined) row.investigated_on = patch.investigatedOn;
+  if (patch.investigatedBy !== undefined) row.investigated_by = patch.investigatedBy;
+  if (patch.worksafeAdvised !== undefined) row.worksafe_advised = patch.worksafeAdvised;
+  if (patch.worksafeAdvisedOn !== undefined) row.worksafe_advised_on = patch.worksafeAdvisedOn;
+  if (patch.hazardId !== undefined) row.hazard_id = patch.hazardId;
+  if (patch.medicalFollowup !== undefined) row.medical_followup = patch.medicalFollowup?.trim() || null;
+  if (patch.agencyContacted !== undefined) row.agency_contacted = patch.agencyContacted?.trim() || null;
+  if (patch.outcome !== undefined) row.outcome = patch.outcome?.trim() || null;
+  if (patch.notes !== undefined) row.notes = patch.notes?.trim() || null;
+  return row;
+};
+
+/**
+ * Record the decision. `required` is mandatory here as in the schema — the row IS
+ * the decision, and a row that omitted it would record that a form was opened.
+ *
+ * Not an upsert, deliberately: `incident_id` is absent from the UPDATE grant, and
+ * `ON CONFLICT DO UPDATE` writes every supplied column, so an upsert would be
+ * refused by Postgres on the privilege check. Create once, then patch.
+ */
+export async function createIncidentInvestigation(
+  db: Db,
+  input: { centreId: string; incidentId: string; required: boolean } & InvestigationPatch,
+): Promise<IncidentInvestigation> {
+  const { data: auth } = await db.auth.getUser();
+  const { data, error } = await db
+    .from('incident_investigations')
+    .insert({
+      centre_id: input.centreId,
+      incident_id: input.incidentId,
+      required: input.required,
+      ...investigationPatchRow(input),
+      created_by: auth.user?.id ?? null,
+    })
+    .select(INVESTIGATION_COLUMNS)
+    .single();
+  if (error) throw new Error(`createIncidentInvestigation: ${error.message}`);
+  return toInvestigation(data as InvestigationRow);
+}
+
+export async function updateIncidentInvestigation(
+  db: Db,
+  id: string,
+  patch: InvestigationPatch,
+): Promise<void> {
+  const row = investigationPatchRow(patch);
+  if (Object.keys(row).length === 0) return;
+  const { error } = await db.from('incident_investigations').update(row).eq('id', id);
+  if (error) throw new Error(`updateIncidentInvestigation: ${error.message}`);
 }
 
 // ---------------------------------------------------------------------------

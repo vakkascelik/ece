@@ -40,9 +40,10 @@ was looked at. A checklist is a form somebody filled in.
   useful constraint in 0034.
 - **There is no scheduler.** "Due" is computed from the template's stated interval and
   the last completed run — the `drill_interval_days` shape, with the same null contract.
-- **No photos yet.** The reason this page first gave — the consent gate — was wrong; consent is
-  for publication, not documentation (owner, 2026-08-29). See below, and [[unverified-claims]]
-  item 42.
+- **Photos landed in 0075** — on the run, staff-only, frozen when the run is signed. The reason
+  they were originally deferred — the consent gate — was wrong; consent is for publication, not
+  documentation (owner, 2026-08-29). See below, [[incident-register]], and [[unverified-claims]]
+  items 42 and 43 (43 because 0074/0075 are written and not yet applied — the PAT died).
 - **Finishing a task requires saying how**, the `hazards` constraint moved one table
   across.
 - Enrolment enquiries are **not** tasks, though 1Place files them as tickets.
@@ -110,23 +111,28 @@ The third is the trigger's reason for existing. Asserted in `rls_isolation.sql`
 including the case that makes `required = false` mean something: a run completes with an
 optional item left blank.
 
-### No photos — and the reason this page first gave was wrong
+### Photos — deferred for the wrong reason, then built for the right one
 
-1Place attaches photos to checklist answers. This does not, yet. This section originally said
-the blocker was `0015_consent_gate_restrictive` — that a photo of a broken latch with a toddler
-in the background is child media and therefore consent-gated. **Corrected 2026-08-29, on the
-owner's direction: it is not.** Photo consent exists for publication — `photo_internal` is the
-whānau journal, `photo_public` is website/social/print — and an evidence photo is internal
+1Place attaches photos to checklist answers. This section originally said the blocker was
+`0015_consent_gate_restrictive` — that a photo of a broken latch with a toddler in the
+background is child media and therefore consent-gated. **Corrected 2026-08-29, on the owner's
+direction: it is not.** Photo consent exists for publication — `photo_internal` is the whānau
+journal, `photo_public` is website/social/print — and an evidence photo is internal
 documentation, a purpose consent was never about. [[unverified-claims]] item 42 records the
 limits of that ruling. The header of 0068 still gives the old reason and cannot be edited,
 because migrations are checksummed after apply; this paragraph is the correction.
 
-The second paragraph's instinct survives with a better reason: checklist photos still must not
-route through `media` — not because the gate refuses them, but because the gate is for a
-different purpose. Parking no-consent-needed photos in the consent-gated table means either the
-gate blocks legitimate evidence or the evidence path teaches people to route around the gate. A
-separate evidence store — own table, own storage prefix, staff-only policy — is its own
-migration; the work is now ordinary rather than blocked.
+What survived the correction, with a better reason, is the separation itself — and **0075 built
+it the same day**: `evidence_photos` and an `evidence` bucket, staff-only, never routed through
+`media` or joined to `media_children`. Parking no-consent-needed photos in the consent-gated
+table would either block legitimate evidence or teach people to route around the gate.
+
+Photos ride the **run**, not an answer — a broken latch photographed mid-walk belongs to the
+walk, and per-answer attachment can be added later without a schema change. They freeze when
+the run is signed: attach and remove work only while `completed_at` is null, the same
+USING-clause mechanism that freezes the run itself. The full mechanics — the one-table shape,
+the delete order the storage policy forces, the sweeper — are in [[incident-register]] and
+0075's header, because incidents share the store.
 
 ### No scheduler, deliberately
 

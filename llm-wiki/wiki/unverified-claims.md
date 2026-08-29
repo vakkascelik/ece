@@ -1099,6 +1099,21 @@ different question from evidence.
 that addresses documentation photos in early learning services. Either is a one-page read, and
 the first one Little Pearls can hand over today.
 
+### 43. Migrations 0074 and 0075 are written, committed, and have never touched a database
+
+Added 2026-08-29. `incident_investigations` (0074) and `evidence_photos` plus the `evidence`
+bucket (0075), with their policies, grants, ~30 new assertions in `rls_isolation.sql`, and the
+screens that use them — none of it has run.
+
+| | |
+|---|---|
+| **Why** | Every database transport this machine has is dead: `SUPABASE_DB_URL` is empty in `.env.local`, and `SUPABASE_ACCESS_TOKEN` returns 401 Unauthorized on the plainest Management API call — the PAT that applied 0066–0073 on 2026-08-28 expired or was revoked sometime in the following day |
+| **What that blocks** | `npm run migrate`, `test:rls`, `review:security`, `drill:restore` — every gate that touches live Postgres. AGENTS.md §5 says a change is not done until `test:rls` passes, and this one is **not done** by that standard |
+| **What did run** | `typecheck`, `lint`, `test` (505 core / 11 api / 6 web), `tokens:check`, `check:docs`, `build`. `check:bundle` still fails on item 41's pre-existing 7kB, unchanged at 113.0kB by this work. The `snapshotAt` boundary was mutation-tested: weakening `<=` to `<` fails exactly the assertion written for it |
+| **The specific unverified claims** | That 0074/0075 apply cleanly; that the two insert policies' EXISTS subqueries refuse what the new assertions say they refuse; that the freeze policies produce zero-row no-ops rather than errors where the suite expects no-ops; that a parent reads nothing from either table. Every one of these is asserted in the suite and the suite has not run |
+| **Not softened** | The migrations were not applied by pasting into the SQL editor, deliberately — that is the workflow `scripts/migrate.ts` exists to end, and an unapplied committed migration is recoverable (the checksum binds at apply, not at commit) while a half-applied hand-pasted one is not |
+| **To close it** | A new PAT (supabase.com → account → access tokens) into `SUPABASE_ACCESS_TOKEN`, or the database connection string into `SUPABASE_DB_URL`. Then, in order: `npm run migrate`, `npm run test:rls`, `npm run review:security`, `npm run drill:restore` — and delete this item only when all four are green |
+
 ## See Also
 
 - [[checklists]] — where the hazard assessment fields live, and the rest of the 1Place work

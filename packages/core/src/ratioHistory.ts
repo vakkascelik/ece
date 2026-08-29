@@ -195,6 +195,29 @@ export function replayDay(input: {
 }
 
 /**
+ * The state that held at one instant, from a replayed day.
+ *
+ * The ratio is a step function, so the truth at `at` is the last snapshot at or
+ * before it — no interpolation, no sampling. Null when `at` precedes the day's
+ * first event: before anybody signed anything the register records no state, and
+ * inventing "0 children, 0 adults" would be the report asserting more than the
+ * data supports. Callers must render null as "cannot be computed", not as empty.
+ *
+ * Written for the incident-investigation screen ("what was the ratio when this
+ * happened"), and deliberately a filter over `replayDay`'s output rather than a
+ * second replay: one implementation of the step function, per the reasoning at
+ * the top of this file.
+ */
+export function snapshotAt(snapshots: RatioSnapshot[], at: string): RatioSnapshot | null {
+  let found: RatioSnapshot | null = null;
+  for (const s of snapshots) {
+    if (s.at <= at) found = s;
+    else break;
+  }
+  return found;
+}
+
+/**
  * Staff sign-in and sign-out events into the running adult count `replayDay` wants.
  *
  * The bridge between 0039's per-person events and a shape that already works. It
