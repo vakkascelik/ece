@@ -119,19 +119,46 @@ export default async function FundingPage({
       {/*
         The disclaimer is generated from the summary, so it cannot say "complete" when it is not —
         and it is the same sentence any future emailed version would use.
+
+        `summary.complete` ALONE NO LONGER DECIDES THIS, and that is the point of the change.
+        A period beginning before the attendance record does contains no unresolved days — there
+        are no days at all — so `complete` is true and the old banner turned green over a total
+        that was simply too small. Both conditions have to hold before this reads as usable.
       */}
-      <div
-        className="card"
-        style={{
-          background: summary.complete ? 'var(--warn-soft)' : 'var(--breach-soft)',
-          borderColor: summary.complete ? 'var(--warn-border)' : 'var(--breach-border)',
-        }}
-      >
-        <p style={{ marginTop: 0 }} role="status">
-          <strong>{summary.complete ? 'Preparation figures' : 'Incomplete — do not use yet'}</strong>
-        </p>
-        <p style={{ marginBottom: 0 }}>{exportDisclaimer(summary)}</p>
-      </div>
+      {(() => {
+        const covered = summary.periodPrecedesRecord !== true;
+        const usable = summary.complete && covered;
+        const headline = !covered
+          ? 'Records do not cover this period — do not use'
+          : !summary.complete
+            ? 'Incomplete — do not use yet'
+            : 'Preparation figures';
+        return (
+          <div
+            className="card"
+            style={{
+              background: usable ? 'var(--warn-soft)' : 'var(--breach-soft)',
+              borderColor: usable ? 'var(--warn-border)' : 'var(--breach-border)',
+            }}
+          >
+            <p style={{ marginTop: 0 }} role="status">
+              <strong>{headline}</strong>
+            </p>
+            <p style={{ marginBottom: 0 }}>{exportDisclaimer(summary)}</p>
+            {/*
+              The third state rendered as itself. `periodPrecedesRecord` is null when nobody
+              supplied a record start, which is not the same as the record covering the period —
+              the `overdue: null` contract. Quiet, because an unknown is not a breach, and said,
+              because silence would read as coverage.
+            */}
+            {summary.periodPrecedesRecord === null && (
+              <p className="sub" style={{ margin: '0.5rem 0 0', fontSize: '0.8125rem' }}>
+                Whether the attendance record covers this whole period was not checked.
+              </p>
+            )}
+          </div>
+        );
+      })()}
 
       <section>
         <h2>Funded hours — {period.label}</h2>

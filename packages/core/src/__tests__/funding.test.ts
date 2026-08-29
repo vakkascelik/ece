@@ -165,6 +165,85 @@ describe('the period boundary', () => {
   });
 });
 
+describe('a period the records do not cover — the silence that reads as zero', () => {
+  /*
+    The defect this exists for, stated as a test rather than as a comment: a child with NO
+    attendance rows in the period yields an empty `inPeriod`, so `complete` and `unresolved` are
+    both empty, `unresolvedChildCount` is 0 and `complete` is TRUE. Correct arithmetic on the rows
+    that exist, and a false picture of the period.
+  */
+  it('reports a period with no records at all as complete — which is why the flag is needed', () => {
+    const summary = summariseFunding(period, []);
+    expect(summary.complete).toBe(true);
+    expect(summary.totalFundedHours).toBe(0);
+    // Nobody said whether the record covers this, so nothing is claimed either way.
+    expect(summary.periodPrecedesRecord).toBeNull();
+  });
+
+  it('flags a period that begins before the record does', () => {
+    const summary = summariseFunding(period, [], { startsOn: '2026-08-15' });
+    expect(summary.periodPrecedesRecord).toBe(true);
+    expect(summary.recordStartsOn).toBe('2026-08-15');
+    // `complete` is deliberately untouched — a different kind of problem, the argument
+    // `ineligibleChildCount` already makes for itself.
+    expect(summary.complete).toBe(true);
+  });
+
+  it('does not flag a record that starts on the first day of the period', () => {
+    // The boundary. Starting ON the first day covers it; the comparison is `>`, not `>=`.
+    const summary = summariseFunding(period, [], { startsOn: period.from });
+    expect(summary.periodPrecedesRecord).toBe(false);
+  });
+
+  it('does not flag a record that starts before the period', () => {
+    const summary = summariseFunding(period, [], { startsOn: '2026-07-01' });
+    expect(summary.periodPrecedesRecord).toBe(false);
+  });
+
+  it('treats a centre with no attendance events at all as the worst case, not the unknown one', () => {
+    // `{ startsOn: null }` is a much stronger statement than omitting the argument: somebody
+    // looked and there is nothing. Every period precedes a record that does not exist.
+    const summary = summariseFunding(period, [], { startsOn: null });
+    expect(summary.periodPrecedesRecord).toBe(true);
+    expect(summary.recordStartsOn).toBeNull();
+  });
+
+  it('keeps null and false apart, because they render differently', () => {
+    // The `overdue: null` contract. If these ever collapse to one value the banner stops being
+    // able to say "not checked" and starts saying "covered".
+    expect(summariseFunding(period, []).periodPrecedesRecord).toBeNull();
+    expect(summariseFunding(period, [], { startsOn: '2026-07-01' }).periodPrecedesRecord).toBe(false);
+  });
+
+  it('leads the disclaimer with the gap, ahead of the unresolved-days sentence', () => {
+    /*
+      Order is asserted, not incidental. An unresolved day announces itself in the total; a period
+      the records do not cover produces a total that looks finished and is simply too small. In a
+      paragraph somebody skims before keying a number into a Ministry system, the invisible
+      problem goes first.
+    */
+    const bad = childFunding({ childId: 'b', events: [ev('in', at(3, 8))], timeZone: NZ, period, twentyHoursEce: false });
+    const text = exportDisclaimer(summariseFunding(period, [bad], { startsOn: '2026-08-15' }));
+    expect(text).toContain('does not begin until 2026-08-15');
+    expect(text).toContain('lower than what was actually attended');
+    expect(text.indexOf('does not begin until')).toBeLessThan(text.indexOf('could not be calculated'));
+  });
+
+  it('says something different when there is no record at all', () => {
+    const text = exportDisclaimer(summariseFunding(period, [], { startsOn: null }));
+    expect(text).toContain('no attendance records at all');
+    expect(text).toContain('not because nobody attended');
+  });
+
+  it('says nothing about coverage when nobody checked', () => {
+    // Silence on an unknown is wrong in the UI, which renders it; it is right in a sentence that
+    // would otherwise assert something nobody established.
+    const text = exportDisclaimer(summariseFunding(period, []));
+    expect(text).not.toContain('does not begin until');
+    expect(text).not.toContain('no attendance records at all');
+  });
+});
+
 describe('summariseFunding and the disclaimer', () => {
   it('is not complete while any child has an unresolved day', () => {
     const good = childFunding({ childId: 'a', events: fullDay(3), timeZone: NZ, period, twentyHoursEce: false });

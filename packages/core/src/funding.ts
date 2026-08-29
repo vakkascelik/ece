@@ -176,8 +176,59 @@ export interface FundingSummary {
    * `complete` would either block an export over somebody else's tick box or hide it entirely.
    */
   ineligibleChildCount: number;
+  /**
+   * The first day this centre has any attendance record for, in its own timezone.
+   *
+   * Null means either "no attendance events at all" or "the caller did not supply it" —
+   * `periodPrecedesRecord` is what tells those apart, and it is the field to read.
+   */
+  recordStartsOn: string | null;
+  /**
+   * Does this period begin before the attendance record does?
+   *
+   * **Three states, and null is not false.** `true` = the record does not cover the whole
+   * period. `false` = it does. `null` = nobody said, so nothing is claimed either way — the
+   * `overdue: null` contract from `drillStatuses`, and it must render differently from `false`.
+   *
+   * WHY THIS EXISTS, AND IT IS NOT A HYPOTHETICAL
+   *
+   * `childFunding` filters a child's days into `complete` and `unresolved`. A child with **no
+   * attendance rows at all** in the period yields an empty `inPeriod`, so both lists are empty:
+   * `fundedHours` is 0 and `unresolvedDates` is `[]`. `unresolvedChildCount` is therefore 0 and
+   * `complete` is **true**. The period reports zero hours and declares itself final.
+   *
+   * That is correct arithmetic on the rows that exist and a false picture of the period. The
+   * "excluded and named" treatment this file insists on for a *broken* day cannot fire, because
+   * a period with no records is not a broken record — it is silence, and silence reads as zero.
+   *
+   * It bites the moment a centre starts using this product partway through a funding period,
+   * which every centre does exactly once, and RS7 periods are four-monthly.
+   *
+   * WHY IT IS NOT FOLDED INTO `complete`
+   *
+   * The same argument `ineligibleChildCount` above makes for itself: it is a different kind of
+   * problem. An incomplete record cannot be calculated; this one calculates fine over a period
+   * the records do not cover. Folding it in would overload one boolean with two failures that
+   * need different actions — fix the record, versus do not use this period at all.
+   */
+  periodPrecedesRecord: boolean | null;
   verified: boolean;
   capsBasis: string;
+}
+
+/**
+ * When this centre's attendance record begins.
+ *
+ * A parameter object rather than a bare `string | null`, so the two nulls stay apart at the call
+ * site: not passing this at all means "unknown", while passing `{ startsOn: null }` means "there
+ * are no attendance events" — a much stronger statement, and the worse of the two.
+ */
+export interface AttendanceRecordStart {
+  /**
+   * The earliest attendance event for the centre, as a calendar date in the centre's timezone.
+   * `null` when the centre has no attendance events at all, which makes every period precede it.
+   */
+  startsOn: string | null;
 }
 
 /** ISO week key, so the weekly cap can be applied to the right seven days. */
@@ -266,8 +317,31 @@ export function childFunding(input: {
   };
 }
 
-export function summariseFunding(period: FundingPeriod, children: ChildFunding[]): FundingSummary {
+export function summariseFunding(
+  period: FundingPeriod,
+  children: ChildFunding[],
+  /**
+   * Optional so no existing caller breaks, and every caller that produces a figure somebody
+   * keys into ELI Web should pass it. Omitting it yields `periodPrecedesRecord: null` —
+   * "nobody said", which is honest, and is not the same as "the record covers this".
+   */
+  recordStart?: AttendanceRecordStart,
+): FundingSummary {
   const unresolvedChildCount = children.filter((c) => c.unresolvedDates.length > 0).length;
+
+  const periodPrecedesRecord =
+    recordStart === undefined
+      ? null
+      : recordStart.startsOn === null
+        ? // No attendance events anywhere in this centre. Every period precedes the record,
+          // including this one, and the total below is zero for that reason rather than because
+          // nobody attended.
+          true
+        : // String comparison is correct and intentional: both are `YYYY-MM-DD` in the centre's
+          // own timezone, which sorts lexicographically. No Date is constructed, so no zone is
+          // consulted and there is nothing here for `localDates.test.ts` to catch.
+          recordStart.startsOn > period.from;
+
   return {
     period,
     children,
@@ -275,6 +349,8 @@ export function summariseFunding(period: FundingPeriod, children: ChildFunding[]
     complete: unresolvedChildCount === 0,
     unresolvedChildCount,
     ineligibleChildCount: children.filter((c) => c.ineligibleDates.length > 0).length,
+    recordStartsOn: recordStart?.startsOn ?? null,
+    periodPrecedesRecord,
     verified: FUNDING_RULES_VERIFIED,
     capsBasis: (children[0] ? DEFAULT_CAPS : DEFAULT_CAPS).basis,
   };
@@ -291,6 +367,24 @@ export function exportDisclaimer(summary: FundingSummary): string {
   const parts = [
     'These are preparation figures for keying into ELI Web. Nothing has been submitted to the Ministry, and this system cannot submit.',
   ];
+
+  /*
+    First, and ahead of the unresolved-days sentence, because it is the more serious of the two
+    and the only one that is invisible in the figures.
+
+    An unresolved day announces itself — the total is missing hours somebody can go and fix. A
+    period that starts before the records do produces a total that looks finished and is simply
+    too small, with nothing on the page to suggest it. Order matters in a paragraph somebody
+    skims before keying a number into a Ministry system.
+  */
+  if (summary.periodPrecedesRecord === true) {
+    parts.push(
+      summary.recordStartsOn === null
+        ? 'This centre has no attendance records at all, so every figure below is zero because nothing has been recorded — not because nobody attended. Do not key these into a return.'
+        : `This period starts on ${summary.period.from}, but the attendance record here does not begin until ${summary.recordStartsOn}. Days before that are missing rather than empty, so the total below is lower than what was actually attended. Use the system that holds the earlier records for this period.`,
+    );
+  }
+
   if (!summary.complete) {
     parts.push(
       `${summary.unresolvedChildCount} ${summary.unresolvedChildCount === 1 ? 'child has' : 'children have'} days that could not be calculated because the attendance record is incomplete. Those days are excluded from the totals below — resolve them and re-run before using these figures.`,

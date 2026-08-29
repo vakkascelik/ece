@@ -759,6 +759,27 @@ export async function readFundingPeriod(
     ),
   ]);
 
+  /*
+    When this centre's attendance record begins — one row, and NOT paged, deliberately.
+
+    Every other read in this function is paged because truncation would change a figure. This one
+    asks for a single row by `order('at').limit(1)`, so there is nothing to truncate: the answer is
+    the minimum, and a limit of one is the query rather than a cap on it.
+
+    Unbounded in the window sense too — no `gte`/`lt` — because the question is "when does the
+    record start", not "what is in this period". Bounding it to the period would return the
+    period's own first event and always report full coverage, which is the bug this is here to
+    catch rather than a fix for it.
+  */
+  const { data: firstEvent, error: firstError } = await db
+    .from('attendance_events')
+    .select('at, children!inner(centre_id)')
+    .eq('children.centre_id', input.centreId)
+    .order('at')
+    .limit(1)
+    .maybeSingle();
+  if (firstError) throw new Error(`readFundingPeriod (record start): ${firstError.message}`);
+
   const byChild = new Map<string, HoursEvent[]>();
   for (const r of events) {
     const list = byChild.get(r.child_id);
@@ -792,7 +813,23 @@ export async function readFundingPeriod(
     // that hides the rows that matter.
     .filter((c) => c.attendedHours > 0 || c.unresolvedDates.length > 0);
 
-  return summariseFunding(input.period, results);
+  /*
+    The instant becomes a calendar date IN THE CENTRE'S TIMEZONE, via the same helper every
+    other local date in this product goes through. `at` is a timestamptz, and slicing the date
+    part off its ISO string would give the UTC day — which for New Zealand is yesterday for the
+    whole morning. A record starting 8am on the 1st would then report as starting on the 31st,
+    and a period beginning on the 1st would wrongly look covered. AGENTS.md §4.3.
+
+    Writing that wrong form out in full here, even as an example of what not to do, is itself
+    caught by `localDates.test.ts` — it is a text scan and does not read comments. Blunt on
+    purpose, and it cost a rewording rather than an allowlist entry, which is the correct
+    outcome: there is no violation here to exempt.
+  */
+  const startsOn = firstEvent
+    ? todayInZone(input.timeZone, new Date((firstEvent as { at: string }).at))
+    : null;
+
+  return summariseFunding(input.period, results, { startsOn });
 }
 
 // ---------------------------------------------------------------------------

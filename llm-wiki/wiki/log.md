@@ -5,6 +5,53 @@ says so.*
 
 ---
 
+2026-08-29 (third entry) — **A funding period the records do not cover reported itself
+complete.** Extended: [[funding-and-billing]].
+
+The defect I found while writing the Infocare copy plan, now fixed. `childFunding` splits a
+child's days into `complete` and `unresolved`; a child with **no attendance rows at all** in the
+period yields an empty `inPeriod`, so both lists are empty, `unresolvedChildCount` is 0 and
+**`complete` is true**. The period reported zero funded hours and declared itself final.
+
+Correct arithmetic on the rows that exist, and a false picture of the period. The "excluded and
+named" treatment this file insists on for a broken day cannot fire, because a period with no
+records is not a broken record — it is silence, and silence reads as zero. `FundingSummary.complete`
+already carried the sentence naming the consequence — *"a summary that looks final while three
+children have missing sign-outs is a summary that gets keyed into ELI Web"* — and the failure sat
+one step to the left of where its author was looking.
+
+It bites the moment a centre starts using this product partway through a funding period, which
+every centre does exactly once, and RS7 periods are four-monthly. Under the Infocare copy
+arrangement it would bite permanently, because attendance history deliberately stays in the other
+system.
+
+`summariseFunding` now takes an optional `AttendanceRecordStart` and returns `recordStartsOn` and
+`periodPrecedesRecord`; `readFundingPeriod` supplies it from the centre's earliest
+`attendance_events.at` through `todayInZone(centre.timezone)`. **Three states, null is not false** —
+the `overdue: null` contract, and the banner says "not checked" rather than rendering an unknown as
+coverage. `{ startsOn: null }` is a stronger statement than omitting the argument: somebody looked
+and there are no events, so every period precedes a record that does not exist.
+
+**`complete` was left alone**, on the argument `ineligibleChildCount` already makes for itself —
+one boolean carrying two failures conflates *fix the record* with *do not use this period*. The
+page now needs both conditions before it reads as usable, and the disclaimer leads with this one,
+because an unresolved day announces itself in the total while this produces a total that looks
+finished and is merely too small.
+
+**The guard that caught me writing about it.** `localDates.test.ts` failed on the comment
+explaining why not to slice a date off an ISO string — it is a text scan and does not read
+comments. Blunt on purpose. It cost a rewording rather than an allowlist entry, which is the right
+outcome: there was no violation to exempt, and adding one would have taught the next reader that
+the scan is negotiable.
+
+Mutation-drilled, all three branches: `>` to `>=` failed the boundary assertion; the no-events
+branch reporting `false` failed two; `null` reporting `false` failed the two that keep the third
+state apart. 500 core tests (+9). A first attempt at the second mutation ran only 454 tests —
+a syntax error, so a whole file was skipped, which is a broken file rather than a surviving
+mutation. Worth noting: a mutation run whose test COUNT changed has not been performed.
+
+---
+
 2026-08-29 (second entry) — **The insurance gate is removed by owner decision, and it was never
 external.** Extended: [[privacy-and-retention]], [[unverified-claims]] (item 35 closed),
 [[public-website]], [[parent-self-service]], [[console-handover]]. Docs:

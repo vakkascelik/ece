@@ -21,6 +21,8 @@ Because hours become a claim on the Crown, the single most important property in
 
 - **A day whose record is broken is excluded and named, never guessed.** Not estimated up, not
   silently zeroed.
+- **A period the records do not cover is a different failure, and it used to be invisible.**
+  `complete` was true and the total was zero. See *Silence reads as zero* below.
 - **Every rounding decision goes down.** `toHours` floors to two decimals.
 - **Corrections supersede what they correct**, transitively — otherwise a fixed sign-in time is
   counted twice.
@@ -30,6 +32,55 @@ Because hours become a claim on the Crown, the single most important property in
 - Bookings are not attendance and neither substitutes for the other.
 
 ## Details
+
+### Silence reads as zero — the period the records do not cover
+
+Added 2026-08-29, and it is the counterpart to the section below rather than a variation of it.
+
+`childFunding` splits a child's days into `complete` and `unresolved`. A child with **no
+attendance rows at all** in the period yields an empty `inPeriod`, so both lists are empty:
+`fundedHours` is 0 and `unresolvedDates` is `[]`. `unresolvedChildCount` is therefore 0, and
+**`complete` is true**. The period reports zero hours and declares itself final.
+
+That is correct arithmetic on the rows that exist and a false picture of the period. The
+"excluded and named" treatment below **cannot fire**, because a period with no records is not a
+broken record. It is silence, and silence reads as zero.
+
+`FundingSummary.complete` already carried the warning that names the consequence — *"a summary
+that looks final while three children have missing sign-outs is a summary that gets keyed into
+ELI Web"* — and the failure was one step to the left of where its author was looking.
+
+**When it bites:** the moment a centre starts using this product partway through a funding
+period, which every centre does exactly once. RS7 periods are four-monthly, so the first return
+after adoption necessarily spans days the record does not reach. It also bites permanently under
+the [`Infocare copy arrangement`](../../docs/importing-infocare.md), where attendance history
+deliberately stays in the other system.
+
+**What was added.** `summariseFunding` takes an optional `AttendanceRecordStart` and returns
+`recordStartsOn` plus `periodPrecedesRecord`. `readFundingPeriod` supplies it from the centre's
+earliest `attendance_events.at`, converted through `todayInZone(centre.timezone)` — not sliced
+off an ISO string, which would give the UTC day and report an 8am start as the previous date.
+
+**Three states, and null is not false.** `true` = the record does not cover the period. `false`
+= it does. `null` = nobody supplied a record start, so nothing is claimed either way. The
+`overdue: null` contract from `drillStatuses`, and the banner renders the third state as *"whether
+the attendance record covers this whole period was not checked"* rather than silently as coverage.
+
+`{ startsOn: null }` is deliberately a **stronger** statement than omitting the argument: somebody
+looked, and the centre has no attendance events at all. Every period precedes a record that does
+not exist, so that case reports `true`, not `null`.
+
+**`complete` was left alone**, and that is the same argument `ineligibleChildCount` already makes
+for itself: it is a different kind of problem. An incomplete record cannot be calculated; this one
+calculates fine over a period the records do not cover. One boolean carrying both would conflate
+two failures needing different actions — *fix the record* versus *do not use this period at all*.
+So the page now requires both conditions before it reads as usable, and the disclaimer leads with
+this one, ahead of the unresolved-days sentence: an unresolved day announces itself in the total,
+while this produces a total that looks finished and is simply too small.
+
+Mutation-drilled, all three branches: `>` to `>=` failed the boundary assertion; the no-events
+branch reporting `false` failed two; and `null` reporting `false` failed the two that keep the
+third state apart.
 
 ### Why a broken day is excluded rather than estimated
 
@@ -530,4 +581,4 @@ claim only what it actually proves.
 - [[unverified-claims]] — the caps, and the absence of rates
 - [[compliance-and-evidence]] — the other thing attendance is evidence for
 
-*Last updated: 2026-08-18*
+*Last updated: 2026-08-29*
