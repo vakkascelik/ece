@@ -39,13 +39,28 @@ The machinery is small. The difficulty is entirely in who may read what, and whe
 
 ## What 1Place does that this does not, and why that is the right way round
 
-Little Pearls' 1Place shows a flat *Status: Pending* and an *Unsigned* queue where this has
-`draft → final`, `parent_notified_at`, `acknowledged_at` and `supersedes`. The migration off it
-maps *Unsigned* to `draft` and *Pending* to `final`; it does **not** add a mutable status column
-to match. Their "Incident Category" field was blank on every row in the screenshots, and
-`incident_kind` — injury, illness, behaviour, near_miss, other — already covers the Type/Category
-split more usefully than an unused enum would. See [[checklists]] and
-[`docs/replacing-1place.md`](../../docs/replacing-1place.md).
+Little Pearls' 1Place runs two independent status axes where this has `draft → final`,
+`parent_notified_at`, `acknowledged_at` and `supersedes`: a Pending → Open → Resolved workflow,
+and a separate Signature Status driving the *Unsigned* queue — their record 2461 is Signed and
+Pending at once. The migration off it keys on signature status alone: *Unsigned* → `draft`,
+*Signed* → `final`; the workflow state has no counterpart here and does **not** become a mutable
+status column. (Corrected 2026-08-29 — this page previously called the status "flat" and mapped
+*Pending* → `final`, which conflicts with the *Unsigned* rule on an unsigned Pending record.)
+
+Their "Incident Category" field is populated on most rows — with the value *Incident*, on rows
+whose Type is already Incident — and `incident_kind` — injury, illness, behaviour, near_miss,
+other — covers the Type/Category split more usefully than an enum that echoes the type.
+(Corrected 2026-08-29 — this page previously said the field was blank on every row. Redundant,
+not unused; the conclusion stands.)
+
+Two things their incident module has that this does not, seen 2026-08-29: an **Investigation
+tab** — WorkSafe advisement, staff:child ratio at the time of the incident, first-aid-trained
+staff on scene; see [`docs/replacing-1place.md`](../../docs/replacing-1place.md) §7.3, including
+why the ratio should be computed here rather than typed — and **drawn signatures**, where staff,
+witness, management and parent all sign on the centre's device. The parent's squiggle carries the
+"family saw it" fact their Parent Notification fields leave blank on the same record;
+`acknowledged_at` written by the guardian's own account is the same fact with attribution, which
+is one more reason the no-signature-line stance above stands. See [[checklists]].
 
 ## Details
 
@@ -277,4 +292,4 @@ guard being ignored slowly.
 - [[compliance-and-evidence]] — where this register will feed the binder
 - [[conventions]] — the new-table checklist this followed
 
-*Last updated: 2026-08-28 — date taken from this file's last commit, because the page was written without the footer `llm-wiki/schema.md` requires and no other record of it exists.*
+*Last updated: 2026-08-29*

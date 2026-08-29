@@ -135,6 +135,17 @@ product talks a centre into a breach.
 Materialising future runs was rejected: it puts rows in the database for work nobody has
 done, and every screen then has to filter them out.
 
+### Which templates are actually used — the sizing question, part-answered
+
+The plan's largest phase was sized against "twelve templates" with no idea which ones mattered.
+Screenshots from 2026-08-29 show 1Place's Overdue section (7 entries, four visible): **Room
+Cleaning Schedule - Daily** fanned out per room — Infant - Mt Albert, Preschool - Mt Albert — and
+a centre-level **Daily H&S Checklist**. At least two templates run daily, one per room, and the
+second site is named for the first time: Mt Albert. Daily × per-room × two sites makes checklist
+runs the bulk of any imported history by row count, and puts the no-scheduler design above on the
+highest-frequency cadence there is. Details in
+[`docs/replacing-1place.md`](../../docs/replacing-1place.md) §7.6.
+
 ### What did not come across from 1Place's tasks
 
 Their three categories are Enrolment Enquiry, Hazard Identification and Maintenance.
@@ -212,4 +223,4 @@ hand-maintained list is what let `shifts` and `staff_leave` go unaudited from 00
 - [[unverified-claims]] — item 40, the risk-matrix banding that is not sourced
 - [[tenancy-and-rls]] — the two boundaries, and why `packages/api` filters nothing
 
-*Last updated: 2026-08-28*
+*Last updated: 2026-08-29*

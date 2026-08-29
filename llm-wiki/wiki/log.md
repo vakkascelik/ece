@@ -5,6 +5,31 @@ says so.*
 
 ---
 
+2026-08-29 (eighth entry) — **The third 1Place batch answers two open questions and corrects two
+claims.** Extended: [[checklists]] (which templates are actually used), [[incident-register]] (two
+status axes, the Investigation tab, drawn signatures). Corrected: [[incident-register]] — "Incident
+Category was blank on every row" (it is populated, with a value that duplicates the Type field;
+redundant, not unused) and the migration mapping (*Unsigned* → `draft` and *Pending* → `final`
+conflict on an unsigned Pending record — 1Place's Signature Status and its Pending → Open →
+Resolved workflow are independent axes, and the mapping keys on signature status alone; their
+record 2461 is Signed and Pending simultaneously). Both conclusions survive; both premises were
+wrong. The vocabulary and reasoning land in `docs/replacing-1place.md` §7.
+
+Settled: the display number 2461 is a per-franchisee sequence — the edit URL carries
+`incidentId=1977313` behind it — so the incident history really is ~2,461 rows of Little Pearls'
+own; and at least two of the twelve checklist templates run daily (Room Cleaning Schedule per
+room, a Daily H&S Checklist per centre), at the second site, now named: Mt Albert.
+
+Opened: 1Place has an **Investigation tab** this plan had never seen — WorkSafe advisement dates,
+staff:child ratio in the room at the time of the incident, first-aid-trained staff on scene —
+which Doorway's register lacks entirely. Recorded with the note that the ratio is free text there
+and computable here from attendance, and that any "severity X requires WorkSafe notification" rule
+is a regulatory claim needing a source before the product may assert it.
+
+Docs-only change; `check:docs` is the applicable gate.
+
+---
+
 2026-08-29 (seventh entry) — **The third request for a lighter ocean was the first one granted, by
 lightening the end nobody had checked.** Extended: [[public-website]] (two new sections). Corrected:
 [[public-website]] — "white on `--ocean-deep` is 9.11:1" and the nine-pair table were both stale by

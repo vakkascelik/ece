@@ -12,6 +12,10 @@ smaller than estimated and the one deferral that stands. Phase G (migration) is 
 blocked on §0. The build notes live in [llm-wiki/wiki/checklists.md](../llm-wiki/wiki/checklists.md);
 this file keeps the reasoning that produced the shape.
 
+**UPDATED 2026-08-29: a third batch of screenshots — §7.** It answers §6's Q1 (partially) and Q3,
+corrects two claims this document made from the earlier batches, and surfaces a module the plan
+had not seen at all: the Investigation tab.
+
 Read [AGENTS.md](../AGENTS.md) first. Every table proposed below is subordinate to §4.2 — a
 policy, a grant and an assertion in `rls_isolation.sql`, in the same commit — and to §4.3, which
 forbids computing a local date as UTC. Both bite hard in this plan: it adds five tables and a
@@ -110,7 +114,7 @@ Office / Staff Room / Entrance (both sites) — eleven visible before the list s
 | People | `children`, `guardians`, `staff_members`, `memberships` | **Done differently** — map, don't port |
 | Checklists + templates | *nothing*. `safety_checks` is a fixed eight-value enum, not a template engine | **Missing — the largest piece** |
 | Tasks / tickets | *nothing* | **Missing** |
-| Incidents / Sickness | `incidents` + `/incidents` | **Ahead of 1Place**, with three gaps |
+| Incidents / Sickness | `incidents` + `/incidents` | **Ahead of 1Place** — three gaps closed in D; a fourth found 2026-08-29 (§7.3) |
 | Hazards | `hazards` + `/facilities` | **Partial** |
 | Drafts | outbox exists; no user-visible list | **Partial** |
 | Favourites | *nothing* | Skip (§5) |
@@ -124,9 +128,12 @@ Office / Staff Room / Entrance (both sites) — eleven visible before the list s
 
 `incidents` carries `status draft→final`, `parent_notified_at`/`notified_by`,
 `acknowledged_at`/`acknowledged_by`, and `supersedes` — an amendment is a new row, and **no DELETE
-grant exists for anybody**. 1Place shows a flat *Status: Pending* and an *Unsigned* queue. The
-migration maps *Unsigned* → `draft` and *Pending* → `final`; it does not add a mutable status
-column to match 1Place's.
+grant exists for anybody**. 1Place runs two independent status axes — a Pending → Open → Resolved
+workflow and a separate Signature Status driving the *Unsigned* queue. The migration keys on
+signature status alone: *Unsigned* → `draft`, *Signed* → `final`; it does not add a mutable status
+column to match 1Place's. (Corrected 2026-08-29 — §7.2. This paragraph previously called the
+status "flat" and mapped *Pending* → `final`, which conflicts with the *Unsigned* rule on an
+unsigned Pending record.)
 
 Attendance, ratios, funding, enrolment, billing, consent-gated media and the compliance binder have
 no 1Place counterpart at all. Replacing 1Place is a subset of this product, not a rebuild of it.
@@ -215,7 +222,7 @@ wiki.
 | **A** | **Rooms** — table, policy, grant, assertion; `room_id` on `incidents`, `hazards`, `safety_checks`; admin screen on `/settings` | Small | **Done** — 0066. The rooms themselves still need entering; no backfill was possible (§0) |
 | **B** | **Tasks** — table + `/tasks`, statuses, priorities, assignment, due dates in centre time, a resolution required to close | Medium | **Done** — 0067 |
 | **C** | **Checklists** — templates, versions, items, runs, answers, the editor and the run screen | **Large** | **Done** — 0068, minus photos and minus the offline path. Both deferred deliberately; see below |
-| **D** | **Incident parity** — `room_id`, category, sickness/incident split, per-record PDF | Small–medium | **Smaller than estimated.** No migration needed at all: `incident_kind` already covers injury/illness/behaviour/near_miss, and 1Place's "Category" was blank on every row. Reduced to the room field and `/incidents/[id]/print` |
+| **D** | **Incident parity** — `room_id`, category, sickness/incident split, per-record PDF | Small–medium | **Smaller than estimated.** No migration needed at all: `incident_kind` already covers injury/illness/behaviour/near_miss, and 1Place's "Category" was blank on every row *(corrected in §7.1 — populated, and redundant; the decision stands)*. Reduced to the room field and `/incidents/[id]/print` |
 | **E** | **Hazard parity** — likelihood, consequence, risk score, review frequency | Small | **Done** — 0069, with no banding. [[unverified-claims]] 40 |
 | **F** | **Sync status and drafts** — a Connection Status equivalent | Small | **Done** — `SyncStatus` in the app layout. The separate "drafts list" was dropped: draft incidents already live on `/incidents` and unfinished runs on `/checklists`, and a third list of the same rows is a place for them to disagree |
 | **G** | **Migration** — import people/rooms/incidents/tasks/checklist history | Unknown | **Blocked on §0.** Nothing to import |
@@ -289,16 +296,133 @@ has the outbox and shows the user nothing equivalent. Cheap, and it should not w
 
 1. **Which of the twelve checklist templates are actually used, and how often?** The plan's largest
    phase is sized by this and I am guessing. A photo of the Checklists list with dates would settle
-   it.
+   it. **Partially answered 2026-08-29 (§7.6):** at least two run daily — Room Cleaning Schedule
+   per room, a Daily H&S Checklist per centre.
 2. **Does a completed checklist need a signature, and whose?** 1Place shows an *Unsigned* queue for
    incidents; whether checklists carry the same is not visible in the screenshots.
 3. **How much history has to come across?** 2,461 incident IDs is a lot of records — but that
    number may be global to 1Place rather than per-tenant. "Everything" and "the current licensing
-   period" are very different migrations.
+   period" are very different migrations. **Answered 2026-08-29 (§7.5):** per-franchisee sequence;
+   the ~2,461 rows are Little Pearls' own history. The everything-vs-licensing-period question
+   still stands.
 4. **Is there a hard date?** A renewal date on the 1Place subscription changes the order of §4
    and would justify shipping D, E and F before C.
 5. **What are the two Settings checkboxes** on the 1Place settings screen? They were obscured by
    the dialog in both screenshots.
+
+---
+
+## 7. What the 2026-08-29 screenshots added
+
+A third batch: the mobile incident list and new-incident flow, the web console's edit view for
+record 2461, the Investigation tab, the Severity and Type-of-Injury dropdowns, the Checklists home
+tab, and a per-record PDF (No 2461, Details tab only — the filename says so, and whether the
+Investigation tab prints is not known). Two findings correct what is written above, two answer §6
+questions, one is a module this plan had not seen; the rest is vocabulary, recorded for phase G.
+
+### 7.1 Correction: the Category field is not blank on every row
+
+§2 and [incident-register](../llm-wiki/wiki/incident-register.md) said 1Place's Incident Category
+"was blank on every row". In this batch it is populated on two of the three visible rows — with the
+value **Incident**, on rows whose Type is already Incident — and blank on 2461 even though the web
+edit view marks it required. The mobile flow auto-fills it from the type chosen at creation, which
+explains both observations. So the field is filled, and the observed value duplicates the Type
+field exactly. The Phase D decision stands — `incident_kind` carries more information than a
+category that echoes the type — but it now rests on "redundant", not "unused". If a row ever shows
+a category that is not simply the type, revisit.
+
+### 7.2 Correction: two status axes, not one
+
+No 2461 is **Signature Status: Signed** and **Status: Pending** at the same time. The web edit
+view shows Status as a three-step workflow — Pending → Open → Resolved — while the list keeps a
+separate *Unsigned* section. Independent axes: the Unsigned queue keys on signature status, not on
+workflow status.
+
+§2 previously mapped *Unsigned* → `draft` and *Pending* → `final` — two rules that conflict on an
+unsigned Pending record, which is what a freshly filed report presumably is. The mapping keys on
+**signature status alone**: Unsigned → `draft`, Signed → `final`. Pending/Open/Resolved is a
+triage state with no Doorway counterpart; if it comes across at all, it comes as text on the
+imported record, not as a column.
+
+### 7.3 The Investigation tab — the fourth gap, and the one where Doorway can be better
+
+Behind the Details form is a second tab this plan had not seen. Its fields: Investigation Is
+Required · Date Investigated · Investigated By · **Worksafe Need To Be Advised · Date Worksafe
+Advised** · Hazard Register Updated · Description and Notes · **Staff : Child Ratio (in the
+child's room at the time of the incident)** · Current First Aid trained staff in area/room at the
+time · Time · Outcome · First Aid was administered / By whom · Child was taken to hospital / By
+whom · An agency was contacted / Time / Date.
+
+Doorway's incident register has none of this. Two notes for whenever it is built:
+
+- **The ratio field is free text in 1Place and does not have to be here.** Doorway has attendance
+  and ratios first-class; the ratio in the child's room at the incident's timestamp is computable,
+  and a computed figure is evidence where a remembered one is an assertion. This would be the
+  first place the product is structurally better than what it replaces, rather than equally good
+  with stricter policies.
+- **Do not encode when WorkSafe must be advised.** The field is a yes/no in 1Place and can stay
+  one here. Any rule of the form "severity X requires notification" is a regulatory claim, and per
+  AGENTS.md it needs a source or an
+  [unverified-claims](../llm-wiki/wiki/unverified-claims.md) entry before the product asserts it.
+
+### 7.4 The signature model, and what "Signed" turns out to mean
+
+The Declaration block carries four name/signature/date triples: Staff, Witness, Management,
+Parent. On 2461, staff (Mycene), a witness (Salma) and the parent (Diana) all signed on the day of
+the incident; Management is blank; the record reads **Signed** — so Signed does not require all
+four.
+
+The parent's signature is drawn on the centre's device, and the Parent Notification section above
+it — Contacted / Name / Time — is empty on the same record: the one fact that section exists to
+establish is carried by the drawn signature instead. Doorway's model is stronger on exactly this
+point — `parent_notified_at` is recorded by staff, and `acknowledged_at` only by the guardian's
+own authenticated account, an attribution a squiggle on a shared tablet cannot make. Do not add a
+signature pad to match; the acknowledgement is the signature, which is the same argument
+[incident-register](../llm-wiki/wiki/incident-register.md) already makes about the print page's
+missing signature line.
+
+### 7.5 Vocabulary and mechanics, recorded for phase G
+
+| Field | Values observed |
+|---|---|
+| Severity | No Harm / Near Miss · Minor Harm · Serious Harm · Fatal |
+| Type Of Injury/Sickness | Slip / Trip · Bruise · Cut / Scratch / Graze · Sprain / Strain · Bite · Sting · Burn · Dislocation / Fracture · Bump · Foreign Body · Sickness · Other |
+| Incident status (web) | Pending → Open → Resolved — three steps where tasks have four |
+| Text limits | 512 on short fields, 9000 on Description / Explain |
+
+- **The display number is per-franchisee.** The edit URL for No 2461 reads
+  `incidentId=1977313&franchiseeId=12442687` — a global row id behind a tenant-local sequence.
+  §6 Q3 is answered: ~2,461 incidents really is Little Pearls' own history.
+- **Person data is snapshotted, not joined.** Gender, birth date and primary contact sit on the
+  edit view as plain text fields with 512-char limits. Phase G imports copies, and a copy may
+  disagree with the person record; import them as the incident's own text, exactly as stored.
+- **The reporter can be a shared login.** 2461's Reporter is "Mt Roskill Preschool" — a site
+  login, not a person — while the new-form default is the signed-in user. Expect reporter
+  attribution in imported history to be partly room-level.
+- **A room is chosen before the form opens** on mobile, as `site--room` ("Little Pearls Educare
+  Mount Roskill--Carpark - Mt Roskill"), then the type (Sickness | Incident). Mandatory scoping at
+  creation, which supports the phase A shape.
+- **Incidents carry photos** ("Photos From Details Section", each with a taken-date). 2461's photo
+  is a child's arm — child media by definition — so incident photos land in the same consent-gate
+  question as checklist photos (§4, "Still open"), with the harder twist that the subject of an
+  incident photo is nearly always the child.
+- **A body map** ("Please indicate where the person was injured", four child outlines) sits in the
+  Details form and prints on the PDF. Unmarked on 2461 while "What part of the body was injured"
+  is filled — the dropdown is what staff actually use.
+- **The New sheet has a fourth object: Note** (Checklist · Task · Note · Incident/Sickness), which
+  is not in §2's module table. Scope unknown. Recorded, not planned for.
+- **Fields go unfilled on a Signed record**: how-did-this-occur, further-medical-attention, the
+  whole Parent Notification block, Management. Phase G should expect nulls everywhere, including
+  fields the current form marks required — 2461's own required Category is blank.
+
+### 7.6 The checklists actually in use — §6 Q1, partially answered
+
+The Overdue section (7 entries, four visible) shows **Room Cleaning Schedule - Daily** fanned out
+per room (Infant - Mt Albert, Preschool - Mt Albert, …) and a centre-level **Daily H&S Checklist**
+(Little Pearls Educare Centre, due 27/08). At least two of the twelve templates run daily, one per
+room — and the second site is named for the first time: **Mt Albert**. Daily × per-room × two
+sites makes checklist runs the bulk of phase G by row count, and puts the no-scheduler design in
+[checklists](../llm-wiki/wiki/checklists.md) on the highest-frequency cadence there is.
 
 ---
 
@@ -312,4 +436,4 @@ has the outbox and shows the user nothing equivalent. Cheap, and it should not w
 - [llm-wiki/wiki/offline-outbox.md](../llm-wiki/wiki/offline-outbox.md)
 - [llm-wiki/wiki/exports.md](../llm-wiki/wiki/exports.md)
 
-*Last updated: 2026-08-28*
+*Last updated: 2026-08-29*
