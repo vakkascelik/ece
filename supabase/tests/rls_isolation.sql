@@ -4488,6 +4488,202 @@ end $$;
 -- what happened on the first attempt.
 
 -- ---------------------------------------------------------------------------
+-- CONSENT REQUESTS (0073) — asking, and the third state
+--
+-- The mechanism for a parent to record consent has existed since 0004. What 0073 adds is
+-- the record that the centre ASKED, which is what separates "nobody has answered" from
+-- "we asked and nobody has answered". Everything below is about who may write that record,
+-- who may read it, and that nobody may change it.
+--
+-- Ana (a1111111) is the case that matters: she has TWO guardians, Priya (d1111111, account
+-- 33333333) and Ana Other-Guardian (d3333333, NO account). One ask must reach both, and
+-- must notify only the one who can be notified.
+-- ---------------------------------------------------------------------------
+
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+
+/*
+ * The kinds here are chosen, not arbitrary. Ana's `photo_internal` is granted and then
+ * withdrawn earlier in this file, and a withdrawal IS an answer — offering it here would
+ * produce two rows rather than four and the failure would read as a broken cross product
+ * rather than as the skip rule working. Which is exactly what it did on the first run.
+ */
+do $$
+declare n integer;
+begin
+  n := public.request_consent(
+    'a1111111-1111-4111-8111-111111111111',
+    array['sunscreen', 'medical_emergency']::public.consent_kind[],
+    'Before the trip on the 12th.');
+  -- Two guardians times two kinds. The cross product is the point: an ask that reached one
+  -- guardian would leave the other able to say nobody asked them.
+  perform pg_temp.expect(n = 4, 'an OWNER asks, and both of Ana''s guardians are asked for both kinds');
+end $$;
+
+select pg_temp.expect(
+  (select count(distinct guardian_id) from public.consent_requests
+    where child_id = 'a1111111-1111-4111-8111-111111111111') = 2,
+  'the guardian with no app account is asked too — the ask is a fact about the centre, not about who has a login'
+);
+
+/*
+ * ONE NOTIFICATION PER GUARDIAN, NEVER ONE PER KIND.
+ *
+ * 0063's lesson and the reason it is asserted rather than trusted: four required consents
+ * across two guardians is eight letters for one enrolment, which is a muted inbox — and a
+ * muted inbox takes 0057's emergency channel with it. Two kinds were asked; Priya gets one
+ * letter.
+ */
+-- Read as PRIYA, not as the owner. `notifications_own` scopes the inbox to its owner, so
+-- asserting this as Alice counts zero and would have read as "the notification was never
+-- sent" — which is what it did on the first run. Reading it as the recipient also proves
+-- the thing that actually matters: it reached somebody who can open it.
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+
+select pg_temp.expect(
+  (select count(*) from public.notifications
+    where kind = 'reminder'
+      and route = '/children/a1111111-1111-4111-8111-111111111111/documents') = 1,
+  'the guardian with an account gets exactly ONE notification for a two-kind ask'
+);
+
+/*
+ * AND EXACTLY ONE LETTER LEFT THE BUILDING IN TOTAL.
+ *
+ * Counted as postgres because it spans every inbox, which is the only way to prove a
+ * negative about somebody else's: Ana's other guardian has no account, so there is nowhere
+ * to send to and nothing should have been attempted. One ask, two guardians, two kinds,
+ * one letter.
+ */
+set local role postgres;
+
+select pg_temp.expect(
+  (select count(*) from public.notifications
+    where route = '/children/a1111111-1111-4111-8111-111111111111/documents') = 1,
+  'and the guardian with no account gets none, because there is nowhere to send it'
+);
+
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+
+/*
+ * A KIND THAT ALREADY HAS AN ANSWER IS NOT ASKED FOR.
+ *
+ * Re-asking a granted consent is noise; re-asking a refused one is pressure, and a product
+ * should not automate that. `excursion` is answered first, then offered alongside an
+ * unanswered kind — only the unanswered one produces rows.
+ */
+do $$
+declare n integer;
+begin
+  insert into public.consent_events (child_id, kind, granted, given_by)
+  values ('a1111111-1111-4111-8111-111111111111', 'excursion', true,
+          'd1111111-1111-4111-8111-111111111111');
+
+  n := public.request_consent(
+    'a1111111-1111-4111-8111-111111111111',
+    array['excursion', 'transport']::public.consent_kind[]);
+  -- Two guardians times ONE still-unanswered kind. `excursion` is dropped.
+  perform pg_temp.expect(n = 2, 'an answered kind is skipped; only the unanswered one is asked');
+end $$;
+
+select pg_temp.expect(
+  (select count(*) from public.consent_requests
+    where child_id = 'a1111111-1111-4111-8111-111111111111' and kind = 'excursion') = 0,
+  'and no row was written for the kind that already had a decision'
+);
+
+/*
+ * A PARENT MAY NOT ASK.
+ *
+ * Asking is the centre's act. This is the assertion that matters most in this block: the
+ * function is SECURITY DEFINER because it writes into other people's inboxes, so the staff
+ * check inside it is the ONLY thing standing between `authenticated` and an arbitrary
+ * notification to another family. If that check is ever dropped, this is the row that says so.
+ */
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+
+do $$
+declare ok boolean := false;
+begin
+  begin
+    perform public.request_consent(
+      'a1111111-1111-4111-8111-111111111111',
+      array['photo_public']::public.consent_kind[]);
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'a PARENT cannot ask — even about their own child');
+end $$;
+
+-- But she can see that she was asked. A request the family cannot read has not been made.
+select pg_temp.expect(
+  (select count(*) from public.consent_requests
+    where child_id = 'a1111111-1111-4111-8111-111111111111'
+      and guardian_id = 'd1111111-1111-4111-8111-111111111111') = 3,
+  'a PARENT reads the asks addressed to them'
+);
+
+-- And the guardianship boundary holds inside the centre: Quinn is Beau's father.
+set local request.jwt.claims = '{"sub":"44444444-4444-4444-8444-444444444444","role":"authenticated"}';
+
+select pg_temp.expect(
+  (select count(*) from public.consent_requests
+    where child_id = 'a1111111-1111-4111-8111-111111111111') = 0,
+  'another family at the SAME centre reads none of Ana''s asks'
+);
+
+/*
+ * APPEND-ONLY IS A GRANT, NOT A POLICY — AGENTS.md §4.4.
+ *
+ * There is no UPDATE or DELETE policy, and more to the point no grant, so these fail at the
+ * privilege check before RLS is consulted. Asserted for the owner rather than a parent
+ * because the owner is the caller most likely to have been given a way round it by accident.
+ */
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+
+do $$
+declare ok boolean := false;
+begin
+  begin
+    update public.consent_requests set requested_at = now() - interval '1 year';
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'NOBODY can edit an ask — not even the owner');
+end $$;
+
+do $$
+declare ok boolean := false;
+begin
+  begin
+    delete from public.consent_requests;
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'and nobody can delete one');
+end $$;
+
+-- Cross-centre: Bob owns centre B and has no business asking about a centre A child.
+set local request.jwt.claims = '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}';
+
+do $$
+declare ok boolean := false;
+begin
+  begin
+    perform public.request_consent(
+      'a1111111-1111-4111-8111-111111111111',
+      array['photo_public']::public.consent_kind[]);
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'an owner of ANOTHER centre cannot ask about this centre''s child');
+end $$;
+
+select pg_temp.expect(
+  (select count(*) from public.consent_requests) = 0,
+  'and reads none of them'
+);
+
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+
+-- ---------------------------------------------------------------------------
 -- DETAIL CONFIRMATIONS (0055)
 --
 -- A family says their details are right. The interesting properties are that a guardian
@@ -7248,6 +7444,9 @@ begin
                            'ai_requests',
                            -- 0055: a confirmation IS the record.
                            'detail_confirmations',
+                           -- 0073: the ask IS the record. "We asked on the 4th" is only
+                           -- worth saying if nobody could have written it on the 20th.
+                           'consent_requests',
                            -- 0057: a sent broadcast IS the record — see the header of 0057.
                            'emergency_broadcasts',
                            -- 0061: a family's signature IS the record. Named in

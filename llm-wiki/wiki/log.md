@@ -5,6 +5,59 @@ says so.*
 
 ---
 
+2026-08-29 — **Photographs are fine once a family agrees, so the product now asks. Plus a
+defect I reported that had been fixed six weeks earlier.** New page: [[asking-for-consent]].
+Extended: [[consent-gated-media]], [[parent-self-service]].
+
+The owner's instruction was "photos are ok when parents give consent — adjust system to ask consent
+from parents". Reading first turned up that **the mechanism was already complete and had been since
+0004**: `recordConsent` listed `parent` in `CAPABILITIES`, `consent_insert` allowed
+`given_by in (select caller_guardian_ids())` scoped so one parent cannot answer for the other, the
+grant was there, and `ConsentPanel` already rendered a parent branch reading "these are your
+decisions to make". Nothing about it needed changing and nothing about it was changed.
+
+**What did not exist was anything that asks.** `missingConsents()` was rendered on three staff
+surfaces and `showConsentGap={!isParent}` deliberately kept it from families, so a parent's only
+route to an unanswered consent was to open their child's record and notice. Migration **0073** adds
+`consent_requests` and `request_consent`; the parent's home page now names the questions in their
+own words and links to the control.
+
+**The decision this satisfies rather than reverses.** The child record's header comment reads: "a
+family reading '2 consent unanswered' about their own child *on a screen with no control to answer
+it* has been told off by a database." The condition is the last clause. The staff shorthand stays
+away from parents; the questions themselves, next to the answer control, are a different thing.
+
+**A time window that only fails inside a transaction.** `request_consent` first found the rows it
+had just written with `requested_at >= now() - interval '1 second'`. `now()` is the TRANSACTION
+timestamp, so within one transaction every row that child had ever been asked for matches. Each
+production call is its own transaction and it would have behaved; the RLS suite runs the whole file
+in one, and a second ask would have re-notified the first ask's rows. Replaced with a
+data-modifying CTE whose `returning` carries the guardians out.
+
+**Two assertions that failed for reasons worth keeping.** The cross product read 2 rather than 4 —
+Ana's `photo_internal` is granted then withdrawn earlier in the suite, and a withdrawal is an
+answer, so the skip rule fired correctly and my premise was wrong. And the notification count read
+0 because I asserted it as the owner, while `notifications_own` scopes an inbox to its owner;
+asserted as the recipient it also proves the letter reached somebody who can open it.
+
+Mutation-drilled, each inside the suite's own `begin … rollback` so the live schema was never
+weakened: removing `caller_is_staff_for_child` from the definer function failed "a PARENT cannot
+ask"; narrowing the select policy to staff failed "a PARENT reads the asks addressed to them";
+dropping the answered-kind skip failed "an answered kind is skipped". Three mutations, three
+distinct assertions, nothing else moved. 554/554 (+13). `review:security` 16/16.
+
+**A correction to my own reporting, and it is the more useful half of this entry.** In
+`docs/doorway-without-infocare.md` I listed three columns carrying `default current_date` —
+`medication_authorities.starts_on`, `fee_schedules.active_from`, `payments.paid_on` — and made a
+phase of fixing them. **Migration 0029 fixed all three on 2026-08-07** and added the catalogue
+guard that reads `information_schema` for exactly that pattern. That guard has been passing in
+every run of `test:rls` since, including the ones I have been quoting. I sourced the claim by
+grepping the migrations that *create* those tables and never checked whether a later one altered
+them — the same class as 0068's stale `audit_trigger()`: a migration file is not the schema. The
+phase is struck through rather than deleted, with the reasoning kept.
+
+---
+
 2026-08-27 — **Careers form removed, enrolment enquiries now email, and the ocean turned toward
 turquoise by going back the way it came.** Extended: [[public-website]], [[recruitment]].
 

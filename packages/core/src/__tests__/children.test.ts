@@ -11,13 +11,17 @@ import {
   isGranted,
   isMedicationCurrent,
   isUnderTwo,
+  consentProgress,
   missingConsents,
+  unaskedConsents,
   hasCriticalCondition,
   todayInZone,
   NZ_TIMEZONE,
   CONSENT_DETAIL,
   CONSENT_KINDS,
   REQUIRED_CONSENTS,
+  type ConsentKind,
+  type ConsentRequest,
   type ConsentState,
   type Enrolment,
   type HealthCondition,
@@ -163,6 +167,80 @@ describe('consent is three-state, not a boolean', () => {
     expect(CONSENT_DETAIL.photo_internal.detail).not.toBe(CONSENT_DETAIL.photo_public.detail);
     expect(REQUIRED_CONSENTS).toContain('photo_internal');
     expect(REQUIRED_CONSENTS).not.toContain('photo_public');
+  });
+});
+
+describe('asking is a fourth fact — 0073', () => {
+  const asked = (kind: ConsentKind, requestedAt: string): ConsentRequest => ({
+    kind,
+    guardianId: 'g1',
+    requestedAt,
+    note: null,
+  });
+
+  it('separates never asked from asked and unanswered', () => {
+    const progress = consentProgress([], [asked('sunscreen', '2026-03-04T00:00:00Z')]);
+    const sunscreen = progress.find((p) => p.kind === 'sunscreen');
+    const excursion = progress.find((p) => p.kind === 'excursion');
+
+    // The distinction the schema could not express before 0073. Both are unanswered;
+    // one is the centre waiting and the other is the centre not having asked.
+    expect(sunscreen).toEqual({
+      kind: 'sunscreen',
+      state: 'awaiting',
+      requestedAt: '2026-03-04T00:00:00Z',
+    });
+    expect(excursion).toEqual({ kind: 'excursion', state: 'unasked' });
+  });
+
+  it('lets an answer beat an ask that came after it', () => {
+    /*
+      A family answered in January; the office pressed the button again in March without
+      looking. Treating the later ask as reopening the question would show a family as owing
+      an answer they have already given, which is how a product nags somebody into ignoring
+      it. Ordering deliberately puts the ask AFTER the answer.
+    */
+    const answered: ConsentState[] = [
+      { kind: 'sunscreen', granted: true, givenBy: 'g1', at: '2026-01-01T00:00:00Z' },
+    ];
+    const progress = consentProgress(answered, [asked('sunscreen', '2026-03-04T00:00:00Z')]);
+    expect(progress.find((p) => p.kind === 'sunscreen')).toEqual({
+      kind: 'sunscreen',
+      state: 'answered',
+      granted: true,
+      at: '2026-01-01T00:00:00Z',
+    });
+  });
+
+  it('reports the most recent ask when a family has been chased', () => {
+    const progress = consentProgress([], [
+      asked('excursion', '2026-02-01T00:00:00Z'),
+      asked('excursion', '2026-04-20T00:00:00Z'),
+      asked('excursion', '2026-03-10T00:00:00Z'),
+    ]);
+    // Newest, not first and not last in the array — the input is deliberately unsorted.
+    expect(progress.find((p) => p.kind === 'excursion')).toEqual({
+      kind: 'excursion',
+      state: 'awaiting',
+      requestedAt: '2026-04-20T00:00:00Z',
+    });
+  });
+
+  it('narrows the office list to what nobody has even been asked for', () => {
+    const requests = [asked('sunscreen', '2026-03-04T00:00:00Z')];
+    // `missingConsents` counts everything unanswered — the right number for "is this
+    // enrolment finished". `unaskedConsents` is what the centre can act on alone.
+    expect(missingConsents([])).toEqual([...REQUIRED_CONSENTS]);
+    expect(unaskedConsents([], requests)).not.toContain('sunscreen');
+    expect(unaskedConsents([], requests)).toContain('excursion');
+  });
+
+  it('is empty for a centre that has never used the feature', () => {
+    // Every existing centre, on the day 0073 ships. The panel must render exactly as
+    // before rather than showing every row as newly "not asked" in a different way.
+    const progress = consentProgress([], []);
+    expect(progress.every((p) => p.state === 'unasked')).toBe(true);
+    expect(unaskedConsents([], [])).toEqual([...REQUIRED_CONSENTS]);
   });
 });
 

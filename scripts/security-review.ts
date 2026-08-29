@@ -82,6 +82,8 @@ const APPEND_ONLY = [
   'payments',
   'ai_requests',
   'detail_confirmations',
+  // 0073: the record that the centre asked. Editable, it answers nothing.
+  'consent_requests',
   'emergency_broadcasts',
   // 0061: a family's signature under a funding claim. 6-3 criterion 5 requires that any
   // alteration is evident; withholding the verb is how that is made true rather than hoped.
@@ -580,6 +582,8 @@ async function main() {
                              'ai_requests',
                              -- 0055: a confirmation IS the record; an editable one answers nothing.
                              'detail_confirmations',
+                             -- 0073: the ask IS the record, same reasoning one table across.
+                             'consent_requests',
                              -- 0057: a sent emergency broadcast IS the record.
                              'emergency_broadcasts',
                              -- 0061: a signature IS the record; an editable one proves nothing.

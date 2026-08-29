@@ -59,6 +59,9 @@ and [`../schema.md`](../schema.md) for the page template.
   would be worse than none: it would talk a centre into a breach behind a green screen
 - [[staff-as-people]] — the identity question Phase 10 hangs off: three notions of a person that
   already existed and none that fit, and the backfill migration that must not be written
+- [[asking-for-consent]] — the mechanism existed from week one and nothing ever asked; the third
+  state (asked and waiting), and the decision about telling parents this change satisfies rather
+  than reverses
 - [[consent-gated-media]] — a photograph that cannot exist without a recorded consent decision,
   and the RLS trap that made the first version leak to staff
 - [[exports]] — CSV and PDF: why a byte-order mark is a product decision in a te reo Māori

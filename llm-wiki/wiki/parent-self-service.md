@@ -11,7 +11,18 @@ child record, `apps/site/src/app/enrolment`, and `/enquiries` in the web app.
 
 ## What a guardian may do, and the one-sentence reason they may
 
-**Mark a booked day as `absent`. Nothing else.**
+**Mark a booked day as `absent`, and record their own consent decisions. Nothing else.**
+
+Consent came second and is documented separately in [[asking-for-consent]]. The write itself
+has been permitted since 0004 — `consent_insert` allows `given_by in (select
+caller_guardian_ids())`, scoped so one parent cannot answer on the other's behalf. What 0073
+added is that the product now **asks**: before it, a family's only route to an unanswered
+consent was to open their child's record and notice. It is a safe write for the same shape of
+reason as the absence below — a consent decision is the family's to make, the append-only
+table means it cannot be quietly rewritten, and there is no path from it to anything
+financial.
+
+The absence write is the more interesting of the two, and the rest of this page is about it.
 
 The safety argument is entirely in 0018's comment on the enum:
 
@@ -471,4 +482,4 @@ children, and today's bookings come through `listBookings` with the roll's own R
 [[tenancy-and-rls]] · [[funding-and-billing]] · [[kiosk-and-pins]] · [[conventions]] ·
 [[attendance-and-ratios]] · [[unverified-claims]]
 
-*Last updated: 2026-08-14*
+*Last updated: 2026-08-29*

@@ -6,6 +6,7 @@ import {
   listChildIncidents,
   listConfirmations,
   listConsentHistory,
+  listConsentRequests,
   listConsents,
   listCustodyArrangements,
   listEnrolments,
@@ -429,9 +430,10 @@ export default async function ChildTabPage({
   // Documents: the paperwork. Consent decisions, the enrolment, the identity record, and
   // leaving — the things a manager opens sitting down, which is why they are behind a tab
   // rather than above the fold.
-  const [consents, history, whanau, enrolments] = await Promise.all([
+  const [consents, history, requests, whanau, enrolments] = await Promise.all([
     listConsents(db, id),
     listConsentHistory(db, id),
+    listConsentRequests(db, id),
     listGuardiansOfChild(db, id),
     listEnrolments(db, id),
   ]);
@@ -458,6 +460,7 @@ export default async function ChildTabPage({
           childId={id}
           consents={consents}
           history={history}
+          requests={requests}
           guardians={whanau.map((g) => ({ id: g.guardian.id, name: g.guardian.fullName }))}
           canRecord={can(ctx.role, 'recordConsent')}
           isParent={isParent}

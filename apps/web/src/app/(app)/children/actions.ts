@@ -32,6 +32,7 @@ import {
   linkGuardian,
   recordAdministration,
   recordConsent,
+  requestConsent,
   recordImmunisation,
   recordVerification,
   resolveHealthCondition,
@@ -48,6 +49,7 @@ import {
   HEALTH_KINDS,
   HEALTH_SEVERITIES,
   IMMUNISATION_STATUSES,
+  REQUIRED_CONSENTS,
   todayInZone,
   type ConsentKind,
   type Gender,
@@ -466,6 +468,49 @@ export async function setConsent(_prev: unknown, form: FormData): Promise<Result
     await recordConsent(db, { childId, kind, granted, givenBy, note: str(form, 'note') || null });
   } catch (e) {
     return actionError(e, 'setConsent');
+  }
+  revalidatePath(`/children/${childId}`);
+  return { ok: true };
+}
+
+/**
+ * Ask this child's guardians for the decisions nobody has answered.
+ *
+ * The kinds are **not** taken from the form. Everything a caller could put there is decided
+ * by `request_consent` (0073) anyway — it drops any kind that already has an answer — so
+ * accepting a list here would be a parameter that looks like it does something and does not,
+ * which is worse than no parameter. The office asks for what is outstanding; there is no
+ * screen for asking selectively and no reason for one.
+ *
+ * Refused for a parent by the definer function's staff check rather than by this file. The
+ * check here is the same one the nav uses, so the button is not drawn for somebody the
+ * database would refuse — never the thing that actually stops them.
+ */
+export async function askForConsent(_prev: unknown, form: FormData): Promise<Result> {
+  const ctx = await requireCtx();
+  const db = await serverDb();
+
+  const childId = str(form, 'childId');
+  if (!childId) return { error: 'Missing child.' };
+  if (ctx.role === 'parent') return { error: 'Only the centre can send this request.' };
+
+  try {
+    /*
+      The return value is deliberately discarded, and zero is deliberately not an error.
+
+      Zero means every kind offered already had an answer. The button is only drawn when
+      something is outstanding, so reaching zero means the other guardian answered while this
+      page was open — a race, and the right response to it is the re-render below showing the
+      answer that arrived. A red box saying "failed" over a finished enrolment is how somebody
+      presses the button four more times.
+    */
+    await requestConsent(db, {
+      childId,
+      kinds: [...REQUIRED_CONSENTS],
+      note: str(form, 'note') || null,
+    });
+  } catch (e) {
+    return actionError(e, 'askForConsent');
   }
   revalidatePath(`/children/${childId}`);
   return { ok: true };

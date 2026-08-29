@@ -17,6 +17,7 @@ import type {
   Child,
   ChildGuardian,
   ConsentKind,
+  ConsentRequest,
   ConsentState,
   Enrolment,
   Gender,
@@ -821,6 +822,110 @@ export async function hasConsent(db: Db, childId: string, kind: ConsentKind): Pr
   const { data, error } = await db.rpc('has_consent', { p_child: childId, p_kind: kind });
   if (error) throw new Error(`hasConsent: ${error.message}`);
   return data === true;
+}
+
+// ---------------------------------------------------------------------------
+// Consent requests — 0073, when the centre asked
+// ---------------------------------------------------------------------------
+
+interface ConsentRequestRow {
+  kind: ConsentKind;
+  guardian_id: string;
+  requested_at: string;
+  note: string | null;
+}
+
+const CONSENT_REQUEST_COLUMNS = 'kind, guardian_id, requested_at, note';
+
+function toConsentRequest(r: ConsentRequestRow): ConsentRequest {
+  return {
+    kind: r.kind,
+    guardianId: r.guardian_id,
+    requestedAt: r.requested_at,
+    note: r.note,
+  };
+}
+
+/**
+ * Every ask recorded for one child, newest first.
+ *
+ * Paged, and the bounded-queries guard was right to insist. The intuition that says "seven
+ * kinds and two guardians, this is fourteen rows" is wrong because the table is append-only
+ * and records *every* ask: a family that never answers and an office that chases weekly
+ * produces eight rows a week, which passes a thousand inside three years. Truncation would
+ * silently drop the newest asks, which is precisely the half that matters.
+ */
+export async function listConsentRequests(db: Db, childId: string): Promise<ConsentRequest[]> {
+  const rows = await fetchAll<ConsentRequestRow>('listConsentRequests', (from, to) =>
+    db
+      .from('consent_requests')
+      .select(CONSENT_REQUEST_COLUMNS)
+      .eq('child_id', childId)
+      .order('requested_at', { ascending: false })
+      .order('id')
+      .range(from, to),
+  );
+  return rows.map(toConsentRequest);
+}
+
+/**
+ * Asks for a whole centre, keyed by child.
+ *
+ * `consent_requests` carries no `centre_id` — it reaches its tenant through the child — so
+ * this uses the `children!inner` embed that `listHealthByChild` documents. The embed is not
+ * only a join: `children` RLS applies to the joined side, so a parent calling this gets
+ * their own child's asks from the same call an educator uses to get the room's.
+ */
+export async function listConsentRequestsByChild(
+  db: Db,
+  centreId: string,
+): Promise<Map<string, ConsentRequest[]>> {
+  const rows = await fetchAll<ConsentRequestRow & { child_id: string }>(
+    'listConsentRequestsByChild',
+    (from, to) =>
+      db
+        .from('consent_requests')
+        .select(`${CONSENT_REQUEST_COLUMNS}, child_id, children!inner(centre_id)`)
+        .eq('children.centre_id', centreId)
+        .order('requested_at', { ascending: false })
+        .order('id')
+        .range(from, to),
+  );
+
+  const out = new Map<string, ConsentRequest[]>();
+  for (const row of rows) {
+    const req = toConsentRequest(row);
+    const list = out.get(row.child_id);
+    if (list) list.push(req);
+    else out.set(row.child_id, [req]);
+  }
+  return out;
+}
+
+/**
+ * Ask this child's guardians for the decisions nobody has answered.
+ *
+ * Everything of consequence happens in `request_consent` (0073) rather than here: the
+ * staff check, skipping kinds that already have an answer, and one notification per
+ * guardian instead of one per kind. This is a definer function because `notifications` is
+ * `grant select` only for `authenticated` — writing into another person's inbox is not
+ * something a session may do directly.
+ *
+ * Returns how many (guardian, kind) asks were recorded. **Zero is a normal answer**, not a
+ * failure: it means every kind offered already had a decision, and the caller renders that
+ * rather than throwing.
+ */
+export async function requestConsent(
+  db: Db,
+  input: { childId: string; kinds: ConsentKind[]; note?: string | null },
+): Promise<number> {
+  const { data, error } = await db.rpc('request_consent', {
+    p_child: input.childId,
+    p_kinds: input.kinds,
+    p_note: input.note?.trim() || null,
+  });
+  if (error) throw new Error(`requestConsent: ${error.message}`);
+  return typeof data === 'number' ? data : 0;
 }
 
 // ---------------------------------------------------------------------------

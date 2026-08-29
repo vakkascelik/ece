@@ -255,6 +255,88 @@ export function missingConsents(states: ConsentState[]): ConsentKind[] {
   return REQUIRED_CONSENTS.filter((k) => consentFor(states, k) === undefined);
 }
 
+/** One record that the centre asked a named guardian for a named decision. See 0073. */
+export interface ConsentRequest {
+  kind: ConsentKind;
+  guardianId: string;
+  requestedAt: string;
+  note: string | null;
+}
+
+/**
+ * Where one consent decision has got to.
+ *
+ * `consentFor` distinguishes "answered" from "never asked", and its comment is emphatic
+ * about why. This is that distinction carried one level further: **"never asked" and
+ * "asked, and they have not answered" are also completely different facts**, and until
+ * 0073 nothing here could tell them apart. A reviewer asking "have you sought photo
+ * consent" got identical silence from a centre that had asked three times and one that had
+ * never opened the page.
+ *
+ * `awaiting` is not a worse `unasked`. It is the centre having done its part.
+ */
+export type ConsentProgress =
+  | { kind: ConsentKind; state: 'answered'; granted: boolean; at: string }
+  | { kind: ConsentKind; state: 'awaiting'; requestedAt: string }
+  | { kind: ConsentKind; state: 'unasked' };
+
+/**
+ * Progress per kind, newest ask winning when a family has been chased more than once.
+ *
+ * Answered beats asked in every case, including the order they arrived in: a decision
+ * recorded before the most recent request still answers it. The alternative — treating a
+ * later ask as reopening a settled question — would show a family as owing an answer they
+ * have already given, which is how a product nags somebody into ignoring it.
+ */
+export function consentProgress(
+  consents: ConsentState[],
+  requests: ConsentRequest[],
+  kinds: readonly ConsentKind[] = REQUIRED_CONSENTS,
+): ConsentProgress[] {
+  return kinds.map((kind) => {
+    const answer = consentFor(consents, kind);
+    if (answer) return { kind, state: 'answered', granted: answer.granted, at: answer.at };
+
+    const asks = requests.filter((r) => r.kind === kind);
+    if (asks.length === 0) return { kind, state: 'unasked' };
+
+    const latest = asks.reduce((a, b) => (a.requestedAt >= b.requestedAt ? a : b));
+    return { kind, state: 'awaiting', requestedAt: latest.requestedAt };
+  });
+}
+
+/*
+  There is deliberately no `awaitingAnswer(consents, requests)` here.
+
+  It was written and removed: filtering `consentProgress` to everything not answered returns
+  exactly `missingConsents(consents)`, because a kind is unanswered whether or not anybody was
+  asked. A second name for the same list is how two screens end up disagreeing about one
+  number after somebody edits one of them.
+
+  Worth recording *why* the parent's own list is "unanswered by anybody" rather than
+  "unanswered by this guardian": `current_consents` is `distinct on (child_id, kind) order by
+  at desc`, so the latest event wins regardless of which guardian recorded it. A decision one
+  parent has made counts as made. Asking per guardian would ask both parents for everything
+  twice and would contradict what the centre's own screens report.
+*/
+
+/**
+ * Required kinds nobody has answered *and* nobody has been asked for.
+ *
+ * The office's list, and narrower than `missingConsents` on purpose — that one counts
+ * everything unanswered, which is the right number for "is this enrolment finished". This
+ * one is "what have we not even done our part on", which is the only list a centre can act
+ * on without waiting for somebody else.
+ */
+export function unaskedConsents(
+  consents: ConsentState[],
+  requests: ConsentRequest[],
+): ConsentKind[] {
+  return consentProgress(consents, requests)
+    .filter((p) => p.state === 'unasked')
+    .map((p) => p.kind);
+}
+
 // ---------------------------------------------------------------------------
 // Age
 // ---------------------------------------------------------------------------

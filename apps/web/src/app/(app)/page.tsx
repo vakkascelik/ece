@@ -2,6 +2,7 @@ import Link from 'next/link';
 import {
   listAttendanceToday,
   listChildren,
+  listConsentsByChild,
   listDrills,
   listHazards,
   listIncidents,
@@ -9,10 +10,13 @@ import {
   readAdultsPresent,
 } from '@ece/api';
 import {
+  CONSENT_DETAIL,
   assessAll,
   assessRatio,
   can,
+  displayName,
   drillStatuses,
+  missingConsents,
   splitByAgeBand,
   summarise,
   summariseHazards,
@@ -68,12 +72,27 @@ export default async function OverviewPage() {
   const office = can(ctx.role, 'manageCentre');
 
   /*
+    A parent's own screen, and the one thing this page has ever had to say to them.
+
+    The child record's header carries `showConsentGap={!isParent}`, and its comment gives the
+    reason: "a family reading '2 consent unanswered' about their own child on a screen with no
+    control to answer it has been told off by a database."
+
+    That condition is the whole rule, and it is met here rather than reversed. This section
+    names the actual questions in the family's own words and links to the control that answers
+    them. The staff shorthand — a count of gaps against an enrolment checklist — stays where it
+    was and stays away from parents, because it is a note about the centre's paperwork rather
+    than a question for the family.
+  */
+  const parent = ctx.role === 'parent';
+
+  /*
     A parent gets none of this. Their overview is their own child's record, reached from
     Tamariki — a centre-wide ratio and a hazard count are not theirs to read, and the policies
     would refuse most of it anyway. Rendering an empty dashboard for them would be a screen
     that says "there is something here you cannot see".
   */
-  const [children, states, adultsPresent, incidents, staffRecords, hazards, drills] =
+  const [children, states, adultsPresent, incidents, staffRecords, hazards, drills, myChildren, consentsByChild] =
     await Promise.all([
       daily ? listChildren(db, ctx.centre.id) : Promise.resolve([]),
       daily ? listAttendanceToday(db, ctx.centre.id) : Promise.resolve([]),
@@ -91,6 +110,15 @@ export default async function OverviewPage() {
       office ? listStaffRecords(db, ctx.centre.id) : Promise.resolve([]),
       daily ? listHazards(db, ctx.centre.id) : Promise.resolve([]),
       daily ? listDrills(db, ctx.centre.id) : Promise.resolve([]),
+      /*
+        Both calls are the same ones staff make, with no guardianship filter added here —
+        `children_select` already narrows to `caller_ward_ids()` for a parent, and
+        `current_consents` is `security_invoker` so it inherits that. Adding a `.eq()` would
+        be a second boundary that can disagree with the first. See the header of
+        `packages/api/src/children.ts`.
+      */
+      parent ? listChildren(db, ctx.centre.id) : Promise.resolve([]),
+      parent ? listConsentsByChild(db, ctx.centre.id) : Promise.resolve(new Map()),
     ]);
 
   const present = children.filter((c) => states.find((s) => s.childId === c.id)?.kind === 'in');
@@ -161,6 +189,24 @@ export default async function OverviewPage() {
     });
   }
 
+  /*
+    One entry per child who still owes an answer, with the questions themselves.
+
+    Computed on read from `missingConsents`, never materialised — the same argument the
+    checklist engine makes for having no scheduler: nothing should put rows in the database
+    for work nobody has done. It also means the prompt is honest without anybody at the
+    centre having remembered to press a button, which is the difference between a product
+    that asks and a product that could ask.
+  */
+  const consentAsks = parent
+    ? myChildren
+        .map((child) => ({
+          child,
+          kinds: missingConsents(consentsByChild.get(child.id) ?? []),
+        }))
+        .filter((row) => row.kinds.length > 0)
+    : [];
+
   return (
     <>
       <PageHeader
@@ -195,6 +241,59 @@ export default async function OverviewPage() {
         </section>
       )}
 
+      {/*
+        Above "Needs attention" and not inside it, because it is not the same kind of thing.
+        That list is a set of one-line labels a member of staff scans; this is a question
+        being put to somebody, and a question compressed to "4 consents outstanding" is one
+        nobody can answer without opening something else first.
+      */}
+      {consentAsks.length > 0 && (
+        <section className="section" aria-labelledby="consent-ask-heading">
+          <h2 id="consent-ask-heading">Some decisions are needed from you</h2>
+          <div className="card">
+            {consentAsks.map(({ child, kinds }) => (
+              <div key={child.id} style={{ marginBottom: '1rem' }}>
+                <p style={{ margin: '0 0 0.5rem' }}>
+                  <strong>{displayName(child)}</strong>
+                </p>
+                <ul className="stack">
+                  {kinds.map((kind) => (
+                    <li key={kind}>
+                      {CONSENT_DETAIL[kind].label}
+                      <div className="sub" style={{ fontSize: '0.8125rem' }}>
+                        {CONSENT_DETAIL[kind].detail}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+                <p style={{ margin: '0.5rem 0 0' }}>
+                  <Link href={`/children/${child.id}/documents`}>
+                    Answer these for {displayName(child)}
+                  </Link>
+                </p>
+              </div>
+            ))}
+            {/*
+              Said once, at the bottom, and it is the sentence that makes the rest safe to
+              show: a family that believes an answer is final will delay giving one.
+            */}
+            <p className="sub" style={{ margin: 0 }}>
+              You can change any of these at any time, and a photo is never used in a way you
+              have not agreed to.
+            </p>
+          </div>
+        </section>
+      )}
+
+      {/*
+        Withheld from a parent who has something to answer, because for them the section above
+        IS this one. Every item `outstanding` can hold is gated on `daily` or `office`, so for
+        a parent it is always empty and always renders "Nothing outstanding" — which, printed
+        directly under a list of decisions the centre needs from them, is the screen
+        contradicting itself. When they have nothing pending it stays, because then it is true
+        and worth saying.
+      */}
+      {(!parent || consentAsks.length === 0) && (
       <section className="section" aria-labelledby="outstanding-heading">
         <h2 id="outstanding-heading">Needs attention</h2>
         <div className="card">
@@ -229,6 +328,7 @@ export default async function OverviewPage() {
           )}
         </div>
       </section>
+      )}
 
       {/*
         Kept, and moved below the working part of the screen.

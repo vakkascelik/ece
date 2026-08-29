@@ -1,5 +1,11 @@
 import Link from 'next/link';
-import { listChildren, listConsentsByChild, listCurrentEnrolments, listHealthByChild } from '@ece/api';
+import {
+  listChildren,
+  listConsentRequestsByChild,
+  listConsentsByChild,
+  listCurrentEnrolments,
+  listHealthByChild,
+} from '@ece/api';
 import {
   can,
   compareBySeverity,
@@ -9,8 +15,10 @@ import {
   hasCriticalCondition,
   isUnderTwo,
   missingConsents,
+  unaskedConsents,
   todayInZone,
   type Child,
+  type ConsentRequest,
   type ConsentState,
   type Enrolment,
   type HealthCondition,
@@ -35,12 +43,13 @@ export default async function ChildrenPage() {
   const ctx = await requireCtx();
   const db = await serverDb();
 
-  // Four queries for the whole page rather than three per child. A roll of forty
-  // otherwise costs 120 round trips to render one table.
-  const [children, healthByChild, consentsByChild, enrolments] = await Promise.all([
+  // Five queries for the whole page rather than four per child. A roll of forty
+  // otherwise costs 160 round trips to render one table.
+  const [children, healthByChild, consentsByChild, requestsByChild, enrolments] = await Promise.all([
     listChildren(db, ctx.centre.id),
     listHealthByChild(db, ctx.centre.id),
     listConsentsByChild(db, ctx.centre.id),
+    listConsentRequestsByChild(db, ctx.centre.id),
     listCurrentEnrolments(db, ctx.centre.id, todayInZone(ctx.centre.timezone)),
   ]);
 
@@ -106,6 +115,7 @@ export default async function ChildrenPage() {
                   enrolment={enrolmentByChild.get(child.id)}
                   health={healthByChild.get(child.id) ?? []}
                   consents={consentsByChild.get(child.id) ?? []}
+                  requests={requestsByChild.get(child.id) ?? []}
                   showConsentGap={!isParent}
                 />
               ))}
@@ -122,17 +132,29 @@ function ChildRow({
   enrolment,
   health,
   consents,
+  requests,
   showConsentGap,
 }: {
   child: Child;
   enrolment: Enrolment | undefined;
   health: HealthCondition[];
   consents: ConsentState[];
+  requests: ConsentRequest[];
   showConsentGap: boolean;
 }) {
   const critical = hasCriticalCondition(health);
   const worst = [...health].sort(compareBySeverity)[0];
   const gaps = missingConsents(consents);
+  /*
+    The office's actual chase list, and narrower than `gaps` on purpose.
+
+    `gaps` counts everything unanswered — the right number for "is this enrolment finished".
+    `unasked` is what nobody has even been asked for, which is the only part the centre can
+    fix without waiting on somebody else. A roll where every gap has been asked about is a
+    centre that has done its job and is waiting; a roll where none have is a centre that has
+    not started, and before 0073 those looked identical here.
+  */
+  const unasked = unaskedConsents(consents, requests);
 
   return (
     <tr>
@@ -182,7 +204,10 @@ function ChildRow({
           ) : null}
 
           {showConsentGap && gaps.length > 0 && (
-            <span className="flag flag-quiet">◌ {gaps.length} consent unanswered</span>
+            <span className="flag flag-quiet">
+              ◌ {gaps.length} consent unanswered
+              {unasked.length === 0 ? ' · asked' : unasked.length < gaps.length ? ` · ${unasked.length} not asked` : ' · not asked'}
+            </span>
           )}
         </span>
       </td>

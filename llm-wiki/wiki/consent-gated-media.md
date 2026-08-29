@@ -23,6 +23,9 @@ is necessary and not sufficient, because consent can be withdrawn *after* the up
   the row being visible.
 - **One child without consent hides the whole item.** Correct, not harsh.
 - **Consent is never checked in application code.** One rule, one implementation.
+- **Photographs are fine once a family has agreed** — this page is the enforcement, not a ban.
+  How the question actually gets put to them is [[asking-for-consent]], added 2026-08-29,
+  because until then nothing in the product ever asked.
 - The bug that made this a restrictive policy is worth reading below: it hid correctly from whānau
   and not at all from staff, which is exactly why it survived a first review.
 
@@ -168,9 +171,10 @@ tagging nicety: it is the list the gate checks.
 
 ## See Also
 
+- [[asking-for-consent]] — how a decision gets collected in the first place
 - [[compliance-and-evidence]] — the other place consent decisions are read
 - [[tenancy-and-rls]] — the guardianship predicates this builds on
 - [[unverified-claims]] — push delivery, which is built and has never run
 - [[privacy-and-retention]]
 
-*Last updated: 2026-08-04*
+*Last updated: 2026-08-29*
