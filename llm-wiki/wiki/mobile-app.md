@@ -164,6 +164,57 @@ prove they told the centre about an allergy.
 Send stays enabled while offline, because attempting is the connectivity check. That is the same
 doctrine the outbox uses, and a disabled button teaches people to give up.
 
+### Inspecting a build, and the grep that lies about te reo
+
+Every AAB this repo has produced has been inspected rather than trusted, because the first one was
+green and could not have started. The check is: unzip the `.aab`, take
+`base/assets/index.android.bundle`, and confirm the Supabase URL and anon key are present as
+literals, the variable *name* `EXPO_PUBLIC_SUPABASE_URL` is absent, and `service_role` appears
+nowhere. Name present and values absent is the signature of the 12 August defect.
+
+**That check has a blind spot, found on versionCode 6.** Hermes stores a string as one byte per
+character when it is pure ASCII and as **UTF-16** the moment it contains any character that is not.
+So an ASCII `grep` finds `Tamariki` and cannot find `Pānui` — and returns *zero*, which reads
+exactly like "the string is not in the build".
+
+Measured on versionCode 6's bundle:
+
+| String | as UTF-8 | as UTF-16LE |
+|---|---|---|
+| `Tamariki` | 2 | 0 |
+| `Pānui` | **0** | 1 |
+| `whānau` | **0** | 3 |
+| `— still waiting on you` | **0** | 1 |
+
+This is not a curiosity in this product. The interface is full of macrons — `pānui`, `whānau`,
+`kaiako`, `tamariki` — and every one of them is invisible to the inspection the last three builds
+were signed off with. It caught nobody out yet only because the strings checked so far happened to
+be ASCII: a URL, a JWT, an environment variable name.
+
+It nearly caught this build out. The consent fix's middle branch reads
+`` `The centre asked on ${date} — still waiting on you` ``, and the em-dash puts that half of the
+template into UTF-16 while `The centre asked on ` stays ASCII — so a grep found one half of one
+sentence and not the other, which looks like a partially-shipped build. **Search both encodings, or
+you are testing which characters a string contains rather than whether it shipped.** Same failure
+as the mean-RGB icon comparison: a wrong instrument agreeing with a plausible story.
+
+### What `required()` compiles to, which 18 August left unasserted
+
+`929bb89` inspected versionCode 4 and deliberately declined to claim one thing: whether the
+`required()` guard's throw branch survived into the binary. Its grep came back empty, and empty was
+consistent with two different stories, so it was left alone rather than reported either way. That
+was the right call and it is now answerable.
+
+In versionCode 6, `". Set it in .env.local at the repo root."` is absent **in both encodings**, and
+so is `EXPO_PUBLIC_SUPABASE_ANON_KEY` — while the anon key's *value* is present. Both call sites
+pass a statically-known literal, so the comparison folds and the failure path is unreachable code
+the minifier drops.
+
+The guard being gone is the *desired* result, and it is the strongest evidence available that the
+configuration is a compile-time constant rather than something resolved at runtime — which is the
+exact property whose absence made every build before 13 August unstartable. What is not claimed
+here is which pass did it; the observation is about the artefact, not the optimiser.
+
 ### What has never run
 
 **Corrected 2026-08-29.** This said "everything on a device", and that stopped being true on

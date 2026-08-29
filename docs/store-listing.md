@@ -1,10 +1,11 @@
 # Store submission
 
 Everything a submission needs, written down before there is an account to submit with.
-**Nothing here has been submitted.** As at 2026-08-29 there are **four finished Android production
-AABs** — versionCode 2 and 3 (12 August), 4 and 5 (18 August), per `eas build:list`, which is the
-only source for this count that has ever been right. versionCode 4 was installed on an Android
-phone on 18 August and ran. Nothing has been submitted to any store.
+**Nothing here has been submitted.** As at 2026-08-29 there are **five finished Android production
+AABs** — versionCode 2 and 3 (12 August), 4 and 5 (18 August), 6 (29 August) — per `eas build:list`,
+which is the only source for this count that has ever been right. versionCode 4 was installed on an
+Android phone on 18 August and ran. versionCode 6 has been inspected and installed on nothing.
+Nothing has been submitted to any store.
 
 Two of these sections are declarations about children's personal information under oath,
 more or less — Google's Data Safety form and Apple's privacy questionnaire. Both are easy
@@ -15,7 +16,7 @@ rather than typed into a web form at midnight.
 
 | Blocked | On |
 |---|---|
-| ~~Any build at all~~ | Done 2026-08-12: project `@vakkascelik/ece`, production AAB built on EAS. Four as at 2026-08-29, versionCode 2–5 |
+| ~~Any build at all~~ | Done 2026-08-12: project `@vakkascelik/ece`, production AAB built on EAS. Five as at 2026-08-29, versionCode 2–6 |
 | iOS build | Apple Developer Program, US$99/year |
 | Android build | Play Console, US$25 once |
 | Airplane-mode drill | A development build on a device, **and a child enrolled against the tenant** — the 18 August run had an empty roll, so nothing was queued and `expo-sqlite` still has not executed |

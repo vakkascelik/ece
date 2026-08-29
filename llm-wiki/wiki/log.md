@@ -5,6 +5,40 @@ says so.*
 
 ---
 
+2026-08-29 (fifth entry) — **versionCode 6, and a grep that cannot see te reo.** Extended:
+[[mobile-app]], [[i18n]], [[unverified-claims]].
+
+An AAB was asked for and built: versionCode 6, commit `655219c`, ten minutes, native fingerprint
+`58befaf8…` byte-identical to all four before it. It carries the consent fix and the tab-glyph
+probe. It has been installed on nothing.
+
+**The inspection is the part worth recording.** Every AAB here gets unzipped and its Hermes bundle
+grepped, because the first one was green and could not have started. The consent fix's middle branch
+reads `` `The centre asked on ${date} — still waiting on you` `` — and the grep found
+`The centre asked on ` and **not** `still waiting on you`. Half a sentence, which looks exactly like
+a partially-shipped build.
+
+It is not. **Hermes stores a string one byte per character while it is pure ASCII and switches the
+whole string to UTF-16 the moment one character is not.** The em-dash does it. Measured on this
+bundle: `Tamariki` found as UTF-8 and not UTF-16; `Pānui` and `whānau` found as UTF-16 and **zero**
+times as UTF-8.
+
+That is a hole in the procedure the last three builds were signed off with, and it points straight at
+this product's own vocabulary — `pānui`, `whānau`, `kaiako`, `tamariki` are all invisible to it. It
+has not burned anyone yet only because everything checked so far was a URL, a JWT or an environment
+variable name. Same shape as the mean-RGB icon test: an instrument that cannot see the thing, giving
+an answer that agrees with a plausible wrong story.
+
+**And it settled something 18 August refused to claim.** `929bb89` declined to say whether
+`required()`'s throw branch survived into the binary, because its grep came back empty and empty had
+two explanations. In versionCode 6 the message is absent in *both* encodings, as is
+`EXPO_PUBLIC_SUPABASE_ANON_KEY`, while the anon key's value is present. Both call sites pass a
+literal, so the guard folds and the failure path is dropped. The guard being gone is the good
+outcome: it is the strongest evidence available that the config is a compile-time constant, which is
+precisely the property whose absence made every build before 13 August unstartable.
+
+---
+
 2026-08-29 (fourth entry) — **Four AABs exist, and three wiki pages said none did.** Corrected:
 [[unverified-claims]], [[production-readiness]], [[mobile-app]].
 
