@@ -83,9 +83,10 @@ Nothing here is a bug. They are known gaps with known closures.
   database did not enforce; one was about where a file lived. All four are listed in item 14,
   because a compliance product that overstates itself is the exact failure this page exists
   to prevent.
-- Anything asserted about ERO taking over regulation, or the April 2026 criteria
-  renumbering, came from an earlier research session in the `salix` repo and has not been
-  re-checked here.
+- **The ERO transfer is confirmed; the April 2026 criteria renumbering is not.** Regulatory
+  functions for ECE move from the Ministry to ERO on 1 September 2026, fixed by Order in
+  Council — checked against the Ministry on 2026-08-30. The renumbering, inherited from the
+  same `salix` research session, is still unchecked. Item 8.
 - **Neither switcher importer parses a real export.** `import-storypark.ts` and
   `import-discover.ts` define their own intake shapes rather than a sourced vendor format —
   this repo has never seen a real export from either product, and "Discover" is not even a
@@ -270,16 +271,36 @@ schema deliberately holds no validity periods at all.
 Lower stakes than the others: being early is harmless, and being late is visible. Worth
 adjusting from experience rather than from a source.
 
-### 8. Regulatory context inherited from another repo
+### 8. Regulatory context inherited from another repo — half closed 2026-08-30
 
 The product plan in `salix/llm-wiki/wiki/possible-projects/ece-early-learning-app.md`
 asserts that the licensing criteria were renumbered on 20 April 2026 and that ERO takes
-over as regulator on 1 September 2026. Both were researched in that session and neither has
-been re-checked here. The second has not happened yet as at 2026-08-04.
+over as regulator on 1 September 2026. Both were researched in that session; neither had
+been re-checked here until now. They matter because they are the timing argument for the
+whole product.
 
-They matter because they are the timing argument for the whole product. **To close it:**
-confirm both, and if the ERO transfer is real, note that the evidence binder's framing may
-need to change with the regulator.
+**The ERO half is confirmed.** Regulatory functions for early childhood education services,
+private schools and school hostels move from the Ministry to ERO on **1 September 2026**.
+The Education and Training (System Reform) Amendment Act 2026 came into force on 6 July 2026
+and an Order in Council fixed the commencement date. What transfers is the licensing of ECE
+services, the certification of playgroups, and the **Director of Regulation** role; the
+Ministry keeps ECE policy and the curriculum. Source: [Some Ministry regulatory functions
+transfer to Education Review
+Office](https://www.education.govt.nz/news/some-ministry-regulatory-functions-transfer-education-review-office).
+
+**The worry this item carried was wrong, and that is worth recording.** It used to say that
+if the transfer were real, "the evidence binder's framing may need to change with the
+regulator". It does not. `/compliance/binder` addresses *"a reviewer"* and names no regulator
+anywhere; every other Ministry reference in the product is either the service number — an
+identifier, unaffected — or funding and ELI, which stay with the Ministry. Checked across
+`apps/` and `packages/` on 2026-08-30. **No code change is required by this transfer.**
+
+**The criteria renumbering is still open.** The Ministry's transfer announcement says nothing
+about a 20 April 2026 renumbering — checked and not found, which is not the same as
+disproved. The exposure is narrow but real: `criteria` (0012) ships empty and is loaded only
+from a file a human has checked, so a stale numbering cannot reach a screen on its own — but
+it can reach the file somebody prepares. **To close it:** confirm the current numbering
+against a Ministry source before any criteria set is loaded.
 
 ### 9. Things believed on one customer's word
 

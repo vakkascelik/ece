@@ -4393,4 +4393,35 @@ latch with a toddler in the background is child media; and **the offline path fo
 `client_uuid` column exists and is unique but whose value is still generated on the server —
 [[unverified-claims]] §21's narrower successor.
 
-*Log last updated: 2026-08-29*
+## 2026-08-30 — an inherited claim checked two days before it took effect
+
+**ERO takes over ECE regulation on 1 September 2026, and this is now sourced rather than
+inherited.** [[unverified-claims]] item 8 had carried two assertions from a research session in
+the `salix` repo — that the licensing criteria were renumbered on 20 April 2026, and that ERO
+becomes the regulator on 1 September 2026 — neither re-checked here, the second recorded as "has
+not happened yet as at 2026-08-04". The prompt to look was a screenshot: a centre's own Educa
+message board carrying an ERO poster and a post by the managing director about the transfer.
+
+The centre's post is weaker than the fact. It says ERO "is preparing to have functions ready from
+1 September 2026 for transfer" and "when the transfer takes place", which reads as a date not yet
+fixed. It is fixed. The Education and Training (System Reform) Amendment Act 2026 came into force
+on 6 July 2026 and an Order in Council set the commencement date. Licensing of ECE services,
+certification of playgroups and the Director of Regulation role move to ERO; the Ministry keeps
+policy and the curriculum. **A vendor's message board is not a source, and the distance between
+what it said and what the Order in Council says is the whole reason for checking.**
+
+**The item's own prediction was wrong, which is the more useful half.** Item 8 warned that if the
+transfer were real, "the evidence binder's framing may need to change with the regulator". It does
+not. `/compliance/binder` addresses *"a reviewer"* and names no regulator anywhere — a decision
+that looks like ordinary caution until the regulator actually changes, at which point it is the
+reason nothing has to. Every other Ministry reference across `apps/` and `packages/` is either the
+service number, an identifier unaffected by the transfer, or funding and ELI, which stay with the
+Ministry. **No code change is required.** The item now records that rather than leaving the old
+warning standing as though it were still open.
+
+**The criteria renumbering stays open**, and stays open honestly: the Ministry's transfer
+announcement says nothing about it, which is checked-and-not-found rather than disproved. The
+exposure is narrow — `criteria` (0012) ships empty and loads only from a file a human has checked,
+so a stale numbering cannot reach a screen by itself. It can reach the file somebody prepares.
+
+*Log last updated: 2026-08-30*
