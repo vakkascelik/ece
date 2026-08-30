@@ -5129,6 +5129,141 @@ begin
     'a parent CANNOT unpin a post — posts_write_update excludes them');
 end $$;
 
+-- ===========================================================================
+-- THE 14-DAY RULE — 0078, moved from CHECK to trigger
+--
+-- Six tables refuse a row whose timestamp is more than a fortnight old. Until 0078 that
+-- was a CHECK constraint, which made the operational core unrestorable: a CHECK is
+-- pre-data in a dump and is enforced while the rows land, so a backup of the roll, sleep,
+-- medication or staff attendance older than two weeks could not be loaded. `drill:restore`
+-- found it and stayed red for eleven days.
+--
+-- WHY THESE ASSERTIONS AND NOT JUST A GREEN DRILL. The drill builds its shadow tables
+-- with `like … including all`, and LIKE does not copy triggers. So after 0078 the drill
+-- passes whether the guard was moved or simply deleted, and it cannot tell the two apart.
+-- These four blocks are where "the guard still works" is actually proved.
+--
+-- THE MUTATION THAT WOULD BE SILENT. `reject_ancient_row` reads its column name from
+-- `tg_argv[0]` through `to_jsonb(new) ->> …`. A wrong name yields NULL, the null branch
+-- returns early, and the trigger accepts everything on that table for ever — no error,
+-- no failing test, a guard that is only decoration. Five of the six pass 'at' and
+-- medication_administrations passes 'given_at', so the wiring is asserted from the
+-- catalogue rather than assumed.
+--
+-- PLACEMENT: above the purge and offboarding sections, per the note earlier in this file.
+-- Nothing here needs a live membership — it runs as `postgres` and touches only a centre
+-- — but the convention is worth keeping so the next section does not have to think.
+-- ===========================================================================
+
+set local role postgres;
+
+do $$
+declare
+  msg text := '';
+  v_id bigint;
+begin
+  -- 1. The guard still refuses. This is the behaviour 0009 through 0039 shipped and the
+  --    whole point of not simply dropping the six constraints.
+  begin
+    insert into public.staff_count_events (centre_id, adults, at, client_uuid)
+    values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 3,
+            now() - interval '30 days', gen_random_uuid());
+    msg := 'accepted';
+  exception when others then msg := sqlerrm;
+  end;
+  perform pg_temp.expect(msg like '%14 day window%',
+    'a row older than fourteen days is still REFUSED — the guard survived the move');
+
+  -- 2. A current row is unaffected. A guard that refuses everything would also pass (1).
+  insert into public.staff_count_events (centre_id, adults, at, client_uuid)
+  values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 3, now(), gen_random_uuid())
+  returning id into v_id;
+  perform pg_temp.expect(v_id is not null,
+    'a row recorded now is still accepted');
+
+  -- 3. The boundary. Thirteen days is inside the window and fifteen is not, so the
+  --    interval itself is asserted rather than "something old was refused".
+  insert into public.staff_count_events (centre_id, adults, at, client_uuid)
+  values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 3,
+          now() - interval '13 days', gen_random_uuid())
+  returning id into v_id;
+  perform pg_temp.expect(v_id is not null,
+    'thirteen days old is inside the window');
+end $$;
+
+do $$
+declare
+  v_id bigint;
+begin
+  -- 4. The escape hatch opens. This is the half that makes a real recovery from the
+  --    JSON extract possible at all: recreate the schema, set the flag, load the rows.
+  --    Deliberately NOT a security control — anyone who can insert can set it — because
+  --    the rule it relaxes is a typo guard and the tenant boundary is RLS.
+  set local app.restoring = 'on';
+  insert into public.staff_count_events (centre_id, adults, at, client_uuid)
+  values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 3,
+          now() - interval '400 days', gen_random_uuid())
+  returning id into v_id;
+  perform pg_temp.expect(v_id is not null,
+    'app.restoring = on lets a four-hundred-day-old row load');
+end $$;
+
+do $$
+declare
+  msg text := '';
+begin
+  -- And it closes again. `set local` ends with the transaction, but the flag must not
+  -- leak across statements within one either — a restore flag that stays on after the
+  -- restore is a guard that is off in production and nobody notices.
+  reset app.restoring;
+  begin
+    insert into public.staff_count_events (centre_id, adults, at, client_uuid)
+    values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 3,
+            now() - interval '400 days', gen_random_uuid());
+    msg := 'accepted';
+  exception when others then msg := sqlerrm;
+  end;
+  perform pg_temp.expect(msg like '%14 day window%',
+    'and the guard closes again once app.restoring is reset');
+end $$;
+
+do $$
+declare
+  v_wrong text;
+  v_count int;
+begin
+  -- 5. The wiring, from the catalogue. tgargs is a null-separated bytea; the column name
+  --    is everything before the first null byte.
+  select string_agg(c.relname || ' passes ' || coalesce(a.col, '(nothing)'), ', ' order by c.relname)
+    into v_wrong
+    from pg_trigger g
+    join pg_class c on c.oid = g.tgrelid
+    join pg_namespace n on n.oid = c.relnamespace
+    cross join lateral (
+      select split_part(encode(g.tgargs, 'escape'), '\000', 1) as col
+    ) a
+   where n.nspname = 'public'
+     and g.tgname like '%\_not\_ancient'
+     and not g.tgisinternal
+     and a.col is distinct from (case c.relname when 'medication_administrations'
+                                                then 'given_at' else 'at' end);
+  perform pg_temp.expect(v_wrong is null,
+    'every 14-day trigger reads the right timestamp column — a wrong one is a silent no-op');
+
+  select count(*) into v_count
+    from pg_trigger g
+    join pg_class c on c.oid = g.tgrelid
+    join pg_namespace n on n.oid = c.relnamespace
+   where n.nspname = 'public' and g.tgname like '%\_not\_ancient' and not g.tgisinternal;
+  perform pg_temp.expect(v_count = 6,
+    'all six tables carry the trigger');
+
+  select count(*) into v_count
+    from pg_constraint where contype = 'c' and conname like '%\_not\_ancient';
+  perform pg_temp.expect(v_count = 0,
+    'and no time-relative CHECK survives to break the next restore');
+end $$;
+
 -- ---------------------------------------------------------------------------
 -- CONSENT REQUESTS (0073) — asking, and the third state
 --

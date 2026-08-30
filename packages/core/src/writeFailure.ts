@@ -54,6 +54,15 @@ export function classifyWriteFailure(message: string): WriteFailure {
    * while the device sat in a drawer. Time makes this worse, never better. Named explicitly so
    * the two clock-related constraints cannot be confused by a future reader — they look alike
    * and behave in opposite directions.
+   *
+   * **`attendance_not_ancient` is a TRIGGER now, not a CHECK constraint — 0078.** The six
+   * time-relative CHECKs made the operational core unrestorable more than a fortnight after a
+   * backup, because a CHECK is enforced while a dump's rows land and a trigger is created after
+   * them. The name is unchanged on purpose, and 0079 puts it back into the message text after
+   * 0078's first wording dropped it: without the name this rule matches nothing, the generic
+   * 23514 rule below answers `permanent` by luck, and the distinction this function exists to
+   * make quietly stops being made. Both spellings are asserted in the tests, because a device
+   * that has been offline since before 0078 will flush refusals phrased the old way.
    */
   if (/attendance_not_ancient/i.test(m)) return 'permanent';
 

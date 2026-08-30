@@ -35,10 +35,20 @@ Nothing here is a bug. They are known gaps with known closures.
   here (6, 36, and 3 with 44), so the risk moved from "the premise may be wrong" to "the premise is
   right and the conditions are ours to meet". **Nothing may imply the Ministry approved this
   software.** It did not; it described when any system qualifies.
-- **The same reply told vendors to say something this product does not say — item 45.** That use
-  of the system does not remove the service's responsibility to comply, and that a person must
-  review and validate RS7 figures before submitting them. Sourced requirement, unmet. The
-  Ministry's word for the failure mode this product already discloses is *"under-claiming"*.
+- **The same reply told vendors to say something this product did not say — item 45, BUILT
+  2026-08-31.** That use of the system does not remove the service's responsibility to comply, and
+  that a person must review and validate RS7 figures before submitting them. It is now the second
+  sentence of the funding disclaimer, **unconditional** — behind `!summary.verified` it would
+  vanish on the day the figures look most trustworthy. The Ministry's word for the failure mode
+  this product already discloses is *"under-claiming"*.
+- **§14-3 of the Handbook has been read, and the premise no longer rests on an email — item 46.**
+  ELI Web is described there as the route for services *"that do not use a SMS"*. Read by a tool
+  rather than a person, so it carries item 36's caveat and stays open for a human reading.
+- **The restore drill is green again — item 44, CLOSED 2026-08-31.** Six CHECK constraints reading
+  `now() - interval '14 days'` made the operational core unloadable more than a fortnight after the
+  fact; `0078` moves them to triggers, which a dump creates *after* the rows land. The fix this
+  page originally proposed was wrong for the right-sounding reason, and the correction is recorded
+  in the item rather than quietly applied.
 - **No licensing criteria are loaded, and none are seeded.** The criteria-gap feature
   cannot function until somebody imports a checked set. Deliberate — see
   [[compliance-and-evidence]].
@@ -1212,7 +1222,65 @@ trigger functions kept the EXECUTE grant Postgres gives PUBLIC by default, which
 already learned to revoke. Fixed in 0077. Reviewing a migration is not the same as running the
 gate, and this repo now has an example of each outcome one day apart.
 
-### 44. The restore drill cannot restore data older than fourteen days
+### 44. The restore drill cannot restore data older than fourteen days — **CLOSED 2026-08-31**
+
+**Fixed in `0078`. `drill:restore` is green at 6/6 over 12,930 rows and 72 tables**, and the
+runbook now documents the flag a load into an existing schema needs. The finding below stands
+exactly as written; what needs correcting is the fix this entry proposed.
+
+**THE FIX THIS ENTRY RECOMMENDED WOULD NOT HAVE WORKED, AND THE REASONING IS THE USEFUL PART.**
+It said: *"A CHECK is re-evaluated on every write including a restore; a trigger on INSERT guards
+new writes."* That is not a real distinction. A `BEFORE INSERT` row trigger fires on precisely the
+operations a CHECK is evaluated on — plain `INSERT`, `INSERT … SELECT` and `COPY FROM` all fire
+it — and the drill loads with `insert into … select from jsonb_populate_recordset(...)`. Six
+migrations against the most-written tables in the schema would have produced the identical failure
+with a different error code.
+
+**What actually makes it work is ordering, and it belongs to `pg_dump` rather than to triggers.** A
+dump is emitted in three sections: pre-data (table definitions, and a CHECK lives inside one),
+data, and post-data (indexes, foreign keys and triggers). A CHECK is in force while rows land; a
+trigger is created after them and never sees them. That is also why the foreign keys on these same
+six tables never broke a restore. The rule was moved across the pre-data/post-data line, not
+weakened.
+
+**An escape hatch was added anyway**, because the ordering argument covers `pg_restore` and does
+not cover the recovery path this repo actually built — extract to JSON, recreate the schema, insert
+— where the triggers exist before the rows arrive. `set app.restoring = 'on'` makes the trigger
+yield. It is explicitly **not** a security control: anyone who can insert can set it, which is fine
+because the rule it relaxes is a typo guard and the tenant boundary is RLS.
+
+**The green needed defending, because it is weaker than the red it replaced.** `like … including
+all` copies checks and does **not** copy triggers, so after 0078 the drill's shadow tables carry no
+guard at all — the load would now succeed whether the guard was moved or simply deleted. Two
+schema-shape checks were added to the drill in the same commit: all six tables carry the trigger,
+and no `_not_ancient` CHECK has come back to break the next restore.
+
+**Mutation-tested, and one mutation was only caught by the new assertions.** Making
+`reject_ancient_row` a no-op is caught by a pre-existing attendance assertion. Wiring
+`medication_administrations` to `at` instead of `given_at` is **not** — the function reads its
+column from `tg_argv[0]` through `to_jsonb(new) ->> …`, a wrong name yields NULL, the null branch
+returns early, and the table silently accepts back-dated medication records for ever. Nothing in
+the repo covered that before; `rls_isolation.sql` now asserts the wiring from the catalogue, and
+the suite went 599 → 607.
+
+**The fix had a side effect that nearly rotted something else, and `0079` closes it.** A trigger
+phrases its own refusal, and `0078`'s wording carried neither constraint name — but
+`classifyWriteFailure` in `@ece/core` matches the offline outbox's verdicts on the **name**, to
+tell an event that aged in a drawer (permanent) from a device whose clock has drifted forward
+(retry-later, because real time fixes it and burying it costs a centre a day of roll). The verdict
+would still have been right by luck, via the generic `23514` rule. What would have rotted is the
+named rule: dead code matching a string the database can no longer emit, its unit test still
+passing against a synthetic message, and [[offline-outbox]] describing a distinction no longer
+being made — the exact decay that page has already been through once. `0079` puts `tg_name` into
+the message, and both spellings are now asserted because a device offline since before `0078` will
+flush refusals phrased the old way. **The message text of a database refusal is an interface the
+moment anything parses it.**
+
+**Still true, and not closed by this:** the eleven `_not_future` CHECK constraints stay CHECKs on
+purpose. They read `<= now() + interval '2 hours'`, which a past row satisfies at every future
+moment, so they restore cleanly.
+
+**The original finding, kept as written:**
 
 Added 2026-08-30, the first time `drill:restore` ran since the fixture data aged past two
 weeks. It extracted 12,927 rows from 71 tables and then failed loading them back:
@@ -1245,11 +1313,42 @@ This item is no longer only an internal hygiene defect in a drill script — it 
 defect that bears directly on a condition the Ministry has now stated in writing. The technical
 finding is unchanged and the fix is unchanged; what changed is what it costs to leave it.
 
-### 45. The product does not tell the customer that using it does not remove their responsibility
+### 45. The product does not tell the customer that using it does not remove their responsibility — **BUILT 2026-08-31**
 
-Added 2026-08-31, from the same Ministry reply that closed item 37. Unlike almost everything else
-on this page, **this is not an unsourced claim — it is a sourced requirement the product does not
-yet meet.** It is here because this page is where the gaps live and there is nowhere better.
+Added and closed the same day, from the Ministry reply that closed item 37. Unlike almost
+everything else on this page, this was never an unsourced claim — it was **a sourced requirement
+the product did not meet**.
+
+**What was built.** `exportDisclaimer` in `packages/core/src/funding.ts` now opens with two
+sentences instead of one: *"Using this system does not move any of your obligations to the
+Ministry. You remain responsible for your funding, record-keeping and reporting requirements, and
+for reviewing and validating these figures — including any over- or under-claim in them — before
+anything is submitted."* It renders on `/funding`, above every figure.
+
+**Three decisions in its shape, each of which could have gone wrong:**
+
+- **Unconditional.** Every other sentence in that function is gated on something being wrong, so
+  the obvious place for one more is behind `!summary.verified` — a wiring that deletes the
+  statement exactly when the figures look most trustworthy and a manager is least likely to check
+  them. The test asserts it three times over, including on a summary with every flag forced green,
+  and the mutation that gates it fails that test.
+- **In this product's words, not the Ministry's.** Quoting a marked government email at a customer
+  implies the Ministry is speaking about this product. It is not.
+- **Second in the paragraph, not last.** The sentences after it are the ones a manager can act on
+  today — days to resolve, enrolments to check — and a paragraph that gets skimmed should end on
+  the actionable thing.
+
+**What was checked and needed nothing.** `apps/site` is Little Pearls' own public website, not a
+vendor site for this platform, and it already keeps compliance claims off the page deliberately —
+see the notes in `rooms/page.tsx`. There is no marketing surface in this repo making claims about
+the platform that the Ministry's reply would contradict.
+
+**What is still open, and it is not code.** The obligation is to the *customer*, and the strongest
+place to discharge it is the services agreement, which is not in this repo. A sentence on a screen
+is the product half; the contractual half is the owner's.
+
+**The original entry follows, because the reasoning about placement is why the shape above is the
+shape.**
 
 | | |
 |---|---|
@@ -1267,22 +1366,37 @@ downward so an error never favours the claimant, and already discloses the under
 manager's own terms. That was written on 2026-08-18 from reading §6-4 to §6-7, before anyone knew
 the Ministry would ask for it.
 
-### 46. Chapter 14-3 of the Funding Handbook has not been read
+### 46. Chapter 14-3 of the Funding Handbook — **read 2026-08-31, by a tool, and it holds**
 
-Added 2026-08-31. The Ministry's reply names *"14-3 Early learning information (ELI) system"* as
-the source to read for the ELI position, and points at it directly.
+Added and read the same day. The Ministry's reply named *"14-3 Early learning information (ELI)
+system"* as the source for the ELI position, and only Chapter 6 had ever been read in this repo.
 
-**Only Chapter 6 has been read in this repo.** Chapter 14 has not been opened, and its contents
-are not a fact here — the same rule that governed the seven specification documents in item 38
-before they were decrypted. Nothing currently asserted depends on it, so this is a reading task
-rather than a correction risk, with one qualification: the reply summarises §14-3 in a direction
-favourable to this product, and a summary is not the section. The sentence about ELI not
-prescribing how a service maintains its operational records is quoted from the Ministry's email
-in [[funding-and-billing]] and attributed to the email, not to the Handbook, until someone opens
-the chapter.
+**It confirms the reply, and on one point it is stronger than the reply.** §14-3 states that
+services *"must send information to the ELI system through ELI Web, or a Ministry-approved
+commercial student management system (SMS)"*, and describes ELI Web as *"a free-of-charge Ministry
+application designed to collect the required data from licensed early childhood services **that do
+not use a SMS**."* That is the Handbook itself naming not-using-an-SMS as a supported path, rather
+than an email saying it is permitted. And it carries the sentence Chapter 6 is quoted for:
+*"Providing data through the ELI system does not replace the enrolment, attendance and absence
+records required for funding which are defined in Chapter 6."*
 
-**To close it:** read §14-3, diff it against what the reply says it contains, and re-attribute the
-quotes on [[funding-and-billing]] to the primary source if they hold.
+**So item 37 no longer rests on correspondence alone.** It rests on a published Handbook section
+that says the same thing, which is a materially better footing: an email can be superseded quietly,
+a Handbook section is versioned and public.
+
+**Two exemptions this repo did not know about**, and neither applies to Little Pearls: Casual
+Education and Care Services and Hospital Based Services are exempt from regular ELI submissions but
+**must still submit RS7 Returns**; and services operated by the Te Kōhanga Reo National Trust are
+temporarily exempt from providing regular enrolment and attendance information. Recorded because
+the product models neither service type and a future licence-type parameter will need them.
+
+**WHY THIS IS NOT MARKED CLOSED. It was read by a tool, not by a person** — fetched and summarised,
+the same mechanism that produced the twelve §6-3 criteria and the same caveat item 36 carries. The
+quotes above are as faithful as that process gets and they are not a person's reading. Given what
+now rests on §14-3, it deserves the better instrument.
+
+**To close it:** open the page and read it, then either confirm these quotes or correct them.
+[14-3 Early learning information (ELI) system](https://www.education.govt.nz/education-professionals/early-learning/funding-and-financials/ece-funding-handbook/chapter-14-collection-of-information/14-3-early-learning-information-eli-system).
 
 ## See Also
 

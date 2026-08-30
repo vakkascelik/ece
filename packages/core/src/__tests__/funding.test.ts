@@ -297,6 +297,40 @@ describe('summariseFunding and the disclaimer', () => {
     // And it must not overstate the direction of the error: this under-claims, never over-claims.
     expect(text).toContain('lower than what you are entitled to claim');
   });
+
+  it('says the obligations stay with the service, whatever else is true', () => {
+    /*
+      The Ministry asked for this sentence by name on 2026-08-31, in the same reply that
+      confirmed a service may keep its Chapter 6 records outside an approved SMS: vendors must
+      be clear that use of their system "does not remove the service's responsibility to comply
+      with Ministry funding, record-keeping, and reporting requirements", and that the service
+      "remains responsible for reviewing, validating, and submitting" what it produces.
+
+      WHAT THIS TEST IS ACTUALLY GUARDING, WHICH IS NOT THE WORDING. Every other sentence in
+      `exportDisclaimer` is conditional, so the obvious way to add one more is behind a flag —
+      and the obvious flag is `verified`. That wiring would remove the statement on the day the
+      absence rules land and every figure is trustworthy, which is precisely the day a manager
+      keys the numbers in without reading. So the assertion is made three times over: on a
+      clean summary, on a broken one, and on one with every flag forced green.
+    */
+    const clean = summariseFunding(period, [
+      childFunding({ childId: 'a', events: fullDay(3), timeZone: NZ, period, twentyHoursEce: false }),
+    ]);
+    const broken = summariseFunding(period, [
+      childFunding({ childId: 'b', events: [ev('in', at(3, 8))], timeZone: NZ, period, twentyHoursEce: false }),
+    ]);
+    // Not reachable through summariseFunding while FUNDING_RULES_VERIFIED is false, which is why
+    // it is built by hand: the point is the future in which it IS reachable.
+    const allGreen = { ...clean, verified: true, complete: true, periodPrecedesRecord: false as const };
+
+    for (const summary of [clean, broken, allGreen]) {
+      const text = exportDisclaimer(summary);
+      expect(text).toContain('does not move any of your obligations to the Ministry');
+      expect(text).toContain('reviewing and validating');
+      // Both directions, because the Ministry named both and this product only under-claims.
+      expect(text).toContain('over- or under-claim');
+    }
+  });
 });
 
 describe('summariseVariance', () => {

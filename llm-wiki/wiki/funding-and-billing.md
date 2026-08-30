@@ -310,9 +310,24 @@ where it came from, which is close — but "this is preparation" is a statement 
 and the Ministry is asking for a statement about **who remains accountable**. Tracked as
 [[unverified-claims]] item 45.
 
-**A source this repo has not read.** The reply names *"14-3 Early learning information (ELI)
-system"* in the Funding Handbook. Chapters 6 and 14 are different chapters and only Chapter 6 has
-been read here. Item 46.
+**The source the reply named has now been read, and it is the stronger authority.** §14-3 of the
+Funding Handbook says services *"must send information to the ELI system through ELI Web, or a
+Ministry-approved commercial student management system (SMS)"*, and describes ELI Web as *"a
+free-of-charge Ministry application designed to collect the required data from licensed early
+childhood services **that do not use a SMS**"*. It also carries the sentence Chapter 6 is quoted
+for: *"Providing data through the ELI system does not replace the enrolment, attendance and absence
+records required for funding which are defined in Chapter 6."*
+
+That matters more than it looks. **The premise no longer rests on an email.** A published Handbook
+section names not-using-an-SMS as a supported route in its own words, and a Handbook section is
+versioned and public where correspondence can be superseded quietly. Read 2026-08-31 — *by a tool
+rather than by a person*, which is item 36's caveat and is why item 46 stays open rather than
+closing.
+
+Two exemptions recorded while there: Casual Education and Care Services and Hospital Based Services
+are exempt from regular ELI submissions but must still file RS7 Returns, and Te Kōhanga Reo
+National Trust services are temporarily exempt from regular enrolment and attendance reporting.
+Neither is Little Pearls, and this product models neither service type.
 
 **One caution about scope.** This answers what a service *may* do. It does not certify that this
 particular system does any of it, and no reply to an email ever will. Nothing on this page or in

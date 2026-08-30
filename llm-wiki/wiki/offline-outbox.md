@@ -131,6 +131,39 @@ The two clock constraints look almost identical and behave in **opposite** direc
 exactly how one rule came to swallow both. There is a test asserting they are never classified the
 same.
 
+### `attendance_not_ancient` is a trigger now, and that nearly broke this table quietly
+
+**2026-08-31.** `0078` moved six `_not_ancient` rules from CHECK constraints to `BEFORE INSERT`
+triggers, because a time-relative CHECK is enforced while a dump's rows land and made the whole
+operational core unrestorable more than a fortnight after a backup. See
+[[unverified-claims]] item 44.
+
+A trigger phrases its own refusal, and `0078`'s first wording was *"row is older than the 14 day
+window (at on public.attendance_events)"* — **carrying neither constraint name**. The row above
+matches on the name.
+
+**The verdict would still have been right, by luck.** The trigger raises `check_violation`, the
+generic `23514` row catches it, and `permanent` is the correct answer. Nothing would have broken
+for a user.
+
+**What would have rotted is this table.** The named row becomes dead code matching a string the
+database can no longer emit; its unit test goes on passing because it feeds a synthetic message;
+and this page would have described a distinction that was no longer being made. That is the same
+decay this page has already been through once — it spent a day telling readers every check
+violation was a permanent failure, which was the opposite of the fix that had just been made.
+
+`0079` puts the name back, taken from `tg_name`, which `0078` had deliberately kept equal to the
+old constraint name. So both spellings now occur in the wild and both are asserted:
+
+| Spelling | Where it comes from |
+|---|---|
+| `... violates check constraint "attendance_not_ancient"` | a device that has been offline since before 0078 and is flushing an old queue |
+| `attendance_not_ancient : row is older than the 14 day window (...)` | the trigger, today |
+
+The lesson generalises past this table: **the message text of a database refusal is an interface**
+the moment anything parses it, and moving a rule from a constraint to a trigger changes that text
+without changing a line of the code that reads it.
+
 `23505` is deliberately absent from every list. A unique violation on `client_uuid` means the event
 is already there, which is success, and the API layer reports it as `duplicate` rather than an
 error. If it ever did throw, defaulting to transient retries harmlessly rather than burying a write

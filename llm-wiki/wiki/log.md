@@ -4548,4 +4548,70 @@ product's own words. A vendor saying what its software does not do is a plain st
 words quoted from a marked government email invites the reading that the Ministry is describing
 *this* product, which is the one thing the reply does not do.
 
+## 2026-08-31 (second) — the fix that was written down would not have worked
+
+Items 44, 45 and 46 all close or advance in one session, and the most useful thing in it is that
+**item 44's recorded fix was wrong**.
+
+**The reasoning that was wrong, because it sounded right.** Item 44 said a CHECK is re-evaluated on
+every write including a restore, while "a trigger on INSERT guards new writes". There is no such
+distinction. A `BEFORE INSERT` row trigger fires on plain `INSERT`, on `INSERT … SELECT` and on
+`COPY FROM` — every operation a CHECK is evaluated on — and `restore-drill.ts` loads with `insert
+into … select from jsonb_populate_recordset(...)`. Six migrations against the most-written tables
+in the schema, then the identical failure with a different error code.
+
+**What actually fixes it belongs to `pg_dump`, not to triggers.** A dump has three sections:
+pre-data, where table definitions live and CHECK constraints live inside them; data; and post-data,
+where indexes, foreign keys and **triggers** are created. A CHECK is in force while rows land. A
+trigger is created afterwards and never sees them. That is also why the foreign keys on these same
+six tables never broke a restore, which was the clue sitting in plain sight. `0078` moves the rule
+across that line rather than weakening it, and adds `app.restoring` for the one path ordering does
+not cover — the recovery this repo actually built, where you recreate the schema and *then* insert.
+
+**The green had to be defended, because it is weaker than the red.** `like … including all` does
+not copy triggers, so after `0078` the drill's shadow tables carry no guard at all: the load now
+succeeds whether the guard was moved or deleted outright. Two schema-shape assertions went into the
+drill in the same commit — all six tables carry the trigger, and no `_not_ancient` CHECK has come
+back. Without them this would be a green that means less than the red it replaced, which is the
+same trap as the funding probe that improved from 72 hours to 84 and was still wrong.
+
+**One mutation was caught only by the new assertions.** Making the function a no-op is caught by an
+attendance assertion that has existed since 0009. Wiring `medication_administrations` to `at`
+instead of `given_at` is not: the function reads its column from `tg_argv[0]` through `to_jsonb(new)
+->> …`, a wrong name yields NULL, the null branch returns early, and the table accepts back-dated
+medication records silently and for ever. That is the failure this design invited, so the catalogue
+wiring is now asserted directly. 599 → 607.
+
+**Item 45 shipped, and its shape was the decision.** The accountability sentence the Ministry asked
+vendors for is now the second sentence of `exportDisclaimer`, and it is **unconditional**. Every
+other sentence there is gated on something being wrong, so the obvious home for one more is behind
+`!summary.verified` — a wiring that removes the statement on exactly the day the figures look
+trustworthy and nobody re-reads them. The mutation that gates it fails the new test, which is why
+the test constructs a summary with every flag forced green.
+
+**Item 46 turned out to strengthen item 37.** §14-3 describes ELI Web as the route for services
+*"that do not use a SMS"*. The premise the product rests on is no longer carried by an email: a
+published, versioned Handbook section says it. Read by a tool and not by a person, so it keeps item
+36's caveat and stays open.
+
+**And the fix had a side effect that nearly rotted the outbox — `0079`.** A trigger phrases its own
+refusal, and `0078`'s wording carried neither constraint name. `classifyWriteFailure` matches on
+the **name**, because that is the only thing separating an event that aged in a drawer (permanent)
+from a device whose clock has drifted forward (retry-later — real time fixes it, and burying it
+costs a centre a day of roll). The verdict would still have been right, by luck: the generic
+`23514` rule answers `permanent`, which is correct. What would have rotted is everything around it
+— a named rule matching a string the database can no longer emit, a unit test still passing against
+a synthetic message, and [[offline-outbox]] documenting a distinction that was no longer being
+made. That page has been through this once already, when it spent a day describing the opposite of
+the fix that had just landed. `0079` puts `tg_name` in the message and both spellings are asserted,
+because a tablet offline since before `0078` will flush refusals phrased the old way. The general
+form is worth keeping: **the message text of a database refusal is an interface the moment anything
+parses it**, and moving a rule from a constraint to a trigger rewrites it without touching a line of
+the code that reads it.
+
+**A smaller thing worth writing down.** The drill swallows failures from its own cleanup
+(`.catch(() => {})`), so a run that dies mid-load leaves `restore_drill` behind and the next run
+fails with `relation "post_comments" already exists` — a confusing error about the wrong problem.
+Not fixed here, because it is unrelated to the defect this session was for.
+
 *Log last updated: 2026-08-31*

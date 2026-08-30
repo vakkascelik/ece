@@ -8,8 +8,25 @@ import { classifyWriteFailure } from '../writeFailure';
  */
 const NOT_FUTURE =
   'new row for relation "attendance_events" violates check constraint "attendance_not_future"';
-const NOT_ANCIENT =
+/**
+ * **This message can no longer be produced, and is kept on purpose.** 0078 moved the six
+ * `_not_ancient` rules from CHECK constraints to triggers so the operational core could be
+ * restored more than a fortnight after a backup, and a trigger phrases its own refusal. Any
+ * device still carrying a queue written against the old schema will report this text, and a
+ * classifier that stopped recognising it would bury those events differently from the ones
+ * beside them in the same queue.
+ */
+const NOT_ANCIENT_LEGACY_CHECK =
   'new row for relation "attendance_events" violates check constraint "attendance_not_ancient"';
+/**
+ * What the database says today, copied from a live refusal rather than reconstructed — the
+ * discipline the comment above demands, and the reason 0079 exists at all. 0078's first wording
+ * carried neither constraint name, and while the generic 23514 rule would still have answered
+ * `permanent` by luck, the named rule below would have quietly become dead code with its unit
+ * test passing against a string the database could no longer emit.
+ */
+const NOT_ANCIENT =
+  'attendance_not_ancient : row is older than the 14 day window (at on public.attendance_events)';
 const CORRECTION_NEEDS_NOTE =
   'new row for relation "attendance_events" violates check constraint "attendance_correction_has_note"';
 
@@ -26,10 +43,21 @@ describe('classifyWriteFailure', () => {
     expect(classifyWriteFailure(NOT_ANCIENT)).toBe('permanent');
   });
 
+  it('reads the trigger and the old constraint the same way', () => {
+    // A tablet that has been in a drawer since before 0078 will flush a queue whose refusals
+    // are phrased the old way, alongside new ones phrased by the trigger. Two spellings of one
+    // situation must not produce two outcomes in the same flush.
+    expect(classifyWriteFailure(NOT_ANCIENT_LEGACY_CHECK)).toBe('permanent');
+    expect(classifyWriteFailure(NOT_ANCIENT)).toBe(classifyWriteFailure(NOT_ANCIENT_LEGACY_CHECK));
+  });
+
   it('keeps the two clock constraints apart', () => {
     // They look almost identical and behave in opposite directions, which is exactly why the
     // original single check-violation rule swallowed both.
     expect(classifyWriteFailure(NOT_FUTURE)).not.toBe(classifyWriteFailure(NOT_ANCIENT));
+    // And the trigger's wording must not accidentally read as the future case — they now share
+    // a prefix (`attendance_not_`) that the old constraint messages did not put side by side.
+    expect(classifyWriteFailure(NOT_ANCIENT)).toBe('permanent');
   });
 
   it('treats any other check violation as needing a person', () => {

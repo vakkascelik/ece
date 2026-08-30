@@ -118,7 +118,56 @@ what one would involve rather than a claim that it is ready.
 
 Step 4 is the one that will be skipped under pressure and the one that must not be.
 
+## The fortnight rule, and the flag that gets a load past it — 2026-08-31
+
+**For eleven days this runbook was describing a restore that could not have worked.**
+`drill:restore` went red on 2026-08-30 and the cause was in the schema, not the drill: six
+tables carried a CHECK constraint reading `at > now() - interval '14 days'` — attendance,
+staff counts, medication, sleep checks, safety checks and staff attendance, which is the
+whole operational core. A CHECK is re-evaluated on every insert, so **a backup of those six
+more than a fortnight old could not be loaded at all.** Nothing had regressed. The fixture
+rows simply aged past the window, and the drill was the only thing that would ever have
+noticed.
+
+Migration `0078` moves all six from CHECK constraints to `BEFORE INSERT` triggers. The
+reason that works is a property of `pg_dump`, not of triggers: a dump is emitted as
+pre-data (table definitions, and CHECK constraints live inside them), data, then post-data
+(indexes, foreign keys and **triggers**). A CHECK is in force while the rows land; a trigger
+is created afterwards and never sees them. So **step 2 above needs nothing special** — a
+Supabase dashboard restore or a `pg_restore` will now load rows of any age.
+
+**What does need something is a load into a schema that already exists**, which is the shape
+of any recovery driven from a `drill:restore` extract: you recreate the schema with
+`npm run migrate`, and then insert. There the triggers are already in place and will refuse
+anything older than a fortnight. Set the flag for the duration of the load:
+
+```sql
+set app.restoring = 'on';   -- session-scoped; or PGOPTIONS="-c app.restoring=on"
+```
+
+```bash
+PGOPTIONS="-c app.restoring=on" psql "$SUPABASE_DB_URL" -f restored-rows.sql
+```
+
+Three things to know before using it, in order of how badly they bite:
+
+- **Turn it off.** It is session-scoped and dies with the connection, so a `psql` that exits
+  has already cleaned up. A long-lived pooled connection has not. A restore flag left on is
+  a fourteen-day guard that is silently off in production, and nothing on any screen would
+  say so. `rls_isolation.sql` asserts that the guard closes again after a `reset`.
+- **It is not a security control and must never be used as one.** Anyone who can insert can
+  set it. That is acceptable because the rule it relaxes is a data-quality guard against a
+  typo'd or back-dated timestamp — the tenant boundary is RLS, which this does not touch.
+- **It only relaxes the age rule.** The eleven `_not_future` CHECK constraints are untouched
+  and still apply, deliberately: they read `<= now() + interval '2 hours'`, and a row from
+  the past satisfies that at every future moment, so they never blocked a restore.
+
+**Step 4's assertion count in this runbook is stale** — it says 176 and the suite is now at
+607. Left as a note rather than edited into the list, because a number in a runbook is a
+number that goes stale, and the command prints the real one.
+
 ---
 
-*Last updated 2026-08-04. Steps 1–7 have never been executed. `drill:restore` has, and it
-covers step 3's data half and nothing else on this list.*
+*Last updated 2026-08-31. Steps 1–7 have still never been executed. `drill:restore` has, and
+it covers step 3's data half and nothing else on this list — as of 2026-08-31 it is green at
+6/6, over 12,930 rows and 72 tables, having been red for the eleven days described above.*

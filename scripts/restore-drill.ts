@@ -29,6 +29,15 @@
  * also proves the **constraints still accept the restored data**, because the shadow
  * tables carry the checks, the uniques and the exclusion constraint.
  *
+ * That last sentence is the one that found the worst defect this drill has found, on
+ * 2026-08-30: six CHECK constraints reading `at > now() - interval '14 days'` refused
+ * the restore of rows that were merely old, which meant no backup of the roll, sleep,
+ * medication or staff attendance older than a fortnight could be loaded — here or by
+ * `pg_restore`. Fixed in 0078 by moving the six to triggers, which a dump creates after
+ * the data rather than before it. Step 5 asserts that shape, because `like … including
+ * all` does not copy triggers and would otherwise make this drill green whether the
+ * guard was moved or simply deleted.
+ *
  * WHY `jsonb_populate_record` RATHER THAN TYPE-BY-TYPE QUOTING IN JAVASCRIPT
  *
  * Because reloading through per-type SQL literals means writing a quoting rule for
@@ -309,7 +318,64 @@ async function main() {
       `${identical}/${tables.length}`,
     );
 
-    // --- 5. the part that is not covered ------------------------------------
+    // --- 5. the guard that made this drill red for eleven days ---------------
+    /**
+     * This block exists because the fix for that failure makes the load succeed for a
+     * reason that is not entirely the right one, and a green that means less than the
+     * red it replaced is worse than the red.
+     *
+     * 0078 moved six `_not_ancient` rules from CHECK constraints to BEFORE INSERT
+     * triggers. `like … including all` copies checks and does **not** copy triggers, so
+     * the shadow tables above now carry no guard at all and step 3 cannot fail on one
+     * however wrong the schema is. Deleting all six outright would look identical.
+     *
+     * So the shape of the schema is asserted directly: the trigger is present on each of
+     * the six, and no `_not_ancient` CHECK has come back. The second half is the one that
+     * matters most — a CHECK re-added by a later migration would be enforced during the
+     * COPY of a real `pg_restore` and would make the operational core unloadable again,
+     * silently, until the next time somebody ran this.
+     *
+     * The list is hard-coded here, which is the opposite of step 1's rule about reading
+     * the catalogue. That is deliberate and is the point: the catalogue would tell us
+     * about the tables that HAVE the trigger, and what needs guarding is a table that has
+     * lost it.
+     */
+    const GUARDED = [
+      'attendance_events',
+      'staff_count_events',
+      'medication_administrations',
+      'sleep_checks',
+      'safety_checks',
+      'staff_attendance_events',
+    ];
+    const triggered = (await run(
+      `select c.relname as tbl
+         from pg_trigger g
+         join pg_class c on c.oid = g.tgrelid
+         join pg_namespace n on n.oid = c.relnamespace
+        where n.nspname = 'public'
+          and g.tgname like '%\\_not\\_ancient'
+          and not g.tgisinternal`,
+    )) as { tbl: string }[];
+    const have = new Set(triggered.map((r) => r.tbl));
+    const lost = GUARDED.filter((t) => !have.has(t));
+    check(
+      lost.length === 0,
+      'every table that had a 14-day rule still has one, as a trigger',
+      lost.length === 0 ? `${GUARDED.length}/${GUARDED.length}` : `unguarded: ${lost.join(', ')}`,
+    );
+
+    const revived = (await run(
+      `select conname from pg_constraint
+        where contype = 'c' and conname like '%\\_not\\_ancient'`,
+    )) as { conname: string }[];
+    check(
+      revived.length === 0,
+      'no time-relative CHECK has come back to break the next restore',
+      revived.length === 0 ? 'none' : revived.map((r) => r.conname).join(', '),
+    );
+
+    // --- 6. the part that is not covered ------------------------------------
     const users = (await run('select count(*)::int as n from auth.users')) as { n: number }[];
     console.log('');
     console.log(`  Outside this drill: ${users[0]?.n ?? '?'} accounts in auth.users, every Storage`);

@@ -366,6 +366,32 @@ export function summariseFunding(
 export function exportDisclaimer(summary: FundingSummary): string {
   const parts = [
     'These are preparation figures for keying into ELI Web. Nothing has been submitted to the Ministry, and this system cannot submit.',
+    /*
+      Added 2026-08-31, and it is the only sentence here the Ministry asked for by name. Its
+      reply of that date, which confirmed a service may keep its Chapter 6 records outside an
+      approved SMS, closes by addressing vendors: customers must be told that use of the
+      system "does not remove the service's responsibility to comply with Ministry funding,
+      record-keeping, and reporting requirements", and that RS7 figures a system produces are
+      there to *support* the return — the service "remains responsible for reviewing,
+      validating, and submitting", including "any over-claiming or under-claiming".
+
+      THREE THINGS ABOUT THE SHAPE, EACH OF WHICH WAS A DECISION.
+
+      It is UNCONDITIONAL. Every other sentence in this function is gated on something being
+      wrong. This one is not, because it is true on the day every flag goes green — and the
+      obvious place to put it, behind `!summary.verified`, is a wiring that deletes it exactly
+      when the figures look most trustworthy and a manager is least likely to check them.
+
+      It is in OUR WORDS, not the Ministry's. Quoting a marked government email at a customer
+      implies the Ministry is speaking about this product. It is not: it described the
+      conditions under which any system qualifies, and reviewed nothing here.
+
+      It sits SECOND, not last. The sentences after it are the ones a manager can act on today
+      — days to resolve, enrolments to check — and a paragraph that is skimmed should end on
+      the actionable thing. This one belongs with "what this document is", which is the first
+      sentence's job.
+    */
+    'Using this system does not move any of your obligations to the Ministry. You remain responsible for your funding, record-keeping and reporting requirements, and for reviewing and validating these figures — including any over- or under-claim in them — before anything is submitted.',
   ];
 
   /*
