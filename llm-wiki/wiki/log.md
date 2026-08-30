@@ -4491,4 +4491,61 @@ about in as many words; and a PowerShell `Get-Content | Set-Content -Encoding ut
 mangled every em-dash and the macron in "Pānui" — the file was rewritten with the Write tool.
 Both are the same lesson twice: on this machine, edit files with the editing tools.
 
-*Log last updated: 2026-08-30*
+## 2026-08-31 — the premise is confirmed, and the confirmation hands the vendor a job
+
+The Ministry answered the re-ask. **A licensed service may keep its Chapter 6 enrolment,
+attendance and absence records in a system that is not a Ministry-approved SMS** — the premise
+this entire product rests on, open since Phase 5 and named as such on [[unverified-claims]] since
+2026-08-18. Item 37 closes.
+
+**The narrowing is what worked, and that is the transferable lesson.** The 2026-08-14 enquiry
+asked about a service and got an answer about vendor integration, because the question could be
+read either way. The re-ask named the service rather than the vendor, and the reply comes back
+split into exactly the two perspectives the first one had collapsed: *"ELI does not prescribe how
+a service maintains its operational enrolment, attendance, and absence records"*, and separately
+four conditions from the funding and compliance side. Same office, same subject, a usable answer —
+the difference was in the question.
+
+**Read the closure narrowly, because it is conditional.** Confirmed: a service *may*. Not
+confirmed, and unconfirmable by any email: that *this* system meets the four conditions. Three of
+the four land on entries already open — item 6 (§6-4 to §6-7 absence rules not modelled, so "all
+Chapter 6 record-keeping requirements" is not met today), item 36 (the twelve §6-3 criteria
+extracted by a tool rather than read), and items 3 and 44 together, because *"available for audit
+and retained"* is one clause and item 44 says a backup older than fourteen days will not load.
+**Item 44 was raised in priority without a line of code changing** — yesterday it was a red drill
+script, today it is the open defect bearing most directly on a written Ministry condition.
+
+**The reply's last two paragraphs are addressed to vendors, and this repo is the vendor.** They
+ask that customers be told plainly that using the system does not remove the service's
+responsibility to comply, and that RS7 figures the system produces still have to be reviewed,
+validated and submitted by the service. The product does not say this. It says something adjacent
+and not identical — every figure is labelled preparation and carries its provenance — but
+provenance describes the document and the Ministry is asking about accountability. New item 45,
+deliberately recorded rather than fixed in the same pass, because it is product text on the money
+path.
+
+**One thing this repo got right before it was asked to.** The Ministry names *"over-claiming or
+under-claiming"* as the service's to understand and address. The funding disclaimer has said since
+2026-08-18 that the figures count attended hours only and the total may be lower than the
+entitlement — written from reading §6-4 to §6-7, months before knowing anyone would ask for it.
+Arriving at the required disclosure by reasoning is the outcome the "nothing is estimated" rule
+exists to produce.
+
+**And a source named that nobody here has opened.** The reply points at §14-3 of the Funding
+Handbook. Only Chapter 6 has been read in this repo, so its quotes on [[funding-and-billing]] are
+attributed to the email and not to the Handbook until someone reads the chapter. Item 46. The same
+discipline item 38 got, applied before it can go wrong rather than after.
+
+**The provenance is in the record, from the header.** 31 August 2026, 6:53 am, from
+`ELI.Queries@education.govt.nz`, marked `[IN-CONFIDENCE - RELEASE EXTERNAL]`, and **unsigned** —
+the shared mailbox, where 2026-08-18 came from a named Senior Advisor. The team's position rather
+than one advisor's, and nobody to go back to.
+
+**The marking changes how the obligation should be delivered, not whether it can be quoted.**
+`RELEASE EXTERNAL` permits disclosure outside the Ministry, and this repository is public, so
+quoting it here is publishing it — knowingly. But item 45's statement must reach customers in this
+product's own words. A vendor saying what its software does not do is a plain statement; the same
+words quoted from a marked government email invites the reading that the Ministry is describing
+*this* product, which is the one thing the reply does not do.
+
+*Log last updated: 2026-08-31*

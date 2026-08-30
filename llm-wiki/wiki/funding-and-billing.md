@@ -165,7 +165,7 @@ Education Services. What was asked, and what came back:
 | Is "50 services" a customer count or a capability? | *"The product must be capable of supporting a minimum of 50 services across the relevant licence types."* **Capability** |
 | Are there fees for integration, certification or ongoing participation? | *"The Ministry does not charge any fees for integration, certification."* |
 | What security, privacy or assurance requirements must a vendor satisfy — a security assessment, penetration testing, a privacy impact assessment? | **Not answered.** The reply addressed fees only, and the question was one sentence in the same paragraph |
-| May a service keep its Chapter 6 records outside an approved SMS and submit through ELI Web? | **Not answered as asked** — see below |
+| May a service keep its Chapter 6 records outside an approved SMS and submit through ELI Web? | **Not answered as asked** — see below. Re-asked, and **answered 2026-08-31: yes, subject to four conditions** |
 
 **"50 services" is a capability requirement, and the customer-count reading was the
 load-bearing one.** There is no threshold of fifty paying services before a vendor may apply,
@@ -206,6 +206,118 @@ So the premise the whole product rests on is **unconfirmed** — not contradicte
 — and must be recorded as neither. It has to be re-asked, narrowed to the service's obligation
 rather than the vendor's, because as phrased it invited exactly the answer it got. Tracked as
 [[unverified-claims]] item 37.
+
+**It was re-asked, and it was answered. See the next section — the premise holds, and the answer
+carries an obligation this product does not yet meet.**
+
+### ANSWERED — the premise holds, and the answer is addressed to vendors as well as services
+
+Received **31 August 2026, 6:53 am**, from `ELI.Queries@education.govt.nz`, marked
+**`[IN-CONFIDENCE - RELEASE EXTERNAL]`**. The narrowed re-ask worked: the reply separates the two
+perspectives the first one collapsed, and answers the question about the **service** rather than
+the one about the vendor.
+
+**Two things about the provenance are worth recording.** It comes from the **ELI Queries shared
+mailbox and is signed by nobody** — unlike the 2026-08-18 reply, which came from a named Senior
+Advisor. That makes it the team's position rather than one advisor's reading, which is arguably
+the stronger form, but there is no individual to go back to.
+
+And it carries a **New Zealand Government protective marking**. `RELEASE EXTERNAL` is the
+endorsement that permits disclosure outside the originating agency, so quoting it here is within
+the marking rather than in spite of it. Two consequences that are not obvious: this repository is
+**public** (see [[security-review]]), so quoting it is publishing it — a decision taken knowingly
+rather than by default; and the obligation in the next section should reach customers **in this
+product's own words**, not by reproducing Ministry correspondence at them. A vendor telling a
+customer what its own software does not do is a plain statement. The same sentence delivered as a
+quotation from a marked government email invites the reading that the Ministry is speaking about
+this product, which is exactly what the caution at the end of this section forbids.
+
+**From the ELI side:**
+
+> *"ELI does not prescribe how a service maintains its operational enrolment, attendance, and
+> absence records. The ECE Funding Handbook explicitly states that providing data through ELI
+> does not replace the enrolment, attendance, and absence records required for funding.
+> Accordingly, a service may maintain its enrolment, attendance, and absence records in a system
+> that is not a Ministry-approved SMS, provided the service continues to meet its ELI reporting
+> obligations and submits the required information through ELI Web. Whether the records are held
+> in a Ministry-approved SMS or another system is not, in itself, an ELI requirement."*
+
+That last sentence is the one to keep. The approved-SMS question and the records question are
+**not the same question**, which is exactly what this page argued on 2026-08-18 from the reply
+that conflated them, and the Ministry has now said so itself.
+
+**From the funding and compliance side**, four conditions, quoted rather than paraphrased because
+they are the specification this product is now measured against:
+
+> *"A licensed service may maintain its Chapter 6 records in a system that is not a
+> Ministry-approved SMS, provided that:*
+>
+> - *the system enables the service to comply with all Chapter 6 record-keeping requirements;*
+> - *electronic attendance records meet the section 6-3 electronic verification requirements,
+>   where applicable;*
+> - *records are available for audit and retained in accordance with Ministry requirements; and*
+> - *the service submits the required information to the Ministry through ELI Web or another
+>   approved ELI submission method."*
+
+Records "can be maintained in a format that suits the service, but must be accessible when
+requested by Ministry auditors."
+
+**What this closes.** The premise the product rests on — a service may keep its Chapter 6 records
+here, meet §6-3, and have a person key the figures into ELI Web — is **confirmed, conditionally**.
+[[unverified-claims]] item 37 closes.
+
+**What it does not close, and this is the part worth reading twice.** The four conditions are not
+a finding about this product. They are a test this product must pass, and three of the four land
+on work that is tracked here as open:
+
+| Condition | Where this product stands |
+|---|---|
+| Enables compliance with **all** Chapter 6 record-keeping requirements | Not yet. The absence rules of §6-4 to §6-7 are not modelled at all — no permanent/casual enrolment type, no three-week window, no frequent-absence check. See [[unverified-claims]] item 6 |
+| Electronic attendance records meet **§6-3** | Built across `0061`–`0065`, against twelve criteria a tool extracted from a web page rather than a person reading them. Item 36 |
+| **Available for audit** and retained to Ministry requirements | The seven-year window is sourced; what it is measured *from* is not (item 3). And the restore drill is currently **red** — a CHECK constraint means a backup of the operational core older than fourteen days will not load (item 44). A record you cannot restore is not a record available for audit |
+| Submitted through **ELI Web** or another approved method | Nothing here submits anything, deliberately. This is the condition the product was already designed around |
+
+### The same answer names an obligation on the vendor, and this repo is the vendor
+
+The last two paragraphs of the reply are not about services at all. They are addressed to
+whoever writes the software:
+
+> *"Where a vendor solution is used, the system may provide the capability to collect, store,
+> manage, and summarise information to support the service's record-keeping obligations and
+> manual ELI reporting. However, vendors should be clear with their customers that use of their
+> system does not remove the service's responsibility to comply with Ministry funding,
+> record-keeping, and reporting requirements.*
+>
+> *In particular, vendors should ensure customers understand that any RS7 information generated
+> by their system is intended to support the service's completion of the RS7 return. The service
+> remains responsible for reviewing, validating, and submitting the information provided to the
+> Ministry. This includes understanding and addressing any over-claiming or under-claiming that
+> may arise from attendance, enrolment, absence, or validation issues. There is no alternative
+> pathway that avoids these accountability requirements; services remain responsible for the
+> accuracy of the data submitted for funding purposes."*
+
+**"Under-claiming" is the Ministry's own word, and this product already knows it under-claims.**
+The funding disclaimer written on 2026-08-18 says the figures count attended hours only and the
+total may be lower than what the service is entitled to claim. That sentence was written from
+reading §6-4 to §6-7; it turns out to be the exact disclosure the Ministry expects a vendor to
+make. Getting there first by reasoning does not make it a coincidence — it makes it the right
+shape.
+
+**What is missing is the other half.** Nothing in the product currently says that using it does
+not remove the service's responsibility to comply, or that a person must review and validate the
+figures before submitting them. The export is labelled a preparation export and every figure says
+where it came from, which is close — but "this is preparation" is a statement about the document,
+and the Ministry is asking for a statement about **who remains accountable**. Tracked as
+[[unverified-claims]] item 45.
+
+**A source this repo has not read.** The reply names *"14-3 Early learning information (ELI)
+system"* in the Funding Handbook. Chapters 6 and 14 are different chapters and only Chapter 6 has
+been read here. Item 46.
+
+**One caution about scope.** This answers what a service *may* do. It does not certify that this
+particular system does any of it, and no reply to an email ever will. Nothing on this page or in
+the product may be worded to suggest the Ministry has approved, endorsed or reviewed this
+software, because it has not — it has described the conditions under which any system qualifies.
 
 ### The specification documents arrived, and nobody has read them
 
@@ -581,4 +693,4 @@ claim only what it actually proves.
 - [[unverified-claims]] — the caps, and the absence of rates
 - [[compliance-and-evidence]] — the other thing attendance is evidence for
 
-*Last updated: 2026-08-29*
+*Last updated: 2026-08-31*

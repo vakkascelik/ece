@@ -810,11 +810,28 @@ end date, which is a different thing from an unreachable threshold. The wrong re
 rather than erased because it is why an ELI integration sits under "deliberately not doing this" in
 [docs/roadmap-phases-8-13.md](docs/roadmap-phases-8-13.md).
 
-What is still **unconfirmed** is the premise underneath all of this: whether a licensed service may
+**Confirmed 2026-08-31 — the premise underneath all of this holds.** Whether a licensed service may
 keep its Chapter 6 enrolment, attendance and absence records in software that is not an approved
-SMS and key its figures into ELI Web itself. That was asked and was not answered — the reply
-addressed vendor integration instead. See
-[unverified-claims item 37](llm-wiki/wiki/unverified-claims.md).
+SMS and key its figures into ELI Web itself was asked on 2026-08-14 and not answered — the reply
+addressed vendor integration instead. Re-asked, narrowed to the service rather than the vendor, and
+answered: *"Whether the records are held in a Ministry-approved SMS or another system is not, in
+itself, an ELI requirement."* A service may, subject to four conditions — the system must enable
+compliance with all of Chapter 6, electronic attendance records must meet §6-3, records must be
+available for audit and retained to Ministry requirements, and the service must still submit
+through ELI Web or another approved method.
+
+**This is not Ministry approval of this software, and nothing here may be read as it.** The
+Ministry described the conditions under which any system qualifies. It has not reviewed, endorsed
+or certified this one, and three of the four conditions rest on work still open — the §6-4 to §6-7
+absence rules are not modelled, the twelve §6-3 criteria were extracted by a tool rather than read
+by a person, and the restore drill currently cannot load data older than fourteen days. See
+[unverified-claims](llm-wiki/wiki/unverified-claims.md) items 37, 6, 36, 3 and 44, and
+[funding-and-billing](llm-wiki/wiki/funding-and-billing.md) for the full text of the reply.
+
+**The same reply asks something of the vendor that this product does not yet do:** tell the customer
+plainly that using the system does not remove the service's responsibility to comply, and that RS7
+figures it produces must still be reviewed, validated and submitted by the service. Tracked as
+[unverified-claims item 45](llm-wiki/wiki/unverified-claims.md).
 
 So every label says "preparation" and none say "return", "submit" or "file". A screen that looks like
 it filed something is a screen after which nobody files anything. Funding *periods* are chosen by the

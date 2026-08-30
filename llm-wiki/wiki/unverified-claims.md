@@ -26,10 +26,19 @@ Nothing here is a bug. They are known gaps with known closures.
   every ratio surface, is that the **inputs** are incomplete: Schedule 2 counts every person
   present aged under 6, including a staff member's own child, and this product counts
   enrolled children who signed in. Sessional and home-based tables are not modelled.
-- **Whether a service may keep its Chapter 6 records outside an approved SMS is still
-  unconfirmed** — and that is the premise the whole product rests on. Asked of the Ministry on
-  2026-08-14; the 2026-08-18 reply answered a question about *vendor integration* instead.
-  Neither permitted nor forbidden. Item 37, and it should have been on this page since Phase 5.
+- **A service MAY keep its Chapter 6 records outside an approved SMS — item 37, CLOSED
+  2026-08-31.** The premise the whole product rests on, confirmed by the Ministry in writing after
+  a narrowed re-ask: *"Whether the records are held in a Ministry-approved SMS or another system is
+  not, in itself, an ELI requirement."* Conditional, and the conditions are the point — the system
+  must enable compliance with **all** of Chapter 6, meet §6-3, keep records available for audit and
+  retained, and the service must still submit through ELI Web. Three of those four are open items
+  here (6, 36, and 3 with 44), so the risk moved from "the premise may be wrong" to "the premise is
+  right and the conditions are ours to meet". **Nothing may imply the Ministry approved this
+  software.** It did not; it described when any system qualifies.
+- **The same reply told vendors to say something this product does not say — item 45.** That use
+  of the system does not remove the service's responsibility to comply, and that a person must
+  review and validate RS7 figures before submitting them. Sourced requirement, unmet. The
+  Ministry's word for the failure mode this product already discloses is *"under-claiming"*.
 - **No licensing criteria are loaded, and none are seeded.** The criteria-gap feature
   cannot function until somebody imports a checked set. Deliberate — see
   [[compliance-and-evidence]].
@@ -196,6 +205,12 @@ records individually.
 See [[privacy-and-retention]] for the surrounding design, including a correction already
 made to an earlier wrong claim about the Privacy Act.
 
+**2026-08-31 — this is now one leg of a stated Ministry condition.** The reply that closed item 37
+permits Chapter 6 records outside an approved SMS only where *"records are available for audit and
+retained in accordance with Ministry requirements"*. Two open items sit under that clause: the
+retention anchor here, and item 44's finding that a backup of the operational core older than
+fourteen days will not load. Retained and *restorable* are the same requirement read carefully.
+
 ### 4. Offline: no device drill
 
 `npm run drill:offline` replays exactly what the outbox does — keys fixed up front, reused
@@ -260,6 +275,16 @@ product made up. Rates live in a fee schedule the centre enters, or nowhere.
 Two mitigations that make the maths safe even while the caps are wrong: nothing is ever estimated
 (a day whose record is incomplete is excluded and named, never guessed), and every rounding
 decision goes **down**, so an error in the caps cannot combine with a rounding error to over-claim.
+
+**2026-08-31 — this is the weakest of the four conditions the Ministry named.** Closing item 37
+came with a condition that *"the system enables the service to comply with all Chapter 6
+record-keeping requirements"*, and §6-4 to §6-7 are Chapter 6. Not modelled is not the same as not
+required. Two things keep this honest rather than alarming: the gap **under**-claims, which is a
+loss to the centre and never a false claim against the Crown, and the product says so on the
+document itself. The same reply also names *"under-claiming"* as something the service must
+understand and address — so the disclaimer written here on 2026-08-18 turns out to be the exact
+disclosure the Ministry expects. What is now clear is that building the absence rules is the
+difference between supporting Chapter 6 and enabling compliance with all of it.
 
 ### 7. Warning lead times for expiring documents
 
@@ -966,10 +991,46 @@ and the status is deliberately called `overdue` rather than the market's `failed
 not read as a regulatory outcome. Recorded here rather than left in a code comment because the
 next person to add a reminder email will want to know the number is not load-bearing.
 
-### 37. Whether a service may keep its Chapter 6 records outside an approved SMS
+### 37. Whether a service may keep its Chapter 6 records outside an approved SMS — **CLOSED 2026-08-31**
 
-**This is the premise the product rests on, and asking the Ministry directly did not settle
-it.** Added 2026-08-18, and it should have been on this page from Phase 5.
+**This is the premise the product rests on. It is now confirmed, conditionally, by the Ministry
+in writing.** Added 2026-08-18 after the first reply answered a different question; closed
+2026-08-31 when the narrowed re-ask was answered.
+
+> *"Accordingly, a service may maintain its enrolment, attendance, and absence records in a system
+> that is not a Ministry-approved SMS, provided the service continues to meet its ELI reporting
+> obligations and submits the required information through ELI Web. Whether the records are held
+> in a Ministry-approved SMS or another system is not, in itself, an ELI requirement."*
+
+And from the funding and compliance side, four conditions: the system enables compliance with all
+Chapter 6 record-keeping requirements; electronic attendance records meet §6-3 where applicable;
+records are available for audit and retained to Ministry requirements; and the service submits
+through ELI Web or another approved method. Full text and the operative quotes in
+[[funding-and-billing]].
+
+**Read the closure narrowly.** What is confirmed is that a service *may* do this. What is not
+confirmed — and cannot be, by any email — is that **this** system satisfies the four conditions.
+Three of them land on entries still open on this page: item 6 (the §6-4 to §6-7 absence rules are
+not modelled, so "all Chapter 6 record-keeping requirements" is not met today), item 36 (the
+twelve §6-3 criteria were extracted by a tool, not read by a person), and items 3 and 44 together
+(retained and *available for audit* — the restore drill is red, and a backup that will not load is
+not an audit record). The closure moves the risk from "the premise may be wrong" to "the premise
+is right and the conditions are ours to meet", which is a better position and a shorter list, not
+an empty one.
+
+**Nothing anywhere may imply Ministry approval of this software.** The reply describes the
+conditions under which any system qualifies. It reviewed nothing, and no wording in the product,
+the wiki or a sales conversation may suggest otherwise.
+
+**Provenance, from the message header rather than from memory:** received **31 August 2026,
+6:53 am** from `ELI.Queries@education.govt.nz`, marked `[IN-CONFIDENCE - RELEASE EXTERNAL]`. It is
+**unsigned** — the ELI Queries shared mailbox, not a named advisor, where the 2026-08-18 reply came
+from Halaholo Mataele, Senior Advisor, Early Learning Information, Te Mahau. Read that as the
+team's position rather than one person's, with the trade-off that there is no individual to go back
+to on a follow-up.
+
+**The history below is kept as written, because it is the reason the re-ask was phrased the way it
+was.**
 
 | | |
 |---|---|
@@ -978,8 +1039,9 @@ it.** Added 2026-08-18, and it should have been on this page from Phase 5.
 | **Asked** | 2026-08-14, `ELI.queries@education.govt.nz`, quoting Chapter 6's own statement that providing data through ELI does not replace the enrolment, attendance and absence records required for funding |
 | **Answered 2026-08-18** | *"To integrate with ELI, a vendor must be an approved Student Management System (SMS) provider."* |
 | **Why that is not an answer** | It is a statement about **vendor integration**. The question was about **where a service's records may live**. This product does not integrate with ELI and does not propose to; it produces figures a person keys in by hand, which is the same act as keying them off a paper roll. The reply neither permits nor forbids that |
-| **Current status** | **Unconfirmed. Not contradicted, not confirmed** — and it must be recorded as neither. The temptation to read the reply as a yes (it does not mention services at all) or as a no (it mentions approval) should be resisted in both directions |
-| **To close it** | Re-ask, narrowed so it cannot be answered as a vendor question: name the service, not the vendor, and ask whether the service meets its Chapter 6 obligations by keeping those records in general-purpose software and submitting through ELI Web. If the Ministry will not answer a compliance question in the abstract, the fallback is the same question routed through a licensed service's own advisor, or read out of the Funding Handbook and the regulations directly |
+| **Status 2026-08-18 to 2026-08-31** | **Unconfirmed. Not contradicted, not confirmed** — and it had to be recorded as neither. The temptation to read the reply as a yes (it does not mention services at all) or as a no (it mentions approval) was resisted in both directions |
+| **What closed it** | The re-ask, narrowed exactly as planned below so it could not be answered as a vendor question. **Answered 2026-08-31: yes, subject to four conditions.** See the top of this item |
+| **The plan that worked, kept for the next one** | Re-ask, narrowed so it cannot be answered as a vendor question: name the service, not the vendor, and ask whether the service meets its Chapter 6 obligations by keeping those records in general-purpose software and submitting through ELI Web. If the Ministry will not answer a compliance question in the abstract, the fallback is the same question routed through a licensed service's own advisor, or read out of the Funding Handbook and the regulations directly |
 
 **What the same reply did settle** — recorded in [[funding-and-billing]] rather than repeated
 here: "50 services" is a **capability** requirement, not a customer count, which corrects a
@@ -1176,6 +1238,52 @@ medication, the building.
 | **The likely fix, not applied** | Move the rule from a CHECK to a `before insert` trigger. A CHECK is re-evaluated on every write including a restore; a trigger on INSERT guards new writes — which is all the constraint was ever for, since it exists to catch a typo'd date at the door — without making the table's own history unloadable. That is six migrations' worth of change to the most-written tables in the schema and it wants its own session, not a corner of an unrelated one |
 | **To close it** | Convert the six, then `drill:restore` green. Until then, treat the documented restore path as unproven for anything older than fourteen days |
 
+**Raised in priority 2026-08-31, without a line of code changing.** The Ministry's answer closing
+item 37 makes *"records are available for audit and retained in accordance with Ministry
+requirements"* one of four named conditions on keeping Chapter 6 records outside an approved SMS.
+This item is no longer only an internal hygiene defect in a drill script — it is the one open
+defect that bears directly on a condition the Ministry has now stated in writing. The technical
+finding is unchanged and the fix is unchanged; what changed is what it costs to leave it.
+
+### 45. The product does not tell the customer that using it does not remove their responsibility
+
+Added 2026-08-31, from the same Ministry reply that closed item 37. Unlike almost everything else
+on this page, **this is not an unsourced claim — it is a sourced requirement the product does not
+yet meet.** It is here because this page is where the gaps live and there is nowhere better.
+
+| | |
+|---|---|
+| **What the Ministry asks of vendors** | *"vendors should be clear with their customers that use of their system does not remove the service's responsibility to comply with Ministry funding, record-keeping, and reporting requirements"*, and *"vendors should ensure customers understand that any RS7 information generated by their system is intended to support the service's completion of the RS7 return. The service remains responsible for reviewing, validating, and submitting the information provided to the Ministry"* |
+| **What the product says today** | `fundingDisclaimer` in `packages/core/src/funding.ts` names the under-claim — attended hours only, sections 6-4 to 6-7 not calculated, the total may be lower than the entitlement — and the export is labelled a preparation export throughout. Every figure says where it came from |
+| **What is missing** | An accountability statement, as distinct from a provenance statement. "These are preparation figures" describes the document; the Ministry is asking for a sentence about **who remains responsible** for reviewing, validating and submitting them, and that using this system does not move that responsibility |
+| **Why the existing disclaimer is not enough** | It is conditional on `!summary.verified`. An accountability statement must not be, because it is true on the day every flag goes green. Wiring the Ministry's words to a flag that can flip would delete them |
+| **Where it belongs** | With the funding export and the RS7 preparation surfaces, and in [tenant-little-pearls](../../docs/tenant-little-pearls.md) or whatever stands in for a customer-facing statement of what this product is. Not only in this wiki — the obligation is to the *customer*, and a customer does not read `llm-wiki/` |
+| **In our words, not the Ministry's** | The reply is marked `[IN-CONFIDENCE - RELEASE EXTERNAL]`. The marking permits external disclosure, so quoting is allowed — but the customer-facing sentence must be this product's own. A vendor stating what its software does not do is a plain statement; the same words presented as a quotation from a government email implies the Ministry is describing *this* product, and it is not |
+| **To close it** | Write the sentence, place it unconditionally on the funding and RS7 surfaces, and assert its presence in a test the way the existing disclaimer wording is asserted in `funding.test.ts`. Deliberately not done in the same change that recorded the email, because it is product text on the money path and wants its own review |
+
+**The half that was already right, and should not be lost in the fix.** The Ministry names
+*"over-claiming or under-claiming"*. This product refuses to estimate, floors its rounding
+downward so an error never favours the claimant, and already discloses the under-claim in the
+manager's own terms. That was written on 2026-08-18 from reading §6-4 to §6-7, before anyone knew
+the Ministry would ask for it.
+
+### 46. Chapter 14-3 of the Funding Handbook has not been read
+
+Added 2026-08-31. The Ministry's reply names *"14-3 Early learning information (ELI) system"* as
+the source to read for the ELI position, and points at it directly.
+
+**Only Chapter 6 has been read in this repo.** Chapter 14 has not been opened, and its contents
+are not a fact here — the same rule that governed the seven specification documents in item 38
+before they were decrypted. Nothing currently asserted depends on it, so this is a reading task
+rather than a correction risk, with one qualification: the reply summarises §14-3 in a direction
+favourable to this product, and a summary is not the section. The sentence about ELI not
+prescribing how a service maintains its operational records is quoted from the Ministry's email
+in [[funding-and-billing]] and attributed to the email, not to the Handbook, until someone opens
+the chapter.
+
+**To close it:** read §14-3, diff it against what the reply says it contains, and re-attribute the
+quotes on [[funding-and-billing]] to the primary source if they hold.
+
 ## See Also
 
 - [[checklists]] — where the hazard assessment fields live, and the rest of the 1Place work
@@ -1190,4 +1298,4 @@ medication, the building.
 - [[reporting]] — occupancy, attendance trends, and enquiry conversion
 - [[deployment]] — item 41's detail: the three CI jobs and what each one skips
 
-*Last updated: 2026-08-29*
+*Last updated: 2026-08-31*
