@@ -1120,20 +1120,61 @@ different question from evidence.
 that addresses documentation photos in early learning services. Either is a one-page read, and
 the first one Little Pearls can hand over today.
 
-### 43. Migrations 0074 and 0075 are written, committed, and have never touched a database
+### 43. CLOSED 2026-08-30 — migrations 0074 and 0075 have now run
 
-Added 2026-08-29. `incident_investigations` (0074) and `evidence_photos` plus the `evidence`
-bucket (0075), with their policies, grants, ~30 new assertions in `rls_isolation.sql`, and the
-screens that use them — none of it has run.
+Opened 2026-08-29, when every database transport on this machine was dead and
+`incident_investigations` (0074), `evidence_photos` (0075), their policies, grants and ~30
+new assertions had been committed without ever reaching Postgres.
+
+A working PAT arrived on 2026-08-30 and all four gates ran, in the order this item
+specified. **Three of the four are green and the fourth found something**, which is recorded
+as item 44 rather than folded in here — it is not about 0074/0075 and it was not caused by
+them.
+
+| Gate | Result |
+|---|---|
+| `npm run migrate` | 0074 and 0075 applied cleanly |
+| `npm run test:rls` | **577/577** assertions, including every one written blind for these two tables |
+| `npm run review:security` | 16/16 clean, 0 at high or critical |
+| `npm run drill:restore` | **failed** — and the failure is real, pre-existing and unrelated. Item 44 |
+
+Nothing in the suite had to change for 0074/0075 to pass, which is the outcome this item was
+least confident about: the assertions were written against a mental model of the policies and
+the model was right. That is worth recording precisely because it is the case where a passing
+suite proves nothing was learned — the value was in running it, and the value of running it
+was that the fourth gate failed.
+
+**One thing this exercise did prove about writing blind.** 0076, written the same day and
+applied minutes later, failed `review:security` at HIGH on its first run: two SECURITY DEFINER
+trigger functions kept the EXECUTE grant Postgres gives PUBLIC by default, which 0013 had
+already learned to revoke. Fixed in 0077. Reviewing a migration is not the same as running the
+gate, and this repo now has an example of each outcome one day apart.
+
+### 44. The restore drill cannot restore data older than fourteen days
+
+Added 2026-08-30, the first time `drill:restore` ran since the fixture data aged past two
+weeks. It extracted 12,927 rows from 71 tables and then failed loading them back:
+
+```
+ERROR: 23514: new row for relation "staff_count_events"
+violates check constraint "staff_count_not_ancient"
+DETAIL: Failing row contains (..., 2026-08-04 05:56:04.698+00, ...)
+```
+
+**Six tables carry a time-relative CHECK constraint** of the form
+`check (at > now() - interval '14 days')`: `attendance` (0009), `staff_count_events` (0010),
+`medication_administrations` (0032), `sleep_checks` (0033), `safety_checks` (0034) and
+`staff_attendance` (0039). Those are the operational core of the product — the roll, sleep,
+medication, the building.
 
 | | |
 |---|---|
-| **Why** | Every database transport this machine has is dead: `SUPABASE_DB_URL` is empty in `.env.local`, and `SUPABASE_ACCESS_TOKEN` returns 401 Unauthorized on the plainest Management API call — the PAT that applied 0066–0073 on 2026-08-28 expired or was revoked sometime in the following day |
-| **What that blocks** | `npm run migrate`, `test:rls`, `review:security`, `drill:restore` — every gate that touches live Postgres. AGENTS.md §5 says a change is not done until `test:rls` passes, and this one is **not done** by that standard |
-| **What did run** | `typecheck`, `lint`, `test` (505 core / 11 api / 6 web), `tokens:check`, `check:docs`, `build`. `check:bundle` still fails on item 41's pre-existing 7kB, unchanged at 113.0kB by this work. The `snapshotAt` boundary was mutation-tested: weakening `<=` to `<` fails exactly the assertion written for it |
-| **The specific unverified claims** | That 0074/0075 apply cleanly; that the two insert policies' EXISTS subqueries refuse what the new assertions say they refuse; that the freeze policies produce zero-row no-ops rather than errors where the suite expects no-ops; that a parent reads nothing from either table. Every one of these is asserted in the suite and the suite has not run |
-| **Not softened** | The migrations were not applied by pasting into the SQL editor, deliberately — that is the workflow `scripts/migrate.ts` exists to end, and an unapplied committed migration is recoverable (the checksum binds at apply, not at commit) while a half-applied hand-pasted one is not |
-| **To close it** | A new PAT (supabase.com → account → access tokens) into `SUPABASE_ACCESS_TOKEN`, or the database connection string into `SUPABASE_DB_URL`. Then, in order: `npm run migrate`, `npm run test:rls`, `npm run review:security`, `npm run drill:restore` — and delete this item only when all four are green |
+| **Why it appeared now, not before** | The constraint is relative to `now()`. The fixture rows were written on 2026-08-04, so any drill run before ~2026-08-18 loaded them inside the window and passed. Nothing regressed; the data aged |
+| **Why it is not a drill bug** | The drill copies the schema with `like … including all` **on purpose** — its own header says it "proves the constraints still accept the restored data". It did its job. `pg_restore` from a real dump would hit the same wall, and so would any restore of a backup more than a fortnight old |
+| **What it means** | This is a compliance product whose pitch is the record. A backup that cannot be restored is not a backup, and [backup-and-restore](../../docs/backup-and-restore.md) does not currently say this |
+| **What it is NOT** | A tenancy or access-control defect. Nothing here is reachable by the wrong caller; `test:rls` and `review:security` are both green |
+| **The likely fix, not applied** | Move the rule from a CHECK to a `before insert` trigger. A CHECK is re-evaluated on every write including a restore; a trigger on INSERT guards new writes — which is all the constraint was ever for, since it exists to catch a typo'd date at the door — without making the table's own history unloadable. That is six migrations' worth of change to the most-written tables in the schema and it wants its own session, not a corner of an unrelated one |
+| **To close it** | Convert the six, then `drill:restore` green. Until then, treat the documented restore path as unproven for anything older than fourteen days |
 
 ## See Also
 

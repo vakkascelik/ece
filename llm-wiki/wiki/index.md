@@ -64,6 +64,9 @@ and [`../schema.md`](../schema.md) for the page template.
   than reverses
 - [[consent-gated-media]] — a photograph that cannot exist without a recorded consent decision,
   and the RLS trap that made the first version leak to staff
+- [[post-comments]] — whānau replying to a post: a visibility policy that delegates rather than
+  copies, why auto-approved and approved-by-a-person stay different facts, and the names that
+  are missing on purpose
 - [[exports]] — CSV and PDF: why a byte-order mark is a product decision in a te reo Māori
   product, why a cell beginning `=` is an attack, and why two exports are stricter than the
   pages they sit on

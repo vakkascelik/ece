@@ -1,5 +1,6 @@
 import {
   listChildren,
+  listCommentsForPosts,
   listCurriculumStrands,
   listMediaForPosts,
   listPostChildren,
@@ -33,9 +34,15 @@ export default async function PostsPage() {
   const posts = await listPosts(db, ctx.centre.id);
   const ids = posts.map((p) => p.id);
 
-  const [childLinks, mediaByPost, children, strands] = await Promise.all([
+  const [childLinks, mediaByPost, commentsByPost, children, strands] = await Promise.all([
     listPostChildren(db, ids),
     listMediaForPosts(db, ids),
+    /*
+      Not gated on `isStaff`, unlike the two below. A comment thread is the one thing on
+      this page a parent both reads and writes — `post_comments_select` returns the
+      approved ones, their own however it is moving, and the pending queue only to staff.
+    */
+    listCommentsForPosts(db, ids),
     // Staff need the roster to name children in a post. A parent does not, and would only get
     // their own child back anyway.
     isStaff ? listChildren(db, ctx.centre.id) : Promise.resolve([]),
@@ -105,6 +112,9 @@ export default async function PostsPage() {
                 can(ctx.role, 'manageCentre'))
             }
             childOptions={children.map((c) => ({ id: c.id, name: displayName(c) }))}
+            comments={commentsByPost.get(post.id) ?? []}
+            canModerate={isStaff}
+            viewerId={ctx.userId}
           />
         ))
       )}

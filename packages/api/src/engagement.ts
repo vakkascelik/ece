@@ -10,7 +10,7 @@
  * database is the authority and the message it raises is already written for a human.
  */
 
-import { MEDIA_BUCKET, type PostKind } from '@ece/core';
+import { MEDIA_BUCKET, type CommentMode, type PostKind } from '@ece/core';
 import { fetchAll } from './paging';
 import type { Db } from './index';
 
@@ -27,9 +27,14 @@ export interface Post {
   authorId: string | null;
   publishedAt: string | null;
   createdAt: string;
+  /** 0076. Decides what happens to a comment at insert, in the database, not here. */
+  commentMode: CommentMode;
+  /** 0076. Null is the ordinary state; a timestamp so two pins have an order. */
+  pinnedAt: string | null;
 }
 
-const POST_COLUMNS = 'id, centre_id, kind, title, body, author_id, published_at, created_at';
+const POST_COLUMNS =
+  'id, centre_id, kind, title, body, author_id, published_at, created_at, comment_mode, pinned_at';
 
 interface PostRow {
   id: string;
@@ -40,6 +45,8 @@ interface PostRow {
   author_id: string | null;
   published_at: string | null;
   created_at: string;
+  comment_mode: CommentMode;
+  pinned_at: string | null;
 }
 
 const toPost = (r: PostRow): Post => ({
@@ -51,6 +58,8 @@ const toPost = (r: PostRow): Post => ({
   authorId: r.author_id,
   publishedAt: r.published_at,
   createdAt: r.created_at,
+  commentMode: r.comment_mode,
+  pinnedAt: r.pinned_at,
 });
 
 /**
@@ -70,6 +79,12 @@ export async function listPosts(
     .select(POST_COLUMNS)
     .eq('centre_id', centreId)
     .is('archived_at', null)
+    /*
+      Pinned first — `nullsFirst: false` puts the unpinned majority after them, and two pinned
+      posts sort by when they were pinned rather than when they were written, which is what a
+      centre means by pinning the second one.
+    */
+    .order('pinned_at', { ascending: false, nullsFirst: false })
     // Drafts have no published_at, so ordering by created_at keeps them with the day they were
     // written rather than sorting them to the bottom forever.
     .order('created_at', { ascending: false })
@@ -166,6 +181,149 @@ export async function archivePost(db: Db, postId: string): Promise<void> {
     .update({ archived_at: new Date().toISOString() })
     .eq('id', postId);
   if (error) throw new Error(`archivePost: ${error.message}`);
+}
+
+/**
+ * Pin a post to the top of the feed, or unpin it. 0076.
+ *
+ * An UPDATE, so `posts_write_update` (0028) decides: the author, or an owner/manager. That
+ * is the right set — a manager is accountable for what the centre puts at the top of what
+ * every family sees.
+ */
+export async function setPinned(db: Db, postId: string, pinned: boolean): Promise<void> {
+  const { error } = await db
+    .from('posts')
+    .update({ pinned_at: pinned ? new Date().toISOString() : null })
+    .eq('id', postId);
+  if (error) throw new Error(`setPinned: ${error.message}`);
+}
+
+/** Change how comments on one post are handled. 0076. */
+export async function setCommentMode(db: Db, postId: string, mode: CommentMode): Promise<void> {
+  const { error } = await db.from('posts').update({ comment_mode: mode }).eq('id', postId);
+  if (error) throw new Error(`setCommentMode: ${error.message}`);
+}
+
+// ---------------------------------------------------------------------------
+// Comments — 0076
+// ---------------------------------------------------------------------------
+
+export interface PostComment {
+  id: string;
+  postId: string;
+  authorId: string | null;
+  body: string;
+  createdAt: string;
+  approvedAt: string | null;
+  declinedAt: string | null;
+  /** Null on an auto-approved comment: nobody read it, and that stays true. */
+  moderatedBy: string | null;
+}
+
+const COMMENT_COLUMNS =
+  'id, post_id, author_id, body, created_at, approved_at, declined_at, moderated_by';
+
+interface CommentRow {
+  id: string;
+  post_id: string;
+  author_id: string | null;
+  body: string;
+  created_at: string;
+  approved_at: string | null;
+  declined_at: string | null;
+  moderated_by: string | null;
+}
+
+const toComment = (r: CommentRow): PostComment => ({
+  id: r.id,
+  postId: r.post_id,
+  authorId: r.author_id,
+  body: r.body,
+  createdAt: r.created_at,
+  approvedAt: r.approved_at,
+  declinedAt: r.declined_at,
+  moderatedBy: r.moderated_by,
+});
+
+/**
+ * Comments for a set of posts.
+ *
+ * No filtering here, and no `approved_at is not null` either — `post_comments_select`
+ * already returns the approved ones plus the caller's own and, for staff, the pending
+ * queue. Adding a filter would make a parent's own unapproved comment vanish from their
+ * screen, which is the one thing the policy goes out of its way to prevent.
+ *
+ * Paged for the same reason media is: a popular pānui at a centre with 275 guardians is
+ * one post, and a truncated read would silently drop the end of a conversation.
+ */
+export async function listCommentsForPosts(
+  db: Db,
+  postIds: string[],
+): Promise<Map<string, PostComment[]>> {
+  if (postIds.length === 0) return new Map();
+  const rows = await fetchAll<CommentRow>('listCommentsForPosts', (from, to) =>
+    db
+      .from('post_comments')
+      .select(COMMENT_COLUMNS)
+      .in('post_id', postIds)
+      .order('created_at')
+      .order('id')
+      .range(from, to),
+  );
+
+  const out = new Map<string, PostComment[]>();
+  for (const row of rows) {
+    const item = toComment(row);
+    const list = out.get(row.post_id);
+    if (list) list.push(item);
+    else out.set(row.post_id, [item]);
+  }
+  return out;
+}
+
+/**
+ * Leave a comment.
+ *
+ * `author_id` is set from the session rather than taken as an argument: the policy
+ * requires `author_id = auth.uid()` and a caller who could pass it would be asking to be
+ * refused. Whether it appears immediately is the post's business and the trigger's — see
+ * 0076 — so nothing here sets `approved_at`, and anything a caller sent for it is
+ * discarded by the trigger anyway.
+ */
+export async function addComment(db: Db, postId: string, body: string): Promise<PostComment> {
+  const { data: auth } = await db.auth.getUser();
+  const { data, error } = await db
+    .from('post_comments')
+    .insert({ post_id: postId, author_id: auth.user?.id ?? null, body: body.trim() })
+    .select(COMMENT_COLUMNS)
+    .single();
+  if (error) throw new Error(`addComment: ${error.message}`);
+  return toComment(data as CommentRow);
+}
+
+/**
+ * Approve or decline a pending comment.
+ *
+ * `moderated_by` is deliberately not sent. The trigger stamps it from `auth.uid()`, which
+ * is what keeps "a kaiako approved this" distinguishable from "the post was set to
+ * approve automatically" — a client that supplied it could erase that difference.
+ *
+ * Scoped to rows that are still pending, so two kaiako clearing the same queue do not
+ * overwrite each other's decision: the second update matches nothing.
+ */
+export async function moderateComment(
+  db: Db,
+  commentId: string,
+  decision: 'approve' | 'decline',
+): Promise<void> {
+  const now = new Date().toISOString();
+  const { error } = await db
+    .from('post_comments')
+    .update(decision === 'approve' ? { approved_at: now } : { declined_at: now })
+    .eq('id', commentId)
+    .is('approved_at', null)
+    .is('declined_at', null);
+  if (error) throw new Error(`moderateComment: ${error.message}`);
 }
 
 export async function listPostChildren(db: Db, postIds: string[]): Promise<Map<string, string[]>> {

@@ -4424,4 +4424,71 @@ announcement says nothing about it, which is checked-and-not-found rather than d
 exposure is narrow — `criteria` (0012) ships empty and loads only from a file a human has checked,
 so a stale numbering cannot reach a screen by itself. It can reach the file somebody prepares.
 
+## 2026-08-30 (later) — the credentials arrived, and the fourth gate was the one worth running
+
+A working PAT landed mid-session and [[unverified-claims]] item 43's four commands ran in the
+order that item specified. **The inventory step earned its place immediately**: the token is
+account-wide and sees two projects, `ece` and an unrelated `charity-platform`. `.env.local`
+was checked against `qdgforljvddgrxxymtug` *before* `migrate` ran, which is the precaution
+this repo wrote down after a PAT was once handed over pointing at the wrong project entirely.
+
+0074 and 0075 applied and **577/577** assertions passed, including every one written blind
+against a mental model of the policies. `review:security` came back 16/16. Nothing had to
+change for them to pass — which is the outcome that proves least, and is exactly why the
+fourth gate mattered.
+
+**`drill:restore` failed, and the failure is the most valuable thing here.** It extracted
+12,927 rows from 71 tables and could not load them back:
+`staff_count_events` violates `staff_count_not_ancient`, a CHECK reading
+`at > now() - interval '14 days'`, on a row written 2026-08-04. **Six tables carry that
+shape** — attendance, staff counts, medication, sleep checks, safety checks, staff attendance:
+the operational core. Nothing regressed; the fixture data aged past the window, and every
+earlier run of this drill happened inside it. A CHECK is re-evaluated on restore, so *a backup
+of these tables older than a fortnight cannot be loaded*, by this drill or by `pg_restore`.
+The drill is not at fault — its header says it copies the schema `including all` precisely to
+prove "the constraints still accept the restored data", and it proved they do not. Recorded as
+item 44 with the likely fix (a `before insert` trigger rather than a CHECK) and deliberately
+not applied: six migrations to the most-written tables in the schema is its own session.
+
+## 2026-08-30 — comments on a post, and a gap that was total
+
+Phase 10b of [replacing Educa](../../docs/doorway-without-infocare.md), from 22 screenshots.
+A grep of every migration for "comment" returned nothing but `comment on table` DDL, while
+Educa reports on comments in three of its ten reports. See [[post-comments]] for the design.
+
+**The check that stopped a duplicate before it was built:** `/messages` (0016) already *is*
+Educa's Conversations. Reading the incumbent's screenshots without reading our own schema
+would have produced a second messaging feature.
+
+**The policy delegates rather than copies** — `post_id in (select id from public.posts)`,
+the mechanism [[curriculum-strands]] established in 0058 — so 0076 adds no branch to post
+visibility and changes no existing policy. The assertion that proves it: Priya comments on a
+learning moment about her own child, and Quinn, a parent at the same centre with a different
+child, reads nothing.
+
+**Three defects, all found by a gate rather than by reading it back.**
+
+1. `review:security` failed **HIGH** on 0076's first run — two SECURITY DEFINER trigger
+   functions kept the EXECUTE grant Postgres gives PUBLIC, which includes `anon`. 0013 already
+   revokes exactly this. Fixed in 0077, separate because 0076's checksum was already bound.
+   The honest exposure was nil: PostgreSQL refuses a direct call to a `returns trigger`
+   function. Closed anyway, because "probably unreachable" is an argument that must be re-made
+   after every edit to the body and a revoke is one that need not be.
+2. The new suite section was appended to the end of `rls_isolation.sql` and failed on a
+   foreign key to a purged child. The file **says so** at the placement note above the consent
+   section: the purge and offboarding sections revoke Priya's membership and archive Ana, and
+   anything needing them must sit above. Moved.
+3. Recovering from (2) went wrong in a way worth writing down. A `Read` at offset 7040 showed
+   what looked like the end of the file; it was not — the file is 7985 lines. A script written
+   on the assumption "the appended section runs to EOF" therefore picked up ~900 lines of real
+   suite content and moved the lot, putting the consent section *after* `rollback;`. Caught by
+   inspecting the boundary rather than by a test, and undone with `git checkout`. **Reading a
+   window is not reading a file**, and a script that slices to EOF should assert what it thinks
+   the end is.
+
+Two smaller notes. The `cat <<'EOF'` heredoc failed on an apostrophe, which CLAUDE.md warns
+about in as many words; and a PowerShell `Get-Content | Set-Content -Encoding utf8` round-trip
+mangled every em-dash and the macron in "Pānui" — the file was rewritten with the Write tool.
+Both are the same lesson twice: on this machine, edit files with the editing tools.
+
 *Log last updated: 2026-08-30*

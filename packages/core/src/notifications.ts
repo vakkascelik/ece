@@ -210,3 +210,20 @@ export const POST_KIND_LABELS = {
 } as const;
 
 export type PostKind = keyof typeof POST_KIND_LABELS;
+
+/**
+ * Whether a comment on a post appears at once, waits for a kaiako, or cannot be left.
+ *
+ * The default is `approved_first` and it is set in the column default, not here — a
+ * label map is not the place a policy decision should live. These are the words for it.
+ *
+ * The order is the order the radio group offers, and it is deliberate: the safe option
+ * is first and is the one somebody gets by not choosing.
+ */
+export const COMMENT_MODE_LABELS = {
+  approved_first: 'A kaiako approves each comment',
+  auto: 'Comments appear straight away',
+  disabled: 'No comments on this post',
+} as const;
+
+export type CommentMode = keyof typeof COMMENT_MODE_LABELS;

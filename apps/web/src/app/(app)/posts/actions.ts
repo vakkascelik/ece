@@ -2,19 +2,29 @@
 
 import { revalidatePath } from 'next/cache';
 import {
+  addComment,
   archivePost,
   attachChildToMedia,
   createMediaRow,
   createPost,
   deleteMedia,
   mediaStoragePath,
+  moderateComment,
   publishPost,
+  setCommentMode,
+  setPinned,
   type MediaAudience,
   type MediaItem,
 } from '@ece/api';
-import { MEDIA_BUCKET, POST_KIND_LABELS, type PostKind } from '@ece/core';
+import {
+  COMMENT_MODE_LABELS,
+  MEDIA_BUCKET,
+  POST_KIND_LABELS,
+  type CommentMode,
+  type PostKind,
+} from '@ece/core';
 import { actionError } from '@/lib/actionError';
-import { requireCapability } from '@/lib/auth';
+import { requireCapability, requireCtx } from '@/lib/auth';
 import { serverDb } from '@/lib/supabase';
 
 export type Result = { error: string } | { ok: true };
@@ -90,6 +100,86 @@ export async function archive(_prev: unknown, form: FormData): Promise<Result> {
     await archivePost(db, postId);
   } catch (e) {
     return actionError(e, 'posts.archive');
+  }
+  revalidatePath('/posts');
+  return { ok: true };
+}
+
+/**
+ * Leave a comment. 0076.
+ *
+ * `requireCtx`, not `requireCapability('recordDailyPractice')` — a comment from a family is
+ * the whole point, and every other action on this page is staff-only. Who may comment on
+ * *which* post is `post_comments_insert`'s question, and it delegates to `posts`, so a
+ * parent reaches exactly the posts they can read. Nothing is re-checked here.
+ */
+export async function comment(_prev: unknown, form: FormData): Promise<Result> {
+  await requireCtx();
+  const db = await serverDb();
+  const postId = str(form, 'postId');
+  const body = str(form, 'body');
+  if (!postId) return { error: 'Missing post.' };
+  if (!body) return { error: 'There is nothing to send yet.' };
+  try {
+    await addComment(db, postId, body);
+  } catch (e) {
+    // The trigger's messages are written for a human — "Comments are turned off for that
+    // post." — so `actionError` passes them through rather than replacing them.
+    return actionError(e, 'posts.comment');
+  }
+  revalidatePath('/posts');
+  return { ok: true };
+}
+
+export async function moderate(_prev: unknown, form: FormData): Promise<Result> {
+  await requireCapability('recordDailyPractice');
+  const db = await serverDb();
+  const commentId = str(form, 'commentId');
+  const decision = str(form, 'decision');
+  if (!commentId) return { error: 'Missing comment.' };
+  if (decision !== 'approve' && decision !== 'decline') return { error: 'Unknown decision.' };
+  try {
+    await moderateComment(db, commentId, decision);
+  } catch (e) {
+    return actionError(e, 'posts.moderate');
+  }
+  revalidatePath('/posts');
+  return { ok: true };
+}
+
+/**
+ * Pin or unpin.
+ *
+ * `recordDailyPractice` gets you to the action; `posts_write_update` (0028) decides whether
+ * it changes a row — the author, an owner or a manager. An educator pinning a colleague's
+ * post is filtered rather than refused, so it reports success and changes nothing, which is
+ * why the button is only drawn for `canSteward`.
+ */
+export async function pin(_prev: unknown, form: FormData): Promise<Result> {
+  await requireCapability('recordDailyPractice');
+  const db = await serverDb();
+  const postId = str(form, 'postId');
+  if (!postId) return { error: 'Missing post.' };
+  try {
+    await setPinned(db, postId, str(form, 'pinned') === 'true');
+  } catch (e) {
+    return actionError(e, 'posts.pin');
+  }
+  revalidatePath('/posts');
+  return { ok: true };
+}
+
+export async function commentMode(_prev: unknown, form: FormData): Promise<Result> {
+  await requireCapability('recordDailyPractice');
+  const db = await serverDb();
+  const postId = str(form, 'postId');
+  const mode = str(form, 'mode') as CommentMode;
+  if (!postId) return { error: 'Missing post.' };
+  if (!(mode in COMMENT_MODE_LABELS)) return { error: 'That is not a comment setting.' };
+  try {
+    await setCommentMode(db, postId, mode);
+  } catch (e) {
+    return actionError(e, 'posts.commentMode');
   }
   revalidatePath('/posts');
   return { ok: true };

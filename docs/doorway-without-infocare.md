@@ -235,6 +235,31 @@ item as checklist runs — see Phase 11.
 
 Same treatment, same reason. **Phase 10a — assessment** into `docs/replacing-educa.md`.
 
+**Partly done, 2026-08-30.** Two batches of screenshots (22) produced a navigation map and the
+gap list. Two findings changed the plan rather than filling it in:
+
+- **`/messages` (0016) already is Educa's *Conversations*** — threads between kaiako and whānau,
+  append-only, staff in every thread at their centre. Not rebuilt. The one difference is a
+  setting: Educa has a site-admin toggle for whether guardians may *start* a conversation, and
+  Little Pearls has it off. Doorway lets a parent start one.
+- **One Educa site spans both centres.** Its Share With picker lists six classes — Mt Albert
+  Preschool/Toddler/Infant and Mt Roskill Preschool/Toddler/Infant — and one post targets any
+  subset in a single action. Doorway models these as **two `centres` rows** (two licences,
+  46365 and 47407), and `posts.centre_id` is singular. **Not fixed, and not to be fixed by
+  loosening the centre boundary** — that is the security boundary. The shape is a fan-out and
+  it is a real RLS design decision.
+
+**Phase 10b — built 2026-08-30: comments, moderation and pinning.** 0076 and 0077, with 22 new
+assertions. The gap was total — no comment table existed — and it is the entity Educa reports
+on in three of its ten reports. See [[post-comments]] in the wiki.
+
+**Still open after 10b**, in rough order of value: family-authored stories (a parent cannot
+write a post at all, and it collides with the 0013 consent gate); an approval queue for them
+(*Pending Stories*); room-targeted posts (the fan-out above); a staff-only internal board;
+Frameworks beyond the five read-only Te Whāriki strands 0058 deliberately refuses to extend;
+and the staff-activity reports. Nothing here changes `posts_select`, which is why none of it
+was bundled with the comments work.
+
 The one gap predictable from the schema without seeing Educa: **learning stories with photographs**
 runs straight into `0015_consent_gate_restrictive`, exactly as checklist photos do. If both land,
 they are one piece of thinking, not two — which is an argument for doing 9a and 10a *before*

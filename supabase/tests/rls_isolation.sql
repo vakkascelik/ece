@@ -4814,6 +4814,321 @@ end $$;
 -- violation that looks like a broken policy and is actually a revoked parent — which is
 -- what happened on the first attempt.
 
+-- ===========================================================================
+-- POST COMMENTS — 0076
+--
+-- The delegation is the thing under test. `post_comments_select` says
+-- `post_id in (select id from public.posts)` and nothing about guardianship, so if that
+-- subquery did not carry `posts_select`'s rules, Quinn would read a comment on a
+-- learning moment about Priya's child. That is the assertion this section exists for;
+-- the moderation states are the rest.
+--
+-- Priya (33333333) and Quinn (44444444) are both parents at centre A with different
+-- children — the boundary *inside* a tenant. Ed (55555555) is an educator there.
+--
+-- PLACEMENT: above the purge and offboarding sections, for the reason the note directly
+-- above this one gives. Those revoke Priya's membership and archive Ana, and every
+-- assertion here needs both alive. Appended to the end of the file first, where the
+-- fixture insert failed on a foreign key to a purged child.
+-- ===========================================================================
+
+set local role postgres;
+
+-- A published pānui: the whole centre may read it, so both parents may comment.
+insert into public.posts (id, centre_id, kind, title, body, author_id, published_at)
+values ('e0760000-0000-4000-8000-000000000001', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        'panui', 'Comment test panui', 'Body', '11111111-1111-4111-8111-111111111111', now());
+
+-- A published learning moment naming ANA ONLY. Priya may read it; Quinn may not.
+insert into public.posts (id, centre_id, kind, title, body, author_id, published_at)
+values ('e0760000-0000-4000-8000-000000000002', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        'learning_moment', 'Ana at the easel', 'Body', '11111111-1111-4111-8111-111111111111', now());
+insert into public.post_children (post_id, child_id)
+values ('e0760000-0000-4000-8000-000000000002', 'a1111111-1111-4111-8111-111111111111');
+
+-- A draft, an auto-approving post, and one with comments off.
+insert into public.posts (id, centre_id, kind, title, body, author_id, published_at, comment_mode)
+values ('e0760000-0000-4000-8000-000000000003', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        'panui', 'Comment test draft', 'Body', '11111111-1111-4111-8111-111111111111', null, 'approved_first'),
+       ('e0760000-0000-4000-8000-000000000004', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        'panui', 'Auto approve panui', 'Body', '11111111-1111-4111-8111-111111111111', now(), 'auto'),
+       ('e0760000-0000-4000-8000-000000000005', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        'panui', 'Comments off panui', 'Body', '11111111-1111-4111-8111-111111111111', now(), 'disabled');
+
+select pg_temp.expect(
+  (select comment_mode from public.posts
+    where id = 'e0760000-0000-4000-8000-000000000001') = 'approved_first',
+  'a post defaults to approved_first — a comment does not appear before somebody reads it'
+);
+
+set local role authenticated;
+
+-- ---------------------------------------------------------------------------
+-- Priya comments on the pānui. It is pending, and pending is nearly private.
+-- ---------------------------------------------------------------------------
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+
+insert into public.post_comments (id, post_id, author_id, body)
+values ('c0760000-0000-4000-8000-000000000001', 'e0760000-0000-4000-8000-000000000001',
+        '33333333-3333-4333-8333-333333333333', 'Lovely, thank you.');
+
+select pg_temp.expect(
+  (select approved_at is null and declined_at is null and moderated_by is null
+     from public.post_comments where id = 'c0760000-0000-4000-8000-000000000001'),
+  'a comment on an approved_first post arrives pending, with nobody recorded as having decided'
+);
+
+select pg_temp.expect(
+  (select count(*) from public.post_comments
+    where id = 'c0760000-0000-4000-8000-000000000001') = 1,
+  'the author reads her own pending comment — otherwise she types into a void'
+);
+
+-- The author cannot approve herself. `post_comments_moderate` excludes her in USING, so
+-- this filters to zero rows rather than raising.
+do $$
+declare still_pending boolean;
+begin
+  begin
+    update public.post_comments set approved_at = now()
+     where id = 'c0760000-0000-4000-8000-000000000001';
+  exception when others then null;
+  end;
+  still_pending := (select approved_at is null from public.post_comments
+                     where id = 'c0760000-0000-4000-8000-000000000001');
+  perform pg_temp.expect(coalesce(still_pending, false),
+    'a parent CANNOT approve her own comment — that is the queue with an opt-out');
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- Quinn: same centre, same pānui, and he must not see it while it is pending.
+-- ---------------------------------------------------------------------------
+set local request.jwt.claims = '{"sub":"44444444-4444-4444-8444-444444444444","role":"authenticated"}';
+
+select pg_temp.expect(
+  (select count(*) from public.post_comments
+    where id = 'c0760000-0000-4000-8000-000000000001') = 0,
+  'another parent at the same centre does NOT see a pending comment'
+);
+
+-- ---------------------------------------------------------------------------
+-- Ed moderates. The stamp is the trigger's, not the client's.
+-- ---------------------------------------------------------------------------
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+
+select pg_temp.expect(
+  (select count(*) from public.post_comments
+    where id = 'c0760000-0000-4000-8000-000000000001') = 1,
+  'an educator at the centre sees the pending comment — somebody has to moderate it'
+);
+
+-- Approve it, and deliberately leave `moderated_by` alone: the trigger must fill it.
+update public.post_comments set approved_at = now()
+ where id = 'c0760000-0000-4000-8000-000000000001';
+
+select pg_temp.expect(
+  (select moderated_by = '55555555-5555-4555-8555-555555555555'
+     from public.post_comments where id = 'c0760000-0000-4000-8000-000000000001'),
+  'approving stamps the moderator from auth.uid(), though the UPDATE never set it'
+);
+
+-- The column grant is the boundary on what a moderator may touch. Rewriting a parent's
+-- words while leaving her name on them is what this refuses.
+do $$
+declare code text := 'none (the update SUCCEEDED)';
+begin
+  begin
+    update public.post_comments set body = 'Something Priya never said'
+     where id = 'c0760000-0000-4000-8000-000000000001';
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '42501',
+    'an educator CANNOT rewrite the body of a comment, got ' || code);
+end $$;
+
+do $$
+declare code text := 'none (the delete SUCCEEDED)';
+begin
+  begin
+    delete from public.post_comments where id = 'c0760000-0000-4000-8000-000000000001';
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '42501',
+    'nobody deletes a comment — append-only, like messages, got ' || code);
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- Approved, so now Quinn sees it.
+-- ---------------------------------------------------------------------------
+set local request.jwt.claims = '{"sub":"44444444-4444-4444-8444-444444444444","role":"authenticated"}';
+
+select pg_temp.expect(
+  (select count(*) from public.post_comments
+    where id = 'c0760000-0000-4000-8000-000000000001') = 1,
+  'once approved, the comment is visible to everyone who can read the pānui'
+);
+
+-- ---------------------------------------------------------------------------
+-- THE ONE THIS SECTION EXISTS FOR: the delegated subquery carries guardianship.
+-- ---------------------------------------------------------------------------
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+
+insert into public.post_comments (id, post_id, author_id, body)
+values ('c0760000-0000-4000-8000-000000000002', 'e0760000-0000-4000-8000-000000000002',
+        '33333333-3333-4333-8333-333333333333', 'She loves painting at home too.');
+
+set local role postgres;
+update public.post_comments
+   set approved_at = now(), moderated_by = '11111111-1111-4111-8111-111111111111'
+ where id = 'c0760000-0000-4000-8000-000000000002';
+set local role authenticated;
+
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.post_comments
+    where id = 'c0760000-0000-4000-8000-000000000002') = 1,
+  'Ana''s mother reads an APPROVED comment on a post about Ana'
+);
+
+set local request.jwt.claims = '{"sub":"44444444-4444-4444-8444-444444444444","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.post_comments
+    where id = 'c0760000-0000-4000-8000-000000000002') = 0,
+  'Beau''s father does NOT read a comment on a learning moment about Ana — the delegated subquery carries guardianship'
+);
+
+-- And he cannot write one there either: the INSERT policy delegates the same way.
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.post_comments (post_id, author_id, body)
+    values ('e0760000-0000-4000-8000-000000000002',
+            '44444444-4444-4444-8444-444444444444', 'Who is this?');
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'a parent CANNOT comment on a post about somebody else''s child');
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- The three modes, and the draft.
+-- ---------------------------------------------------------------------------
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+
+insert into public.post_comments (id, post_id, author_id, body)
+values ('c0760000-0000-4000-8000-000000000003', 'e0760000-0000-4000-8000-000000000004',
+        '33333333-3333-4333-8333-333333333333', 'Noted, thanks.');
+
+select pg_temp.expect(
+  (select approved_at is not null and moderated_by is null
+     from public.post_comments where id = 'c0760000-0000-4000-8000-000000000003'),
+  'auto mode approves on insert and records NO moderator — nobody read it, and that stays true'
+);
+
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.post_comments (post_id, author_id, body)
+    values ('e0760000-0000-4000-8000-000000000005',
+            '33333333-3333-4333-8333-333333333333', 'Hello?');
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'a post with comments disabled refuses one');
+end $$;
+
+-- A parent cannot see the draft at all, so the INSERT policy stops this before the
+-- trigger does. The educator below is the case where the trigger is the only guard left.
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.post_comments (post_id, author_id, body)
+    values ('e0760000-0000-4000-8000-000000000003',
+            '33333333-3333-4333-8333-333333333333', 'Early bird');
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'a parent CANNOT comment on a draft — they cannot see it');
+end $$;
+
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.post_comments (post_id, author_id, body)
+    values ('e0760000-0000-4000-8000-000000000003',
+            '55555555-5555-4555-8555-555555555555', 'Starting the thread early');
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok,
+    'an educator CAN see the draft and still CANNOT comment on it — here the trigger is the only guard left');
+end $$;
+
+-- Nobody comments as somebody else. Sharper than the same rule on a post: a comment
+-- attributed to the wrong parent is a sentence in their mouth about a child.
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.post_comments (post_id, author_id, body)
+    values ('e0760000-0000-4000-8000-000000000001',
+            '33333333-3333-4333-8333-333333333333', 'Signed, Priya');
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'an educator CANNOT post a comment attributed to a parent');
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- The tenant boundary, which must never depend on a subquery being clever.
+-- ---------------------------------------------------------------------------
+set local request.jwt.claims = '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}';
+
+select pg_temp.expect(
+  (select count(*) from public.post_comments) = 0,
+  'centre B sees none of centre A''s comments'
+);
+
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.post_comments (post_id, author_id, body)
+    values ('e0760000-0000-4000-8000-000000000001',
+            '22222222-2222-4222-8222-222222222222', 'Hello from the other centre');
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'centre B CANNOT comment on centre A''s post');
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- Pinning: a column on `posts`, so the only new question is who may set it.
+-- ---------------------------------------------------------------------------
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+update public.posts set pinned_at = now()
+ where id = 'e0760000-0000-4000-8000-000000000001';
+
+select pg_temp.expect(
+  (select pinned_at is not null from public.posts
+    where id = 'e0760000-0000-4000-8000-000000000001'),
+  'an owner pins a post to the top of the feed'
+);
+
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+do $$
+declare still_pinned boolean;
+begin
+  begin
+    update public.posts set pinned_at = null
+     where id = 'e0760000-0000-4000-8000-000000000001';
+  exception when others then null;
+  end;
+  still_pinned := (select pinned_at is not null from public.posts
+                    where id = 'e0760000-0000-4000-8000-000000000001');
+  perform pg_temp.expect(coalesce(still_pinned, false),
+    'a parent CANNOT unpin a post — posts_write_update excludes them');
+end $$;
+
 -- ---------------------------------------------------------------------------
 -- CONSENT REQUESTS (0073) — asking, and the third state
 --

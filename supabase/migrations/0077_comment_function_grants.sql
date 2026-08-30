@@ -1,0 +1,31 @@
+-- ---------------------------------------------------------------------------
+-- 0077 — revoke EXECUTE on 0076's two trigger functions
+--
+-- `review:security` check "no definer function is reachable by `anon`" failed HIGH the
+-- first time it ran against 0076: `enforce_comment_mode` and `stamp_comment_moderator`
+-- are both SECURITY DEFINER, and Postgres grants EXECUTE on a new function to PUBLIC by
+-- default — which includes `anon`. 0013 already revokes exactly this on
+-- `child_consent_for_audience`, and 0076 did not follow it.
+--
+-- WHY THIS IS A SEPARATE MIGRATION RATHER THAN AN EDIT TO 0076
+--
+-- 0076 is applied, so its checksum is bound. That is the point of the checksum and it is
+-- not worth defeating for a tidier history.
+--
+-- WHAT THE EXPOSURE ACTUALLY WAS, STATED HONESTLY RATHER THAN INFLATED
+--
+-- Both are trigger functions: they return `trigger`, and PostgreSQL refuses a direct
+-- call to a function declared that way outside a trigger context — `SELECT
+-- enforce_comment_mode()` raises 0A000. So there is no known way to have called these,
+-- and this is closing a door that was probably painted on. It is still worth closing:
+-- the check reads ACLs rather than bodies precisely because "probably unreachable" is an
+-- argument that has to be re-made every time somebody changes the body, and a revoke is
+-- an argument that does not.
+--
+-- A trigger function does not need EXECUTE granted to the caller who fires it. The
+-- trigger runs as the table owner, which is why the two triggers in 0076 keep working
+-- with no grant to `authenticated` at all.
+-- ---------------------------------------------------------------------------
+
+revoke execute on function public.enforce_comment_mode() from public, anon, authenticated;
+revoke execute on function public.stamp_comment_moderator() from public, anon, authenticated;
