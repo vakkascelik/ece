@@ -26,10 +26,12 @@ import {
 import { requireCtx } from '@/lib/auth';
 import { dayWindow, shiftLocalDate } from '@/lib/dayWindow';
 import { serverDb } from '@/lib/supabase';
+import { Launcher } from './Launcher';
 import { PageHeader } from './PageHeader';
 import { Status } from './Status';
 import { RatioBanner } from './attendance/RatioBanner';
 import './attendance/attendance.css';
+import './overview.css';
 
 /**
  * The first screen after signing in.
@@ -328,6 +330,27 @@ export default async function OverviewPage() {
           )}
         </div>
       </section>
+      )}
+
+      {/*
+        Where things live — the rail's six groups as cards, below the working part of the
+        screen and above the standing note.
+
+        Staff only, and that is the whole role condition. A parent has four links in the
+        rail and no navigation problem to solve; the section that matters to them is the
+        consent one above, and adding an inventory of the two screens they already have
+        would be this page repeating the mistake its own header records — answering a
+        question nobody arrived with. `Launcher` returns null for a role with no groups
+        anyway, so this guard is about not asking rather than about not rendering.
+
+        See `launcher.ts` for why it is here rather than at the top, and why it borrows
+        the rail's groups instead of arranging the same screens a second way.
+      */}
+      {daily && (
+        <section className="section" aria-labelledby="launcher-heading">
+          <h2 id="launcher-heading">Where things live</h2>
+          <Launcher role={ctx.role} />
+        </section>
       )}
 
       {/*

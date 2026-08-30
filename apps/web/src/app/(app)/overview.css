@@ -1,0 +1,74 @@
+/*
+ * The overview's launcher.
+ *
+ * ROUTE-SCOPED RATHER THAN IN `globals.css`, and that is the established rule here
+ * rather than a preference: the ratio block, the roll, the wall display and the child
+ * record all moved out of the root stylesheet on 2026-08-11 because `check:bundle`
+ * measures the root layout's sheet, so every screen in the product was paying for CSS
+ * one route used. This is used by `/` and nothing else. apps/web is already 7kB over
+ * its budget for reasons unrelated to this change (unverified-claims item 41) and
+ * adding to the shared sheet would deepen an overage somebody still has to attribute.
+ *
+ * `page.tsx` already imports `attendance/attendance.css` for the ratio block; this is
+ * the second import on the same route and the same pattern.
+ */
+
+/*
+ * Three columns at the desk, one on a phone.
+ *
+ * `auto-fit` with a 260px floor rather than a fixed `repeat(3, …)`: the rail is 224px
+ * and the content column is 992px at the shell's max width, but the shell is not always
+ * at its max width, and a fixed three-column grid puts five-link cards into 180px
+ * columns on a 900px laptop. The floor is what makes it two columns there instead.
+ */
+.launcher {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.lcard {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 18px 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.lcard-head { display: flex; align-items: center; gap: 10px; }
+/* 20px on the card's 15px title, where the rail runs 18px on the same size — the card
+   title is the only thing at this level and can carry the extra two pixels. */
+.lcard-head .nav-icon { width: 20px; height: 20px; color: var(--accent); }
+.lcard-head h3 { margin: 0; font-size: var(--text-base); font-weight: 600; }
+
+.lcard p { margin: 0; font-size: var(--text-sm); color: var(--muted); }
+
+.lcard ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+
+/*
+ * 45px rows against the rail's 33px.
+ *
+ * The rail is a list somebody has learned and clicks with a mouse; this block is the one
+ * place the product is navigated by somebody who has not learned it yet, often on a
+ * tablet. `target.min` in tokens.ts is 44px and calls itself "the smallest anything
+ * interactive may be" — 11px of padding on a 15px line at 1.55 clears it.
+ */
+.lcard a {
+  display: block;
+  padding: 11px 10px;
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  color: var(--ink);
+  font-size: var(--text-base);
+}
+/* `--surface-sunken` is the rail's own background, so a hovered card row and a hovered
+   rail row do not read as two different kinds of thing. */
+.lcard a:hover { background: var(--surface-sunken); color: var(--accent); }
+
+@media (max-width: 767px) {
+  /* 48px, because at this width the thumb is the pointer and nothing else is competing
+     for the vertical space. */
+  .lcard a { padding: 12px 10px; }
+}

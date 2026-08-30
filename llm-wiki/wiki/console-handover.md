@@ -821,10 +821,76 @@ anywhere. Not a fault in the route — `originOf()` handles forwarded headers fo
 matter — but it is invisible, and the symptom (a screenshot of the login page) does not point
 at its cause.
 
+### The launcher on the overview, and what it deliberately is not
+
+The centre's owner signed into Doorway, looked at the rail, and said the product should be
+"sub apps" rather than everything at once. That is a complaint this file had already measured
+and half-answered: the scrolling-rail section records the rail at **1536px for an owner at
+1440×900** and concludes that twenty-four links and six headings never were going to fit, and
+`NavGroup` names the asymmetry — thirteen links for an educator is workable, twenty-something
+for an owner is not. What the groups did was give the rail headings. What they did not do was
+give an owner anywhere to *start*.
+
+`/` now carries a **Where things live** section: the same six groups, in the same order, as
+cards with the screens inside each one named. `launcherGroups.ts` holds the model and
+`Launcher.tsx` renders it.
+
+**It is below the ratio and below Needs attention, and that placement is the whole design.**
+The section above this one records why the overview stopped being an inventory — "the screen
+every person in this product lands on answered no question they arrived with". A launcher *is*
+an inventory. Putting it at the top would buy discoverability with the one item this screen
+exists to surface: at a 900px laptop fold, "1 whānau not told about an incident" is what falls
+off. Both orderings were drawn before one was chosen.
+
+**Four decisions worth keeping:**
+
+- **The rail's groups, not a second arrangement.** Twenty-two screens sorted a different way
+  would be a second structure to learn and a second to maintain. Same six words, same order,
+  same `can()` calls — what changes is a 45px target against the rail's 33px, and that the
+  screens inside a group are named rather than only the group.
+- **No counts on the cards.** Needs attention is directly above and already carries every
+  outstanding figure, each linked to the screen that fixes it. A badge here would be the same
+  fact twice on one screen and the second copy is the one that goes stale — the rule this
+  overview was rebuilt on. A bare coloured dot instead of a number would be worse: colour
+  alone, which `Status` exists to prevent.
+- **Staff only.** A parent has four links and no navigation problem; the section that matters
+  to them is the consent one. `launcherFor('parent')` does return the Tamariki group — those
+  three links carry no `can()` guard, the same fact the heading-count table above records —
+  so the page gates the section on `recordDailyPractice` rather than relying on the model to
+  come back empty. A test asserts both halves so the guard being presentation-only is written
+  down rather than reconstructed from two files.
+- **Not a `<nav>`.** Step 1's landmark argument — "two is not six" — applies: a third
+  navigation region on the overview would be one more thing to enter, to reach links that are
+  already in the rail. The section heading does that job.
+
+**A second list of the navigation is the defect shape CLAUDE.md rule 4 forbids**, so
+`launcherCoverage.test.ts` checks it against `layout.tsx` itself rather than against another
+list — the technique `helpCoverage.test.ts` already uses on the same file, with the same
+stated limitation that a regex over JSX is not a parse. It splits on the account nav's own
+`aria-label` so that exclusion is derived too. What it does not check is that both places gate
+a link on the same capability; `roles.spec.ts` does that, against real sessions.
+
+**Two defects found in the building, both by a gate rather than by reading:**
+
+1. `launcher.ts` beside `Launcher.tsx` is one file on a case-insensitive filesystem, so
+   `./launcher` resolved to the component and both imports came back undefined. **`next build`
+   caught it and `tsc --noEmit` did not** — worth knowing, because typecheck is the faster gate
+   and the tempting one to trust. Renamed to `launcherGroups.ts`, which is the pairing
+   `NavGroup.tsx` / `navGroups.ts` already uses.
+2. The label assertion failed on its first run against a comment claiming every rail label was
+   plain text. Two are ternaries on the caller's role. The fix was to assert the else branch,
+   which is what a staff-only launcher has to agree with — a tighter check than the one that
+   was wrong.
+
+The CSS is `overview.css`, route-scoped, for the reason the 2026-08-11 move established:
+`check:bundle` measures the root layout's sheet, so shared CSS is paid for by every screen.
+`first-load-css` stayed inside budget and `first-load-js` measured **113.0kB, byte-identical to
+the pre-existing overage** — this change added nothing to either.
+
 ## See Also
 
 - [[design-system]] — the pack this supersedes, and the deviation table it left behind
 - [[in-product-help]] — the `?` affordance that `PageHeader` takes over in step 3
 - [[conventions]] — token generation, and why nothing here regenerates them
 
-*Last updated: 2026-08-11 (all ten steps, plus icons and collapsible groups)*
+*Last updated: 2026-08-30 (all ten steps, plus icons, collapsible groups and the launcher)*
