@@ -5,6 +5,42 @@ says so.*
 
 ---
 
+2026-09-01 — **The domain cutover broke the manager's webmail bookmark, and it took six days and a
+support ticket in Turkish to find out.** Extended: [[domain-cutover]] (a new Key Point on ports, and
+a Details section, "The ports nobody could audit").
+
+`littlepearls.org.nz:2096` — the apex form of webmail, working for years — started returning a
+Cloudflare 522 the day the apex became a CNAME to Railway, because Railway listens on 443 and
+nothing else. The failure was measured before anything was touched: apex on 2096 → 522 in 19.9s,
+`webmail.littlepearls.org.nz` → 200 in 0.9s. Mail was never affected in either direction; the MX
+points at `mail.littlepearls.org.nz`, DNS-only, and never touches Cloudflare.
+
+The diagnosis that mattered came from reading the zone rather than the symptom: the apex and `www`
+are CNAMEs to **Railway**, so a request to the apex on a cPanel port was being sent to the wrong
+server entirely. Cloudflare accepts 2096 as an HTTPS port, so instead of failing fast it took the
+connection and timed out against an origin that has no such listener — which dresses a misdirected
+request up as an origin outage, on the hostname the user associates with email.
+
+Fixed with two rules in the zone's `http_request_dynamic_redirect` phase (ruleset
+`b444d8124d5944259c0195a8fdedd8ee`), not with DNS: port 2096, and path `/webmail`, both on apex and
+`www`, 302 to `https://webmail.littlepearls.org.nz/`. Verified after: the manager's exact URL now
+302s and lands 200 in 0.12s, `/webmail` and `www./webmail` likewise, and the website itself still
+308s to `www` and returns 200. 302 not 301 so it stays withdrawable; no DNS record was changed and
+deleting the ruleset reverts everything.
+
+The lesson is in the page. The cutover audit caught every machine reference to a cPanel port on the
+apex — the caldav/carddav SRVs, `smtp`, `ftp` — because those live in a zone file. The identical
+reference living in a bookmark bar was invisible to every instrument used, and an apex cutover
+therefore needs a step that tells the humans which URLs changed.
+
+Recorded as unchecked rather than as an unverified-claims item, on the grounds that it is
+operational trivia and not something the product asserts: `pif.org.nz` has no `webmail.` record and
+its `:2096` did not answer within 21s from outside New Zealand. Its MX is `smtp.google.com`, which
+independently confirms this page's existing claim that PIF's mail is at Google and its cPanel
+mailboxes receive nothing — so that route is residue whichever way the question resolves.
+
+---
+
 2026-08-29 (tenth entry) — **Phases H and I written — incident investigations and evidence
 photos — and not one line of them has touched a database, because every credential is dead.**
 Extended: [[incident-register]] (two new sections: the 0074 investigation and the 0075 photos),

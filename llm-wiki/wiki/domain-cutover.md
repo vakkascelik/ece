@@ -50,6 +50,11 @@ resolved values.** It answers "what does this name resolve to" and is silently u
 - **Railway supports no A record and publishes no static IP**, which is the entire reason Cloudflare
   is in this plan: an apex on Railway needs CNAME flattening, and neither cPanel nor Crazy Domains
   offers it.
+- **The cutover breaks every port on the apex, not just 80 and 443.** Railway listens on 443 and
+  nothing else, so anything addressed to `littlepearls.org.nz` on a cPanel port — 2096 webmail, 2083
+  cPanel, 2079/2080 caldav — now reaches Railway and hangs. The SRV records were found and
+  repointed because they are written down in a zone file. The same reference living in a person's
+  bookmark bar was not, and surfaced six days later as a support ticket.
 
 ## Details
 
@@ -91,6 +96,53 @@ quietly improves things is not a copy, it is an untested change wearing a copy's
 The four caldav/carddav SRV records point at the apex on ports 2079/2080. They follow the apex to
 Railway, where nothing listens. Same reasoning as `smtp`: repoint rather than investigate.
 
+### The ports nobody could audit
+
+Six days after the flip the centre manager reported — in Turkish, as "I can't check email from the
+browser, it gives an error" — a Cloudflare **522, connection timed out**, naming
+`littlepearls.org.nz` as the failing host. That reads unmistakably as *the mail server is down*.
+
+The mail server was never involved. `webmail.littlepearls.org.nz` answered in 0.9 seconds
+throughout, exactly as Stage D intended when it kept `webmail`, `autodiscover`, `autoconfig`,
+`cpanel` and `webdisk` as A records on InMotion. What broke was the URL in the bookmark —
+`littlepearls.org.nz:2096`, the apex form — which had worked for years and stopped the day the apex
+became a CNAME to Railway.
+
+**Why it produced a 522 rather than a clean failure, which is the part worth keeping.** Cloudflare's
+proxy accepts 2096 as one of its HTTPS ports. So it took the connection, resolved the origin to
+Railway, tried 2096 there, and waited twenty seconds before giving up. A name pointing at nothing
+would have failed instantly and legibly. Because Cloudflare answers on that port, a misdirected
+request is dressed as an origin outage on the hostname the manager associates with her email.
+Measured before anything was changed: `https://littlepearls.org.nz:2096/` → 522 in 19.9s;
+`https://webmail.littlepearls.org.nz/` → 200 in 0.9s.
+
+**The fix is not DNS.** No record changed. Two rules in the zone's `http_request_dynamic_redirect`
+phase, which run at the edge before any origin connection is attempted:
+
+| Match | Redirect |
+|---|---|
+| apex or `www`, `cf.edge.server_port eq 2096` | `https://webmail.littlepearls.org.nz/` |
+| apex or `www`, path starts with `/webmail` | `https://webmail.littlepearls.org.nz/` |
+
+The port rule is the load-bearing one, and a path rule alone would have missed the fault entirely:
+the failing URL is port 2096 at `/`, with no `/webmail` anywhere in it. 302 rather than 301, because
+a permanent redirect is cached in browsers and is genuinely hard to withdraw if webmail ever moves,
+while the round trip it saves is imperceptible. The old bookmark now resolves in 0.12s, and
+deleting the ruleset reverts everything.
+
+**The lesson.** The audit found every *machine* reference to a cPanel port on the apex — the
+caldav/carddav SRVs, `smtp`, `ftp` — because machine references sit in a zone file where a token can
+read them. References in muscle memory are in no file, and the only instrument that finds them is a
+user complaining days later in words that never mention DNS. **An apex cutover needs a step that
+tells the humans which URLs changed**, and it is worth more than another audit pass.
+
+Not checked: `pif.org.nz` is on the same cPanel account and made the same move, but its apex is
+DNS-only at `69.46.46.106`, so this mechanism does not apply in the same form. Its MX is
+`smtp.google.com`, confirming the Google Workspace claim above — the seven cPanel mailboxes there
+receive nothing, so its `:2096` webmail is residue either way. It has no `webmail.` record at all,
+and `:2096` did not accept a connection within 21 seconds from outside New Zealand; whether that is
+a fault or an egress restriction on the testing connection is unresolved and low-stakes.
+
 ## See Also
 
 - [[public-website]] — the site being moved onto this domain, and the legacy-URL redirects
@@ -98,4 +150,4 @@ Railway, where nothing listens. Same reasoning as `smtp`: repoint rather than in
   hostname
 - [[unverified-claims]] — the cPanel/served-zone serial divergence is recorded there as unchecked
 
-*Last updated: 2026-08-26*
+*Last updated: 2026-09-01*
