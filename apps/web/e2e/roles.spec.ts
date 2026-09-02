@@ -160,6 +160,16 @@ const MATRIX: Array<{ path: string; guard: string; allowed: Record<Role, boolean
     allowed: { owner: true, manager: true, educator: false, parent: false },
   },
   {
+    // The ECE Return's staffing section. An educator is excluded even though the screen
+    // is largely about educators: 0081's read policy lets somebody see their OWN census
+    // record, and nothing else at their centre, so a list of every colleague's age band
+    // and ethnicity is owner/manager work. The database would refuse the rows either
+    // way; this keeps the link from being drawn.
+    path: '/census',
+    guard: 'manageCentre',
+    allowed: { owner: true, manager: true, educator: false, parent: false },
+  },
+  {
     // What families owe. `manageCentre`, not `manageMembers` — an educator has no
     // business in a family's debts, and a parent's own balance belongs on their own
     // invoice rather than on a screen listing every family at the centre.

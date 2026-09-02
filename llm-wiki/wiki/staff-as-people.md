@@ -360,13 +360,51 @@ and 0038 leaves every certificate link null on purpose. Sending `false` there is
 a named individual's professional standing made on the strength of a missing row. So the module
 returns `null`, the return cannot be sent, and the report names who needs linking.
 
+### The screen, and the six fields it refuses to offer
+
+**Added 2026-09-03**, closing the gap the section above used to name. `/census` is gated on
+`manageCentre`, lists everybody on the roster as at the return date, and names each person's
+missing fields by name rather than counting them — the treatment `/funding` gives an unresolved
+day, for the same reason.
+
+**Five of the sixteen inputs are disabled, and the screen says why.** Gender, staff role,
+qualification, playcentre qualification, ethnicity and iwi are unenumerated `LookupCode` values
+whose published lists nobody has imported, so each renders as a disabled select reading *"No
+Ministry code list loaded"*. A text box there would put an invented code in a return to the Crown,
+and the server action does not accept those fields **at all** — so the disabled attribute is a
+courtesy to the reader rather than the thing preventing it, which is the rule every guard in this
+product follows.
+
+What *can* be entered is what the schema itself enumerates: the five role kinds, the twelve age
+bands, the five leaving destinations, and the weekday codes. The leaving destinations are shown as
+raw codes — `D01` to `D04` and `UNK` — because the schema lists them without definitions and a
+label would be this product inventing one.
+
+**Three selects instead of three checkboxes.** Paid, permanent and full time are `Not recorded /
+Yes / No`, because a checkbox cannot express the difference between *unpaid* and *nobody has said*,
+and `0081` makes those columns nullable precisely so the difference survives. A blank posts as
+`null`.
+
+**Zero new CSS.** The screen uses `card`, `flag flag-ok`, `flag flag-warn`, `sub`, `inline`,
+`empty` and `small secondary` — the vocabulary the other screens already use. Not thrift for its
+own sake: `first-load-css` is 3.7kB against a 4kB budget, so a per-screen stylesheet would have
+breached a gate to style one form.
+
+**Not built, and named rather than left implicit: a person's own view of their own record.**
+`0081`'s read policy permits it — owner, manager, *or the person themselves*, because IPP 6 gives
+someone a right of access to their own information. But a screen showing somebody their employer's
+record of their ethnicity and age band wants its own thinking about **correction** (IPP 7), not a
+read-only block bolted onto the management page. Until it exists, that access is a request to the
+centre, which is a lawful answer and not a complete one.
+
 ## Still to come in this phase
 
-**The census has no screen.** 0080 and 0081 are the schema and `census.ts` is the logic, with 47
-unit tests and 24 RLS assertions; nothing in `apps/web` reads or writes either table yet, so the
-data cannot be entered. That is the next piece, and it is deliberately not bundled with this one —
-a form collecting a person's ethnicity wants its own thinking about who sees the screen, not just
-who can read the row.
+**Nothing in the census can be filled in for the six code fields until a Ministry list is
+imported**, which is [unverified-claims](unverified-claims.md) item 48's second half and
+[enquiry](../../docs/eli-ministry-enquiry.md) question 6. An importer following
+`scripts/import-criteria.ts` is the piece that closes it, and it is deliberately not written yet:
+an importer with no file to read is speculative work, and the file's shape depends on where the
+Ministry publishes the lists.
 
 Otherwise nothing. 0038 through 0041 close the gap the binder used to admit to — with the standing
 exception that the bands those numbers rest on are still unverified, and the forecast made that

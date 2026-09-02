@@ -466,6 +466,23 @@ test.describe('staff screens', () => {
   });
 
   /*
+    The densest form in the product — sixteen fields per person, five of them disabled
+    with a reason, three of them three-state selects standing in for checkboxes that
+    could not express "not recorded".
+
+    Audited because that density is where a name goes missing. This screen has already
+    had one such fault caught by hand before axe ever saw it: the actions column header
+    was an empty `<th>`, which reads to a screen reader as a column with no name, and
+    the fix is the `visually-hidden` span that is there now. The disabled selects are the
+    other thing worth a pass — a disabled control still needs its label, and "no Ministry
+    code list loaded" is the only explanation a person gets for why they cannot type.
+  */
+  test('ECE Return staffing', async ({ page }) => {
+    await visit(page, '/census');
+    await auditPage(page, '/census');
+  });
+
+  /*
     Audited in the NOT-STATED state, which is the one every centre starts in.
 
     The fixture states no licence, so this is the page saying it cannot compute occupancy —

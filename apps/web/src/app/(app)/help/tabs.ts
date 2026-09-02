@@ -158,6 +158,15 @@ export const TABS: TabDoc[] = [
       'Your ratio is computed from this list. If nobody signs in, it reads zero adults and shows a breach.',
   },
   {
+    href: '/census',
+    label: 'ECE Return',
+    capability: 'manageCentre',
+    what: 'The staff details and qualifications the annual ECE Return asks for, and which of them are still missing.',
+    how: 'It lists everybody on the roster and names the fields the Return needs for each of them. Registration is read from their practising certificate rather than typed here, so this screen and the licensing binder cannot disagree.',
+    limit:
+      'It cannot submit anything, and six fields cannot be filled in at all yet: gender, staff role, qualification, playcentre qualification, ethnicity and iwi are Ministry code lists nobody has loaded, and this product will not let you type a code it cannot check.',
+  },
+  {
     href: '/roster',
     label: 'Roster',
     capability: 'recordDailyPractice',

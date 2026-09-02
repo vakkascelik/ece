@@ -551,7 +551,7 @@ is a new migration, and the status command tells you what you are rolling back o
 |---|---|---|
 | Unit | **631 tests across 46 files**, Vitest — measured by running them on 2026-09-02, not counted from source | Ratios, funding, hours, roll, CSV, redaction, the offline queue, capabilities, date handling |
 | **RLS isolation** | **607 assertions**, one self-contained 8,435-line SQL script | Two services and two members, each impersonated exactly as the API layer would by setting the role and the JWT claims; neither can read *or write* the other's rows, in both directions; guardianship inside a service; and six catalogue-driven class assertions that cover tables which do not exist yet |
-| End-to-end and accessibility | 104 tests across 19 spec files, Playwright + axe-core | 19 screens across owner and parent sessions against **WCAG 2.2 AA with all six axe tags**, on a production build, with data seeded — because auditing an empty page measures nothing |
+| End-to-end and accessibility | 104 tests across 19 spec files, Playwright + axe-core. **Currently failing — see the disclosure below** | 19 screens across owner and parent sessions against **WCAG 2.2 AA with all six axe tags**, on a production build, with data seeded — because auditing an empty page measures nothing |
 | Live-schema security review | 17 checks | RLS enabled everywhere; a policy on every reachable table; append-only grants; definer functions with pinned search paths; the consent gate restrictive; invitation hashes unreadable; no public storage bucket; `anon` holding no grants |
 | Purpose-built drills | 4 | The offline queue against live PostgreSQL (10/10); the PostgREST row cap (1,200 events, exactly 50.00 hours); a full extract-and-reload restore (6/6 over 12,930 rows and 72 tables); documentation link integrity |
 | Budgets | gzipped bytes | First-load JS, CSS and middleware, per app |
@@ -575,6 +575,25 @@ A CI that has been red for its whole existence carries no signal; the 137th fail
 indistinguishable from the first real one. `[FIX FIRST]` — the credentials belong in secrets and the
 7kB belongs attributed, not waived. Raising the limit to make it pass is the move our own
 contributor rules forbid by name.
+
+`[FIX FIRST]` **And a worse disclosure, found 2026-09-03 while trying to verify a new screen: the
+end-to-end and accessibility suite does not currently pass locally either.** Every navigation
+times out after 60 seconds waiting for the network to go idle — 32 of the accessibility tests and
+10 of the role-boundary tests, on screens unrelated to the change being tested. It is **not** a
+regression from that change: reverting the change and re-running reproduced the identical failures,
+which is how we know rather than assume.
+
+What that costs us is precisely the thing this section was claiming. The figures above — 19 screens
+against WCAG 2.2 AA, 30/30 green — come from a run that we can no longer reproduce on demand, so
+they describe the suite's design and a past result rather than its present state. **The role
+matrix, which is the check that proves an educator cannot open the office screens, is among what
+cannot currently be run.** The Postgres-side gates are unaffected and were all run today:
+607→632 RLS assertions, 16/16 security review, 6/6 restore drill, 678 unit tests.
+
+We would rather state this than let the Ministry find a red suite behind a confident paragraph. It
+is also the clearest argument for the test environment at `AST06`: a suite that runs against the
+one live database, from one laptop, is a suite whose failures are indistinguishable from the
+environment's.
 
 **AST19 — defect management.**
 
@@ -923,21 +942,36 @@ authoritative lists are published and whether they carry effective dates already
 
 **AST47 — the ECE Return data-source table.**
 
-`[GAP]` **This table cannot be completed today.** Of the parameters the template lists, the only
-ones with a source in this product are the two wait-time-adjacent service details we do not hold at
-all, and the staff start and end dates. Eleven of the fifteen staff fields — gender, ethnicity,
-role code, paid, permanent, full-time, highest qualification, registration, years of experience,
-hours per year, FTE — **have no column anywhere in the database**, and the roster is one row per
-calendar date with no weekday contract and no contact/non-contact distinction, so
-`ContactHoursDetailList` cannot be derived.
+**Rewritten 2026-09-03. This answer said the table could not be completed; it can now, and the
+first draft is below.** What changed: `staff_census_details` and `staff_contact_hours` were built,
+along with the logic that assembles the staffing section and the screen a manager fills it in on.
+The original answer is worth recording rather than deleting, because it named eleven of fifteen
+fields as having no column anywhere — which was true on 2 September and is the measurement that
+prompted the work.
 
-The one field with a real source is registration: a staff compliance record of kind
-`practising_certificate` with an expiry, where a null expiry is treated as *not* current, and the
-count deliberately reports no percentage and no funding band because we have not sourced the bands.
+| Parameter | Source | Editable in | Comment |
+|---|---|---|---|
+| Wait times, per age | **N/A — not held** | — | `ServiceDetails` wants five age-banded wait-time codes. Nothing in this product records a waiting time by age; the waitlist holds enquiries, not a per-age wait |
+| Language code / percentage | **N/A — not held** | — | `ServiceLanguageList` wants one to five languages with usage percentages for the *service*. Not modelled |
+| Gender code | Staff census record | ECE Return screen | **Cannot be filled in yet** — an unenumerated Ministry code list, not loaded. The input is disabled and says so |
+| Staff role code | Staff census record | ECE Return screen | As above |
+| Highest qualification code | Staff census record | ECE Return screen | As above |
+| Highest Playcentre qualification code | Staff census record | ECE Return screen | As above. Also not applicable to our service type as far as we can tell |
+| Ethnicity | Staff census record | ECE Return screen | As above. Up to three, matching the schema's cardinality |
+| Is paid / Is permanent / Is full time | Staff census record | ECE Return screen | Three-state on the screen: *not recorded*, yes, no. A blank stores null rather than false, so an unanswered question cannot be submitted as "unpaid" |
+| Is registered | **Derived** — a `practising_certificate` compliance record | Compliance records, not the Return | Not editable on the Return screen on purpose: it comes from the same row the licensing binder reads, so the two cannot disagree. A null expiry counts as *not* current. **Where no certificate is linked the value is null, not false**, and the person is reported as incomplete — we will not assert that a named individual is unregistered on the strength of a missing row |
+| Start date / End date | Staff member record | Staff screen | `started_on` / `finished_on`, and they also decide who is on the roster at the return date |
+| Age band | Staff census record | ECE Return screen | One of the twelve bands the schema enumerates, so this one is a real dropdown. **We store the band, not a date of birth** — the band is the minimum that answers the question |
+| Weekday code | **System generated** | — | From the contracted contact hours; mapped to the schema's `Mo`–`Su` at the boundary |
+| Contact start / end time | Staff contact hours | ECE Return screen | An effective-dated weekday contract, distinct from the dated roster. Superseding hours ends one block and opens another; the database refuses overlapping blocks on a weekday |
+| Hours worked (return week) | **Derived** — the sum of the contracted blocks | Not editable | Floored to the whole number the schema takes, with the exact minutes retained alongside so the truncation is visible rather than silent |
+| Min / max age taught | Staff census record | ECE Return screen | Months, 0–72, as the schema specifies |
+| Previously worked as teacher / Arrived from another service / Leaving destination | Staff census record | ECE Return screen | Three-state, three-state, and one of the five codes the schema enumerates — shown as raw codes because the schema does not define them and we will not invent a label |
 
-Filling this table honestly requires building the staff surface first. It is a scoped and estimated
-piece of work in our own roadmap — "staff as people rather than a number", 15–20 engineering days —
-and it is the prerequisite for two other sections of this application.
+**The honest summary of this table:** every cell has a source, and **six of them cannot yet hold a
+value**, because the Ministry code lists they draw on are published somewhere we have not obtained.
+That is `AST55` and enquiry question 6, and it is the single thing standing between this section
+and a completable Return.
 
 **AST48 — ECE Return generation, transmission and storage.** `[GAP]`/`[BLOCKED — spec]`
 

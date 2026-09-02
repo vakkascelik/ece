@@ -168,7 +168,7 @@ plus an assertion plus the data entry nobody has done.
 | *"child booking schedule"* | `bookings` — one row per child per date, `absent` status with a guardian-supplied reason, parent-facing `report_absence` functions | **Partial.** There is no weekly or recurring schedule model at all. `ChildBookingSchedule` in the ELI schema is precisely an effective-dated weekday pattern |
 | *"20 Hours ECE funding"* | `funding.ts` — 6/day and 20/week caps confirmed against the Ministry's own rules, the 36-to-72-month age band applied *as at each day*, `ineligibleDates`, daily cap before weekly, floors downward | **Met for attended hours.** `FUNDING_RULES_VERIFIED` is `false` because §6-4 to §6-7 absence funding is not modelled — the product **under-claims** and says so |
 | *"attendance marking"* | `attendance_events` — append-only, `corrects` supersession, `client_uuid` idempotency, centre-timezone day boundary, §6-3 electronic verification built end to end across `0061`–`0065`, kiosk PIN as signature, mobile roll, offline outbox on both clients | **Met, and the strongest part of the product** |
-| *"annual ECE census (staff details and qualifications)"* | `staff_members` (name, `role_note` free text, start/end) and `staff_records` (a `practising_certificate` kind with an expiry) | **Not built.** See below — this is the largest gap by a wide margin |
+| *"annual ECE census (staff details and qualifications)"* | ~~`staff_members` and `staff_records` only~~ **Built 2026-09-02/03**: `0080`, `0081`, `census.ts`, the API layer and the `/census` screen | **Partial, and the remaining blocker is not software.** Every field has a column and a form. Six of them — gender, staff role, qualification, playcentre qualification, ethnicity, iwi — cannot hold a value until a Ministry code list is imported, so their inputs are disabled and say so. See below |
 | *"RS7 return (for example, calculation for funding periods)"* | `/funding` produces funded hours per child, with completeness banners, and a CSV labelled preparation | **Not built as an RS7 return.** None of the eleven figures the return actually wants is produced |
 | *"Waha Rumaki/PITA Return"* | Nothing. One mention in the whole repo, and it is a document title in a wiki table | **Not built.** Possibly out of scope — enquiry question 7 |
 
@@ -181,17 +181,28 @@ The ELI schema's `EceReturn` carries a `StaffInformationList`, and each `StaffIn
 `IsRegistered`, `HighestPlaycentreQualificationCode`, start and end dates, `EthnicGroupCodes`,
 `IsPaid`, `IsPermanent`, `IsFullTime`, and a `ContactHoursDetailList` of weekday start/end times.
 
-**Eleven of those fifteen fields have no column anywhere in this database.** No staff gender, no
-staff ethnicity, no role code, no paid/unpaid, no permanent/temporary, no full-time/part-time, no
-qualification of any kind, no teacher registration number, no years of experience, no hours per
-year, no FTE. The word "qualification" appears in this repo only in prose comments and one test
-fixture's job title. `shifts` is one row per calendar date, so there is no weekday contract to
-derive `ContactHoursDetailList` from, and no contact/non-contact distinction.
+**Measured on 2 September, eleven of those fifteen fields had no column anywhere in this database.**
+No staff gender, ethnicity, role code, paid/unpaid, permanent/temporary, full-time/part-time,
+qualification of any kind, registration number, years of experience, hours per year or FTE. The
+word "qualification" appeared in this repo only in prose comments and one test fixture's job title.
+`shifts` is one row per calendar date, so there was no weekday contract to derive
+`ContactHoursDetailList` from.
 
-This is [roadmap Phase 10](roadmap-phases-8-13.md), *"Staff as people rather than a number"*,
-estimated there at 15–20 days. **It is also the input to most of RS7**, because
+**Built on 2 and 3 September.** `0080` gives every Ministry code list an effective-dated home and
+ships it empty; `0081` adds the census record and the weekday contact-hours contract;
+`census.ts` assembles the staffing section and names every gap; and `/census` is the screen a
+manager fills it in on. 678 unit tests, 632 RLS assertions, and both mutation-tested.
+
+**What is left is not software.** Six fields draw on unenumerated Ministry code lists that nobody
+here has obtained, so their inputs are disabled with the reason on the screen — the same treatment
+the licensing criteria get, and for the same reason: a plausible invented code in a Crown return is
+worse than a blank. Closing it needs the published lists, which is enquiry question 6.
+
+Two things this does *not* finish. `EceReturn` also wants **service-level** details — five
+age-banded wait times and the languages the service uses with usage percentages — and neither is
+modelled at all. And the census **remains the input to most of RS7**, because
 `StaffHourQualifiedCount` and `StaffHourNotQualifiedCount` are daily counts split by
-qualification. So the census is not one of five gaps; it is the gap that two others sit on top of.
+qualification, which cannot be computed until a qualification can be recorded.
 
 ### The service models — the requirement this product cannot currently even record
 
@@ -235,8 +246,15 @@ which is documented in two places and built in none.
 
 **The first declaration on the application form cannot be signed truthfully today.** *"Your SMS
 meets the SMS Development Criteria"* is a statement to the Crown, and on the Ministry's own list
-three of eight functionalities are absent, two of the four service models are unmodelled, and the
-product cannot record which model a service is.
+the RS7 return and the Waha Rumaki/PITA return are absent, the annual ECE census is built but
+cannot hold six of its fields until a Ministry code list is published to us, two of the four
+service models are unmodelled, and the product cannot record which model a service is.
+
+**Updated 2026-09-03.** This paragraph said *"three of eight functionalities are absent"*. The
+census moved from absent to blocked-on-a-list in a day, which is a real change and a smaller one
+than it sounds: the declaration still cannot be made, and what moved was the *reason*. Worth
+watching in this document, because a gap table that improves faster than the product does is a gap
+table nobody should trust.
 
 That is not an argument against applying. It is the work programme, and most of it —
 Phase 10, a test environment, a green CI — is worth doing whether or not this application is ever

@@ -236,6 +236,10 @@ export * from './evidence';
 // here: `rooms` is readable by a parent and everything else in the file is staff-only.
 export * from './worklist';
 export * from './staff';
+// The ECE Return's staffing section. Reuses `listStaffMembers` and `listStaffRecords`
+// rather than reading those tables again — the registration flag comes from the same
+// practising-certificate row the licensing binder reads, so the two cannot disagree.
+export * from './census';
 // Definer functions only — a kiosk holds no table grant, so there is nothing here to
 // select from and no query for a later reader to widen.
 export * from './kiosk';

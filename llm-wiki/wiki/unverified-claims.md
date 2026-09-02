@@ -1170,6 +1170,45 @@ a number out of 25 and a word a person chose.
 Added 2026-08-29. [[deployment]] links here for it and the item did not exist, which is its own
 small illustration of the problem.
 
+**WORSE THAN THIS ITEM SAID — extended 2026-09-03. The e2e suite does not pass locally either.**
+
+This item's consolation was that *"every gate this repo runs is run locally, by hand, and reported
+that way — which is how it has stayed honest"*. For this gate that is no longer true. Trying to
+verify the new `/census` screen: **32 accessibility tests and 10 role-boundary tests fail, every
+one of them timing out after 60 seconds** in `visit()`, which waits for `networkidle`.
+
+**It is not a regression from the census work**, and that was established by experiment rather than
+by argument: reverting the only shared file the change touched (`layout.tsx`, one nav link),
+rebuilding, and re-running reproduced the identical failures on `/attendance`, a screen the change
+does not reach.
+
+What has been ruled out, cheaply: PostgREST is fast (three requests, 130–310ms); the portal mount
+is unset locally, so `basePath` is not mismatching the tests' `baseURL`; the pages **render** — the
+failure snapshots contain the full accessibility tree, the shell, the centre name and the role — so
+this is the *waiting* failing, not the app. `SyncStatus` in the layout does poll, on mount and then
+every 120 seconds, but its fetch is wrapped in a `try`/`catch` and 120s is longer than the 60s
+timeout, so a single completed probe should let the network settle. **The cause is not yet known.**
+
+**Why it matters more than a red gate usually would.** `roles.spec.ts` is the check that proves an
+educator cannot open the office screens and a parent cannot open another family's child by URL —
+the second of the two tenant boundaries, at the HTTP layer rather than the SQL one. The RLS suite
+covers the same ground in Postgres and is green at 632 assertions, so the boundary is not
+unverified; but the guard in front of it currently is. And `production-readiness` records the axe
+audit as **30/30 green** at a past date, which means something regressed between then and now and
+nobody noticed — the exact failure mode this page exists for, one level up: a gate that stopped
+running rather than a claim that went stale.
+
+**To close it:** find out why `networkidle` never settles — the trace files under
+`apps/web/test-results/` are retained on failure and `npx playwright show-trace` will show what
+request is outstanding. If the answer is that `networkidle` is simply the wrong wait for a page
+with a polling component in its layout, the fix is the helper rather than the app, and Playwright's
+own documentation discourages `networkidle` for this reason. **Do not "fix" it by widening the
+timeout.**
+
+It is also the sharpest available argument for the test environment `AST06` asks for: a suite that
+runs against the single live database from one laptop produces failures indistinguishable from the
+environment's.
+
 | | |
 |---|---|
 | **What exists** | `.github/workflows/ci.yml`, since 2026-08-05, firing on every push to `main` and every pull request. Three jobs: `typecheck · lint · tests · build`, `RLS isolation`, and `e2e · accessibility` |
@@ -1438,7 +1477,7 @@ functionalities and the four service-model requirements on that page:
 
 | Absent | Detail |
 |---|---|
-| ~~**Annual ECE census (staff details and qualifications)**~~ **The schema is built — corrected 2026-09-02, hours after this item was written.** `0081` adds `staff_census_details` and `staff_contact_hours`, `census.ts` assembles the return's staffing section and names every gap, with 47 unit tests (24 mutations, all caught) and 24 RLS assertions (5 policy mutations, all caught). **What is still absent is a screen** — nothing in `apps/web` reads or writes either table, so the data cannot be entered — **and every code list**, because `0080` ships empty on purpose. So the criterion is not met, for narrower and more tractable reasons than when this item was written. See [[staff-as-people]] |
+| ~~**Annual ECE census (staff details and qualifications)**~~ **The schema is built — corrected 2026-09-02, hours after this item was written.** `0081` adds `staff_census_details` and `staff_contact_hours`, `census.ts` assembles the return's staffing section and names every gap, with 47 unit tests (24 mutations, all caught) and 24 RLS assertions (5 policy mutations, all caught). ~~**What is still absent is a screen**~~ — **also built, 2026-09-03**: `/census` under `manageCentre`, with the API layer, the roles matrix and an axe audit. **What remains is every code list**, because `0080` ships empty on purpose, so six of the sixteen fields render as disabled selects saying *"No Ministry code list loaded"* and cannot be filled in by anybody. So the criterion is still not met — but the reason is now a missing published list rather than missing software. See [[staff-as-people]] |
 | **RS7 return** | None of the eleven figures the return wants is produced. What exists is funded hours per child over an operator-chosen period |
 | **Waha Rumaki/PITA return** | Nothing. Possibly out of scope — [enquiry](../../docs/eli-ministry-enquiry.md) question 7 |
 | **Home-based services** | Not modelled. Named in `ratios.ts` as an excluded schedule |

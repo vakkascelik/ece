@@ -7,6 +7,109 @@ itself, and from the wiki pages, which hold the durable *why*. This file is the 
 
 ---
 
+## 2026-09-03 — The census gets a screen, and the interesting part is what it will not let you type
+
+Yesterday's migrations gave the census a schema and no way to fill it in. `packages/api/src/census.ts`
+and `/census` close that.
+
+**The API layer reuses rather than re-reads.** `listStaffMembers` and `listStaffRecords` already
+exist and are already paged, so the census reads neither table again — which matters beyond
+tidiness: the registration flag comes from the same `practising_certificate` row the licensing
+binder reads, so **the Return and the binder cannot disagree about the same person.** What is new
+is `staff_census_details`, `staff_contact_hours` and the code sets, all paged with `fetchAll`. The
+contact-hours read is deliberately *not* filtered to a date in SQL: a screen that lets somebody
+supersede a contract has to show the history being superseded, and `contactHoursOn` in `@ece/core`
+is the one place the effective-date rule is written down.
+
+**The screen refuses six of its sixteen fields, and the refusal is not in the markup.** Gender,
+staff role, qualification, playcentre qualification, ethnicity and iwi are unenumerated
+`LookupCode` values with no published list loaded, so each renders as a disabled select reading
+*"No Ministry code list loaded"* — **and the server action does not accept those fields at all.**
+The `disabled` attribute is a courtesy to the reader; the action ignoring them is the guard. A
+screen whose only protection is an HTML attribute has no protection, and this repo has said so
+about the capability map since Phase 0.
+
+What it *does* offer is what the schema itself enumerates: five role kinds, twelve age bands, five
+leaving destinations, seven weekday codes. The leaving destinations show as raw codes — `D01` to
+`D04`, `UNK` — because the schema lists them without definitions and a label would be this product
+inventing one.
+
+**Three selects instead of three checkboxes.** Paid, permanent, full time are *Not recorded / Yes /
+No*. A checkbox cannot express the difference between *unpaid* and *nobody has said*, `0081` made
+those columns nullable so the difference would survive, and a blank posts `null`. Getting this
+wrong would submit an unanswered question as a fact about somebody's employment.
+
+**Zero new CSS, and that was forced rather than chosen.** `first-load-css` is 3.7kB against a 4kB
+budget — 0.3kB of headroom — so a per-screen stylesheet would have breached a gate to style one
+form. My first draft invented nine class names (`panel`, `chip chip-ok`, `muted`, `warn`,
+`census-person`…) and **not one of them exists in this codebase.** Reading what `/funding` and
+`/staff` actually use — `card`, `flag flag-ok`, `flag flag-warn`, `sub`, `inline`, `empty`,
+`small secondary` — replaced all nine. Worth recording because inventing a parallel vocabulary is
+how two design systems end up in one app, and it took two minutes to check.
+
+**Two checks caught things I had not.** `launcherCoverage.test.ts` went red — a *second*
+derived-coverage test I did not know existed, parsing `layout.tsx` and requiring a launcher card
+for every rail link, the same technique `helpCoverage.test.ts` uses for the help page. Adding a
+nav link therefore costs three entries, and the tests say so rather than leaving the overview
+quietly incomplete. And the typecheck failed *inside* `fetchAll`: a column list built with `+`
+across several lines is typed `string` rather than a literal, and supabase-js infers the row shape
+from the literal, so every column became `GenericStringError`. One line to fix, with the reason
+written above it so the next person does not start in `paging.ts`.
+
+**Deliberately not built, and named so it is not mistaken for an oversight:** a person's own view
+of their own census record. `0081`'s policy permits it — owner, manager, *or the person
+themselves*, because IPP 6 gives someone a right of access to their own information — but a screen
+showing somebody their employer's record of their ethnicity and age band wants its own thinking
+about **correction** under IPP 7, not a read-only block bolted onto a management page. Until it
+exists, that access is a request to the centre. Lawful, and not complete.
+
+**What this does and does not do to the application.** `AST47`'s data-source table went from *"this
+table cannot be completed"* to a completed first draft, with six cells honestly marked as awaiting
+a Ministry list. The tranche document's verdict said *"three of eight functionalities are absent"*
+and now says the census is built but blocked on a published code list. **The declaration still
+cannot be signed** — what moved was the reason, and a gap table that improves faster than the
+product does is one nobody should trust, so that caution is now written into the document itself.
+
+### And the thing I could not verify, which turned out to be the bigger finding
+
+AGENTS.md §5 says a new route with a capability guard means `test:e2e`. So I added `/census` to the
+roles matrix and the axe audit and ran it. **32 accessibility tests and 10 role-boundary tests
+failed, every one timing out after 60 seconds** in the `visit()` helper, which waits for
+`networkidle`.
+
+**It is not mine**, and that was settled by experiment rather than by argument. I reverted the one
+shared file the change touches — `layout.tsx`, a single nav link — rebuilt, and re-ran the
+`/attendance` audit, a screen the census work does not reach. **Identical failures.** Then restored
+the link.
+
+Ruled out cheaply: PostgREST answers in 130–310ms, so the project is not throttled despite a day of
+migrations, two restore drills and two RLS runs against it; the portal mount is unset locally, so
+`basePath` is not fighting the tests' `baseURL`; and **the pages render** — the failure snapshots
+contain the whole accessibility tree, shell, centre name and role. It is the waiting that fails,
+not the app. `SyncStatus` polls from the layout on mount and every 120s, which is the obvious
+suspect, but its fetch is caught and 120s is longer than the 60s timeout. **Cause not yet known.**
+
+Two consequences worth separating.
+
+**For the repo:** `unverified-claims` item 41 said the consolation for a red CI was that *"every
+gate this repo runs is run locally, by hand"*. For this gate that is no longer true, and
+`production-readiness` records the axe audit at **30/30 green** on a past date — so something
+regressed and nothing noticed. That is item 41's failure mode one level up: not a claim that went
+stale, a **gate that stopped running.** Extended item 41 with what was ruled out, and with the
+instruction not to "fix" it by widening the timeout.
+
+**For the application:** my own `AST18` answer cited *"19 screens against WCAG 2.2 AA, 30/30
+green"*. Those figures describe the suite's design and a past result, not its present state, and
+`roles.spec.ts` — the check that proves an educator cannot open the office screens — is among what
+cannot currently be run. Corrected in place, with the disclosure written out rather than softened.
+The Postgres-side boundary is not unverified: the RLS suite covers the same ground and is green at
+632. What is unverified is the guard in front of it.
+
+**What was verified for this change:** typecheck, lint, `tokens:check`, `check:docs`, 678 unit
+tests, `test:rls` 632/632, `review:security` 16/16, `drill:restore` 6/6, and `check:bundle`
+unchanged at 113.0kB with CSS still 3.7kB. **`test:e2e` was run and could not be used**, which is
+said here rather than omitted.
+
 ## 2026-09-02 (second) — Phase 10's census, a mutation harness that lied, and a credential aimed at the wrong database
 
 Owner's call: start the staff/census build rather than wait for the Ministry. Two migrations, one

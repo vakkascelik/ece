@@ -5,6 +5,46 @@ says so.*
 
 ---
 
+2026-09-03 — **The census gets a screen, and five of its inputs are disabled on purpose.**
+Extended: [[staff-as-people]] (a new section for the screen, and *Still to come* rewritten — it
+used to say the census had no screen). Corrected: [[unverified-claims]] item 48's census row, and
+`docs/eli-integration-2026-tranche.md` §6 in two places plus its verdict, which said *"three of
+eight functionalities are absent"* and is now narrower.
+
+`packages/api/src/census.ts` and `/census`, gated on `manageCentre`. Three decisions worth keeping.
+
+**The screen refuses to offer six fields, and the server action refuses them too.** Gender, staff
+role, qualification, playcentre qualification, ethnicity and iwi are unenumerated `LookupCode`
+values with no published list loaded, so each renders as a disabled select reading *"No Ministry
+code list loaded"* — and `saveCensusRow` does not accept those fields at all. The disabled
+attribute is a courtesy to the reader; the action not accepting them is the guard. A screen whose
+only protection is `disabled` is a screen with no protection.
+
+**Three selects where checkboxes would have been.** Paid, permanent and full time are *Not
+recorded / Yes / No*, because a checkbox cannot express the difference between *unpaid* and
+*nobody has said*, and `0081` made those columns nullable so the difference would survive as far
+as the return. A blank posts `null`.
+
+**Zero new CSS**, using `card`, `flag flag-ok`, `flag flag-warn`, `sub`, `inline`, `empty` and
+`small secondary`. Not thrift: `first-load-css` is 3.7kB against a 4kB budget, so a per-screen
+stylesheet would have breached a gate in order to style one form. My first draft invented nine
+class names — `panel`, `chip`, `muted`, `warn`, `census-person` — none of which exist here; reading
+what `/funding` and `/staff` actually use replaced all of them.
+
+**Two checks caught things before I did.** `launcherCoverage.test.ts` failed — a *second*
+derived-coverage test I did not know existed, which parses `layout.tsx` and requires a launcher
+card for every rail link, exactly as `helpCoverage.test.ts` does for the help page. And the
+typecheck failed inside `fetchAll` rather than at the cause: a column list built with `+` across
+several lines is typed `string` rather than a literal, and supabase-js infers the row shape from
+the literal. One line, with the reason written above it so the next person does not go looking in
+`paging.ts`.
+
+**Named rather than left implicit: a person's own view of their own record is not built.** `0081`'s
+policy permits it — owner, manager, or the person themselves, for IPP 6 — but a screen showing
+somebody their employer's record of their ethnicity wants its own thinking about correction under
+IPP 7, not a read-only block bolted onto a management page. Until then that access is a request to
+the centre, which is lawful and incomplete.
+
 2026-09-02 (second) — **The census schema is built, the region question is answered, and a
 credential named for this project turned out to name somebody else's.** Extended:
 [[staff-as-people]] (the census section, three things it deliberately does not hold, and what is

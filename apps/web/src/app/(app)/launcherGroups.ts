@@ -104,6 +104,10 @@ export const LAUNCHER_GROUPS: readonly LauncherGroup[] = [
     links: [
       { href: '/staff', label: 'Staff', capability: 'recordDailyPractice' },
       { href: '/roster', label: 'Roster', capability: 'recordDailyPractice' },
+      // Here rather than under Money, though it is a Ministry return: its content is the
+      // staff list, its inputs are the two screens above it, and Money's blurb is about
+      // what the Crown owes and what families do — a staffing census is neither.
+      { href: '/census', label: 'ECE Return', capability: 'manageCentre' },
       { href: '/members', label: 'People', capability: 'manageMembers' },
       { href: '/enquiries', label: 'Enquiries', capability: 'manageCentre' },
       { href: '/applications', label: 'Applications', capability: 'manageRecruitment' },

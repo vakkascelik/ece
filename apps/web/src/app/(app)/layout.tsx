@@ -143,6 +143,11 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
                 screen here answers what happened or what is happening; this one answers the
                 only version of the question somebody can still act on. */}
             {can(ctx.role, 'recordDailyPractice') && <NavLink href="/roster" icon={<NavIcon name="roster" />}>Roster</NavLink>}
+            {/* Under Staff and Roster rather than beside Funding, though it is a Ministry
+                return like the RS7 preparation is. Its content is the staff list and its
+                inputs are those two screens — a manager filling it in is looking at people,
+                not at money — and the Ministry framing is on the page's own title. */}
+            {can(ctx.role, 'manageCentre') && <NavLink href="/census" icon={<NavIcon name="staff" />}>ECE Return</NavLink>}
             {can(ctx.role, 'manageMembers') && <NavLink href="/members" icon={<NavIcon name="people" />}>People</NavLink>}
             {/* Beside Applications because both are queues of strangers asking for something,
                 and neither is a record of anybody at the centre yet. */}
