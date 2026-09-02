@@ -73,7 +73,9 @@ carry their name. Two things follow, and both are traps:
 
 **The trade, stated plainly.** Pooled tenancy buys one deployment, one database, one migration, and a
 mobile app that can exist at all. It costs two real things: a policy mistake exposes every centre at
-once rather than one — which is what the 176-assertion RLS suite is the compensating control for —
+once rather than one — which is what the RLS isolation suite is the compensating control for, at
+whatever assertion count `npm run test:rls` currently prints rather than the 176 this sentence
+carried while the suite was at 632 —
 and one deploy is a single point of failure for every centre at 7.30am, made worse by there being no
 staging environment.
 
@@ -536,4 +538,4 @@ Adding a custom domain silently rewrote `RAILWAY_STATIC_URL` and `RAILWAY_SERVIC
 to `littlepearls.org.nz`, a hostname currently serving the old site. Checked rather than assumed:
 nothing in this repo reads either variable. Worth knowing before something starts to.
 
-*Last updated: 2026-08-29*
+*Last updated: 2026-09-03*

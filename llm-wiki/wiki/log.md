@@ -5,6 +5,39 @@ says so.*
 
 ---
 
+2026-09-03 (third) — **The wiki catches up, and looking for a second instance of one defect found
+thirty-four.** New: [[unverified-claims]] item 49 and a Key Point. Extended: [[conventions]] (two
+new named conventions), [[incident-register]] (the two unguarded writers, and the correction
+defect still open), [[production-readiness]] (*The audit stopped running for six days*, two more
+findings that were the tests, and the drill's figures re-dated). Corrected: item 12's *"30/30
+green"*, item 13's *"176-assertion"* and *"44-check"*, [[tenancy-and-rls]]'s *"321 assertions"*,
+[[conventions]]' *"119 assertions"*.
+
+**Item 49 is the substantive addition.** Fixing the two incident writers raised the obvious
+question — how many others? Scanning every write statement in `packages/api`: **20 guarded, 34
+not.** A PostgREST update matching no rows returns `error: null`, and under RLS that *is* a
+refusal, so those 34 report *"Saved."* either way. Among them: revoking a membership, revoking an
+invitation, recording who sighted a certificate, superseding a custody arrangement, updating an
+enrolment, issuing an invoice. It matters more here than it would elsewhere for exactly the reason
+[AGENTS.md §4.1](../../AGENTS.md) gives — the application contains no tenant filtering by design,
+so *the database will refuse* is the design, and on 34 paths the refusal is invisible.
+
+**It is deliberately not fixed.** Zero rows is legitimately benign in some of those places —
+`engagement.ts` carries a comment relying on it — so this needs a judgement per call site, and a
+blanket `.select('id')` sweep would turn benign no-ops into user-facing errors, get reverted, and
+leave the real cases looking handled.
+
+**Four stale counts corrected, and three of them by deletion rather than update.** The RLS suite
+had been described as 119, 176, 176, 176 and 321 assertions in five places while running 632.
+[[tenancy-and-rls]] and [[conventions]] now point at the number the runner prints instead of
+restating one, which is what [AGENTS.md §5](../../AGENTS.md) already does on purpose. Item 13's
+row does the same.
+
+**And the sharpest of them was not a number at all.** Item 12 said the accessibility audit was
+*"30/30 green"* — correctly worded, and unreproducible for six days, because a row recording a
+past run is indistinguishable from a row recording a current one. That is this page's own failure
+mode turned on itself, so it is now written into the item rather than fixed silently.
+
 2026-09-03 (second) — **One unread response body had broken the whole e2e suite for six days, and
 it was hiding four real defects.** Extended: [[unverified-claims]] item 41 (the diagnosis in full,
 what the outage hid, and the one failure left open). Corrected: the `AST18` disclosure in

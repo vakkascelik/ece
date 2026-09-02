@@ -224,6 +224,62 @@ useful part:
 that matches nothing returns `error: null`, and under RLS "matches nothing" is what a refusal
 looks like — so a caller who may not update a centre would otherwise be told "Saved.".
 
+### A write that does not count its rows cannot tell "saved" from "refused"
+
+**Promoted to its own heading on 2026-09-03**, because it had been a paragraph inside the sleep-check
+section and kept being missed while it was buried there.
+
+The rule, and it is the whole convention:
+
+> A PostgREST `UPDATE` or `DELETE` that matches no rows returns **`error: null`**. Under RLS,
+> "matches no rows" is exactly what a refusal looks like. So a writer that inspects only `error`
+> reports a refusal as a success — and this product's entire security model is *Postgres refuses*.
+
+The shape:
+
+```ts
+const { data, error } = await db.from('t').update(row).eq('id', id).select('id');
+if (error) throw new Error(`updateThing: ${error.message}`);
+if (!data || data.length === 0) {
+  throw new Error('updateThing: nothing was updated. Either the id is wrong or the policy refused it.');
+}
+```
+
+**Measured, because "we mostly do this" turned out to be false.** Every write statement in
+`packages/api` scanned on 2026-09-03: **20 guarded, 34 unguarded.** The unguarded list is in
+[[unverified-claims]] item 49 and includes changing a member's role, revoking a membership,
+revoking an invitation, recording who sighted a certificate, superseding a custody arrangement,
+updating an enrolment and issuing an invoice. On those, a refusal currently renders as *"Saved."*
+
+**Do not sweep all 34.** Some are legitimately allowed to match nothing — `engagement.ts` has a
+comment relying on it, where a second concurrent decision on the same row *should* be a no-op
+rather than an error. The check is a judgement per call site about whether zero rows is a
+possible-and-fine outcome or a refusal being swallowed, which is why this is a convention for new
+writers and a tracked item for the existing ones rather than a codemod.
+
+### A `fetch` whose body you never read stays in flight
+
+Found 2026-09-03, and it cost six days of a completely dead end-to-end suite — the full story is
+[[unverified-claims]] item 41.
+
+`await fetch(url)` resolves as soon as the **headers** arrive. The body is a stream, and a stream
+nobody reads leaves the request open in Chromium's accounting. `SyncStatus` wanted only `res.ok`,
+never touched the body, and sat in `(app)/layout.tsx` — so every authenticated page held one
+request open forever. Playwright's `networkidle` waits for the in-flight count to reach zero, so
+every navigation in the suite timed out at 60 seconds on screens that were rendering perfectly.
+
+```ts
+const res = await fetch(url, { cache: 'no-store' });
+await res.text().catch(() => {});   // drain it, even when only res.ok is wanted
+setReachable(res.ok);
+```
+
+**Two things worth keeping from how it was found.** A trace's network log records only *completed*
+resources, so the hanging request was invisible in it; what answered the question in one run was
+listening to `request`/`requestfinished`/`requestfailed` and printing what was still outstanding.
+And every server-side measurement said the app was healthy — the route answered in 5ms by `curl`
+— which is why it survived so long: the evidence all pointed away from the client.
+
 ### A policy that reads another table inherits that table's RLS
 
 Found 2026-08-08 while trying to mutation-test `immunisation_records`. The attempted weakening
@@ -492,7 +548,7 @@ skips.
 | `npm run typecheck` | four workspaces |
 | `npm run lint` | flat ESLint config at the root; `next lint` is deprecated and prompts interactively with no config, which in CI hangs |
 | `npm test` | unit tests in `@ece/core`, `@ece/api` and `@ece/web`. **Not `apps/mobile`** — it has no `test` script, so `--if-present` skips it silently and the command still looks complete. See [[unverified-claims]] item 20 |
-| `npm run test:rls` | **the one that matters** — 119 assertions as at 2026-08-04 |
+| `npm run test:rls` | **the one that matters.** It prints `N/N assertions passed`; that is the count, and this table no longer carries one — it said 119 for a month while the suite grew past 600 |
 | `npm run tokens:check` | generated CSS matches the shared tokens |
 | `npm run drill:offline` | the outbox contract against the real database |
 

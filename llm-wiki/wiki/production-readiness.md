@@ -140,13 +140,53 @@ Worth recording because both would have produced a false green:
   before the fix, so a corrected page still reported the old violation. `npm run test:e2e`
   builds first for exactly this reason.
 
+Two more joined that list on 2026-09-03, both invisible until the suite could run again:
+
+- **Three locators broke when the launcher shipped.** The overview's launcher (2026-08-30) names
+  every screen the rail names, so `getByRole('link', { name: 'Attendance' })` began matching two
+  elements and failing on strict mode rather than on behaviour. The subject of those tests is the
+  *rail*, so they are now scoped to `#side-nav` — which is what they always meant, and the reason
+  the fix is not an allowlist.
+- **One test contradicted the feature it guarded.** `journey.spec.ts` asserted the funding banner
+  reads *"Incomplete"*. `periodPrecedesRecord` had added a third and stronger state a day earlier
+  — *"Records do not cover this period — do not use"* — which is what a fresh fixture produces,
+  because its child signs in today and the period begins before the record exists. The test now
+  asserts the intent, *the banner must refuse*, which both refusals satisfy and
+  "Preparation figures" does not.
+
+### The audit stopped running for six days, and looked exactly like it was passing
+
+**2026-08-28 to 2026-09-03.** Every navigation timed out at 60 seconds. Not a flake and not the
+environment: an unread `fetch` response body in `SyncStatus` left one request in flight on every
+authenticated page, so the runner's *network is idle* condition could never be satisfied. The
+mechanism, the instrumentation that found it and the four defects it had been hiding are in
+[[unverified-claims]] item 41.
+
+What belongs on *this* page is the consequence for the audit. This document said **30/30 green**,
+and went on saying it, correctly worded and completely unreliable, for six days — because a
+sentence recording a past run reads identically to a sentence recording a current one. The figures
+here are now dated on purpose, and the honest position is that a green run is a claim about the
+day it was made.
+
+It also cost the repo its consolation for a red CI. [[deployment]] and item 41 both took comfort
+in *"every gate is run locally, by hand"*; nothing was watching whether the local runs still
+happened. **A gate that stops running is indistinguishable from a gate that passes**, which is the
+same shape as the audit trigger that fired and wrote nothing for months, and as the `bounded-queries`
+scan that declared an unbounded query bounded because the next function ended in `.single()`.
+Three instances now, and the common cause is a check whose failure mode is silence.
+
 ### The restore drill, and why the mutation test is the point
 
 `npm run drill:restore` enumerates every table **from the catalogue** — so a table added by
 a future migration is covered without anyone remembering — extracts every row as JSON to a
 file, sends it back, reloads it into a shadow schema built with `like … including all`, and
-compares row counts and a content fingerprint per table. 35 tables, 2864 rows, 4/4 as at
-2026-08-06.
+compares row counts and a content fingerprint per table. The drill prints its own tally, and it
+grows with the schema: **76 tables, 12,990 rows, 6/6 as at 2026-09-03**, against *"35 tables,
+2864 rows, 4/4"* when this paragraph was written on 2026-08-06. Two of those six checks did not
+exist then — `0078` added assertions that every table which had a 14-day rule still has one **as a
+trigger**, and that no time-relative `CHECK` has crept back, because a `CHECK` is in force while a
+dump's rows land and made the operational core unrestorable past a fortnight. See
+[`backup-and-restore.md`](../../docs/backup-and-restore.md).
 
 Reloading uses `jsonb_populate_recordset`, handing Postgres its own JSON back. The
 alternative — per-type SQL literals for timestamptz, text[], jsonb, seven enums and a
@@ -242,4 +282,4 @@ exactly the error the corrected paragraph above committed.
 - [[tenancy-and-rls]] — the append-only guarantee that made a centre undeletable
 - [[conventions]] — where the audit and the budgets fit in the verification set
 
-*Last updated: 2026-08-29*
+*Last updated: 2026-09-03*

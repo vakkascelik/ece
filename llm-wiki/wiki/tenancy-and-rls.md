@@ -34,8 +34,12 @@ child sitting next to them.
   in 0043 before `kiosk` could safely exist. Allowlist the roles; never denylist one.
 - **Column-level grants do work a policy cannot** — a policy restricts rows, only a grant
   restricts columns.
-- The isolation suite is the highest-value test in the repo: **321 assertions as at
-  2026-08-08**, and it found three real bugs the first time it was ever executed.
+- The isolation suite is the highest-value test in the repo, and it found three real bugs the
+  first time it was ever executed. **The count is whatever `npm run test:rls` prints**, and this
+  line no longer restates it: it said *"321 assertions as at 2026-08-08"* while four other places
+  in the repo said 119, 176, 176 and 176, and the suite was at 632. The runner prints
+  `N/N assertions passed`; that is the number. Same reasoning as
+  [AGENTS.md §5](../../AGENTS.md), which omits counts on purpose.
 
 ## Details
 
@@ -171,4 +175,4 @@ restored. A test that cannot fail is not a test — worth repeating for any new 
 - [[compliance-and-evidence]] — where an educator's own record is readable by them
 - [[unverified-claims]]
 
-*Last updated: 2026-08-12*
+*Last updated: 2026-09-03*

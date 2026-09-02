@@ -306,6 +306,49 @@ appearing.
 records: a patch that happens to carry a status is how a report gets sent to a family as a side
 effect of fixing a word.
 
+#### Both incident writers could report a success that never happened — fixed 2026-09-03
+
+`updateIncidentDraft` and `finaliseIncident` did `.update(…).eq('id', …)` and inspected only
+`error`. **Under RLS a refused update matches no rows, and PostgREST reports that as success with
+an empty result** — so `error` was null, the function returned, the action called
+`revalidatePath`, and the screen said the correction was saved. On an incident report.
+
+`updateCentre`, `updateStaffMember` and `linkStaffRecord` have carried a zero-row check since they
+were written, each with a comment explaining exactly this. These two never did.
+
+**And looking for other instances found that it is the majority, not the exception.** A scan of
+every write statement in `packages/api` on 2026-09-03 came back **20 guarded, 34 unguarded** — so
+the pattern is not "somebody forgot the check twice", it is that a write in this package is unable
+to tell success from refusal *by default*. Recorded as [[unverified-claims]] item 49 with the list,
+because fixing 34 call sites is its own change and several of them are legitimately allowed to
+match nothing.
+
+`finaliseIncident` was the worse of the two. A silent no-op there leaves a report the centre
+believes it has filed sitting as a draft **the family cannot see**, which is the precise state this
+page's whole draft/final argument exists to make legible.
+
+Found by the e2e suite, six days late, because the suite had stopped running — see
+[[unverified-claims]] item 41.
+
+#### And one defect this page cannot yet explain
+
+**Open as at 2026-09-03.** `incidents.spec.ts` fills a draft with a typo, corrects it through
+**Edit**, saves — and the list still renders the pre-correction text. With the zero-row check now
+in place the write **provably** succeeds: the new error does not fire, so no policy is refusing,
+and `revalidatePath('/incidents')` is called. Yet the corrected description does not reach the
+screen that reported it saved.
+
+So the failure is somewhere between a successful write and a stale read, and this page will not
+guess which — the candidates are the revalidation not covering the route as it is actually
+rendered (the edit view is `/incidents?edit=…`, the same path with search params), the client
+component not remounting across that navigation (which is the trap the next section documents for
+**Amend**), and the form posting a stale `description`. **It is on a compliance record and it is
+the next thing to do.**
+
+Worth stating plainly because the honest version is unflattering: the edit path was built, shipped,
+covered by a test — and the test could not run, so nobody knew that fixing a word in a draft may
+not work.
+
 ### The React trap this hit on the way
 
 Clicking **Amend** navigates to `/incidents?amend=…` — the same route with different search
@@ -337,4 +380,4 @@ guard being ignored slowly.
 - [[compliance-and-evidence]] — where this register will feed the binder
 - [[conventions]] — the new-table checklist this followed
 
-*Last updated: 2026-08-29*
+*Last updated: 2026-09-03*

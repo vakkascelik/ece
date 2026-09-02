@@ -41,6 +41,12 @@ Nothing here is a bug. They are known gaps with known closures.
   sentence of the funding disclaimer, **unconditional** — behind `!summary.verified` it would
   vanish on the day the figures look most trustworthy. The Ministry's word for the failure mode
   this product already discloses is *"under-claiming"*.
+- **Thirty-four writes cannot tell a refusal from a success — item 49, added 2026-09-03.** A
+  PostgREST update matching no rows returns `error: null`, and under RLS that is exactly what a
+  refusal looks like. Measured across `packages/api`: **20 guarded, 34 not.** Among the unguarded
+  are revoking a membership, revoking an invitation, sighting a certificate and superseding a
+  custody arrangement — where the screen currently says *"Saved."* either way. This matters more
+  here than elsewhere precisely because the application holds no tenant filtering by design.
 - **The Supabase region is Sydney — `ap-southeast-2`, answered 2026-09-02, and it was one API call.**
   [`privacy-statement.md`](../../docs/privacy-statement.md) carried it as an explicit blank since
   2026-08-06, asking whether children's records sat in *"Sydney, Singapore or Oregon"*. Both regions
@@ -388,7 +394,8 @@ evidence nobody has gathered.
 
 | | |
 |---|---|
-| **What exists** | A WCAG 2.2 AA audit with axe-core over 19 screens, both roles, with data loaded, including two error states. 30/30 green, no advisory warnings either |
+| **What exists** | A WCAG 2.2 AA audit with axe-core over **20 screens** (`/census` added 2026-09-03), both roles, with data loaded, including two error states. Green, with no advisory warnings — **but read the row below before quoting a figure from this one** |
+| **The figure this row used to give** | *"30/30 green"*, and it had been unreproducible for six days when somebody finally tried. From 2026-08-28 to 2026-09-03 every navigation in the suite timed out: an unread `fetch` response body in `SyncStatus` left a request in flight on every authenticated page, so `networkidle` could never be satisfied. **The audit was not passing; it was not running.** Item 41 has the diagnosis. The lesson for *this* page is narrower and sharper than the bug: a row that records a past green run is indistinguishable from a row that records a green run *today*, and this one was wrong for six days without changing a character |
 | **What has never happened** | Anyone using this product with a screen reader, or completing a task with a keyboard alone |
 | **Why it matters** | axe finds somewhere between a third and a half of WCAG failures. It is good at contrast, names, roles and structure. It cannot tell whether a focus order makes sense, whether an error message helps, or whether the ratio banner announces at a useful moment. A green run is a floor |
 | **To close it** | A pass with NVDA or VoiceOver on the daily screens — sign a child in, read a ratio, open a child's allergies — and a keyboard-only pass on the enrolment form |
@@ -397,7 +404,7 @@ evidence nobody has gathered.
 
 | | |
 |---|---|
-| **What exists** | `npm run review:security` — sixteen checks against the live schema, all clean. A 176-assertion RLS suite. A 44-check end-to-end suite covering four roles. No secret in any bundle, no XSS sink, every definer function pinned |
+| **What exists** | `npm run review:security` — sixteen checks against the live schema, all clean. The RLS suite, whose assertion count the runner prints and this row deliberately no longer restates — it said **176** while the suite was at 632, and three other pages gave three other numbers. An end-to-end suite covering four roles, **117 passing and 1 failing as at 2026-09-03**. No secret in any bundle, no XSS sink, every definer function pinned |
 | **What has never happened** | Any adversarial testing at all. No penetration test, no external review, no attempt to enumerate storage objects or traverse an object path, no attempt to forge a JWT |
 | **Also unread** | Supabase Auth's rate limits, session lifetime, refresh-token rotation and password policy are all defaults that nobody on this project has looked at. The service-role key has never been rotated. The personal access token the migration runner uses is account-wide, which is far more authority than this project needs |
 | **Why it matters** | The checks verify the invariants somebody thought of. Four of the five findings in the Phase 6 review were things nobody had thought of, and each one was found by *running* something rather than by reasoning |
@@ -1545,6 +1552,42 @@ an argument and says in its own header that a different service type *"changes d
 logic"*. Sessional and home-based bands are a sourced transcription against Schedule 2 under the
 existing `RATIO_TABLES_VERIFIED` discipline, not a redesign.
 
+### 49. Thirty-four writes in `packages/api` cannot tell a refusal from a success — **OPEN, added 2026-09-03**
+
+| | |
+|---|---|
+| **What is asserted** | Implicitly, by every screen in the product: that when a save reports success, something was saved |
+| **Where** | `packages/api`. Measured 2026-09-03 by scanning every write statement in the package: **20 guarded, 34 unguarded** |
+| **The mechanism** | A PostgREST `UPDATE`/`DELETE` matching no rows returns **`error: null`**, and under RLS "matched no rows" is precisely what a refusal looks like. A writer inspecting only `error` therefore returns normally, the action calls `revalidatePath`, and the screen says *"Saved."* See [[conventions]], *A write that does not count its rows* |
+| **Why it matters here more than in most products** | Because [AGENTS.md §4.1](../../AGENTS.md) makes Postgres the security boundary and the application deliberately contains no tenant filtering. The design is *"the database will refuse"* — and on 34 paths the refusal is invisible to the caller and therefore to the user |
+
+**The ones worth reading twice**, because they are not cosmetic:
+
+| Path | What a silent refusal means |
+|---|---|
+| `members.ts:61` role change, `members.ts:75` revoke membership | **Access control.** "This person no longer has access" reported when they still do |
+| `invitations.ts:101`, `:122` revoke invitation | **Access control.** A live invitation somebody believes they cancelled |
+| `compliance.ts:153` sight a certificate | **Licensing evidence.** A named person recorded as having seen a document, or not, and the screen cannot tell |
+| `children.ts:990` supersede a custody arrangement | **Safety.** The superseded order still standing |
+| `children.ts:582` update an enrolment | **Funding.** Funded hours and 20 Hours attestation |
+| `billing.ts:533`, `:549` issue / void an invoice | **Money**, and `0021` already exists because invoice state was editable in a way nobody expected |
+| `registers.ts:251` record the family was told | **Compliance.** The claim a review asks about |
+
+**How this was found**, which is the part that generalises: not by reading the package, but because
+the e2e suite came back to life after six days ([item 41](#41-ci-has-never-been-green-and-nothing-that-needs-credentials-has-run-in-it))
+and one test asserted a corrected incident draft that had not been corrected. Two writers on that
+one table turned out to lack the check; the scan that followed found it was the majority.
+
+**What would close it:** a judgement per call site, not a codemod. Zero rows is a legitimate and
+benign outcome in some places — `engagement.ts` has a comment relying on exactly that, where a
+second concurrent decision on the same row *should* be a no-op. So each site needs the question
+*can this legitimately match nothing?* answered, and the ones that cannot need the check. The
+guarded twenty are the pattern to copy.
+
+**What must not happen:** a blanket `.select('id')` sweep with a throw, which would turn benign
+no-ops into user-facing errors and be reverted within a week — and would leave the real cases
+looking handled.
+
 ## See Also
 
 - [[eli-integration]] — the public schema, the event catalogue, and items 47 and 48
@@ -1560,4 +1603,4 @@ existing `RATIO_TABLES_VERIFIED` discipline, not a redesign.
 - [[reporting]] — occupancy, attendance trends, and enquiry conversion
 - [[deployment]] — item 41's detail: the three CI jobs and what each one skips
 
-*Last updated: 2026-09-02*
+*Last updated: 2026-09-03*

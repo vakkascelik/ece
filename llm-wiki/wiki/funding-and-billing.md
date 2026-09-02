@@ -759,4 +759,4 @@ claim only what it actually proves.
 - [[unverified-claims]] — the caps, and the absence of rates
 - [[compliance-and-evidence]] — the other thing attendance is evidence for
 
-*Last updated: 2026-08-31*
+*Last updated: 2026-09-02*
