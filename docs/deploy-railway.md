@@ -160,15 +160,22 @@ access is key access**, which widens the blast radius already described below fr
 Railway project access" to "anything that can reach the image". Rotate on any suspicion, and treat
 a leaked build artefact as a leaked database.
 
-### Region: this service runs in Southeast Asia
-
-The dashboard reports Southeast Asia, and that is a fact the privacy statement has been carrying an
-open question about — it currently says to confirm the region before a centre adopts it, because a
-New Zealand centre should know whether its children's records are in Sydney, Singapore or Oregon.
+### Regions: Railway in Southeast Asia, Supabase in Sydney
 
 Two regions matter and they are not the same: **Supabase** holds the data at rest, and **Railway**
-processes it in transit. Both belong on the hosted privacy page, named, before a centre is asked to
-adopt anything.
+processes it in transit. Both are now named on the hosted privacy page, which is what this section
+used to say had to happen before a centre was asked to adopt anything.
+
+**Railway: Southeast Asia**, from the dashboard. **Supabase: `ap-southeast-2`, Sydney**, read from
+the provider's own project record on 2026-09-02 — one authenticated call to
+`GET /v1/projects`, which also reports the project's name and creation date. Neither region is in
+New Zealand, and [`privacy-statement.md`](privacy-statement.md) now says so in the words a centre
+reads.
+
+**The reason it took until September** is worth a sentence, because it was not difficulty. The
+question had been open since 2026-08-06 and phrased as *"Sydney, Singapore or Oregon"* — three
+guesses where an answer was one API call away. A question that is cheap to answer and stays open
+is not blocked; it is unowned.
 
 `.nvmrc` pins Node 24.
 

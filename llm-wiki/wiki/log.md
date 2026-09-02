@@ -5,6 +5,72 @@ says so.*
 
 ---
 
+2026-09-02 (second) — **The census schema is built, the region question is answered, and a
+credential named for this project turned out to name somebody else's.** Extended:
+[[staff-as-people]] (the census section, three things it deliberately does not hold, and what is
+still to come), [[deployment]] (two new sections — the mislabelled credential, and the region
+under *Two findings on the Supabase side*), [[unverified-claims]] (item 48's census row corrected,
+the code-set gap added, a new Key Point on the region). Migrations `0080` and `0081`, applied.
+
+**`0080` — the reference code sets, empty on purpose.** Nine domains, effective-dated per `AST55`,
+`source` mandatory as in `criteria_sets`. It ships holding nothing, because every list is a
+published Ministry classification nobody here has read, and this is the `criteria` decision a
+second time. Two facts are transcribed from the public schema and no more: the 10-character
+`LookupCode` bound, and the domain list.
+
+**`0081` — the staff census, and the read a colleague does not get.** Eleven of fifteen fields the
+ECE Return wants had no column anywhere. The decision worth keeping is that it is a *separate
+table*: `staff_members_select` is centre-staff-wide, which is right for a roster and wrong for a
+colleague's ethnicity — and no policy could fix it, because a policy restricts rows and only a
+grant restricts columns, and a column grant cannot tell an educator from a manager. So it takes
+`staff_records`' predicate: owner or manager, **or the person themselves**, IPP 6.
+
+Three things it deliberately does not hold: registration and the Teaching Council number (already
+on a `practising_certificate` record — one source of truth, so the census and the binder cannot
+disagree), a date of birth (the schema wants a band, and a band is the minimum that answers it —
+IPP 1), and any code value at all.
+
+`isRegistered` is three-state as a result. The schema's `IsRegistered` is a required boolean, but
+*"we hold no certificate"* is not *"not registered"*, and 0038 leaves every link null on purpose.
+Sending `false` would assert something about a named person's professional standing from a missing
+row.
+
+**What the testing found, and this is the part worth reading.** 47 unit tests passed first run,
+which AGENTS.md says to distrust — so 24 mutations were run and all 24 were caught. The first
+mutation harness reported *sixteen* confident catches and every one was meaningless: it had been
+measuring against a baseline that was itself already mutated, because a `git diff` guard was
+silent on an untracked file. It now refuses to run unless the baseline is green and carries a
+comment-only control that must survive.
+
+The RLS suite went 607 → 632 assertions. Five policy mutations, and the fifth is why this
+paragraph exists: granting `insert` and `update` on the code sets to `authenticated` left the suite
+**green**, because with a grant but no policy Postgres still raises `42501` and the
+`insufficient_privilege` handler cannot tell the two layers apart. That is defence in depth working
+as `0003` argues it should, *and* a test that cannot see which mechanism is holding. So the claim
+is now made precisely, of the catalogue: `authenticated` holds no write privilege on either table.
+
+**Two real defects the checks caught before I claimed done**: `review:security` went `HIGH` on the
+two new tables having no audit trigger, which is correct — they are national reference data and
+belong in the exemption list, and **there are two exemption lists** (`rls_isolation.sql` and
+`scripts/security-review.ts`) which have to agree. And the contact-hours overlap constraint refused
+an insert my own test expected to succeed: an open-ended contract blocks an overlapping later one
+*until it is closed*, because a null `effective_to` is infinity. Superseding hours is two
+statements, and both halves are now asserted.
+
+**The credential finding.** `SUPABASE_DB_URL` here is empty, so everything falls back to the
+account-wide PAT. Looking for a direct connection string in the sibling `salix` repo's
+`.env.local` found `ECE_SUPABASE_PROJECT_URL` — **byte-identical to `CHARITY_SUPABASE_PROJECT_URL`
+and naming `charity-platform`.** Pointing `migrate` at it would have applied 79 migrations to
+another live database, and the account-wide token would not have refused. CLAUDE.md already warns
+about this in general terms; this is the second instance, so the rule is now specific: do not read
+a project ref out of a file, ask the API which project it is and check the name.
+
+**And the same call answered a month-old question.** `GET /v1/projects` reports the region:
+`ap-southeast-2`, Sydney. `privacy-statement.md` had carried *"Sydney, Singapore or Oregon"* as an
+open blank since 2026-08-06 — three guesses standing in for one API call, and a failed `AST03` for
+as long as it stood. A question that is cheap to answer and stays open is not blocked; it is
+unowned.
+
 2026-09-02 — **ELI applications are open, the mandatory schema was on a public URL the whole time,
 and the product does not meet the entry criteria.** New: [[eli-integration]]. Extended:
 [[funding-and-billing]] (a new section, *The review lifted*), [[unverified-claims]] (items 47 and

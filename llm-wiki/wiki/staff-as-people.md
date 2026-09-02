@@ -291,9 +291,84 @@ contradicts the forecast printed above it.
 "shifts_no_overlap"`, which is true and useless. Rostering the same person twice is an ordinary
 slip rather than an attack, so it is the error a manager will actually hit.
 
+### The census (0080, 0081) — and the read that a colleague does not get
+
+**Added 2026-09-02.** The annual ECE Return asks for each person's gender, ethnicity, age band,
+role code, highest qualification, whether they are paid, permanent and full time, the ages they
+teach, and their contracted contact hours by weekday. **Eleven of those fifteen fields had no
+column anywhere in this schema** — the word "qualification" appeared in this repo only in prose
+and one test fixture's job title. See [[eli-integration]] for where the shape comes from.
+
+**The design decision worth keeping is that it is a separate table.** The obvious move is columns
+on `staff_members`, and it is wrong for a reason this page already half-states: *"read by everyone
+rostered, written by the office"*. That is right for a roster and wrong for a colleague's
+ethnicity. And no policy could fix it — **a policy restricts rows; only a grant restricts columns,
+and a column grant applies to `authenticated` as a whole**, so it cannot tell an educator from a
+manager.
+
+So `staff_census_details` takes the predicate 0011 already reasoned out for `staff_records`:
+**owner or manager, or the person themselves.** The IPP 6 half is not a courtesy — a person has a
+right of access to their own information, and a design that hid it would put this product in the
+way of a statutory right. They cannot *edit* it, which is the same distinction `staff_records`
+draws: reading your own vetting result is not maintaining it.
+
+Two assertions in `rls_isolation.sql` are the whole point of the table, and both were
+mutation-tested against the live database: widening the predicate to
+`caller_is_staff_for_member` fails *"reads EXACTLY their own"*, and dropping the IPP 6 branch fails
+*"an educator CAN read their OWN census record"*.
+
+**`staff_contact_hours` is a contract, and `shifts` is a diary.** `shifts` is one row per calendar
+date, which is what a roster needs and cannot answer *"what are this person's contracted contact
+hours on a Tuesday"*. Inferring a pattern from dated shifts would be the estimating
+[[funding-and-billing]] refuses on the funding path — a plausible number nobody agreed to. So the
+contract is its own effective-dated table, and the return-week hours total is **derived** from it
+rather than stored, for the reason `0009` refuses a stored `is_present`: a cached figure drifts
+from its source and reports itself as authoritative.
+
+Its overlap constraint reuses `shifts_no_overlap`'s `2000-01-01` anchor idiom rather than inventing
+one, with the effective window as a fourth dimension. **A split shift is legal and an overlap is
+not** — a double-booked weekday inflates the derived total for every return that reads it.
+
+**What the constraint taught us, which the first draft of the test got wrong:** an open-ended
+contract blocks an overlapping later one *until it is closed*, because a null `effective_to` is
+infinity and still covers that later window. Superseding contracted hours is therefore two
+statements — close, then open — and a screen offering only "add hours" will produce
+`23P01` in front of a manager. Both halves are now asserted.
+
+### Three things this deliberately does not hold
+
+- **Registration and the Teaching Council number.** Both already exist on a `staff_records` row of
+  kind `practising_certificate`: `reference` is the number and `expires_on` decides currency, with
+  a null expiry treated as *not* current. Duplicating them would create two places holding one
+  fact, and the two would disagree the first time somebody renewed and updated only one. It also
+  means the census and the licensing binder **cannot contradict each other**, because they read the
+  same row.
+- **A date of birth.** The schema wants one of twelve five-year age bands and nothing more. Storing
+  a birth date to derive a band collects more than the purpose requires — the wrong side of IPP 1,
+  and this product already refuses a date of birth on the job-application form on that reasoning.
+- **Any ethnicity, iwi, language, staff-role or qualification code.** The ELI schema types all of
+  them as an unenumerated 10-character `LookupCode`, so `0080` gives each list an effective-dated
+  home and **ships it empty**, exactly as `criteria` has since Phase 2 and for the same reason. The
+  four value domains the schema *does* enumerate — role kinds, age bands, weekday codes and
+  leaving destinations — are transcribed in `census.ts` and are the only ELI code values in this
+  repository.
+
+`isRegistered` is consequently **three-state**, and the reasoning is the sharpest thing in the
+module. The schema types `IsRegistered` as a required boolean, so the wire has no third value — but
+*"we hold no practising certificate for this person"* is **not** *"this person is not registered"*,
+and 0038 leaves every certificate link null on purpose. Sending `false` there is an assertion about
+a named individual's professional standing made on the strength of a missing row. So the module
+returns `null`, the return cannot be sent, and the report names who needs linking.
+
 ## Still to come in this phase
 
-Nothing. 0038 through 0041 close the gap the binder used to admit to — with the standing
+**The census has no screen.** 0080 and 0081 are the schema and `census.ts` is the logic, with 47
+unit tests and 24 RLS assertions; nothing in `apps/web` reads or writes either table yet, so the
+data cannot be entered. That is the next piece, and it is deliberately not bundled with this one —
+a form collecting a person's ethnicity wants its own thinking about who sees the screen, not just
+who can read the row.
+
+Otherwise nothing. 0038 through 0041 close the gap the binder used to admit to — with the standing
 exception that the bands those numbers rest on are still unverified, and the forecast made that
 worse rather than better. See [[unverified-claims]].
 
@@ -302,5 +377,6 @@ worse rather than better. See [[unverified-claims]].
 - [[compliance-and-evidence]] — the admission this phase closes, and `staff_records`
 - [[attendance-and-ratios]] — what a ratio is derived from today
 - [[tenancy-and-rls]] — `caller_has_role` and the predicates used here
+- [[eli-integration]] — where the census fields come from, and why the code lists ship empty
 
 *Last updated: 2026-08-08 — date taken from this file's last commit, because the page was written without the footer `llm-wiki/schema.md` requires and no other record of it exists.*

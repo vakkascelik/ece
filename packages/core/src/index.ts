@@ -321,6 +321,14 @@ export * from './worklist';
 // states a fact and never a funding consequence.
 export * from './staff';
 
+// The annual ECE Return's staffing section, and what is missing from it. Note what
+// this exports and what it does not: the value domains the ELI schema actually
+// enumerates — role kinds, age bands, weekday codes, leaving destinations — and no
+// ethnicity, iwi, language, staff role or qualification code at all, because the
+// schema types those as an unenumerated LookupCode and they belong in `code_sets`,
+// imported from a published list with its source recorded. AGENTS.md §7.
+export * from './census';
+
 // ---------------------------------------------------------------------------
 // Design tokens
 // ---------------------------------------------------------------------------

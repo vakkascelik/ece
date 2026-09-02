@@ -41,6 +41,12 @@ Nothing here is a bug. They are known gaps with known closures.
   sentence of the funding disclaimer, **unconditional** — behind `!summary.verified` it would
   vanish on the day the figures look most trustworthy. The Ministry's word for the failure mode
   this product already discloses is *"under-claiming"*.
+- **The Supabase region is Sydney — `ap-southeast-2`, answered 2026-09-02, and it was one API call.**
+  [`privacy-statement.md`](../../docs/privacy-statement.md) carried it as an explicit blank since
+  2026-08-06, asking whether children's records sat in *"Sydney, Singapore or Oregon"*. Both regions
+  are now named in the document a centre reads. `AST03` of the vendor assessment expects offshore
+  storage to be *"communicated and accepted by each service"* — disclosure is done, **acceptance is
+  not**, and needs the service to acknowledge it in writing.
 - **The product does not meet the Ministry's SMS Development Criteria — item 48, added 2026-09-02.**
   ELI integration applications opened for a 2026 tranche closing 30 October, one place, and the
   form's first declaration is that the SMS *meets* those criteria. Three of eight mandatory
@@ -1432,7 +1438,7 @@ functionalities and the four service-model requirements on that page:
 
 | Absent | Detail |
 |---|---|
-| **Annual ECE census (staff details and qualifications)** | **Eleven of the fifteen fields have no column anywhere in the schema** — staff gender, ethnicity, role code, paid, permanent, full-time, highest qualification, registration number, years of experience, hours per year, FTE. The word "qualification" appears in this repo only in prose and one test fixture's job title. The roster is one row per calendar date, so there is no weekday contract to derive contact hours from |
+| ~~**Annual ECE census (staff details and qualifications)**~~ **The schema is built — corrected 2026-09-02, hours after this item was written.** `0081` adds `staff_census_details` and `staff_contact_hours`, `census.ts` assembles the return's staffing section and names every gap, with 47 unit tests (24 mutations, all caught) and 24 RLS assertions (5 policy mutations, all caught). **What is still absent is a screen** — nothing in `apps/web` reads or writes either table, so the data cannot be entered — **and every code list**, because `0080` ships empty on purpose. So the criterion is not met, for narrower and more tractable reasons than when this item was written. See [[staff-as-people]] |
 | **RS7 return** | None of the eleven figures the return wants is produced. What exists is funded hours per child over an operator-chosen period |
 | **Waha Rumaki/PITA return** | Nothing. Possibly out of scope — [enquiry](../../docs/eli-ministry-enquiry.md) question 7 |
 | **Home-based services** | Not modelled. Named in `ratios.ts` as an excluded schedule |
@@ -1451,6 +1457,21 @@ against is the one this page exists for, pointed at a form instead of a screen: 
 publishes its expectation beside every question, which makes the expected answer very easy to
 write. **Signing that declaration today would be asserting something untrue to the Crown**, which
 is a larger version of flipping `RATIO_TABLES_VERIFIED` to silence a warning.
+
+**A related gap this created, and it is the `criteria` gap a second time.** `0080` gives every
+Ministry code list — gender, ethnicity, iwi, language, staff role, qualification, playcentre
+qualification, wait time, closure reason — an effective-dated home, and **seeds none of them.**
+Every one is a published classification nobody here has read, and [AGENTS.md §7](../../AGENTS.md)
+forbids seeding invented regulatory content by name. So the census surface cannot resolve a single
+code until somebody imports a checked set with its source recorded, exactly as the criteria-gap
+feature cannot function until somebody imports criteria.
+
+`census.ts` reports this as a **third state rather than a pass**: `codesChecked` is `true` when
+every domain in use had a loaded set, `false` when one did not, and `null` when no set was supplied
+at all — so the day the first list is imported must look different from the day before it. **To
+close it:** [enquiry](../../docs/eli-ministry-enquiry.md) question 6 asks where the lists are
+published and whether the published form already carries effective start and end dates, or whether
+a vendor is expected to maintain them.
 
 **What would close it:** building the missing functionality, in the order set out in
 [eli-integration-2026-tranche](../../docs/eli-integration-2026-tranche.md) §6 — which is

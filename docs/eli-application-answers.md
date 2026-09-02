@@ -91,18 +91,26 @@ PostgreSQL 17 hosted by Supabase, single database, pooled multi-tenancy: one row
 licensed service, with **Row Level Security as the tenant boundary rather than application
 filtering**. The application layer contains no tenant filter at all, deliberately — see AST07.
 
-`[FIX FIRST]` **The at-rest region is not currently documented, and this is an assessed item with
-the Ministry's expectation attached: *"Where information is stored offshore, the Ministry expects
-that this has been communicated and accepted by each service."*** The compute tier is confirmed in
-Southeast Asia. The Supabase region holding the data at rest is recorded in this repository as an
-open question the customer-facing privacy statement still carries as a blank. **Neither region is
-in New Zealand.**
+**Location — answered 2026-09-02.** Two regions, and they are not the same. The database and file
+storage are in **Sydney, Australia (`ap-southeast-2`)**, read from the provider's own project
+record rather than assumed. The application tier that reads it runs in **Southeast Asia**.
+**Neither is in New Zealand.**
 
-This must be closed before submitting, and it is an afternoon: read the region from the Supabase
-dashboard, write both regions into the privacy statement by name, and have the service acknowledge
-it. Until that is done the honest answer to AST03 includes "and we have not yet told our customer
-where their data lives", which is the wrong sentence to put in front of a regulator when the fix
-is this cheap.
+The Ministry's expectation on this item is explicit — *"Where information is stored offshore, the
+Ministry expects that this has been communicated and accepted by each service"* — so both regions
+are now named in the customer-facing privacy statement, in the words a service reads, with the
+plain sentence that its children's records are stored in Australia and that IPP 12 permits this
+with comparable safeguards rather than requiring domestic hosting.
+
+`[OWNER]` **The remaining half of that expectation is acceptance, not disclosure.** Naming the
+region in a document is us communicating it; the Ministry also expects it *accepted by each
+service*. That needs the pilot service to acknowledge it in writing, which is an email, not an
+engineering task — and it should exist before this form is submitted.
+
+Recorded honestly because the Ministry can read the repository: **this paragraph was a blank until
+2026-09-02**, and the privacy statement said so, asking whether the records were in *"Sydney,
+Singapore or Oregon"*. It was one authenticated API call to find out. A question that is cheap to
+answer and stays open for a month is not blocked; it is unowned.
 
 **AST04 — user interface and supported browsers.**
 
@@ -1068,7 +1076,7 @@ In dependency order, not importance order. The first two change assessed answers
 |---|---|---|
 | 1 | **Send the enquiry.** The form requires it, and question 1 decides whether any of this is worth doing | Everything |
 | 2 | **Build the Test environment** — second Supabase project, second service, seeded demo data | `AST06`, `AST08`, `AST09`, `AST56` |
-| 3 | **Read and record the Supabase region; put both regions in the privacy statement; have the service acknowledge it** | `AST03`, `AST11` (IPP 12) |
+| 3 | ~~Read and record the Supabase region~~ **Done 2026-09-02: Sydney, `ap-southeast-2`, now named in the privacy statement.** What remains is the *acceptance* half — the service acknowledging offshore storage in writing | `AST03`, `AST11` (IPP 12) |
 | 4 | **Get CI green** — the two secrets into repository secrets, and the 7kB attributed rather than waived | `AST18`, `AST19` |
 | 5 | **Read and cite the platform's encryption-at-rest position** | `AST10` |
 | 6 | **Write a support plan** — hours, channel, response targets, escalation, names | `AST23`, `INF04` |

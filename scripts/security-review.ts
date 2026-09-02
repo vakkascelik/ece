@@ -594,7 +594,13 @@ async function main() {
                              'push_tokens', 'notification_preferences', 'notifications',
                              'invitations',
                              -- 0058: national reference data, same reasoning as criteria.
-                             'curriculum_strands')
+                             'curriculum_strands',
+                             -- 0080: Ministry code lists. National, no centre_id, so the
+                             -- trigger could not attribute a row to a tenant even if it
+                             -- fired — same reasoning as criteria. What changed a set is
+                             -- the importer's business, and the source, version and
+                             -- created_at columns are the record of it.
+                             'code_sets', 'codes')
        and not exists (
          select 1 from pg_trigger t
           where t.tgrelid = c.oid and not t.tgisinternal

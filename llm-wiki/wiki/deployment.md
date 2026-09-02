@@ -136,6 +136,53 @@ at runtime, so it cannot be moved out. What it changes is the threat model: the 
 not "people with Railway project access" but **anything that can reach the image**, and a leaked build
 artefact is a leaked database.
 
+### The credential named for this project points at a different one
+
+**Found 2026-09-02, and nothing was broken — which is the only reason this is a note and not an
+incident.**
+
+`SUPABASE_DB_URL` in this repo's `.env.local` is **empty**, so `migrate`, `test:rls`,
+`review:security` and `drill:restore` all fall back to the Management API with
+`SUPABASE_ACCESS_TOKEN` + `SUPABASE_PROJECT_REF`. That works, and it is why every one of those
+commands prints *"Management API"* rather than *"direct Postgres connection"*.
+
+Asked to find a direct connection string, the obvious place to look was the sibling `salix`
+repo's `.env.local`, which holds per-project Supabase credentials for every project on the
+account. It has an `ECE_SUPABASE_ACCESS_TOKEN` — byte-identical to the one already here — and an
+`ECE_SUPABASE_PROJECT_URL`.
+
+**`ECE_SUPABASE_PROJECT_URL` names project `huvoxihgdnbvlttpaldw`, which is
+`charity-platform`.** It is byte-identical to `CHARITY_SUPABASE_PROJECT_URL` two lines above it.
+This project is `qdgforljvddgrxxymtug`. Confirmed by asking the provider rather than by reading the
+file again: `GET /v1/projects` returns exactly two projects, `ece` and `charity-platform`, both in
+`ap-southeast-2`.
+
+So a variable named for this project, sitting beside a token with the privilege to use it, names
+somebody else's live database. **Pointing `npm run migrate` at it would have applied this repo's
+79 migrations to the charity platform** — and the token is account-wide, so nothing would have
+refused.
+
+[CLAUDE.md](../../CLAUDE.md) already carries this warning in general terms: *"A PAT is
+account-wide: one was once handed over pointing at the wrong project entirely, and the migration
+failed only by luck. Inventory before anything destructive."* This is the second instance, so the
+general warning is now a pattern rather than an anecdote, and the operational rule that follows is
+narrower than "be careful":
+
+**Do not read a project ref out of a file. Ask the API which project the ref is, by name, and
+check the name.** The inventory is one call and it prints the answer:
+
+```bash
+curl -sS -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+  https://api.supabase.com/v1/projects
+```
+
+The `salix` file has not been corrected from here — it is another repo — but its `ECE_` entry is
+wrong and whoever owns it should fix or delete it. A third stale entry sits beside them:
+`SALIX_SUPABASE_PROJECT_URL` names `tphyizdgxutsmbopozkr`, which the API does not list at all.
+
+**The same call answered a question that had been open for a month**, which is the other half of
+why this is written down: the Supabase region. See the section below.
+
 ### Migrations are not in the deploy
 
 A build that migrated would run on every redeploy, in parallel across replicas, with no way to stop
@@ -206,6 +253,20 @@ without going through that form was held to six. Raised to 10.
 
 Both are handled by `npm run deploy:auth`, which is a script rather than a dashboard visit because
 configuration that exists only as a sequence of clicks cannot be reviewed, repeated or restored.
+
+**A third, added 2026-09-02: the project is in `ap-southeast-2` — Sydney.** Read from
+`GET /v1/projects`, which reports the region beside the name. That closes a question
+[`privacy-statement.md`](../../docs/privacy-statement.md) had carried as an explicit blank since
+2026-08-06, phrased as *"Sydney, Singapore or Oregon"* — three guesses standing in for one API
+call. Both regions are now named in the document a centre reads: **records at rest in Sydney,
+processed by Railway in Southeast Asia, neither in New Zealand.**
+
+It matters beyond tidiness. `AST03` of the ELI vendor assessment states the Ministry's expectation
+directly — *"Where information is stored offshore, the Ministry expects that this has been
+communicated and accepted by each service"* — so this was a failed assessed item for as long as the
+blank stood. Disclosure is now done; **acceptance is not**, and needs the service to acknowledge it
+in writing. See [[eli-integration]] and
+[`eli-application-answers.md`](../../docs/eli-application-answers.md).
 
 ### The console has no domain, so it borrows a customer's
 

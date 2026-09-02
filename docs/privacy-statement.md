@@ -123,19 +123,25 @@ information about any child.
 
 ## Where it is held
 
-In a Postgres database and file storage operated by **Supabase**. The web application
-that reads it runs on **Railway, in Southeast Asia** — confirmed from the deployment
-rather than assumed.
+In a Postgres database and file storage operated by **Supabase, in Sydney, Australia**
+(`ap-southeast-2`). The web application that reads it runs on **Railway, in Southeast
+Asia**. Both are confirmed from the deployment rather than assumed — the Supabase region
+was read from the provider's own project record on 2026-09-02, and the Railway region
+from its dashboard.
 
-**The Supabase region still has to be filled in before a centre adopts this template.**
-Two regions matter and they are not the same: Supabase holds the records at rest,
-Railway processes them in transit. A New Zealand centre should know whether its
-children's records sit in Sydney, Singapore or Oregon, and the answer belongs in this
-document rather than in a support email.
+Two regions matter and they are not the same: Supabase holds the records at rest, Railway
+processes them in transit.
 
-Neither region is in New Zealand. The Privacy Act permits offshore storage — IPP 12
-requires comparable safeguards, not domestic hosting — but a centre should be told
-plainly rather than left to discover it.
+**Neither is in New Zealand.** Your children's records are stored in Australia. The
+Privacy Act permits that — IPP 12 requires comparable safeguards, not domestic hosting —
+but a centre should be told plainly rather than left to discover it, and a centre adopting
+this template should satisfy itself that the arrangement is one it accepts.
+
+> **This paragraph was a blank until 2026-09-02**, and said so: *"the Supabase region
+> still has to be filled in before a centre adopts this template… A New Zealand centre
+> should know whether its children's records sit in Sydney, Singapore or Oregon."* It is
+> Sydney. The answer was one API call away for the whole time the question stood open,
+> which is worth recording as its own small lesson.
 
 Error reports go to Sentry when something breaks. Those reports are scrubbed before they
 leave: email addresses, phone numbers, dates of birth and any database value quoted

@@ -4380,6 +4380,385 @@ select pg_temp.expect(
 set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
 
 -- ===========================================================================
+-- THE STAFF CENSUS (0081) AND THE MINISTRY CODE SETS (0080)
+--
+-- The annual ECE Return asks for each person's gender, ethnicity, age band and
+-- qualification. None of that is roster data, and that distinction is the whole
+-- reason `staff_census_details` is its own table: `staff_members_select` is
+-- centre-staff-wide, because everybody rostered may read the roster — so putting
+-- these on `staff_members` would hand every educator every colleague's ethnicity,
+-- and no policy could prevent it. A policy restricts rows; only a grant restricts
+-- columns, and a column grant cannot tell an educator from a manager.
+--
+-- So the read follows `staff_records` (0011): owner or manager, OR the person
+-- themselves, because IPP 6 gives somebody a right of access to their own
+-- information. The pair of assertions in the middle of this section is the point of
+-- the whole table.
+-- ===========================================================================
+
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+
+insert into public.staff_census_details
+  (staff_member_id, gender_code, age_band, ethnic_group_codes, iwi_codes, role_kind,
+   role_code, highest_qualification_code, is_paid, is_permanent, is_full_time, updated_by)
+values
+  -- Ed: an educational role, and the account is linked, so IPP 6 has somebody to apply to.
+  ('d5555555-5555-4555-8555-555555555555', 'F', '31_35', array['E1'], array['IWI1'],
+   'educational', 'R1', 'Q1', true, true, true,
+   '11111111-1111-4111-8111-111111111111'),
+  -- Sam the reliever: no account at all, so owner/manager is the only read path there
+  -- can be. Not a gap — there is nobody to grant access to.
+  ('d6666666-6666-4666-8666-666666666666', 'M', '46_50', array['E2'], '{}',
+   'support', 'R9', null, true, false, false,
+   '11111111-1111-4111-8111-111111111111');
+
+select pg_temp.expect(
+  (select count(*) from public.staff_census_details) = 2,
+  'an owner can record census details for their own staff'
+);
+
+-- The audit trigger must actually have written something. 0059 exists because three
+-- tables fired their triggers and inserted nothing for months, and both of these hang
+-- off `staff_member_id` exactly as `shifts` does.
+select pg_temp.expect(
+  (select count(*) from public.audit_events
+    where entity = 'staff_census_details' and action = 'insert') = 2,
+  'and the census insert is audited — the 0059 failure mode, checked rather than assumed'
+);
+
+select pg_temp.expect(
+  (select count(*) from public.audit_events
+    where entity = 'staff_census_details'
+      and detail ? 'changed') = 0,
+  'and the audit row for an insert carries no column list, let alone an ethnicity'
+);
+
+-- ---------------------------------------------------------------------------
+-- Centre against centre
+-- ---------------------------------------------------------------------------
+
+set local request.jwt.claims = '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}';
+
+select pg_temp.expect(
+  (select count(*) from public.staff_census_details) = 0,
+  'another centre reads no census detail at all'
+);
+
+do $$
+declare wrote boolean := false;
+begin
+  begin
+    insert into public.staff_census_details (staff_member_id, gender_code)
+    values ('d5555555-5555-4555-8555-555555555555', 'X');
+    wrote := true;
+  exception when insufficient_privilege or check_violation or unique_violation then
+    wrote := false;
+  end;
+  perform pg_temp.expect(not wrote, 'nor can another centre write one for our staff');
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- A parent is a member of this centre, and this is not theirs
+-- ---------------------------------------------------------------------------
+
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+
+select pg_temp.expect(
+  (select count(*) from public.staff_census_details) = 0,
+  'a parent at this centre reads no census detail'
+);
+
+-- ---------------------------------------------------------------------------
+-- THE TWO ASSERTIONS THIS TABLE EXISTS FOR
+-- ---------------------------------------------------------------------------
+
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+
+select pg_temp.expect(
+  (select count(*) from public.staff_census_details
+    where staff_member_id = 'd5555555-5555-4555-8555-555555555555') = 1,
+  'an educator CAN read their OWN census record — IPP 6, and the reason this predicate is not caller_is_staff_for_member'
+);
+
+select pg_temp.expect(
+  (select count(*) from public.staff_census_details) = 1,
+  'and reads EXACTLY their own — a colleague''s ethnicity and qualification are not roster data'
+);
+
+do $$
+declare changed integer;
+begin
+  update public.staff_census_details set gender_code = 'Z'
+   where staff_member_id = 'd5555555-5555-4555-8555-555555555555';
+  changed := (select count(*) from public.staff_census_details
+               where staff_member_id = 'd5555555-5555-4555-8555-555555555555'
+                 and gender_code = 'Z');
+  perform pg_temp.expect(
+    changed = 0,
+    'an educator CANNOT edit their own census record — reading your own record is not maintaining it'
+  );
+end $$;
+
+/*
+ * Anon is refused at the PRIVILEGE layer, not the policy layer, so the read raises
+ * 42501 rather than returning no rows. Written as a caught exception for that reason:
+ * `count(*) = 0` would not compile past the grant, and a suite that expected zero
+ * would fail on the stronger outcome. Same distinction 0003 draws — the grant is the
+ * first check and RLS is the second.
+ */
+set local role anon;
+do $$
+declare code text := 'none (the select SUCCEEDED)';
+begin
+  begin
+    perform count(*) from public.staff_census_details;
+  exception when insufficient_privilege then code := sqlstate;
+  end;
+  perform pg_temp.expect(
+    code = '42501',
+    'and anon cannot reach a census detail at all — refused by the grant, got ' || code
+  );
+end $$;
+set local role authenticated;
+
+-- ---------------------------------------------------------------------------
+-- Contact hours: a contract, not a diary — and the overlap that matters
+-- ---------------------------------------------------------------------------
+
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+
+insert into public.staff_contact_hours
+  (staff_member_id, weekday, from_time, to_time, effective_from, created_by)
+values ('d5555555-5555-4555-8555-555555555555', 1, '08:00', '12:00', current_date - 30,
+        '11111111-1111-4111-8111-111111111111');
+
+select pg_temp.expect(
+  (select count(*) from public.staff_contact_hours) = 1,
+  'an owner can contract weekday contact hours'
+);
+
+-- A split shift is ordinary in this sector and the schema's list is unbounded, so two
+-- blocks on one weekday must be legal.
+insert into public.staff_contact_hours
+  (staff_member_id, weekday, from_time, to_time, effective_from, created_by)
+values ('d5555555-5555-4555-8555-555555555555', 1, '13:00', '16:00', current_date - 30,
+        '11111111-1111-4111-8111-111111111111');
+
+select pg_temp.expect(
+  (select count(*) from public.staff_contact_hours
+    where staff_member_id = 'd5555555-5555-4555-8555-555555555555' and weekday = 1) = 2,
+  'and a split shift on the same weekday is allowed — two blocks, no overlap'
+);
+
+-- THE ASSERTION THIS PART EXISTS FOR. A double-booked weekday inflates the derived
+-- return-week hours total for every ECE Return that reads it.
+do $$
+declare wrote boolean := false;
+begin
+  begin
+    insert into public.staff_contact_hours
+      (staff_member_id, weekday, from_time, to_time, effective_from)
+    values ('d5555555-5555-4555-8555-555555555555', 1, '11:00', '14:00', current_date - 30);
+    wrote := true;
+  exception when exclusion_violation then wrote := false;
+  end;
+  perform pg_temp.expect(
+    not wrote,
+    'a contact block OVERLAPPING an existing one on the same weekday is refused'
+  );
+end $$;
+
+/*
+ * AN OPEN-ENDED CONTRACT BLOCKS AN OVERLAPPING LATER ONE UNTIL IT IS CLOSED, and this
+ * pair of assertions exists because the first draft of them was wrong.
+ *
+ * The intuition "the same times in a LATER window must be accepted" is false while the
+ * existing blocks have a null `effective_to`: null means infinity, so their range still
+ * covers that later window and the constraint refuses — correctly. Superseding a
+ * contract is therefore two statements, close then open, and a screen that offers only
+ * "add hours" will produce this error in front of a manager.
+ */
+do $$
+declare wrote boolean := false;
+begin
+  begin
+    insert into public.staff_contact_hours
+      (staff_member_id, weekday, from_time, to_time, effective_from, effective_to)
+    values ('d5555555-5555-4555-8555-555555555555', 1, '11:00', '14:00',
+            current_date + 100, current_date + 200);
+    wrote := true;
+  exception when exclusion_violation then wrote := false;
+  end;
+  perform pg_temp.expect(
+    not wrote,
+    'an overlapping block in a LATER window is still refused while the existing one is open-ended'
+  );
+end $$;
+
+-- Close the open-ended blocks, which is what superseding actually means, and then the
+-- same insert must succeed — otherwise the effective dating is decoration.
+update public.staff_contact_hours
+   set effective_to = current_date + 99
+ where staff_member_id = 'd5555555-5555-4555-8555-555555555555'
+   and weekday = 1;
+
+insert into public.staff_contact_hours
+  (staff_member_id, weekday, from_time, to_time, effective_from, effective_to)
+values ('d5555555-5555-4555-8555-555555555555', 1, '11:00', '14:00',
+        current_date + 100, current_date + 200);
+
+select pg_temp.expect(
+  (select count(*) from public.staff_contact_hours
+    where staff_member_id = 'd5555555-5555-4555-8555-555555555555' and weekday = 1) = 3,
+  'and once the old blocks are closed, the same times in a later window are accepted'
+);
+
+-- A touching block is not an overlapping one: `[)` means a block ending at 12:00 does
+-- not collide with one starting at 12:00. Same reasoning as shifts.
+insert into public.staff_contact_hours
+  (staff_member_id, weekday, from_time, to_time, effective_from)
+values ('d5555555-5555-4555-8555-555555555555', 2, '08:00', '12:00', current_date - 30);
+insert into public.staff_contact_hours
+  (staff_member_id, weekday, from_time, to_time, effective_from)
+values ('d5555555-5555-4555-8555-555555555555', 2, '12:00', '16:00', current_date - 30);
+
+select pg_temp.expect(
+  (select count(*) from public.staff_contact_hours
+    where staff_member_id = 'd5555555-5555-4555-8555-555555555555' and weekday = 2) = 2,
+  'and a block starting exactly when another ends does not collide'
+);
+
+-- Unlike the census, contact hours ARE roster data, so a colleague may read them.
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.staff_contact_hours) = 5,
+  'an educator CAN read contact hours — a roster is not private, which is the distinction this pair of tables draws'
+);
+
+do $$
+declare wrote boolean := false;
+begin
+  begin
+    insert into public.staff_contact_hours
+      (staff_member_id, weekday, from_time, to_time, effective_from)
+    values ('d5555555-5555-4555-8555-555555555555', 6, '08:00', '12:00', current_date - 30);
+    wrote := true;
+  exception when insufficient_privilege then wrote := false;
+  end;
+  perform pg_temp.expect(not wrote, 'and CANNOT contract themselves any');
+end $$;
+
+set local request.jwt.claims = '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.staff_contact_hours) = 0,
+  'and another centre reads no contact hours at all'
+);
+
+-- ---------------------------------------------------------------------------
+-- The Ministry code sets: readable by everybody, writable by nobody with a JWT
+--
+-- 0080 ships EMPTY on purpose, so the assertions here seed a set as `postgres` and
+-- then check the two properties that matter. Asserting the tables are empty was
+-- rejected: it would be a claim about data rather than about policy, and it would
+-- fail on the day somebody legitimately imports a published list, which is the day
+-- this mechanism starts working.
+-- ---------------------------------------------------------------------------
+
+set local role postgres;
+insert into public.code_sets (id, domain, name, source, version, is_current)
+values ('f1111111-1111-4111-8111-111111111111', 'gender',
+        'RLS test gender codes', 'rls_isolation.sql fixture', 'test', true);
+insert into public.codes (set_id, code, label, effective_from)
+values ('f1111111-1111-4111-8111-111111111111', 'F', 'Female', '2000-01-01');
+
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+
+select pg_temp.expect(
+  (select count(*) from public.code_sets where source = 'rls_isolation.sql fixture') = 1
+  and (select count(*) from public.codes where code = 'F') = 1,
+  'any authenticated caller can read a Ministry code set — national reference data, not tenant data'
+);
+
+do $$
+declare wrote boolean := false;
+begin
+  begin
+    insert into public.code_sets (domain, name, source)
+    values ('qualification', 'Invented', 'typed into a screen');
+    wrote := true;
+  exception when insufficient_privilege then wrote := false;
+  end;
+  perform pg_temp.expect(
+    not wrote,
+    'but CANNOT create one — a code set typed in by a manager is how an invented qualification reaches a Crown return'
+  );
+end $$;
+
+do $$
+declare wrote boolean := false;
+begin
+  begin
+    insert into public.codes (set_id, code, label)
+    values ('f1111111-1111-4111-8111-111111111111', 'ZZ', 'Invented');
+    wrote := true;
+  exception when insufficient_privilege then wrote := false;
+  end;
+  perform pg_temp.expect(not wrote, 'nor add a value to one');
+end $$;
+
+do $$
+declare changed integer;
+begin
+  begin
+    update public.codes set label = 'Rewritten' where code = 'F';
+  exception when insufficient_privilege then null;
+  end;
+  changed := (select count(*) from public.codes where label = 'Rewritten');
+  perform pg_temp.expect(changed = 0, 'nor rewrite what a published code means');
+end $$;
+
+/*
+ * AND THE REFUSAL IS AT THE GRANT LAYER, ASKED OF THE CATALOGUE.
+ *
+ * This assertion exists because mutation testing found the three above could not see
+ * the difference. Granting INSERT and UPDATE on these tables to `authenticated` left
+ * the suite green at 631/631: with a grant but no policy, Postgres still raises 42501
+ * — "new row violates row-level security policy" — and the `insufficient_privilege`
+ * handler catches it either way.
+ *
+ * That is defence in depth working exactly as 0003 argues it should, and it is also a
+ * test that cannot tell which of the two mechanisms is holding. So the claim gets made
+ * precisely: `authenticated` holds no write privilege on either table at all, which is
+ * the property that would have to be revoked deliberately.
+ */
+select pg_temp.expect(
+  not has_table_privilege('authenticated', 'public.code_sets', 'INSERT')
+  and not has_table_privilege('authenticated', 'public.code_sets', 'UPDATE')
+  and not has_table_privilege('authenticated', 'public.code_sets', 'DELETE')
+  and not has_table_privilege('authenticated', 'public.codes', 'INSERT')
+  and not has_table_privilege('authenticated', 'public.codes', 'UPDATE')
+  and not has_table_privilege('authenticated', 'public.codes', 'DELETE'),
+  'and the refusal is at the GRANT layer too, not only the policy layer'
+);
+
+set local role anon;
+do $$
+declare code text := 'none (the select SUCCEEDED)';
+begin
+  begin
+    perform count(*) from public.code_sets;
+  exception when insufficient_privilege then code := sqlstate;
+  end;
+  perform pg_temp.expect(
+    code = '42501',
+    'and anon reaches no code set either — the read is for members, not the public, got ' || code
+  );
+end $$;
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+
+-- ===========================================================================
 -- THE KIOSK ROLE (0042) AND THE FOUR DOORS 0043 SHUT
 --
 -- `caller_centre_ids()` trusts a membership row without asking in what capacity, so
@@ -8238,7 +8617,13 @@ begin
                            'invitations',
                            -- 0058: the five Te Whāriki strands, national rather than
                            -- per-centre — same reasoning as criteria.
-                           'curriculum_strands')
+                           'curriculum_strands',
+                           -- 0080: Ministry code lists. National, no centre_id, so the
+                           -- trigger could not attribute a row to a tenant even if it
+                           -- fired. Named in scripts/security-review.ts as well, in the
+                           -- same commit — there are two exemption lists and they have
+                           -- to agree.
+                           'code_sets', 'codes')
      and not exists (
        select 1 from pg_trigger t
         where t.tgrelid = c.oid

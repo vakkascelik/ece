@@ -7,6 +7,102 @@ itself, and from the wiki pages, which hold the durable *why*. This file is the 
 
 ---
 
+## 2026-09-02 (second) — Phase 10's census, a mutation harness that lied, and a credential aimed at the wrong database
+
+Owner's call: start the staff/census build rather than wait for the Ministry. Two migrations, one
+core module, and three findings that were not in the plan.
+
+**0080 — the code sets, and they ship empty.** Nine domains — gender, ethnicity, iwi, language,
+staff role, qualification, playcentre qualification, wait time, closure reason — each effective-dated
+the way `AST55` demands, with `source` mandatory as in `criteria_sets`. **Not one code is seeded.**
+Every list is a published Ministry classification nobody here has read, and seeding a plausible one
+is forbidden by name in AGENTS.md §7. This is the `criteria` decision a second time and for the same
+reason: an empty table stops a screen, a wrong code reaches a funding return looking like a fact.
+
+The only two things transcribed from the public schema are the 10-character `LookupCode` bound and
+the domain list itself.
+
+**0081 — the census, and the table's whole reason is one read.** The ECE Return wants fifteen fields
+per person and eleven had no column anywhere in 79 migrations. The obvious build is columns on
+`staff_members`; it is wrong, because `staff_members_select` is centre-staff-wide — right for a
+roster, wrong for a colleague's ethnicity — and **no policy could fix it**: a policy restricts rows,
+only a grant restricts columns, and a column grant applies to `authenticated` as a whole so it
+cannot tell an educator from a manager. So it is its own table with `staff_records`' predicate:
+owner or manager, **or the person themselves**, because IPP 6 gives someone access to their own
+information. They cannot edit it — reading your own vetting result is not maintaining it.
+
+Three things it deliberately does not hold. **Registration and the Teaching Council number**, which
+already sit on a `practising_certificate` record — so the census and the licensing binder read the
+same row and cannot disagree. **A date of birth**, because the schema wants one of twelve age bands
+and a band is the minimum that answers the question; this product already refuses a birth date on
+the job-application form on that reasoning. **Any code value at all.**
+
+`isRegistered` came out three-state, and it is the sharpest thing in the module. The schema types
+`IsRegistered` as a required boolean, so the wire has no third value — but *"we hold no practising
+certificate"* is not *"this person is not registered"*, and 0038 leaves every certificate link null
+on purpose. Sending `false` asserts something about a named individual's professional standing on
+the strength of a missing row. So it returns `null`, the return cannot be sent, and the report names
+who needs linking.
+
+**The mutation harness lied, and that is the most useful thing that happened today.**
+
+47 unit tests passed first run. AGENTS.md says distrust that, so I mutated. The harness reported
+**sixteen of seventeen mutations caught** and every result was worthless: it had been measuring
+against a baseline that was itself already mutated. I had "restored" the file behind
+`if ! git diff --quiet` — and `git diff` is *silent on an untracked file*, so the guard took the
+else branch, printed "file is clean", and restored nothing. Every subsequent run was three
+assertions red before it began, so any mutation looked caught.
+
+The tell was there and I nearly missed it: every mutation reported the same uniform failure count.
+Rewritten, the harness now refuses to run unless the baseline is green, and ends with a
+comment-only control edit that **must** survive. Second run: **24 of 24 caught**, failure counts
+varying 1 to 8, control survived.
+
+**The RLS suite went 607 → 632, and the fifth policy mutation was the interesting one.** Four
+behaved: widening the census read to any colleague fails *"reads EXACTLY their own"*; dropping the
+IPP 6 branch fails *"an educator CAN read their OWN"*; dropping the overlap constraint fails the
+overlap assertion; letting an educator edit fails the edit refusal. The fifth — granting `insert`
+and `update` on the code sets to `authenticated` — left the suite **green**, because with a grant
+but no policy Postgres still raises `42501` and my `insufficient_privilege` handler cannot tell the
+two layers apart. Defence in depth working exactly as 0003 argues, *and* a test blind to which
+mechanism is holding. Fixed by asking the catalogue directly: `authenticated` holds no write
+privilege on either table. Now 5 of 5.
+
+**Two defects the standing checks caught before I claimed done.** `review:security` went HIGH on
+the new tables having no audit trigger — correct, they are national reference data and belong in
+the exemption list, and **there are two exemption lists** that have to agree. And the contact-hours
+constraint refused an insert my own test expected to succeed: an open-ended contract blocks an
+overlapping later one *until it is closed*, because a null `effective_to` is infinity. Superseding
+contracted hours is two statements, close then open, and a screen offering only "add hours" will
+show a manager a `23P01`. Both halves asserted now.
+
+**Then, asked to find a direct Postgres URL in the sibling `salix` repo: a near-miss.**
+`SUPABASE_DB_URL` here is empty, which is why every command falls back to the account-wide PAT.
+`salix/.env.local` has an `ECE_SUPABASE_ACCESS_TOKEN` (byte-identical to ours) and an
+`ECE_SUPABASE_PROJECT_URL` — **byte-identical to `CHARITY_SUPABASE_PROJECT_URL` two lines above
+it.** The API says that ref is `charity-platform`. Pointing `npm run migrate` at the variable named
+for this project would have applied 79 migrations to another live database, and an account-wide
+token would not have refused.
+
+CLAUDE.md already warns that a PAT is account-wide and that one was once handed over pointing at
+the wrong project. This is the second instance, so the rule is now specific rather than cautionary:
+**do not read a project ref out of a file — ask the API which project it is, and check the name.**
+
+**And the same API call closed a question that had been open for a month.** The project is in
+`ap-southeast-2` — **Sydney**. `privacy-statement.md` had carried the region as an explicit blank
+since 2026-08-06, phrased as *"Sydney, Singapore or Oregon"*: three guesses standing in for one
+call, and a failed `AST03` of the vendor assessment for as long as it stood, since the Ministry
+expects offshore storage to be *"communicated and accepted by each service"*. Both regions are now
+named in the document a centre reads. Disclosure is done; **acceptance is not** — that needs the
+service to acknowledge it in writing.
+
+**Gates.** typecheck, lint, `tokens:check`, `check:docs` clean. Unit tests **678 in 46 files**.
+`test:rls` **632/632** against live Postgres. `review:security` **16/16**. `drill:restore` **6/6**,
+now 76 tables and 12,990 rows, with no time-relative CHECK reintroduced. `check:bundle` still over
+by exactly 7.0kB — 113.0kB, byte-identical to the documented pre-existing overage, so nothing here
+reached the client bundle. **The census has no screen**, deliberately: a form collecting a person's
+ethnicity wants its own thinking about who sees it, not just who may read the row.
+
 ## 2026-09-02 — The ELI door is open for eight weeks, there is one place, and we do not qualify
 
 Went looking for how to build an ELI integration and answer the Ministry. Found that the question
