@@ -1225,12 +1225,19 @@ failures that remained once navigation worked were real and had been invisible:
   rows, which PostgREST reports as success. The same check has been on `updateCentre`,
   `updateStaffMember` and `linkStaffRecord` all along, each with a comment saying why. Fixed.
 
-**Still open: one failure.** `incidents.spec.ts` — *"a draft is corrected in place"*. The write now
-provably succeeds (the new zero-row check does not fire, so the policy is not refusing) and
-`revalidatePath('/incidents')` is called, yet the list still renders the pre-correction text. So a
-correction to an incident draft may not be reaching the screen that reports it saved. **Not
-diagnosed further, and it is on a compliance record, so it should be next.** Tracked here rather
-than in a commit message so it cannot be lost.
+~~**Still open: one failure.**~~ **CLOSED the same day, and the diagnosis corrects this entry.**
+This paragraph said *"the write now provably succeeds — the new zero-row check does not fire, so
+the policy is not refusing"*. **Wrong.** The zero-row branch was silent because the **error**
+branch fired first: the write was raising `42501 permission denied for table incidents` the whole
+time. A passing zero-row check only ever means *the update did not silently match nothing* — it is
+not evidence that a write succeeded, and reading it that way is the same class of error as reading
+a green gate that has stopped running.
+
+The cause was a missing column grant: `0066` added `incidents.room_id` and did not add it to the
+column-scoped UPDATE grant from `0030`, so **no incident draft could be corrected from 2026-08-28
+until `0082`**. Full account in [[incident-register]] and [[conventions]]. **The suite is now 118
+passing, 0 failing**, and the RLS suite is at 634 with an assertion that fails against a database
+without `0082`.
 
 **What stays true from the original item:** CI itself has still never passed, for the reasons in the
 table above — the two secrets and the 7kB. And this remains the sharpest available argument for the

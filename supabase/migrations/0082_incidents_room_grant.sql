@@ -1,0 +1,54 @@
+-- ---------------------------------------------------------------------------
+-- 0082 — `incidents.room_id` was never granted, so correcting a draft has never worked
+--
+-- `0066` added `room_id` to `incidents`, `hazards` and `safety_checks`. It thought
+-- carefully about grants while doing so, and its comment is worth quoting because the
+-- reasoning is right and the conclusion is incomplete:
+--
+--     `safety_checks` is append-only and already carries a grant that names its
+--     columns by omission — `grant select, insert` with no UPDATE. Adding a column to
+--     an append-only table is safe; adding one to a table whose INSERT grant is
+--     column-scoped would not be, and this one is not scoped.
+--
+-- It checked **INSERT**. `incidents` has a table-wide INSERT grant, so creating a
+-- report with a room works — which is why nobody noticed. But `incidents` also has a
+-- **column-scoped UPDATE** grant, added by `0030` and deliberately so, and `room_id`
+-- was never added to it.
+--
+-- `hazards` has `grant select, insert, update` table-wide, and `safety_checks` has no
+-- UPDATE at all, so both are fine. This table was the only one exposed, and it is the
+-- one whose UPDATE grant is narrow on purpose.
+--
+-- WHAT IT BROKE, AND FOR HOW LONG
+--
+-- `updateIncidentDraft` always sends `room_id` — the correction form has a room picker
+-- and a patch that omitted the field could not clear one. So **every attempt to correct
+-- an incident draft has failed since 0066 shipped on 2026-08-28** with:
+--
+--     permission denied for table incidents
+--
+-- Not a silent wrong answer: a hard 42501, surfaced to the person as an error on the
+-- screen. Fixing a typo in an unsent draft has never once worked in this product, and
+-- the only route to correcting one was to finalise it and amend — permanently marking a
+-- report as replaced, which is precisely what the edit path was built to avoid.
+--
+-- `finaliseIncident` writes only `status`, which `0030` did grant, so finalising was
+-- never affected.
+--
+-- WHY IT SURVIVED FIVE DAYS
+--
+-- `incidents.spec.ts` covers this exact flow and would have caught it on the next run.
+-- It did not run: the same commit that added `0066` also added the `SyncStatus` health
+-- probe whose unread response body left a request in flight on every authenticated
+-- page, so from that day every navigation in the e2e suite timed out. **One commit
+-- introduced the defect and disabled the test that guards it.** See
+-- llm-wiki/wiki/unverified-claims.md item 41.
+--
+-- AGENTS.md §4.2's rule is that a new table needs a policy, a grant and an assertion.
+-- This is the same rule for a new *column* on a table whose grant is column-scoped, and
+-- it now has an assertion in `rls_isolation.sql` — a functional one, because the
+-- catalogue can say which columns are granted and only a write can say whether the set
+-- is the one the application needs.
+-- ---------------------------------------------------------------------------
+
+grant update (room_id) on public.incidents to authenticated, service_role;

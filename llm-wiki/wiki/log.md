@@ -5,6 +5,48 @@ says so.*
 
 ---
 
+2026-09-03 (fourth) — **Correcting an incident draft had never once worked, and the suite is
+green.** New migration `0082`. Extended: [[conventions]] (*Adding a column to a table with
+COLUMN-level grants* gains its second instance), [[incident-register]]. **Corrected: my own claim
+from three entries ago that the write "provably succeeds"** — it did not, and the reasoning error is
+recorded in both pages rather than edited away.
+
+`0066` added `incidents.room_id`. `0030` had granted UPDATE **by column, deliberately**, so that
+moving a report to another child is refused by Postgres before any policy runs. `room_id` was never
+added to that list, and `updateIncidentDraft` always sends it — the correction form has a room
+picker and a patch omitting the field could not clear one. So **every draft correction raised
+`42501 permission denied for table incidents` from 2026-08-28 until today.** The only way to fix a
+typo in an unsent draft was to finalise and amend, permanently marking a report as replaced, which
+is exactly what the edit path was built to avoid.
+
+**Where I was wrong, and it matters more than the bug.** Yesterday I wrote that the write "provably
+succeeds — the new zero-row check does not fire, so no policy is refusing". The zero-row branch was
+silent because the **error** branch fired first. A passing zero-row check means only *the update
+did not silently match nothing*; it is not evidence a write happened. I read the absence of one
+failure as the presence of success, which is the same shape as reading a gate that has stopped
+running as a gate that passes — twice in two days, from opposite directions.
+
+**`0066` was not careless**, and that is why this is in [[conventions]] rather than only here. It
+stopped and reasoned about grants, checked the **INSERT** grants on all three tables it touched,
+and never looked at the **UPDATE** grants. The lesson is not *check the grants* — it did — but
+*check them per verb*, and `information_schema.column_privileges` returns `privilege_type` for
+precisely that reason.
+
+**Two assertions were missing and both now exist.** `rls_isolation.sql` performs the exact column
+set the app sends and asserts it succeeds — functional rather than catalogue-based, because the
+catalogue can say which columns are granted and only a write can say whether that set is the one
+the application needs. It **fails with 42501 against a database without `0082`**, which is the
+mutation test for free. And `incidents.spec.ts` now asserts `.error` is empty right after saving —
+which [[conventions]] already named as *"the only thing in the repo able to tell 'refused' from
+'did not persist'"*, and which the sibling settings spec had and this one did not. Arrived at
+independently before I noticed the page recommends it, which is a point in the page's favour.
+
+**One commit introduced the defect and disabled the test that guards it.** `0066` and the
+`SyncStatus` health probe shipped together on 2026-08-28.
+
+`test:rls` 634/634, `review:security` 16/16, **`test:e2e` 118 passing and 0 failing** — green for
+the first time since 2026-08-27.
+
 2026-09-03 (third) — **The wiki catches up, and looking for a second instance of one defect found
 thirty-four.** New: [[unverified-claims]] item 49 and a Key Point. Extended: [[conventions]] (two
 new named conventions), [[incident-register]] (the two unguarded writers, and the correction

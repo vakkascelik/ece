@@ -483,6 +483,40 @@ And assert the positive in the suite. A negative assertion ("nobody has this on"
 happily when the column is unwritable by everybody — note that a missing **grant** raises `42501`
 where a missing **policy** filters silently, so the two failures look nothing alike.
 
+#### It happened again five migrations later, and this section did not prevent it
+
+**`0066` → `incidents.room_id`, fixed by `0082` on 2026-09-03.** All of the above was already
+written when `0066` added `room_id` to three tables, and `0066` *did* stop to think about grants.
+Its comment is worth quoting, because the reasoning is sound and the coverage is not:
+
+> `safety_checks` is append-only and already carries a grant that names its columns by omission —
+> `grant select, insert` with no UPDATE. Adding a column to an append-only table is safe; adding
+> one to a table whose **INSERT** grant is column-scoped would not be, and this one is not scoped.
+
+It checked the **INSERT** grants and never the **UPDATE** grants. `incidents` has a table-wide
+INSERT grant, so *filing* a report with a room worked — and a column-scoped UPDATE grant from
+`0030`, deliberately narrow so that moving a report to another child is refused before any policy
+runs. `room_id` was never added to it. `hazards` has table-wide UPDATE and `safety_checks` has
+none, so `incidents` was the only table exposed, and it was the one whose grant is narrow on
+purpose.
+
+**So the lesson is not "check the grants", which `0066` did. It is check them per verb.** A
+column-scoped grant exists per privilege type; `information_schema.column_privileges` returns a
+`privilege_type` column for exactly that reason and the query above already selects it.
+
+**Cost: every incident draft correction failed for six days**, with `permission denied for table
+incidents` on screen — the only way to fix a typo in an unsent draft was to finalise and amend,
+permanently marking a report as replaced, which is the thing the edit path exists to avoid.
+
+**And the mitigation this section recommends is what was missing.** It says `settings.spec.ts`
+caught the `centres` instance because it asserts `.error` is absent *before* reloading, and calls
+that "the only thing in the repo able to tell 'refused' from 'did not persist'".
+`incidents.spec.ts` covered the correction flow and had **no such assertion** — so it failed three
+lines later on "row not found", pointing at the list rendering rather than the write. That
+assertion is now in it. Worse, the suite could not run at all: the same commit that shipped `0066`
+also shipped the `SyncStatus` probe that killed every navigation, so **one commit introduced the
+defect and disabled the test that guards it.**
+
 ### An applied migration is a record of what ran, including its comments
 
 The runner stores a checksum per file and refuses to continue when one changes after being

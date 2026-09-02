@@ -110,6 +110,18 @@ test('a draft is corrected in place, without becoming a replaced report', async 
   await submit(page, 'Save correction');
 
   /*
+   * The action must not have reported an error, asserted before the row is inspected.
+   *
+   * This is here because of how the 0082 defect presented. `incidents.room_id` was
+   * never added to the column-scoped UPDATE grant, so every correction failed with
+   * `permission denied for table incidents` — and the screen said exactly that, while
+   * this test failed three lines below on "row not found". A stale row is the symptom;
+   * the refused write is the cause, and a test that only checks the symptom sends the
+   * next reader looking at the list rendering.
+   */
+  await expect(page.locator('.error')).toHaveCount(0);
+
+  /*
     One row, corrected. The point of having an edit path at all: without it a typo in
     an unsent draft could only be fixed by finalising and amending, which marks the
     original as replaced forever for something nobody outside the centre ever read.

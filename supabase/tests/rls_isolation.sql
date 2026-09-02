@@ -2312,6 +2312,66 @@ begin
   perform pg_temp.expect(ok, 'a finalised incident CANNOT be edited, even by its author');
 end $$;
 
+/*
+ * A DRAFT *CAN* BE CORRECTED, INCLUDING ITS ROOM — 0082.
+ *
+ * The assertion the edit path never had, and its absence cost the feature its whole
+ * life. `0066` added `incidents.room_id`; `0030` had granted UPDATE **by column, on
+ * purpose**, so that moving a report to a different child is refused by Postgres before
+ * any policy runs; and `room_id` was never added to that list. `updateIncidentDraft`
+ * always sends it, because the correction form has a room picker and a patch that
+ * omitted the field could not clear one — so **every draft correction failed with
+ * `42501 permission denied for table incidents` from 2026-08-28 until 0082.**
+ *
+ * Written as a functional check rather than a catalogue one deliberately. The catalogue
+ * can say which columns are granted; only a write can say whether that set is the one
+ * the application actually sends. A test that asserted the column list would have
+ * passed on the day the column list was wrong.
+ *
+ * `room_id = null` is the app's ordinary case — no room chosen — and it exercises the
+ * privilege exactly the same way, because assignment needs UPDATE on the column
+ * whatever the value is.
+ */
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+
+insert into public.incidents
+  (id, centre_id, child_id, kind, occurred_at, description, reported_by)
+values
+  ('e3333333-3333-4333-8333-333333333333',
+   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+   'a1111111-1111-4111-8111-111111111111',
+   'injury', now() - interval '30 minutes',
+   'Tripped on teh mat.',
+   '55555555-5555-4555-8555-555555555555');
+
+do $$
+declare code text := 'none';
+begin
+  begin
+    -- Exactly the column set `updateIncidentDraft` sends.
+    update public.incidents
+       set kind = 'injury',
+           occurred_at = now() - interval '30 minutes',
+           description = 'Tripped on the mat.',
+           location = null,
+           room_id = null,
+           first_aid_given = null,
+           witness_name = null
+     where id = 'e3333333-3333-4333-8333-333333333333';
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(
+    code = 'none',
+    'a DRAFT incident can be corrected with the column set the app sends, room_id included — got ' || code
+  );
+end $$;
+
+select pg_temp.expect(
+  (select description from public.incidents
+    where id = 'e3333333-3333-4333-8333-333333333333') = 'Tripped on the mat.',
+  'and the correction actually landed, rather than matching no rows'
+);
+
 -- Nobody deletes licensing evidence. The verb is revoked, so this is refused before
 -- any policy is consulted — and it is revoked from `service_role` too.
 do $$

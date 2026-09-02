@@ -7,6 +7,60 @@ itself, and from the wiki pages, which hold the durable *why*. This file is the 
 
 ---
 
+## 2026-09-03 (second) — Correcting an incident draft had never once worked, and I had the diagnosis backwards
+
+Took the one failure left from the e2e recovery. It was not a stale read. It was a missing grant,
+and the feature had never worked in its life.
+
+**The cause.** `0066` added `incidents.room_id`. `0030` had granted UPDATE **by column, on
+purpose** — so that moving a report to another child is refused by Postgres before any policy runs
+— and `room_id` was never added to that list. `updateIncidentDraft` always sends it, because the
+correction form has a room picker and a patch that omitted the field could not clear one. So every
+attempt to correct a draft raised `42501 permission denied for table incidents`, from 2026-08-28
+until `0082` today. Filing a report with a room always worked (the INSERT grant is table-wide) and
+finalising always worked (it writes only `status`, which was granted). Fixing a typo in an unsent
+draft never did — and the only route to it was to finalise and amend, permanently marking a report
+as replaced, which is the exact outcome the edit path exists to avoid.
+
+**Where I was wrong, and I would rather write this down than the bug.** Yesterday I recorded that
+the write "provably succeeds — the new zero-row check does not fire, so no policy is refusing". The
+zero-row branch was silent because the **error** branch fired first. A passing zero-row check means
+only *the update did not silently match nothing*; it is not evidence that a write happened. I read
+the absence of one failure mode as the presence of success — the same shape as reading a gate that
+has stopped running as a gate that passes, which I had written up the day before. Twice in two
+days, from opposite directions.
+
+Found by instrumenting the flow instead of reasoning about it: a throwaway spec that dumped the
+form's own `FormData` before and after filling, the POST status, and every `[role=alert]` /
+`.error` on the page afterwards. The answer was one line of output — `updateIncidentDraft:
+permission denied for table incidents` — sitting on screen the whole time, in a test that asserted
+on the table row instead.
+
+**`0066` was not careless, which is why this went in `conventions` and not just here.** It stopped
+and reasoned about grants; its comment explains why adding a column to `safety_checks` is safe
+because that table's **INSERT** grant is not column-scoped. It checked INSERT on all three tables
+and never looked at UPDATE. `hazards` has table-wide UPDATE and `safety_checks` has none, so
+`incidents` — the one whose grant is narrow on purpose — was the only table exposed. **The lesson
+is not "check the grants". It is check them per verb**, and `information_schema.column_privileges`
+returns `privilege_type` for exactly that reason.
+
+**Two assertions were missing; both now exist.** `rls_isolation.sql` performs the exact column set
+the app sends and asserts it succeeds — functional rather than catalogue-based, because the
+catalogue can say which columns are granted and only a write can say whether that set is the one
+the application actually needs. **It fails with 42501 against a database without `0082`**, so the
+mutation test came free. And `incidents.spec.ts` now asserts `.error` is empty immediately after
+saving — which `conventions.md` already named as *"the only thing in the repo able to tell
+'refused' from 'did not persist'"*. I added it before noticing the page recommends it, which is a
+point in the page's favour and not in mine. The sibling `settings.spec.ts` had it; this one did
+not, which is why the same defect class was caught in `centres` in a day and in `incidents` in six.
+
+**And the detail that ties the last three days together: one commit introduced the defect and
+disabled the test that guards it.** `0066` and the `SyncStatus` health probe shipped together on
+2026-08-28.
+
+`test:rls` **634/634**, `review:security` 16/16, `drill:restore` 6/6, 678 unit tests, and
+**`test:e2e` 118 passing, 0 failing** — green for the first time since 2026-08-27.
+
 ## 2026-09-03 — The census gets a screen, and the interesting part is what it will not let you type
 
 Yesterday's migrations gave the census a schema and no way to fill it in. `packages/api/src/census.ts`

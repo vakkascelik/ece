@@ -330,24 +330,41 @@ page's whole draft/final argument exists to make legible.
 Found by the e2e suite, six days late, because the suite had stopped running — see
 [[unverified-claims]] item 41.
 
-#### And one defect this page cannot yet explain
+#### Correcting a draft never worked at all, from 0066 until 0082
 
-**Open as at 2026-09-03.** `incidents.spec.ts` fills a draft with a typo, corrects it through
-**Edit**, saves — and the list still renders the pre-correction text. With the zero-row check now
-in place the write **provably** succeeds: the new error does not fire, so no policy is refusing,
-and `revalidatePath('/incidents')` is called. Yet the corrected description does not reach the
-screen that reported it saved.
+**And a correction to what this page said hours earlier.** It claimed *"the write provably
+succeeds: the new error does not fire, so no policy is refusing"*. **That was wrong.** The
+zero-row branch does not fire because the **error** branch fires first — the write was raising
+`42501 permission denied for table incidents` all along, and the screen was showing that sentence
+while the test failed three lines later on "row not found". Reading a passing zero-row check as
+evidence of a successful write was the mistake; it only ever meant *the update did not silently
+match nothing*.
 
-So the failure is somewhere between a successful write and a stale read, and this page will not
-guess which — the candidates are the revalidation not covering the route as it is actually
-rendered (the edit view is `/incidents?edit=…`, the same path with search params), the client
-component not remounting across that navigation (which is the trap the next section documents for
-**Amend**), and the form posting a stale `description`. **It is on a compliance record and it is
-the next thing to do.**
+The cause, found by instrumenting the flow rather than reasoning about it. **`0066` added
+`incidents.room_id` and never added it to the column-scoped UPDATE grant `0030` created.**
+`updateIncidentDraft` always sends `room_id`, because the correction form has a room picker and a
+patch omitting the field could not clear one — so **every attempt to correct a draft failed from
+2026-08-28 until `0082` on 2026-09-03.** Filing a report with a room always worked, because the
+INSERT grant is table-wide; `finaliseIncident` always worked, because it writes only `status`,
+which `0030` did grant.
 
-Worth stating plainly because the honest version is unflattering: the edit path was built, shipped,
-covered by a test — and the test could not run, so nobody knew that fixing a word in a draft may
-not work.
+`0066` was not careless about it either, which is the part worth keeping: it stopped and reasoned
+about grants, checked the **INSERT** grants on all three tables it touched, and never looked at the
+**UPDATE** grants. See [[conventions]], *Adding a column to a table with COLUMN-level grants* —
+this is that section's second instance, five migrations after it was written.
+
+**What was missing was the assertion, in two places.** `rls_isolation.sql` now performs the exact
+column set `updateIncidentDraft` sends and asserts it succeeds — a functional check rather than a
+catalogue one, because the catalogue can say which columns are granted and only a write can say
+whether that set is the one the application needs. It fails with `42501` against a database without
+`0082`, which is the mutation test for free. And `incidents.spec.ts` now asserts `.error` is empty
+immediately after saving, which the conventions page already named as *"the only thing in the repo
+able to tell 'refused' from 'did not persist'"* — the sibling settings spec had it and this one did
+not.
+
+The honest summary is unflattering and worth leaving in place: the edit path was designed, built,
+documented on this page, and covered by a test — and it had never once worked, because the test
+that guarded it was disabled by the same commit that broke the feature.
 
 ### The React trap this hit on the way
 
