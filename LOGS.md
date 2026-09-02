@@ -70,7 +70,66 @@ and now says the census is built but blocked on a published code list. **The dec
 cannot be signed** — what moved was the reason, and a gap table that improves faster than the
 product does is one nobody should trust, so that caution is now written into the document itself.
 
-### And the thing I could not verify, which turned out to be the bigger finding
+### The one line that had broken the whole e2e suite for six days
+
+**Resolved the same day.** The suite went from 42-plus failures to **117 passing, 1 failing**, and
+the mechanism is worth more than the number.
+
+The trace's network log records only *completed* resources, so a hanging request cannot appear in
+it. A throwaway spec that listened to `request`/`requestfinished`/`requestfailed` and printed what
+was still outstanding answered it on the first run:
+
+```
+30 started, 29 settled, 1 OUTSTANDING
+  OUTSTANDING GET fetch 25s http://127.0.0.1:3210/api/health
+networkidle: NEVER REACHED
+```
+
+One request. **`SyncStatus` never read the response body.** `await fetch(…)` resolves when the
+headers arrive; the body is a stream, and a stream nobody reads leaves the request in flight in
+Chromium's accounting. That component sits in `(app)/layout.tsx`, so it happened on every
+authenticated page, and `networkidle` waits for the in-flight count to hit zero. The route itself
+was innocent — 5ms by `curl`, 200 every time — which is exactly why it took a while: everything I
+could measure server-side said the app was healthy.
+
+`await res.text().catch(() => {})`. 29/30 settled and never idle became 30/30 settled and idle.
+**A product defect, not only a test artefact:** a leaked response per page load, every two minutes,
+on a tablet that stays open all day.
+
+### What six days of silence had been hiding
+
+This is the part I would want somebody to read. Once navigation worked, five failures remained and
+four of them were real:
+
+- **Three strict-mode collisions from the launcher** (2026-08-30). It names every screen the rail
+  names, so `getByRole('link', { name: 'Attendance' })` started resolving to two elements. Scoped
+  those three locators to `#side-nav`, which is what they always meant.
+- **A test contradicting a shipped feature.** `journey.spec.ts` asserted the funding banner reads
+  *"Incomplete"*. `periodPrecedesRecord` (2026-08-29, commit `d39a178`) added a third and stronger
+  state — *"Records do not cover this period — do not use"* — which is what a fresh fixture
+  actually produces, because its child signs in today and the period starts before the record. The
+  feature and its guard disagreed for five days and nothing could say so. Now asserts the intent:
+  the banner must refuse, and either refusal counts.
+- **Two incident writers with no zero-row check.** `updateIncidentDraft` and `finaliseIncident` did
+  `.update(…).eq('id', …)` and inspected only `error`. Under RLS a refused update matches no rows
+  and PostgREST reports success — so both could report a saved correction, or a finalised report,
+  that had not happened. On a compliance record. `updateCentre`, `updateStaffMember` and
+  `linkStaffRecord` have had this check all along, each with a comment saying why; these two never
+  did.
+
+**And one failure I did not fix, deliberately.** `incidents.spec.ts` — *"a draft is corrected in
+place"*. With the zero-row check added, the write **provably** succeeds (the new error does not
+fire, so no policy is refusing) and `revalidatePath('/incidents')` is called — yet the list still
+renders the pre-correction text. So a correction to an incident draft may not reach the screen that
+tells somebody it saved. That is a different feature from anything I was building, it is on a
+compliance record, and it belongs in its own change rather than bolted onto this one. Recorded in
+[[unverified-claims]] item 41 so it cannot be lost in a commit message.
+
+**What the census work got out of it**, which was the original point: `/census` passes the axe
+audit at WCAG 2.2 AA with all six tags, and its row in the roles matrix passes — an educator and a
+parent are both refused, and the whole roles spec is green.
+
+### And the thing I could not verify at the time, which turned out to be the bigger finding
 
 AGENTS.md §5 says a new route with a capability guard means `test:e2e`. So I added `/census` to the
 roles matrix and the axe audit and ran it. **32 accessibility tests and 10 role-boundary tests
@@ -107,8 +166,9 @@ The Postgres-side boundary is not unverified: the RLS suite covers the same grou
 
 **What was verified for this change:** typecheck, lint, `tokens:check`, `check:docs`, 678 unit
 tests, `test:rls` 632/632, `review:security` 16/16, `drill:restore` 6/6, and `check:bundle`
-unchanged at 113.0kB with CSS still 3.7kB. **`test:e2e` was run and could not be used**, which is
-said here rather than omitted.
+unchanged at 113.0kB with CSS still 3.7kB. `test:e2e` was red for reasons that turned out to have
+nothing to do with this change — **now 117 passing, 1 failing**, with the census screen's axe audit
+and roles row both green. See the two sections above.
 
 ## 2026-09-02 (second) — Phase 10's census, a mutation harness that lied, and a credential aimed at the wrong database
 

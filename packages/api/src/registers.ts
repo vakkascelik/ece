@@ -196,14 +196,45 @@ export async function updateIncidentDraft(
   if (patch.witnessName !== undefined) row.witness_name = patch.witnessName?.trim() || null;
   if (Object.keys(row).length === 0) return;
 
-  const { error } = await db.from('incidents').update(row).eq('id', id);
+  /*
+   * ZERO-ROW CHECK, added 2026-09-03, and it was missing here for the whole life of the
+   * feature.
+   *
+   * Under RLS a refused UPDATE matches no rows, and PostgREST reports that as **success
+   * with an empty result** — so without this, `error` is null, this function returns, the
+   * action calls `revalidatePath`, and the screen tells somebody their correction was
+   * saved while the record is unchanged. On an incident report.
+   *
+   * The same check is on `updateCentre`, `updateStaffMember` and `linkStaffRecord`, each
+   * with a comment saying why. It was not on the two incident writers, which is how the
+   * e2e suite came to be asserting a row that never changed — found 2026-09-03 when the
+   * suite could run again after six days of timing out.
+   */
+  const { data, error } = await db.from('incidents').update(row).eq('id', id).select('id');
   if (error) throw new Error(`updateIncidentDraft: ${error.message}`);
+  if (!data || data.length === 0) {
+    throw new Error(
+      'updateIncidentDraft: nothing was updated. Either the id is wrong or the policy refused it — a draft that has been finalised cannot be corrected in place.',
+    );
+  }
 }
 
 /** Draft to final. One way, enforced in the database, and the family can now read it. */
 export async function finaliseIncident(db: Db, id: string): Promise<void> {
-  const { error } = await db.from('incidents').update({ status: 'final' }).eq('id', id);
+  // Same reasoning as above, and the consequence here is worse: a silent no-op would
+  // leave a report the centre believes it has finalised sitting as a draft the family
+  // cannot see.
+  const { data, error } = await db
+    .from('incidents')
+    .update({ status: 'final' })
+    .eq('id', id)
+    .select('id');
   if (error) throw new Error(`finaliseIncident: ${error.message}`);
+  if (!data || data.length === 0) {
+    throw new Error(
+      'finaliseIncident: nothing was updated. Either the id is wrong or the policy refused it.',
+    );
+  }
 }
 
 /**

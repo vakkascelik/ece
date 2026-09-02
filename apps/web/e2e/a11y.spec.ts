@@ -66,8 +66,13 @@ test.describe('the shell on a phone', () => {
 
     // And opening the menu must actually reveal the links, or the collapse is just a
     // way of hiding the navigation.
+    //
+    // Scoped to `#side-nav`, and it has to be: the launcher on `/` names every screen the
+    // rail names, so an unscoped `getByRole('link', { name: 'Attendance' })` resolves to
+    // two elements and fails on strict mode rather than on the behaviour. The subject
+    // here is the drawer, so the drawer is what the locator should say.
     await page.getByRole('button', { name: /Menu/ }).click();
-    await expect(page.getByRole('link', { name: 'Attendance' })).toBeVisible();
+    await expect(page.locator('#side-nav').getByRole('link', { name: 'Attendance' })).toBeVisible();
   });
 
   /**
@@ -78,7 +83,9 @@ test.describe('the shell on a phone', () => {
   test('the menu drawer closes the way an overlay has to', async ({ page }) => {
     await visit(page, '/');
     const toggle = page.getByRole('button', { name: /Menu/ });
-    const attendance = page.getByRole('link', { name: 'Attendance' });
+    // Scoped to the rail — the launcher on `/` offers the same labels, so an unscoped
+    // locator matches twice. See the note in the test above.
+    const attendance = page.locator('#side-nav').getByRole('link', { name: 'Attendance' });
 
     // 1. Closed, the drawer is out of the accessibility tree — not merely off-screen. A
     //    translated element is still focusable, so `visibility` is doing real work here.
@@ -117,7 +124,7 @@ test.describe('the shell on a phone', () => {
     await toggle.click();
     await attendance.click();
     await expect(page).toHaveURL(/\/attendance$/);
-    await expect(page.getByRole('link', { name: 'Attendance' })).toBeHidden();
+    await expect(page.locator('#side-nav').getByRole('link', { name: 'Attendance' })).toBeHidden();
   });
 
   /**
@@ -171,7 +178,10 @@ test.describe('staff screens', () => {
     await visit(page, '/');
 
     const money = page.locator('details[data-group="money"]');
-    const funding = page.getByRole('link', { name: 'Funding', exact: true });
+    // Scoped to the rail: this test is about whether the GROUP is collapsed, and the
+    // launcher on `/` lists Funding too — so an unscoped locator would be asserting the
+    // visibility of a link the collapse has nothing to do with.
+    const funding = page.locator('#side-nav').getByRole('link', { name: 'Funding', exact: true });
 
     // Default is open, and deliberately so: shipping the rail collapsed would put a tap in
     // front of the most-used screen in the product for everybody.

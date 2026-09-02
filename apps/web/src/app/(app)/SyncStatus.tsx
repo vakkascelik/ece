@@ -62,6 +62,28 @@ export function SyncStatus({
       // ago would report the server as reachable while the tablet is on a dead link,
       // which is the exact lie this component exists to prevent.
       const res = await fetch(healthHref, { cache: 'no-store' });
+      /*
+       * DRAIN THE BODY, EVEN THOUGH ONLY `res.ok` IS WANTED.
+       *
+       * This one line is why the entire end-to-end and accessibility suite timed out
+       * for six days. `await fetch(...)` resolves as soon as the headers arrive; the
+       * response body is a stream, and a stream nobody reads leaves the request **in
+       * flight** in Chromium's accounting. This component is in `(app)/layout.tsx`, so
+       * that happened on every authenticated page — and Playwright's `networkidle`
+       * waits for the in-flight count to reach zero, which it therefore never did.
+       * 32 accessibility tests and 10 role-boundary tests failed at 60s each, on
+       * screens that were rendering perfectly.
+       *
+       * Measured rather than reasoned: with the body unread, 29 of 30 requests settled
+       * and `/api/health` stayed outstanding past 25 seconds. With this line, 30 of 30
+       * settle and `networkidle` is reached.
+       *
+       * It is a real defect and not only a test artefact — a leaked response per page
+       * load, repeating every two minutes, on a tablet that stays open all day. The
+       * `.catch()` is deliberate: a body that cannot be read is not a reason to report
+       * the server unreachable when the headers already said 200.
+       */
+      await res.text().catch(() => {});
       setReachable(res.ok);
     } catch {
       setReachable(false);

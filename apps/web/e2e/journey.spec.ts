@@ -139,7 +139,22 @@ test('the funding page refuses to look final while a day is broken', async ({ pa
   // construction. The banner must say so — a summary that looks final while a day is
   // missing is a summary that gets keyed into ELI Web.
   await visit(page, '/funding');
-  await expect(page.getByText(/Incomplete/).first()).toBeVisible();
+  /*
+   * `/do not use/` rather than `/Incomplete/`, and the difference is the point.
+   *
+   * The banner has THREE states since `periodPrecedesRecord` landed (0029-era fix,
+   * 2026-08-29): "Records do not cover this period — do not use", "Incomplete — do not
+   * use yet", and "Preparation figures". A fresh fixture tenant signs its child in today,
+   * so the funding period begins before the attendance record exists and the page shows
+   * the FIRST refusal, not the second. This test named only the second and so contradicted
+   * the feature it was guarding.
+   *
+   * It went unnoticed because it could not run: every navigation timed out on
+   * `networkidle` from 2026-08-28 until 2026-09-03. Asserting the intent — the page refuses
+   * to look final — is what this test was always for, and both refusals satisfy it while
+   * "Preparation figures" does not.
+   */
+  await expect(page.getByText(/do not use/i).first()).toBeVisible();
   await expect(page.getByText(/cannot submit/i).first()).toBeVisible();
   expect(t.childName).toBe('Tāne');
 });

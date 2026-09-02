@@ -551,7 +551,7 @@ is a new migration, and the status command tells you what you are rolling back o
 |---|---|---|
 | Unit | **631 tests across 46 files**, Vitest — measured by running them on 2026-09-02, not counted from source | Ratios, funding, hours, roll, CSV, redaction, the offline queue, capabilities, date handling |
 | **RLS isolation** | **607 assertions**, one self-contained 8,435-line SQL script | Two services and two members, each impersonated exactly as the API layer would by setting the role and the JWT claims; neither can read *or write* the other's rows, in both directions; guardianship inside a service; and six catalogue-driven class assertions that cover tables which do not exist yet |
-| End-to-end and accessibility | 104 tests across 19 spec files, Playwright + axe-core. **Currently failing — see the disclosure below** | 19 screens across owner and parent sessions against **WCAG 2.2 AA with all six axe tags**, on a production build, with data seeded — because auditing an empty page measures nothing |
+| End-to-end and accessibility | Playwright + axe-core. **117 passing, 1 failing as at 2026-09-03** — see the disclosure below | 20 screens across owner and parent sessions against **WCAG 2.2 AA with all six axe tags**, on a production build, with data seeded — because auditing an empty page measures nothing. The role matrix in the same suite proves an educator cannot open the office screens and a parent cannot open another family's child by URL: the second tenant boundary, checked at the HTTP layer as well as in Postgres |
 | Live-schema security review | 17 checks | RLS enabled everywhere; a policy on every reachable table; append-only grants; definer functions with pinned search paths; the consent gate restrictive; invitation hashes unreadable; no public storage bucket; `anon` holding no grants |
 | Purpose-built drills | 4 | The offline queue against live PostgreSQL (10/10); the PostgREST row cap (1,200 events, exactly 50.00 hours); a full extract-and-reload restore (6/6 over 12,930 rows and 72 tables); documentation link integrity |
 | Budgets | gzipped bytes | First-load JS, CSS and middleware, per app |
@@ -576,24 +576,31 @@ indistinguishable from the first real one. `[FIX FIRST]` — the credentials bel
 7kB belongs attributed, not waived. Raising the limit to make it pass is the move our own
 contributor rules forbid by name.
 
-`[FIX FIRST]` **And a worse disclosure, found 2026-09-03 while trying to verify a new screen: the
-end-to-end and accessibility suite does not currently pass locally either.** Every navigation
-times out after 60 seconds waiting for the network to go idle — 32 of the accessibility tests and
-10 of the role-boundary tests, on screens unrelated to the change being tested. It is **not** a
-regression from that change: reverting the change and re-running reproduced the identical failures,
-which is how we know rather than assume.
+**A disclosure worth reading, and it resolved the same day.** On 2026-09-03, trying to verify a new
+screen, we found the end-to-end and accessibility suite had been failing entirely for six days —
+every navigation timing out at 60 seconds, 42 tests, on screens unrelated to any recent change. We
+diagnosed it to a single line: a health-check `fetch` in the application shell resolved its headers
+and never read its response body, which leaves the request in flight in Chromium and meant the
+test runner's "network is idle" condition could never be satisfied. **The suite is now at 117
+passing, 1 failing.**
 
-What that costs us is precisely the thing this section was claiming. The figures above — 19 screens
-against WCAG 2.2 AA, 30/30 green — come from a run that we can no longer reproduce on demand, so
-they describe the suite's design and a past result rather than its present state. **The role
-matrix, which is the check that proves an educator cannot open the office screens, is among what
-cannot currently be run.** The Postgres-side gates are unaffected and were all run today:
-607→632 RLS assertions, 16/16 security review, 6/6 restore drill, 678 unit tests.
+We include this because of what it says about the four checks it also exposed, each of which had
+been invisible while nothing could run: three test locators broken by an unrelated feature naming
+the same screens twice; one test asserting a funding banner state that a shipped improvement had
+replaced with a stronger one; and — the one that matters — **two incident writers that inspected
+only the error from an update and not whether any row changed.** Under row-level security a refused
+update matches nothing and the database driver reports that as success, so those two paths could
+report a saved correction on a compliance record that had not been saved. Fixed, with the check
+that three sibling functions already had.
 
-We would rather state this than let the Ministry find a red suite behind a confident paragraph. It
-is also the clearest argument for the test environment at `AST06`: a suite that runs against the
-one live database, from one laptop, is a suite whose failures are indistinguishable from the
-environment's.
+**One failure remains and we are not glossing it:** a corrected incident draft is not appearing on
+the screen that reports it saved. The write provably succeeds and the page is revalidated, so the
+cause is not yet known. It is on a compliance record and it is the next thing we will do.
+
+The honest lesson, which is also the clearest argument for the test environment `AST06` asks for:
+a suite run by hand, from one laptop, against the single live database produced six days of
+failures that looked exactly like an environment problem — and hid four real defects behind them.
+A vendor that cannot tell those apart is a vendor whose green run means less than it appears to.
 
 **AST19 — defect management.**
 

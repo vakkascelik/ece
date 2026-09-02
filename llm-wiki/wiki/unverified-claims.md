@@ -1170,44 +1170,65 @@ a number out of 25 and a word a person chose.
 Added 2026-08-29. [[deployment]] links here for it and the item did not exist, which is its own
 small illustration of the problem.
 
-**WORSE THAN THIS ITEM SAID — extended 2026-09-03. The e2e suite does not pass locally either.**
+**THE E2E SUITE WAS RED LOCALLY TOO FOR SIX DAYS — found, diagnosed and fixed 2026-09-03.
+117 pass, 1 fails. Kept here in full because the mechanism is worth more than the outcome.**
 
-This item's consolation was that *"every gate this repo runs is run locally, by hand, and reported
-that way — which is how it has stayed honest"*. For this gate that is no longer true. Trying to
-verify the new `/census` screen: **32 accessibility tests and 10 role-boundary tests fail, every
-one of them timing out after 60 seconds** in `visit()`, which waits for `networkidle`.
+This item's consolation was that *"every gate this repo runs is run locally, by hand"*. For this
+gate that had quietly stopped being true. Trying to verify the new `/census` screen, **32
+accessibility tests and 10 role-boundary tests failed, every one timing out after 60 seconds** in
+`visit()`, which waits for `networkidle`.
 
-**It is not a regression from the census work**, and that was established by experiment rather than
-by argument: reverting the only shared file the change touched (`layout.tsx`, one nav link),
-rebuilding, and re-running reproduced the identical failures on `/attendance`, a screen the change
-does not reach.
+**First it was ruled out as a regression from the census work**, by experiment rather than
+argument: revert the only shared file the change touches (`layout.tsx`, one nav link), rebuild,
+re-run `/attendance` — a screen the change does not reach — and the failures were identical.
 
-What has been ruled out, cheaply: PostgREST is fast (three requests, 130–310ms); the portal mount
-is unset locally, so `basePath` is not mismatching the tests' `baseURL`; the pages **render** — the
-failure snapshots contain the full accessibility tree, the shell, the centre name and the role — so
-this is the *waiting* failing, not the app. `SyncStatus` in the layout does poll, on mount and then
-every 120 seconds, but its fetch is wrapped in a `try`/`catch` and 120s is longer than the 60s
-timeout, so a single completed probe should let the network settle. **The cause is not yet known.**
+**Then the cause.** The trace's network log records only *completed* resources, so a hanging
+request is invisible in it. A throwaway spec that listened to `request`/`requestfinished`/
+`requestfailed` and printed what was still outstanding answered it in one run:
 
-**Why it matters more than a red gate usually would.** `roles.spec.ts` is the check that proves an
-educator cannot open the office screens and a parent cannot open another family's child by URL —
-the second of the two tenant boundaries, at the HTTP layer rather than the SQL one. The RLS suite
-covers the same ground in Postgres and is green at 632 assertions, so the boundary is not
-unverified; but the guard in front of it currently is. And `production-readiness` records the axe
-audit as **30/30 green** at a past date, which means something regressed between then and now and
-nobody noticed — the exact failure mode this page exists for, one level up: a gate that stopped
-running rather than a claim that went stale.
+```
+30 started, 29 settled, 1 OUTSTANDING
+  OUTSTANDING GET fetch 25s http://127.0.0.1:3210/api/health
+networkidle: NEVER REACHED
+```
 
-**To close it:** find out why `networkidle` never settles — the trace files under
-`apps/web/test-results/` are retained on failure and `npx playwright show-trace` will show what
-request is outstanding. If the answer is that `networkidle` is simply the wrong wait for a page
-with a polling component in its layout, the fix is the helper rather than the app, and Playwright's
-own documentation discourages `networkidle` for this reason. **Do not "fix" it by widening the
-timeout.**
+**`SyncStatus` never read the response body.** `await fetch(…)` resolves when the headers arrive;
+the body is a stream, and a stream nobody reads leaves the request **in flight** in Chromium's
+accounting. That component lives in `(app)/layout.tsx`, so it happened on every authenticated
+page, and `networkidle` waits for the in-flight count to reach zero — which it therefore never
+did. The route itself was innocent and fast: 5ms by `curl`, 200 every time.
 
-It is also the sharpest available argument for the test environment `AST06` asks for: a suite that
-runs against the single live database from one laptop produces failures indistinguishable from the
-environment's.
+One line — `await res.text().catch(() => {})` — took it from 29/30 settled and never idle to
+**30/30 settled and idle**, and the full suite from 42-plus failures to one. **It is a product
+defect and not only a test artefact:** a leaked response per page load, repeating every two
+minutes, on a tablet that stays open all day.
+
+**What the outage had been hiding**, which is the part to take seriously. Four of the five
+failures that remained once navigation worked were real and had been invisible:
+
+- **Three strict-mode collisions** caused by the launcher (2026-08-30) naming every screen the
+  rail names, so `getByRole('link', { name: 'Attendance' })` began resolving to two elements.
+  Fixed by scoping those locators to `#side-nav`, which is what they meant.
+- **A test contradicting a shipped feature.** `journey.spec.ts` asserted the funding banner reads
+  *"Incomplete"*, but `periodPrecedesRecord` (2026-08-29) added a third, stronger state — *"Records
+  do not cover this period — do not use"* — which is what a fresh fixture actually produces. The
+  feature and its guard disagreed for five days and nothing could say so.
+- **Two incident writers with no zero-row check.** `updateIncidentDraft` and `finaliseIncident` did
+  `.update(…).eq('id', …)` and inspected only `error` — and under RLS a refused update matches no
+  rows, which PostgREST reports as success. The same check has been on `updateCentre`,
+  `updateStaffMember` and `linkStaffRecord` all along, each with a comment saying why. Fixed.
+
+**Still open: one failure.** `incidents.spec.ts` — *"a draft is corrected in place"*. The write now
+provably succeeds (the new zero-row check does not fire, so the policy is not refusing) and
+`revalidatePath('/incidents')` is called, yet the list still renders the pre-correction text. So a
+correction to an incident draft may not be reaching the screen that reports it saved. **Not
+diagnosed further, and it is on a compliance record, so it should be next.** Tracked here rather
+than in a commit message so it cannot be lost.
+
+**What stays true from the original item:** CI itself has still never passed, for the reasons in the
+table above — the two secrets and the 7kB. And this remains the sharpest available argument for the
+test environment `AST06` asks for: a suite that runs against the single live database from one
+laptop, by hand, produced six days of failures that looked exactly like an environment problem.
 
 | | |
 |---|---|

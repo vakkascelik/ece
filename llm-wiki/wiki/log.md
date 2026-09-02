@@ -5,6 +5,38 @@ says so.*
 
 ---
 
+2026-09-03 (second) — **One unread response body had broken the whole e2e suite for six days, and
+it was hiding four real defects.** Extended: [[unverified-claims]] item 41 (the diagnosis in full,
+what the outage hid, and the one failure left open). Corrected: the `AST18` disclosure in
+`docs/eli-application-answers.md`, written hours earlier when the suite was red.
+
+`SyncStatus` did `await fetch(healthHref)` and read only `res.ok`. The headers resolve the promise;
+the body is a stream, and **a stream nobody reads leaves the request in flight in Chromium** — so
+on every page under `(app)`, `networkidle` could never be satisfied. 42 tests failing at 60s each,
+on screens that were rendering perfectly, while the route itself answered in 5ms by `curl`.
+
+Found by instrumenting `request`/`requestfinished`/`requestfailed` and printing what was still
+outstanding, because the trace's network log records only *completed* resources and a hanging
+request is therefore invisible in it. **29 of 30 settled; `/api/health` outstanding past 25
+seconds.** One line — `await res.text().catch(() => {})` — and it is 30 of 30, idle, and the suite
+is **117 passing, 1 failing**.
+
+**The four defects the silence had been hiding are the reason this entry exists.** Three
+strict-mode locator collisions caused by the launcher naming every screen the rail names; one test
+asserting a funding-banner state that `periodPrecedesRecord` had superseded five days earlier, so
+feature and guard disagreed with nothing able to say so; and **two incident writers with no
+zero-row check** — `updateIncidentDraft` and `finaliseIncident` inspected only `error`, and under
+RLS a refusal matches no rows and reports success, so both could claim a saved correction or a
+finalised report on a compliance record that had not happened.
+
+**One failure left open on purpose**, and it is the sharpest of them: a corrected incident draft
+does not reach the list. The write provably succeeds now and the path is revalidated, so the cause
+is unknown. Recorded in item 41 rather than a commit message so it survives.
+
+The general lesson, which belongs next to `bounded-queries` and the audit-trigger assertion: **a
+gate that stops running looks exactly like a gate that is passing.** Item 41 tracked a red CI and
+took comfort in the local runs; nothing tracked whether the local runs still happened.
+
 2026-09-03 — **The census gets a screen, and five of its inputs are disabled on purpose.**
 Extended: [[staff-as-people]] (a new section for the screen, and *Still to come* rewritten — it
 used to say the census had no screen). Corrected: [[unverified-claims]] item 48's census row, and
