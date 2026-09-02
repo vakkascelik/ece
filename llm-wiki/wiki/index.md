@@ -72,6 +72,9 @@ and [`../schema.md`](../schema.md) for the page template.
   pages they sit on
 - [[funding-and-billing]] — attendance into money: why a broken record is excluded rather than
   estimated, why bookings and attendance are separate, and what this product cannot submit
+- [[eli-integration]] — the Ministry's interface: the mandatory schema that turned out to be on a
+  public URL, the nine event families and where each would come from, and why the hardest part of
+  an event interface is the part this product already got right
 
 ## Offline and mobile
 

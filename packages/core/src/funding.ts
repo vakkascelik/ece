@@ -55,9 +55,16 @@
  * WHAT THIS CANNOT DO, BY DESIGN
  *
  * It cannot submit anything. Submitting a funding return requires being a Ministry-approved student
- * management system integrated with ELI, and the Ministry is not accepting integration applications
- * — confirmed by the Ministry on 2026-08-18 as still under review, with no published end date. So
- * the output is a **preparation export**: figures a manager keys into ELI Web themselves.
+ * management system integrated with ELI, and this product is not one. So the output is a
+ * **preparation export**: figures a manager keys into ELI Web themselves.
+ *
+ * CORRECTED 2026-09-02: this comment said "the Ministry is not accepting integration applications
+ * — confirmed by the Ministry on 2026-08-18 as still under review, with no published end date."
+ * That was true when written and is now false. The review concluded and the Ministry's page, last
+ * updated 2026-09-01, opens a 2026 tranche closing 5pm Friday 30 October 2026 with **one** place
+ * available, decided on a readiness assessment. What has not changed is the sentence above it:
+ * this product cannot submit, because it is not an approved SMS and would not become one for
+ * 12–18 months after being selected. See docs/eli-integration-2026-tranche.md.
  *
  * CORRECTED 2026-08-18: this comment used to add "and approval requires supporting 50 services
  * *before* applying". That is wrong. The requirement is that the product be *capable* of supporting

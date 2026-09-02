@@ -663,9 +663,13 @@ interface PaymentRowShape {
  * Funded hours per child for a period, computed from attendance events.
  *
  * **This cannot submit anything, and nothing here pretends to.** Submitting a funding return
- * requires being a Ministry-approved student management system integrated with ELI, and the Ministry
- * is not accepting integration applications — still under review as at 2026-08-18, on the Ministry's
- * own word, with no published end date. So the output is figures a manager keys into ELI Web.
+ * requires being a Ministry-approved student management system integrated with ELI, and this
+ * product is not one. So the output is figures a manager keys into ELI Web.
+ *
+ * (Corrected 2026-09-02: this comment said the Ministry was "not accepting integration
+ * applications — still under review as at 2026-08-18". The review has concluded and a 2026 tranche
+ * is open until 30 October 2026, for one applicant. That changes the roadmap, not this function:
+ * selection is followed by a 12–18 month integration, so "cannot submit" holds either way.)
  *
  * (This comment used to say approval also required supporting 50 services before applying. It does
  * not: that requirement is a capability, not a customer count. Corrected 2026-08-18.)

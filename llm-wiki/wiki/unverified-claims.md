@@ -41,6 +41,16 @@ Nothing here is a bug. They are known gaps with known closures.
   sentence of the funding disclaimer, **unconditional** — behind `!summary.verified` it would
   vanish on the day the figures look most trustworthy. The Ministry's word for the failure mode
   this product already discloses is *"under-claiming"*.
+- **The product does not meet the Ministry's SMS Development Criteria — item 48, added 2026-09-02.**
+  ELI integration applications opened for a 2026 tranche closing 30 October, one place, and the
+  form's first declaration is that the SMS *meets* those criteria. Three of eight mandatory
+  functionalities are absent (the ECE census, the RS7 return, Waha Rumaki/PITA), home-based and
+  sessional are unmodelled, and `centres` cannot record a service type at all. **This is the one
+  item on this page that is a measurement rather than a claim**, and signing that declaration today
+  would be asserting something untrue to the Crown.
+- **The ELI schema is served publicly, and may not be the normative version — item 47.**
+  `eli.minedu.govt.nz/eli.xsd` is a complete schema with **no version stamp**. Its *shape* may be
+  relied on; a specific length bound or enumeration quoted as a rule the Ministry enforces may not.
 - **§14-3 of the Handbook has been read, and the premise no longer rests on an email — item 46.**
   ELI Web is described there as the route for services *"that do not use a SMS"*. Read by a tool
   rather than a person, so it carries item 36's caveat and stays open for a human reading.
@@ -1398,8 +1408,65 @@ now rests on §14-3, it deserves the better instrument.
 **To close it:** open the page and read it, then either confirm these quotes or correct them.
 [14-3 Early learning information (ELI) system](https://www.education.govt.nz/education-professionals/early-learning/funding-and-financials/ece-funding-handbook/chapter-14-collection-of-information/14-3-early-learning-information-eli-system).
 
+### 47. Whether the publicly served ELI schema is the normative one — **OPEN, added 2026-09-02**
+
+| | |
+|---|---|
+| **What is asserted** | That `https://eli.minedu.govt.nz/eli.xsd` is the ELI message schema a vendor should build and validate against |
+| **Where** | [[eli-integration]] in full, and the field mapping and change list in [eli-application-answers](../../docs/eli-application-answers.md) `AST38` |
+| **Basis** | Fetched 2026-09-02: HTTP 200, `text/xml`, 23,665 bytes, no authentication. A complete XML Schema — 26 root elements, every complex type, every enumeration, every length bound. It is unquestionably *an* ELI schema: the namespace is the Ministry's, and it independently reproduces the RS7 period boundaries this repo had only from a specification document |
+| **What is NOT established** | That it is the same as the **"ELI Event 10.0"** attachment the Ministry sent on 2026-08-18, or that it is current. **The document carries no version stamp of any kind** — no `version` attribute, no dated comment. It could be older than 10.0, newer, or a public convenience copy that lags |
+| **Why it matters** | It is the difference between an interface that can be built against a citable public source and one that depends on correspondence. It is also the difference between validating messages correctly and validating them against a stale contract, which fails *at the Ministry* rather than locally |
+| **What may be relied on meanwhile** | The **shape** of the interface — that these are the events, that they come in Delete/Undelete triples, that attendance carries `IsAbsent`, that the vendor mints `EntityId`. Those are structural and a version bump does not reverse them. **What may not:** any specific length bound, enumeration or cardinality quoted as a rule the Ministry will enforce |
+| **To close it** | [Enquiry](../../docs/eli-ministry-enquiry.md) question 5 asks directly, and asks which is normative if they can diverge. Then diff the attachment against the URL |
+
+### 48. This product does not meet the Ministry's SMS Development Criteria — **OPEN, added 2026-09-02, and it is not a claim so much as a measurement**
+
+This item is the inverse of every other entry on this page. The rest record things the product
+asserts and nobody has checked. This one records something the product would have to assert on a
+Crown application **and cannot**.
+
+The Ministry's application form asks the applicant to confirm *"Your SMS meets the SMS Development
+Criteria as described on the ELI Homepage."* Measured 2026-09-02 against the eight mandatory
+functionalities and the four service-model requirements on that page:
+
+| Absent | Detail |
+|---|---|
+| **Annual ECE census (staff details and qualifications)** | **Eleven of the fifteen fields have no column anywhere in the schema** — staff gender, ethnicity, role code, paid, permanent, full-time, highest qualification, registration number, years of experience, hours per year, FTE. The word "qualification" appears in this repo only in prose and one test fixture's job title. The roster is one row per calendar date, so there is no weekday contract to derive contact hours from |
+| **RS7 return** | None of the eleven figures the return wants is produced. What exists is funded hours per child over an operator-chosen period |
+| **Waha Rumaki/PITA return** | Nothing. Possibly out of scope — [enquiry](../../docs/eli-ministry-enquiry.md) question 7 |
+| **Home-based services** | Not modelled. Named in `ratios.ts` as an excluded schedule |
+| **Sessional services** | Not modelled. The 2-and-over bands differ (1–8 → 1, 9–30 → 2) |
+| **Kindergarten** | Not modelled. The word does not appear in the schema, `packages/` or `apps/web/src` |
+| **Any service type at all** | `centres` has no service-type or licence-type column, so the product cannot record the distinction the 50-service capability requirement is stated *across* |
+
+Three assessed items also fail on infrastructure rather than function, and they fail harder:
+`AST06` expects **three** environments and there is **one, which is production**; `AST09` expects
+production data isolated to production and **local development runs against the production
+project**; and `AST18`/`AST19` meet strong suites with the disclosure that **CI has never passed in
+137 runs** and four of the six gates have never executed in it at all (item 41).
+
+**Why this is on this page rather than only in the plan.** Because the failure mode it guards
+against is the one this page exists for, pointed at a form instead of a screen: the Ministry
+publishes its expectation beside every question, which makes the expected answer very easy to
+write. **Signing that declaration today would be asserting something untrue to the Crown**, which
+is a larger version of flipping `RATIO_TABLES_VERIFIED` to silence a warning.
+
+**What would close it:** building the missing functionality, in the order set out in
+[eli-integration-2026-tranche](../../docs/eli-integration-2026-tranche.md) §6 — which is
+substantially [roadmap](../../docs/roadmap-phases-8-13.md) Phase 10 plus a `service_type` column
+plus two ratio-table transcriptions. **Or** the Ministry answering
+[enquiry](../../docs/eli-ministry-enquiry.md) question 1 in a way that scopes the criteria to what
+is already built. **Not** by reading the criteria more generously.
+
+**One mitigating fact, recorded so the gap is not overstated:** `ratios.ts` takes the ratio table as
+an argument and says in its own header that a different service type *"changes data and not
+logic"*. Sessional and home-based bands are a sourced transcription against Schedule 2 under the
+existing `RATIO_TABLES_VERIFIED` discipline, not a redesign.
+
 ## See Also
 
+- [[eli-integration]] — the public schema, the event catalogue, and items 47 and 48
 - [[checklists]] — where the hazard assessment fields live, and the rest of the 1Place work
 - [[kiosk-and-pins]] — the door tablet, and what it can and cannot know
 - [[attendance-and-ratios]] — where the ratio bands are used
@@ -1412,4 +1479,4 @@ now rests on §14-3, it deserves the better instrument.
 - [[reporting]] — occupancy, attendance trends, and enquiry conversion
 - [[deployment]] — item 41's detail: the three CI jobs and what each one skips
 
-*Last updated: 2026-08-31*
+*Last updated: 2026-09-02*

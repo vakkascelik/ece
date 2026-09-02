@@ -7,6 +7,101 @@ itself, and from the wiki pages, which hold the durable *why*. This file is the 
 
 ---
 
+## 2026-09-02 — The ELI door is open for eight weeks, there is one place, and we do not qualify
+
+Went looking for how to build an ELI integration and answer the Ministry. Found that the question
+had changed underneath the repo.
+
+**Applications are open.** The Ministry's integration page was last updated on 1 September 2026 —
+the day before this session — and it now says *"We are now accepting applications from new early
+learning student management system (SMS) vendors to undergo an assessment for the 2026 tranche."*
+Closes **5pm, Friday 30 October 2026**. **One** commercial applicant will be supported, decided on
+a *"readiness"* assessment, with integration then taking 12–18 months.
+
+On 18 August the Ministry told us the review was still under way with no published end date, and
+this repo recorded that accurately and then stopped checking. Fifteen days. Nothing here was
+watching the page, and nothing here should have needed to be told.
+
+**The mandatory schema was public the whole time.** `https://eli.minedu.govt.nz/eli.xsd` — 200,
+`text/xml`, 23,665 bytes, no authentication. 26 root elements, nine event families, every
+enumeration and every length bound. Two weeks of this repo's writing treats the ELI message format
+as locked inside a password-protected attachment.
+
+And the attachments are **not on this machine.** Searched the whole user profile to six levels:
+nothing. They were decrypted and read on 18 August, the age-band rule came out of them and improved
+the product — and every fact about the *interface* evaporated when that session ended, because only
+what changed got written down, not what the documents said. That is now the opening argument of a
+new wiki page, because it is a more useful mistake than the one item 38 recorded.
+
+**One good thing fell out of it.** The schema restricts the RS7 period start to
+`[0-9]{4}-(02|06|10)-01`. `ministryFundingPeriods` returns February, June and October starts,
+written on 18 August from the document nobody can now open. **It is the first funding figure in this
+product with two independent sources**, and that is the pattern worth copying: a figure sourced once
+well decays when its source does.
+
+**Then measured the product against the Ministry's own mandatory list, and it does not pass.**
+
+Of eight required functionalities, three are absent: the annual ECE census, the RS7 return and the
+Waha Rumaki/PITA return. The census is the bad one — not incomplete, *absent*: eleven of the fifteen
+staff fields have **no column anywhere in 79 migrations**. No staff gender, no ethnicity, no role
+code, no paid/unpaid, no permanent/temporary, no full-time/part-time, no qualification of any kind,
+no registration number, no years of experience, no hours per year, no FTE. The word
+"qualification" appears in this repo in prose comments and one test fixture's job title. And the
+roster is one row per calendar date, so there is no weekday contract to derive contact hours from.
+
+RS7 wants **daily** counts by age band and funding type plus daily staff hours split by
+qualification; this product produces funded hours per child per period. Right arithmetic, wrong
+shape, and two of the eleven figures need the column that does not exist.
+
+Home-based and sessional are unmodelled, kindergarten is unmodelled, and `centres` has **no
+service-type column at all** — so the product cannot record the distinction the "50 services across
+the relevant licence types" capability requirement is stated across.
+
+Three assessed items fail on infrastructure rather than function, and they fail harder than any of
+that: `AST06` expects a minimum of three environments and there is **one, which is production**;
+`AST09` expects production data isolated and **local development runs against the production
+project**; and against `AST18`'s testing question the suites are genuinely strong — 607 RLS
+assertions, ~579 unit tests, 104 e2e checks, four drills — attached to a **CI that has never passed
+in 137 runs**, where four of the six gates have never executed at all.
+
+**So the form's first declaration cannot be signed.** *"Your SMS meets the SMS Development
+Criteria"* is a statement to the Crown, and it would be false. That is now item 48 on
+`unverified-claims` — the only entry on that page which is a measurement rather than a claim, and
+it is there because the failure mode is the page's own with a form in place of a screen: the
+Ministry prints its expectation beside every one of the 56 assessed questions, which makes the
+answer it wants very easy to write.
+
+**Found a contradiction in the Ministry's own material** that has to be resolved before anything is
+signed: the page says the SMS *"must already be developed to the ELI integration specifications"*,
+while the template asks for development-and-testing durations for all five interface components and
+says go-live waits until each has been built and tested. Those cannot both mean what they say. The
+likely reading is that functionality precedes application and interface work follows selection —
+but "likely reading" is the phrase that produced the 50-services error, where one page was read
+pessimistically for four months and the Ministry answered the other way in four days when somebody
+asked. So it is question 1 of a nine-question enquiry, and the form itself requires questions to be
+raised before submitting.
+
+**Also found, all of it disclosed rather than filed away:** the Supabase at-rest region is still
+undocumented, which `AST03` asks about directly and which our own privacy statement carries as a
+blank; encryption at rest is asserted nowhere; the audit trail has **no interface at all**, so
+"available to Ministry auditors" is true of the compliance binder and not of the audit log; the
+privacy statement tells families "176 automated assertions" when the suite is at 607; six accounts
+from an unrelated application still sit in the project's auth schema; the service key and the
+migration token have never been rotated; and the retention runbook documents a function call
+missing the argument that carries its owner check.
+
+**Wrote four things and corrected five.** New: `docs/eli-integration-2026-tranche.md` (the facts,
+the gap table, the verdict), `docs/eli-application-answers.md` (draft answers to all 56 assessed
+items, marked `[OWNER]`, `[BLOCKED — spec]`, `[GAP]` or `[FIX FIRST]`, with an eleven-item
+pre-submission list), `docs/eli-ministry-enquiry.md` (nine numbered standalone questions — shaped
+that way because the last enquiry bundled two questions into paragraphs and both came back
+unanswered or answered sideways), and `llm-wiki/wiki/eli-integration.md`. Corrected the "still
+closed" claim in `funding-and-billing`, the ELI line in the roadmap's *deliberately does not do*
+list, and the same stale assertion sitting in two code comments in `funding.ts` and `billing.ts`.
+
+**Nothing has been sent and nothing has been submitted.** The enquiry is a draft in the repo for
+the owner to send, and question 1 decides whether this tranche is ours at all.
+
 ## 2026-08-18 (sixth) — The absence rules, and the discovery that the funding export under-claims
 
 Third trip to a primary source today, and the third one to find something. Chapter 6 sections 6-4,

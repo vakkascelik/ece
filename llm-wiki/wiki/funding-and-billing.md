@@ -176,10 +176,12 @@ six are corrected in the same commit as this page. The wrong sentence stays reco
 rather than being quietly deleted, because it decided a roadmap item: the roadmap listed an
 ELI integration under *"what this plan deliberately does not do"* on exactly this reasoning.
 
-**Applications are still closed**, so nothing can be applied for today, and the practical
-position for this product is unchanged. What changed is the shape of the barrier: it is now a
-review with no published end date rather than a customer count that a two-centre pilot could
-never reach. When it lifts, what stands behind it is an approval process, not fifty customers.
+~~**Applications are still closed**, so nothing can be applied for today.~~ **SUPERSEDED
+2026-09-02 — the review concluded and applications are open. See *The review lifted* below.** The
+sentence stayed true for fifteen days. What it got right is the part that mattered: the barrier was
+*"a review with no published end date rather than a customer count that a two-centre pilot could
+never reach. When it lifts, what stands behind it is an approval process, not fifty customers."*
+It lifted, and that is exactly what stands behind it.
 
 One consequence now confirmed rather than inferred: the capability requirement covers
 **centre-based, home-based, sessional and all-day** licensed models, and `ratios.ts` models
@@ -333,6 +335,55 @@ Neither is Little Pearls, and this product models neither service type.
 particular system does any of it, and no reply to an email ever will. Nothing on this page or in
 the product may be worded to suggest the Ministry has approved, endorsed or reviewed this
 software, because it has not — it has described the conditions under which any system qualifies.
+
+### The review lifted, and the barrier is now one place and eight weeks
+
+**2026-09-02.** The Ministry's integration page, last updated 2026-09-01, no longer says the
+review is under way. It says: *"We are now accepting applications from new early learning student
+management system (SMS) vendors to undergo an assessment for the 2026 tranche."*
+
+- **Closes 5pm, Friday 30 October 2026.**
+- **One place.** *"We will support 1 successful commercial applicant for the 2026 tranche."*
+  Decided on *"readiness for integration"*. Integration then runs 12–18 months.
+- Two documents: a nine-field application form, and the ELI/NSI SMS Vendor Integration Application
+  template 4.0 — **56 assessed items**, nine information items, three data-source mapping tables
+  with no cell left blank, four data-flow diagrams *"specific to your SMS"*, and five development
+  duration estimates.
+- No fees, as confirmed on 2026-08-18.
+
+**Everything about the application lives in
+[eli-integration-2026-tranche](../../docs/eli-integration-2026-tranche.md), the answers in
+[eli-application-answers](../../docs/eli-application-answers.md), and what the interface actually
+requires in [[eli-integration]].** Three things belong on *this* page, because they are about
+funding rather than about applying.
+
+**One: the funding periods now have two independent sources.** The public ELI schema restricts
+`RS7PeriodStartDate` to the pattern `[0-9]{4}-(02|06|10)-01`, with a comment naming
+`yyyy-02-01`, `yyyy-06-01` and `yyyy-10-01`. `ministryFundingPeriods` returns exactly those, written
+2026-08-18 from a specification document that is no longer available on the development machine.
+A figure sourced once well is a figure that decays when its source does; this one no longer can.
+
+**Two: RS7 is a daily count series, and this page's whole framing is per-child-per-period.**
+`RS7DayCounts` wants, for each calendar date, the subsidy-funded under-two and two-and-over counts,
+the 20 Hours funded and 20-Hours-plus-ten counts, and staff hours split into qualified and
+not-qualified. `AdvanceMonthCounts` wants forward monthly counts of all-day, sessional and
+parent-led days. **None of the eleven is produced today**, and two of them need a staff
+qualification column that does not exist. The arithmetic this page describes is not wrong for
+RS7 — it is the wrong *shape*, and the transposition needs an age band evaluated as at each date,
+which `childFunding` already does correctly for the 20 Hours band.
+
+**Three: absence is an attendance event to ELI, which changes how the §6-4 gap looks.**
+`ChildAttendance` carries an `IsAbsent` boolean. So the interface does not have a separate absence
+collection — an absent booked day is an attendance event that says so. This product already records
+which enrolled days a child was expected and did not come (`bookings` with the `absent` status and
+its reason). What is still missing is the *entitlement* logic — the permanent/casual distinction,
+the three-week window, the frequent-absence check — not the observation. `FUNDING_RULES_VERIFIED`
+stays `false` and item 6 stays open, but the gap is narrower than this page has been describing it:
+the data is there and the rules are not.
+
+**And the caution from the section above applies with more force now, not less.** Applying is not
+approval. Nothing in this product or its documentation may imply the Ministry has approved,
+endorsed or reviewed this software, and that remains true on the day an application is submitted.
 
 ### The specification documents arrived, and nobody has read them
 

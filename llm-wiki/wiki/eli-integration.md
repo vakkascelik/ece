@@ -1,0 +1,192 @@
+# ELI integration
+
+What the Ministry's interface actually asks for, and the fifteen minutes that turned a
+password-protected dependency into a public URL.
+
+## Overview
+
+ELI is the Ministry of Education's Early Learning Information system. A licensed service must send
+it enrolment, attendance and absence data, the annual ECE census and the four-monthly RS7 return,
+either by hand through ELI Web or automatically from a Ministry-approved student management system.
+
+This product does the first thing — it produces figures a person keys into ELI Web — and
+[funding-and-billing](funding-and-billing.md) is where that position and its two Ministry
+confirmations live. This page is about the *second* thing: what integrating would actually mean,
+now that applications are open.
+
+The plan and the gap table are in
+[eli-integration-2026-tranche](../../docs/eli-integration-2026-tranche.md). This page is the
+knowledge, which outlives whether the application succeeds.
+
+## Key Points
+
+- **The mandatory ELI schema is served publicly** at `https://eli.minedu.govt.nz/eli.xsd`. Two
+  weeks were spent treating the message format as locked inside an attachment nobody can now open.
+- **26 root elements, and most of them come in threes** — an event, a `Delete` and an `Undelete`.
+  Correction by re-sending a superseding event is the interface's own model, which is the model
+  `attendance_events` already uses.
+- **`ChildAttendance` carries `IsAbsent`.** Absence is an attendance event to ELI, not a separate
+  collection — which reframes the §6-4 absence gap as *closer* to the interface than it looked.
+- **`RS7PeriodStartDate` is pattern-restricted to February, June and October.** It confirms
+  `ministryFundingPeriods` from a public source, independently of the email it was written from.
+- **The vendor mints the identifiers.** `EntityId` is a 1–255 character string the SMS assigns and
+  must manage for the life of the record. Our UUIDs fit; the lifecycle rules do not exist yet.
+- **The schema is a floor, not the specification.** The Ministry's own `AST40` asks about business
+  rules *"beyond what is defined in the XSD"*, and every code list is typed as an unenumerated
+  10-character `LookupCode`.
+
+## Details
+
+### The schema was public the whole time
+
+`https://eli.minedu.govt.nz/eli.xsd` — HTTP 200, `text/xml`, 23,665 bytes, no authentication,
+fetched 2026-09-02. A complete XML Schema: every element, every complex type, every enumeration,
+every length bound.
+
+The Ministry sent seven password-protected specification documents on 2026-08-18, one of which is
+*"ELI Event 10.0 — Appendix A… Mandatory XSD validation schema for every message sent to ELI"*.
+Whether the public URL is that same schema is **unconfirmed** and is question 5 of the
+[enquiry](../../docs/eli-ministry-enquiry.md). It may be an older or newer version; it carries no
+version stamp in the document itself.
+
+**But it is a citable public source, and the attachments are neither.** They are not on the machine
+this repo is developed on — searched to six levels across the whole user profile on 2026-09-02 and
+found nothing. They were decrypted and read on 2026-08-18, changed the product for the better, and
+left behind exactly two recorded facts: the 20 Hours caps with their age band, and the funding
+period boundaries.
+
+**That is the lesson worth keeping from this page.** The reading happened. The product improved.
+And the interface knowledge evaporated when the session ended, because nobody wrote down what the
+specification said — only what it changed. [unverified-claims](unverified-claims.md) item 38 spent
+eleven days asserting the documents were unread; the deeper problem was that being read left almost
+no trace. A specification you have read and not recorded is a specification you have not read.
+
+### The event catalogue
+
+Every event extends a common `Event` type carrying `ServiceId` (≤50 chars), `EventSource`
+(≤100) and `EventDateTime`. Nine families, and the `Delete`/`Undelete` siblings are how a
+mistake is withdrawn rather than edited.
+
+| Event | Payload | Where it would come from here |
+|---|---|---|
+| `ChildIdentity` | `NationalStudentNumber` (long), `OfficialFamilyName`, up to three official given names, `ChildBirthDate`, `GenderCode` | `children` — `moe_nsn`, `last_name`, `first_name`, `date_of_birth`, `gender`. **`gender` is a four-value CHECK, not a Ministry code**, and there is no second or third given name |
+| `ChildEnrolment` | `PrimaryResidentialAddress` (**required**), optional secondary, `EnrolmentStartDate`, `EnrolmentEndDate` | `enrolments` for the dates. **The address is a problem: this product holds addresses on `guardians`, not on the child or the enrolment**, and a child with two households has no primary/secondary marking |
+| `ChildDemographics` | `EthnicGroupCodes` (1–3, first mandatory), `IwiCodes` (0–3), `HomeLanguageCodes` (1–3, first mandatory) | `children.ethnicities` (free text, capped at 3 — the cap matches), `children.iwi` (**one only, where ELI takes three**), `children.first_language` (**one only, where ELI takes three**). All free text against code lists |
+| `ChildBookingSchedule` | `EffectiveDate` plus a list of `WeekdayCode`/`StartTime`/`EndTime` | **Nothing maps.** `bookings` is one row per calendar date with no pattern; `enrolments.days` is a weekday array with no times. This is the clearest structural gap in the child data |
+| `ChildAttendance` | `AttendanceTime` (a start/end `dateTime` pair), **`IsAbsent`**, optional attendance address | `attendance_events` — but as *paired* in/out rather than two rows, resolved per centre-day. `bookings.status = 'absent'` is the `IsAbsent` case. The optional address is for care delivered elsewhere |
+| `TwentyHoursSchedule` | `AttestationDate` and hours for each of the seven weekdays, 0–24 decimal | `enrolments.twenty_hours_ece` is a **boolean with no attestation date and no per-day hours**. `funded_hours_per_week` is a weekly total. Neither shape fits |
+| `ConfirmationData` | `ConfirmationDataEntityId`, `StartDate`, `EndDate` | **Unknown.** A date-range confirmation of something. It is tempting to map it to the §6-3 attendance verifications in `0061`, and that guess is not made here — it needs the Data Collection Specification |
+| `EceServiceClosure` | `ClosureStartDate`, `ClosureEndDate`, `ClosureReasonCode` | **Nothing.** No closure record exists. `booking_status` has a `closed` value per child-day, which is not the same statement |
+| `EceReturn` | `ServiceDetails` — five age-banded wait-time codes and one to five languages with usage percentages — plus a `StaffInformationList` | **Nothing.** See the census gap in the tranche document |
+| `RS7Return` | `PeriodStartDate`, `DailyData` (per-date counts), `AdvanceMonthCounts` (four months), `Declaration` | Funded hours exist; **none of the counts do**. No delete sibling — RS7 is corrected by resubmission |
+
+### What RS7 actually wants, and why the current shape does not fit
+
+`RS7DayCounts` is **per calendar date**: `SubsidyFundedChildUnderTwoCount`,
+`SubsidyFundedChildTwoAndOverCount`, `TwentyHoursFundedChildCount`,
+`TwentyHoursFundedChildPlusTenCount`, `StaffHourQualifiedCount`, `StaffHourNotQualifiedCount`.
+
+This product's funding page is organised the other way round — **per child, summed over a period**.
+Both are correct views of the same events, but the transposition is not free: the daily counts need
+an age band evaluated *as at that date* (which `funding.ts` already does correctly for the 20 Hours
+band, and `splitByAgeBand` already does for the live ratio), and the two staff-hour counts need a
+qualification the schema cannot express because the column does not exist.
+
+`AdvanceMonthCounts` wants `AllDayDaysCount`, `SessionalDaysCount` and `ParentLedDaysCount` for up
+to four months ahead, each 0–99. Those are **forward** counts of operating days by service model —
+the model this product does not record.
+
+The `Declaration` carries `RegisteredTeachersSalariesAttestation`,
+`RegisteredTeachersParityAttestation` and a `RegisteredTeachersParityAttestationCode` enumerated
+`NOSTEP`, `STEP1`, `STEP1-6`, `STEP1-11`, `STP1-11P`, `STP1-11F` — pay parity attestation steps.
+Nothing in this product knows what those mean, and **nothing here should guess**: an attestation is
+a legal statement by the service about teacher salaries, and
+[AGENTS.md §4.5](../../AGENTS.md) forbids inventing regulatory content exactly here.
+
+### The period boundaries now have two sources
+
+```xml
+<xs:simpleType name="RS7PeriodStartDate">
+  <xs:restriction base="xs:date">
+    <!--  Period start dates restricted to yyyy-02-01 or yyyy-06-01 or yyyy-10-01  -->
+    <xs:pattern value="[0-9]{4}-(02|06|10)-01"/>
+```
+
+`ministryFundingPeriods(year)` returns February–May, June–September, and October–January. Written
+2026-08-18 from a specification document that is no longer available, and confirmed 2026-09-02
+against a public schema.
+
+**It is the first funding figure in this product with two independent sources**, and it is worth
+naming as the pattern rather than the exception: the way to make a figure durable is not to source
+it once well, it is to source it twice from things that can be checked separately later.
+
+### Correction by supersession, which this product already does
+
+Most events have `Delete` and `Undelete` siblings, and `AST54` says of the teacher return: *"Users
+cannot update an event. If submitted in error, the user must resubmit. A new event needs to be
+created with a new ID."*
+
+That is the contract `attendance_events` has enforced since `0009`: no UPDATE policy, no DELETE
+policy, and a correction is a new row whose `corrects` points at what it supersedes — transitively,
+so a fixed sign-in time is not counted twice. The append-only ledgers in
+[tenancy-and-rls](tenancy-and-rls.md) withhold UPDATE and DELETE from `service_role` itself.
+
+**So the hardest thing about an event interface is the thing this product already got right**, for
+its own reasons, four phases before anyone read the schema. What is missing is not the model but
+the plumbing: an outbound queue, an `EntityId` lifecycle, and validation before transmission.
+
+### The queue already has a shape, and it should be reused
+
+`AST34` asks about transmission approach, event storage, triggers and schedule. `AST37` asks what
+happens to a `400 invalid_auth` — where the error is held, how long, who can see it, what the user
+sees, and how the offending events are resent.
+
+That is the [offline-outbox](offline-outbox.md) contract, pointed the other way. It already has
+the three things a Crown-facing queue needs and that are easy to get wrong:
+
+- **The key is generated once, at enqueue, never per attempt.** Regenerating on retry is the exact
+  bug idempotency exists to prevent, and it is the same bug as minting a new `EntityId` on a resend.
+- **Failures are classified three ways, not two** — permanent, transient, and *retry-later*. The
+  third exists because a device clock running fast is self-healing, and treating it as permanent
+  buried real sign-ins. An `invalid_auth` is transient; a schema violation is permanent; a Ministry
+  system under load is retry-later. A queue with two classes gets one of those wrong.
+- **A flush stops at the first transient failure** rather than grinding the whole queue against a
+  dead endpoint — which is also what *"whether the scheduled transmission can be adjusted to avoid
+  Ministry system overload"* is asking about.
+
+`classifyWriteFailure` is shared by both clients already. An ELI sender is a third caller of the
+same idea, not a new one — [AGENTS.md](../../AGENTS.md) rule 4.
+
+### What the schema does not give, and must not be guessed
+
+- **Transport.** No endpoints, no authentication, no Destination Header. That is InfoHub
+  Specification 1.3 and the ESL machine-credential flow, and `AST24` wants a process flow diagram
+  covering SMS → ESL → NSI → ELI.
+- **The NSI interface.** Search, allocate and create an NSN; what happens when the NSI's name
+  disagrees with the SMS's; the unverified-date-of-birth path. Four data-flow diagrams
+  (`AST27`–`AST30`), all needing NSI GINS 6.19 and its ECE appendix.
+- **Business rules beyond the XSD.** The Ministry says so itself in `AST40`. A schema-valid message
+  can still be wrong.
+- **Every code list.** `LookupCode` is `minLength 1, maxLength 10` and enumerates nothing. Ethnicity,
+  iwi, home language, qualification, staff role, gender, wait-time and closure-reason values are all
+  elsewhere. Some are published on Education Counts, which answered two fetch attempts on
+  2026-09-02 with a Cloudflare challenge and was not retrieved.
+- **The Waha Rumaki/PITA return.** Not in this schema at all — it is the separate Teacher Data
+  Collection, and whether it applies to a standard education and care service is
+  [enquiry](../../docs/eli-ministry-enquiry.md) question 7.
+
+Four enumerations *are* public here and are worth having written down, because they are small and
+they are the kind of thing that otherwise gets invented: `WeekdayCode` is `Mo Tu We Th Fr Sa Su`;
+staff `AgeBandCode` is twelve five-year bands from `UN_20` to `OV_70`;
+`LeavingTeacherDestinationCode` is `D01`–`D04` plus `UNK`; and the parity attestation codes are the
+six listed above. Nothing else in the schema is enumerated.
+
+## Related
+
+- [funding-and-billing](funding-and-billing.md) — the two Ministry replies, the four conditions, and
+  why this product produces a preparation export rather than a submission
+- [offline-outbox](offline-outbox.md) — the queue contract an ELI sender should reuse
+- [tenancy-and-rls](tenancy-and-rls.md) — the append-only ledgers that already model supersession
+- [unverified-claims](unverified-claims.md) — items 38, 47 and 48
+- [eli-integration-2026-tranche](../../docs/eli-integration-2026-tranche.md) — the application, the
+  deadline and the gap table

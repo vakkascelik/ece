@@ -529,12 +529,29 @@ registers are what they use every day.
 
 ## What this plan deliberately does not do
 
-- **An ELI integration.** Not possible today, because the Ministry is not accepting applications
-  — still under review as at 2026-08-18, with no published end date. **Corrected 2026-08-18:**
-  this line used to say "Foreclosed: approval requires supporting 50 services before you may
-  apply." That was wrong — the 50 is a capability requirement, not a customer count, confirmed
-  by the Ministry. "Foreclosed" was too strong and it was the word doing the work here. See
-  [funding-and-billing](../llm-wiki/wiki/funding-and-billing.md).
+- ~~**An ELI integration.** Not possible today, because the Ministry is not accepting
+  applications.~~ **CORRECTED 2026-09-02 — this is no longer true and the item has moved off this
+  list.** The review concluded. The Ministry's page, last updated 2026-09-01, opens a **2026
+  tranche closing 5pm Friday 30 October 2026**, for **one** commercial applicant, decided on a
+  readiness assessment. The plan, the gap table and the draft answers are in
+  [eli-integration-2026-tranche.md](eli-integration-2026-tranche.md).
+
+  **What that does to this roadmap is the part worth reading.** The Ministry's mandatory
+  functionality list includes the annual ECE census (staff details and qualifications), the RS7
+  return and the Waha Rumaki/PITA return, and requires support for home-based and sessional
+  services as well as centre-based and all-day. **Phase 10 — "staff as people rather than a
+  number" — is therefore no longer a commercial nice-to-have; it is an entry requirement**, and it
+  is the input to most of RS7 besides. The build order below already put 10 first for the
+  50-services goal, on entirely different reasoning. That reasoning turns out to have been right
+  for a second reason.
+
+  This line's own history is why it is struck through rather than deleted. **Corrected
+  2026-08-18:** it used to say "Foreclosed: approval requires supporting 50 services before you may
+  apply", which was wrong — the 50 is a capability requirement, not a customer count. "Foreclosed"
+  was the word doing the work. Two corrections in a fortnight, both in the direction of the barrier
+  being lower than this repo assumed. See
+  [funding-and-billing](../llm-wiki/wiki/funding-and-billing.md) and
+  [eli-integration](../llm-wiki/wiki/eli-integration.md).
 - **Stripe.** The reasoning in the wiki still holds while the price is NZ$0.
 - **A portfolio product.** See Tier 4.
 - **The National Immunisation Schedule, drill frequencies, sleep-check intervals, or funding

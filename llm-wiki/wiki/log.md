@@ -5,6 +5,56 @@ says so.*
 
 ---
 
+2026-09-02 — **ELI applications are open, the mandatory schema was on a public URL the whole time,
+and the product does not meet the entry criteria.** New: [[eli-integration]]. Extended:
+[[funding-and-billing]] (a new section, *The review lifted*), [[unverified-claims]] (items 47 and
+48, two new Key Points). Corrected: [[funding-and-billing]]'s *"applications are still closed"*,
+`docs/roadmap-phases-8-13.md`'s ELI entry under *what this plan deliberately does not do*, and the
+same stale assertion in two code comments — `packages/core/src/funding.ts` and
+`packages/api/src/billing.ts`. New in `docs/`: `eli-integration-2026-tranche.md`,
+`eli-application-answers.md`, `eli-ministry-enquiry.md`.
+
+**The fact.** The Ministry's integration page, last updated 2026-09-01, opens a **2026 tranche
+closing 5pm Friday 30 October 2026**, for **one** commercial applicant, decided on a *"readiness"*
+assessment, with integration then running 12–18 months. On 2026-08-18 the Ministry had said the
+review was *"currently still in the review phase"* with no end date, and this repo recorded that
+correctly and then stopped looking. **Fifteen days is how long a "no end date" held.** The lesson is
+not that the wiki was wrong — it was right on the day — but that a claim resting on somebody else's
+review has a shelf life, and nothing here was watching the page.
+
+**The unblock.** `https://eli.minedu.govt.nz/eli.xsd` is served publicly — HTTP 200, `text/xml`,
+23,665 bytes, no authentication. A complete schema: 26 root elements, nine event families, every
+enumeration and length bound. This repo had spent two weeks treating the ELI message format as
+knowledge locked inside a password-protected attachment, and **the seven specification documents
+are not on this machine at all** — searched the whole user profile to six levels. They were read on
+2026-08-18, changed the product for the better, and left behind exactly two recorded facts.
+*A specification you have read and not recorded is a specification you have not read*, and that is
+now the opening argument of [[eli-integration]].
+
+**The confirmation.** `RS7PeriodStartDate` is pattern-restricted to `[0-9]{4}-(02|06|10)-01`.
+`ministryFundingPeriods` returns February, June and October starts, written from the missing
+document. **The first funding figure in this product with two independent sources.**
+
+**The finding that matters most, and it is not good news.** Measured against the Ministry's eight
+mandatory functionalities: the annual ECE census, the RS7 return and the Waha Rumaki/PITA return
+are **absent** — the census not merely incomplete but eleven of fifteen fields having no column at
+all — home-based and sessional are unmodelled, and `centres` has no service-type column, so the
+product cannot record the distinction the 50-service capability requirement is stated *across*.
+Three assessed items fail on infrastructure besides: one environment where the Ministry expects
+three, local development against production, and CI that has never passed.
+
+So **the form's first declaration cannot be signed truthfully today**, and that is item 48 — the
+only entry on [[unverified-claims]] that is a measurement rather than a claim. It is recorded there
+rather than only in the plan because the failure mode is the page's own, pointed at a form instead
+of a screen: the Ministry prints its expectation beside every question, which makes the expected
+answer very easy to write.
+
+**One thing the reading changed rather than confirmed:** `ChildAttendance` carries an `IsAbsent`
+boolean, so absence is an attendance event to ELI rather than a separate collection. The §6-4 gap
+is therefore narrower than [[funding-and-billing]] had been describing it — `bookings` already
+records which enrolled days a child was expected and did not come. What is missing is the
+entitlement logic, not the observation.
+
 2026-09-01 — **The domain cutover broke the manager's webmail bookmark, and it took six days and a
 support ticket in Turkish to find out.** Extended: [[domain-cutover]] (a new Key Point on ports, and
 a Details section, "The ports nobody could audit").
