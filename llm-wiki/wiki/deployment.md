@@ -183,6 +183,19 @@ wrong and whoever owns it should fix or delete it. A third stale entry sits besi
 **The same call answered a question that had been open for a month**, which is the other half of
 why this is written down: the Supabase region. See the section below.
 
+**Closed 2026-09-03: `SUPABASE_DB_URL` is now set**, and all four commands report *"direct Postgres
+connection"* rather than the Management API — `migrate --status` (81 applied), `test:rls` (632/632),
+`drill:restore` (6/6) and `review:security` (16/16). The account-wide token stays as the documented
+fallback and is no longer the default path.
+
+Two details cost time and are now in [`.env.example`](../../.env.example) rather than only here.
+**The password must be percent-encoded**: it sits in the userinfo part of a URI, so a literal `:`
+in it splits the credentials at the wrong place and the driver reports *"password authentication
+failed"* — an error that sends you hunting for the wrong problem entirely. This project's password
+contains a `:`. And **use the session pooler on 5432, not the transaction pooler on 6543**, which
+is the port the API advertises: migrations and the RLS suite run multi-statement DDL and set
+session-scoped roles, and transaction pooling does not carry those between statements.
+
 ### Migrations are not in the deploy
 
 A build that migrated would run on every redeploy, in parallel across replicas, with no way to stop
