@@ -14,6 +14,37 @@ and [`../schema.md`](../schema.md) for the page template.
   this before trusting any figure in the product, and before flipping any flag to make a
   warning go away.
 
+## Where the work stands
+
+Added 2026-09-04, because this index sat three weeks out of date while four migrations landed, and
+an index that describes a product from a fortnight ago is worse than one that admits its own date.
+
+**The product is built and deployed.** Ten phases; the first tenant exists; every gate passes —
+typecheck, lint, 681 unit tests, `test:rls` at 656 assertions, `review:security` 16/16,
+`drill:restore` 6/6, `check:bundle` within budget, a 121-test end-to-end and accessibility suite.
+
+**What is in progress is ELI readiness**, against a Ministry tranche closing 5pm Friday 30 October
+2026 with **one** place, decided on a readiness assessment. The plan runs in phases and the
+completed ones are schema:
+
+| | |
+|---|---|
+| `0083` | `centres.licence_type` and `service_model` — what kind of service this is, which nothing recorded before |
+| `0084` | `enrolments.enrolment_type` and the 20 Hours attestation date and signatory |
+| `0085` | `child_booking_schedule` — the enrolment agreement as an effective-dated weekday pattern |
+
+**The honest summary is that the gap is not code quality.** Of the Ministry's eight mandatory
+functionalities, three are met, three partial and two absent, and the application's first
+declaration — *"your SMS meets the SMS Development Criteria"* — **cannot be signed truthfully
+today**. [[unverified-claims]] item 48 is that measurement and it is deliberately on the register
+rather than only in a plan.
+
+**Read [[funding-and-billing]] and [[unverified-claims]] items 52 to 55 before touching a funding
+figure.** Four days of reading the ECE Funding Handbook against this code found that the funded-hours
+number is derived from the wrong source for a permanently enrolled child, misses two whole
+entitlements, and — the one nobody had allowed for — can be **too high** for a child without a
+20 Hours attestation.
+
 ## Access and isolation
 
 - [[tenancy-and-rls]] — two boundaries in Postgres: centre against centre, and guardianship
@@ -74,7 +105,9 @@ and [`../schema.md`](../schema.md) for the page template.
   estimated, why bookings and attendance are separate, and what this product cannot submit
 - [[eli-integration]] — the Ministry's interface: the mandatory schema that turned out to be on a
   public URL, the nine event families and where each would come from, and why the hardest part of
-  an event interface is the part this product already got right
+  an event interface is the part this product already got right. Also the RS7 field count that
+  three documents quoted and nobody had sourced, and the rounding rule that means RS7 must **not**
+  reuse this product's own hours helper
 
 ## Offline and mobile
 
@@ -176,4 +209,4 @@ and [`../schema.md`](../schema.md) for the page template.
   app is ready to deploy. Its Stage 0 (ten conversations, zero code) was never run — recorded in
   [[unverified-claims]], and still the weakest evidence under any pricing decision.
 
-*Index last updated: 2026-08-14*
+*Index last updated: 2026-09-04*

@@ -80,6 +80,29 @@ mistake is withdrawn rather than edited.
 | `EceReturn` | `ServiceDetails` — five age-banded wait-time codes and one to five languages with usage percentages — plus a `StaffInformationList` | **Nothing.** See the census gap in the tranche document |
 | `RS7Return` | `PeriodStartDate`, `DailyData` (per-date counts), `AdvanceMonthCounts` (four months), `Declaration` | Funded hours exist; **none of the counts do**. No delete sibling — RS7 is corrected by resubmission |
 
+### What is built, as at 2026-09-04
+
+The catalogue above says what each event *would* come from. This says what has actually been done
+about it, because the two drifted apart within a day of the table being written.
+
+| Event | Then | Now |
+|---|---|---|
+| `ChildBookingSchedule` | Nothing mapped | **`0085`** — effective-dated weekday blocks with times, keyed on the child as the XSD is. Serialiser and screen outstanding |
+| `TwentyHoursSchedule` | A boolean with no attestation date | **`0084`** — `twenty_hours_attested_on` and `_by`, paired by a CHECK. Per-weekday hours still absent |
+| `EceReturn` (service details) | Nothing | **`0083`** — `licence_type` and `service_model`. The service-level wait times and languages are still absent |
+| `RS7Return` | "None of the counts" | Still none. But the **field count is now sourced** (six per-date, three advance-month over four months, six declaration) where three documents had said "eleven" and one "thirteen", and none had a source |
+| `ChildEnrolment` | Address is the blocker | Unchanged, and it is still the blocker: addresses live on `guardians` with no primary/secondary marking |
+| `EceServiceClosure` | Nothing | Still nothing — and it is now **load-bearing**, because §6-6 suspends the Three Week Rule while a service is closed for two weeks or more, so absence funding needs an operating calendar |
+
+**The most useful thing this page can tell a reader is not in that table.** It is that the ELI schema
+was used to design the census and got one thing wrong — item 50 — because a message format cannot
+tell you what a field *means*. `0085` is the first table built after asking the Handbook first, and
+the answer came out the opposite way to the staff side: the child booking schedule is a **contract**
+because §6-5 says *"enrolled to attend"* and §6-7 says *"match their enrolment agreement"*, whereas
+the staff contact hours may need **actuals** because §14-2 says *"actual contact hours"*.
+
+Two tables with the same shape and different meanings, and only the Handbook distinguishes them.
+
 ### What RS7 actually wants, and why the current shape does not fit
 
 `RS7DayCounts` is **per calendar date**: `SubsidyFundedChildUnderTwoCount`,

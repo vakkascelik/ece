@@ -3,6 +3,7 @@ import {
   childFunding,
   DEFAULT_CAPS,
   exportDisclaimer,
+  FUNDING_RULES,
   FUNDING_RULES_VERIFIED,
   ministryFundingPeriods,
   summariseFunding,
@@ -46,6 +47,52 @@ describe('these test the arithmetic, not the policy', () => {
     expect(DEFAULT_CAPS.basis).toMatch(/3 or older and under 6/);
   });
 
+  it('the roll-up flag is derived from the named rules, not asserted beside them', () => {
+    /*
+      `FUNDING_RULES_VERIFIED` was a hand-maintained `false` until 2026-09-04. One boolean had to
+      stand for "the caps are confirmed" AND "absence funding does not exist", which are different
+      statements, and a reader could take it either way — the same defect `ratios.ts` had a day
+      earlier with one flag covering one of four ratio schedules.
+
+      It is now `Object.values(FUNDING_RULES).every(r => r.verified)`. This test asserts that it is
+      genuinely a roll-up: false BECAUSE named rules are false. Hard-code it back to `false` and the
+      first assertion still passes, so the third is the one that matters — it fails the moment the
+      roll-up and the detail can disagree.
+    */
+    const unverified = Object.entries(FUNDING_RULES)
+      .filter(([, rule]) => !rule.verified)
+      .map(([name]) => name);
+
+    expect(FUNDING_RULES_VERIFIED).toBe(false);
+    expect(unverified.length).toBeGreaterThan(0);
+    expect(FUNDING_RULES_VERIFIED).toBe(Object.values(FUNDING_RULES).every((r) => r.verified));
+
+    // Every rule names where to go and re-read it. A flag with no source is a flag nobody can
+    // ever responsibly flip, which is how RATIO_TABLES_VERIFIED sat unexamined for weeks.
+    for (const [name, rule] of Object.entries(FUNDING_RULES)) {
+      expect(rule.source, name).toMatch(/§|Handbook|XSD|business rules|Specification/);
+      expect(rule.source.length, name).toBeGreaterThan(40);
+    }
+  });
+
+  it('the disclaimer names the over-statement, not only the two under-claims', () => {
+    /*
+      Added 2026-09-04 with the finding it describes. Every other sentence in that paragraph says
+      the figures run LOW — absence funding is not calculated, Plus 10 is not calculated — and one
+      case runs the other way: a child with no 20 Hours attestation is not capped at all, so a
+      nine-hour day appears in full where §9-2 allows six.
+
+      This is pinned separately from the direction assertion below it because the two must both
+      hold. A disclaimer that promised only under-claiming would be a false statement to somebody
+      about to key a figure into a Ministry system, and it is exactly the kind of comfortable
+      sentence that stops a person checking.
+    */
+    const text = exportDisclaimer(summariseFunding(period, []));
+    expect(text).toContain('runs the other way');
+    expect(text).toContain('six is the daily maximum');
+    expect(text).toContain('higher than what you can claim');
+  });
+
   it('reports the basis of the caps it was given, not the default basis', () => {
     /*
       The regression test for a bug that never fired, written because it never fired.
@@ -84,9 +131,28 @@ describe('the daily cap', () => {
     expect(r.cappedDates).toEqual(['2026-08-03']);
   });
 
-  it('does not cap a child without the attestation', () => {
-    // There is nothing to cap without the entitlement, and pretending otherwise would understate an
-    // ordinary fee-paying enrolment.
+  it('does not cap a child without the attestation — PINS A KNOWN DEFECT, see the comment', () => {
+    /*
+      ~~There is nothing to cap without the entitlement, and pretending otherwise would understate
+      an ordinary fee-paying enrolment.~~
+
+      **THAT REASONING IS WRONG and this test currently pins the wrong number — 2026-09-04.**
+
+      It conflates 20 Hours ECE with the **ECE Funding Subsidy**, which is a separate entitlement
+      claimable for a child with no 20 Hours attestation at all. Handbook §9-2: *"a maximum of 6
+      hours can be claimed each day for each licensed child-place"*, to 30 a week. So the expected
+      value below — eight funded hours from an eight-hour day — is two hours more than the service
+      can claim.
+
+      **Kept, failing nothing, and labelled.** Changing the expectation without changing
+      `childFunding` would make the suite red for a defect nobody had fixed; changing both belongs
+      in Phase 2b, where the caps model becomes two components and the change arrives with worked
+      examples and a `reconcile-funding` run. What must not happen is this test sitting here with a
+      comment that reads like an endorsement of the number.
+
+      When 2b lands: this expectation becomes 6, the title loses its warning, and the over-claim
+      sentence in `exportDisclaimer` comes out. See unverified-claims item 54.
+    */
     const r = childFunding({
       childId: 'c',
       events: fullDay(3),

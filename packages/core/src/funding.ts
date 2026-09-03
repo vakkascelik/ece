@@ -131,8 +131,96 @@
 import { ageInMonths } from './children';
 import { attendedHours, toHours, type HoursEvent } from './hours';
 
-/** Has anybody checked these against the Funding Handbook? Flipping this is a claim about policy. */
-export const FUNDING_RULES_VERIFIED = false;
+/**
+ * WHICH FUNDING RULES HAVE BEEN READ, ONE FLAG EACH.
+ *
+ * Replaces a single boolean on 2026-09-04, for the reason `ratios.ts` learned a day earlier:
+ * **one flag cannot say which rules were checked**, and a reader takes `false` as "nothing is
+ * verified" or `true` as "everything is". Neither was true here — the caps and the age band
+ * were confirmed on 2026-08-18 and absence funding has never been implemented, and one boolean
+ * had to represent both.
+ *
+ * Each entry carries the source that would have to be re-read to change it. Flipping one is a
+ * claim about policy, not about code, and belongs in a commit that records who read what.
+ */
+export const FUNDING_RULES = {
+  /** 6 hours a day. Confirmed twice, and the second reading changed the weekly figure — see below. */
+  dailyCap: {
+    verified: true,
+    source:
+      'Handbook §9-2, read 2026-09-04: "a maximum of 6 hours can be claimed each day for each licensed child-place". Also §9-3: "A maximum of 6 hours per day and 30 hours per week of funding can be claimed per child."',
+  },
+  /**
+   * The 20 Hours ECE component's weekly cap. Verified — this is the one number the old single
+   * flag was actually about.
+   */
+  twentyHoursWeeklyCap: {
+    verified: true,
+    source:
+      'Handbook §9-3, read 2026-09-04: "20 Hours ECE hours must only be claimed for up to 20 hours per week for each child."',
+  },
+  /** 3 or older and under 6. */
+  ageBand: {
+    verified: true,
+    source:
+      "Ministry ELI data collection business rules, 2026-08-18. Handbook ch. 4: eligibility begins on a child's third birthday.",
+  },
+  /** February, June and October. Two independent sources, which is rare here. */
+  periods: {
+    verified: true,
+    source:
+      'Ministry RS7 Return Specification 6.0, 2026-08-18, corroborated by the public XSD\'s RS7PeriodStartDate pattern "[0-9]{4}-(02|06|10)-01".',
+  },
+  /**
+   * **NOT IMPLEMENTED.** The subsidy runs to 30 hours a week and this file caps at 20.
+   */
+  subsidyWeeklyCapAndPlusTen: {
+    verified: false,
+    source:
+      'Handbook §9-2 ("to a maximum of 30 FCHs per child-place per week") and §9-3 ("The remainder (up to 30 hours) may be claimed as Plus 10 ECE hours"). Read 2026-09-04. DEFAULT_CAPS caps the week at 20, so hours 20-30 are discarded, and RS7 asks for the Plus 10 figure by name.',
+  },
+  /**
+   * **NOT IMPLEMENTED, and it is the source of the numbers rather than an adjustment to them.**
+   */
+  hoursSource: {
+    verified: false,
+    source:
+      'Handbook §9-2, read 2026-09-04: for a permanently enrolled child, "List the daily number of hours of ENROLMENT"; for a casual or conditional child, "list the number of hours each of these children ATTENDED". This file derives everything from attendance, which is right for the second and the wrong starting point for the first.',
+  },
+  /** **NOT IMPLEMENTED.** §§6-4 to 6-7, and §6-4 is not a per-child rule at all. */
+  absence: {
+    verified: false,
+    source:
+      'Handbook §6-4 to §6-7, read 2026-09-03/04. §9-2 confirms they are not optional for the return: services "must take into account the Three Week Rule and Frequent Absence Rule when completing your RS7 Return".',
+  },
+  /** **NOT IMPLEMENTED**, and only half-read: one worked example, not the rule behind it. */
+  sessionalRounding: {
+    verified: false,
+    source:
+      'Handbook §9-2, read 2026-09-04, gives an example and not a rule: "A session of 2.5 hours will receive funding for 3 hours." Whether that generalises to rounding every session up to the whole hour, or is specific to a session length, has NOT been established. `centres.service_model` (0083) now records which services are sessional, so the input exists.',
+  },
+  /**
+   * **NOT IMPLEMENTED.** And note what is being rounded: the daily TOTAL across children, not
+   * each child's hours.
+   */
+  rs7Rounding: {
+    verified: false,
+    source:
+      'Handbook §9-2, read 2026-09-04: "Round the total to the nearest whole number. Numbers ending in 0.5 or above should be rounded up to the next whole number. Numbers ending in 0.4 or below should be rounded down to the previous number." `toHours` floors, deliberately, and must not be reused for this — unverified-claims item 52.',
+  },
+} as const;
+
+/**
+ * Has EVERY funding rule been checked and implemented?
+ *
+ * Kept as a boolean because the screen and the export disclaimer branch on it, and because
+ * "some of it" is not a thing a manager keying a figure into ELI Web can act on. It is a
+ * roll-up of `FUNDING_RULES` rather than a separate assertion, so it cannot drift from the
+ * detail the way a hand-maintained boolean did.
+ */
+export const FUNDING_RULES_VERIFIED: boolean = Object.values(FUNDING_RULES).every(
+  (rule) => rule.verified,
+);
 
 export interface FundingCaps {
   /**
@@ -349,8 +437,28 @@ export function childFunding(input: {
   const ineligibleDates: string[] = [];
   const perDay = complete.map((day) => {
     const hours = toHours(day.minutes);
-    // Caps apply only to the 20 Hours ECE entitlement. Without the attestation there is nothing
-    // here to cap, and pretending otherwise would understate an ordinary fee-paying enrolment.
+    /*
+      ~~Caps apply only to the 20 Hours ECE entitlement. Without the attestation there is nothing
+      here to cap, and pretending otherwise would understate an ordinary fee-paying enrolment.~~
+
+      **THAT COMMENT IS WRONG, and it is wrong in the dangerous direction — corrected 2026-09-04,
+      behaviour deliberately left alone pending Phase 2b.**
+
+      It conflates two different pieces of Crown funding. 20 Hours ECE is one; the **ECE Funding
+      Subsidy** is another, and it is claimable for a child with no 20 Hours attestation at all —
+      an "ordinary fee-paying enrolment" still attracts it. Handbook §9-2, read 2026-09-04:
+      *"a maximum of 6 hours can be claimed each day for each licensed child-place"*, to a maximum
+      of 30 a week.
+
+      So an unattested child who attended nine hours yields **nine** funded hours here where six
+      are claimable. Not an understatement — an **over**-statement, on a figure a manager keys into
+      ELI Web, and the one direction `exportDisclaimer` has been promising cannot happen.
+
+      Left unchanged in this commit on purpose: capping here changes a money figure, and a money
+      figure changes with worked-example tests and a `reconcile-funding` run beside it, not as a
+      drive-by on a comment fix. `FUNDING_RULES.subsidyWeeklyCapAndPlusTen` is the flag, the
+      disclaimer now names both directions of error, and unverified-claims item 54 is the entry.
+    */
     if (!input.twentyHoursEce) return { date: day.date, hours };
     // Age as at the day being counted, never as at today. A child who turned three in March was
     // not entitled in February, and using today's age would rewrite that in the centre's favour —
@@ -539,6 +647,23 @@ export function exportDisclaimer(summary: FundingSummary): string {
     );
     parts.push(
       'They also cap 20 Hours ECE at 20 hours a week and calculate nothing beyond it. A service may claim subsidy funding for up to 30 hours a week per child, and that remaining entitlement — "Plus 10" — is not computed here either, so the shortfall is larger than the absent days alone.',
+    );
+    /*
+      AND THE ERROR IS NOT ALWAYS IN THE CENTRE'S FAVOUR, which every other sentence in this
+      paragraph has implied since it was written. Added 2026-09-04.
+
+      A child with no 20 Hours attestation is not capped here at all — see the long comment in
+      `childFunding` — so a nine-hour day appears as nine funded hours where §9-2 allows six. That
+      is an over-statement, and a manager who has been told the figures only ever run low will not
+      check it.
+
+      Named separately from the two under-claims rather than folded in with them, because the
+      action is different: an under-claim means "you may be owed more", which is a reason to
+      finish the work; an over-statement means "do not key this in as it stands", which is a
+      reason to stop.
+    */
+    parts.push(
+      'And one error runs the other way: a child without a 20 Hours ECE attestation is not capped here, so a day longer than six hours appears in full even though six is the daily maximum. For those children the figure may be higher than what you can claim, so check any long day before keying these in.',
     );
   }
   return parts.join(' ');

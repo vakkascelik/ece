@@ -1876,11 +1876,23 @@ verified for one service type and applied to all of them: right helper, wrong co
 other. A shared helper with a `mode` parameter is the tempting middle path and is worse than both —
 it puts the choice at the call site where it will be got wrong once, silently, on a Crown return.
 
-**Not yet checked**, and it belongs to whoever transcribes §9-2 and §9-3: whether the *child* hour
-counts round the same way as the staff hour count. §9-4 states the rule for staff hours
-specifically. Assuming it generalises is exactly the move this page exists to prevent — the
-[[eli-integration]] caveat applies, *"the XSD bounds what a field may contain; only the Handbook
-says what it means"*.
+~~**Not yet checked**, and it belongs to whoever transcribes §9-2 and §9-3: whether the *child*
+hour counts round the same way as the staff hour count.~~
+
+**CHECKED 2026-09-04, and they do — §9-2, verbatim:** *"Round the total to the nearest whole
+number. Numbers ending in 0.5 or above should be rounded up to the next whole number. Numbers
+ending in 0.4 or below should be rounded down to the previous number."*
+
+**And it rounds something different from what I assumed.** That instruction is step 5 of the
+under-2 calculation, and step 4 is *"Add together the claimable hours for each day"* — so what gets
+rounded is the **daily total across children**, not each child's hours. Rounding per child and then
+summing gives a different answer, and it is the answer a per-child calculation would naturally
+produce. `RS7DayCount` being an integer 0-9999 is consistent with a rounded total, not with a sum of
+rounded parts.
+
+So item 52 now has two parts: RS7 must not reuse `toHours` (which floors), **and** it must round at
+the aggregate rather than at the child. Both are properties of an `rs7.ts` that does not exist yet,
+which is why this stays open.
 
 ### 53. Two places now record which days a child attends — **OPEN, added 2026-09-04, by construction rather than by accident**
 
@@ -1908,6 +1920,56 @@ and drop the column.
 
 **Do not close it by deleting `enrolments.days` alone.** It is what two screens render today, and
 the enrolment form writes it.
+
+### 54. The funded-hours figure over-states for a child with no 20 Hours attestation — **OPEN, added 2026-09-04, and it is the one error that runs the wrong way**
+
+| | |
+|---|---|
+| **What is asserted** | On `/funding` and in its CSV: that the funded-hours column is what the service may claim |
+| **Where** | `childFunding` in `packages/core/src/funding.ts` — `if (!input.twentyHoursEce) return { date: day.date, hours };`, and the weekly branch immediately below it |
+| **What it does** | For a child **without** a 20 Hours ECE attestation, applies **no cap at all**. A nine-hour day contributes nine funded hours |
+| **What the Handbook says** | §9-2, read 2026-09-04: *"a maximum of 6 hours can be claimed each day for each licensed child-place"*, to *"a maximum of 30 FCHs per child-place per week"*. Those are **ECE Funding Subsidy** limits and they do not depend on a 20 Hours attestation |
+| **Why the code did it** | A comment that read *"there is nothing to cap without the entitlement, and pretending otherwise would understate an ordinary fee-paying enrolment"*. It conflates two separate pieces of Crown funding: 20 Hours ECE, and the ECE Funding Subsidy that an ordinary fee-paying enrolment still attracts |
+| **Size** | Up to 3 hours a day per child on a nine-hour day, and unbounded over a week — a child attending 40 hours shows 40 where 30 is the maximum |
+
+**Why this one is worse than the two under-claims beside it.** Every other known gap in this
+file — absence funding, Plus 10 — makes the figure too **low**, and `exportDisclaimer` has said so
+in as many words since it was written: *"the total may be lower than what you are entitled to
+claim."* A manager who has been told the numbers only ever run low has been given a reason **not to
+check the long days**. That sentence was true about the gaps somebody had thought about and false
+about this one.
+
+**Fixed in the disclaimer today, not in the arithmetic**, and the split is deliberate. The
+disclaimer now names both directions, the test that pins the eight-hour expectation carries a
+comment saying it pins a defect, and `FUNDING_RULES.subsidyWeeklyCapAndPlusTen` is `false`. Changing
+the number is Phase 2b, because a money figure changes with worked examples and a
+`scripts/reconcile-funding.ts` run beside it — not as a drive-by while correcting a comment.
+
+**What Phase 2b has to get right, and it is more than adding a cap:** §9-2 calculates the
+2-and-over subsidy *"less any hours for children claimed as 20 Hours ECE"*, so the four RS7 child
+figures are **mutually exclusive buckets** rather than overlapping views of the same hours. A cap
+bolted onto the current single `fundedHours` number cannot express that. The caps become 6/day and
+30/week for every child, with a 20/week sub-cap on the 20 Hours component and the remainder to 30
+as Plus 10.
+
+### 55. Funded hours are derived from attendance, and for a permanently enrolled child the Handbook starts from enrolment — **OPEN, added 2026-09-04**
+
+| | |
+|---|---|
+| **What is asserted** | By this whole phase, including the sentence at the top of [[funding-and-billing]]: *"A funding claim comes from `attendance_events`: the Crown pays for hours actually delivered, and a claim built on what was planned would be a claim for hours nobody observed"* |
+| **What §9-2 says** | Read 2026-09-04. Step 1: *"List the daily number of hours of **enrolment** for each permanently enrolled child under 2 years of age."* Step 2, separately: *"If any children under 2 years of age attended the service on a casual or conditional basis, list the number of hours each of these children **attended**."* |
+| **So the source differs by enrolment type** | Enrolment hours for a permanent child; attended hours for a casual or conditional one. This product uses attended hours for both |
+| **Why it is not simply "attendance plus absence funding"** | Those arrive at the same number when a child attends exactly as enrolled, but the derivation is different — and the derivation is what an auditor follows. Starting from the agreement and deducting unclaimable absences is not the same computation as starting from attendance and adding claimable ones, and the two diverge the moment a child attends *more* than the agreement |
+
+**This is why `0085` was built**, and it is a larger finding than the absence rules it was built for.
+The product had no record of enrolment hours at all until `child_booking_schedule`, so it could not
+have started from the agreement even if somebody had read §9-2. Now it can — but the table is empty,
+so nothing changes until a screen fills it.
+
+**The sentence in [[funding-and-billing]] is not wrong so much as half-right**, and it is corrected
+there rather than deleted, because the reasoning behind it is sound: a claim for hours nobody
+observed *is* the hazard, and the Handbook's answer is that for a permanently enrolled child the
+observation that matters is the **agreement plus the absence rules**, not the turnstile.
 
 ## See Also
 

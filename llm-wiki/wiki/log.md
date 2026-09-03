@@ -5,6 +5,44 @@ says so.*
 
 ---
 
+2026-09-04 (second) — **Phase 2a: reading §9-2 and §9-3 properly found that the funded-hours figure
+can be too HIGH, which every sentence in this repo had said was impossible.** New:
+[[unverified-claims]] items 54 and 55. Corrected: item 52's open question (now answered),
+[[funding-and-billing]]'s opening premise, and a comment in `funding.ts` that stated the wrong
+reasoning confidently.
+
+No behaviour changed. This is the transcription phase, and it turned up two things bigger than the
+gap it set out to document.
+
+**One: the figure over-states for a child with no 20 Hours attestation.** `childFunding` applies no
+cap at all in that branch, on the reasoning — written in a comment — that *"there is nothing to cap
+without the entitlement"*. That conflates 20 Hours ECE with the **ECE Funding Subsidy**, which §9-2
+caps at *"a maximum of 6 hours … each day for each licensed child-place"* and 30 a week regardless
+of any attestation. A nine-hour day shows nine funded hours where six are claimable.
+
+Every other known gap here makes the figure too **low**, and `exportDisclaimer` has promised exactly
+that in as many words. **A manager told the numbers only ever run low has been given a reason not to
+check the long days.** The disclaimer now names both directions; the arithmetic is Phase 2b, because
+a money figure changes with worked examples and a `reconcile-funding` run beside it. Item 54.
+
+**Two: for a permanently enrolled child the Handbook does not start from attendance.** §9-2 step 1
+is *"List the daily number of hours of **enrolment**"*; attended hours appear only in the separate
+step for casual and conditional children. So the source depends on the enrolment type, and this
+product uses attendance for both. That is not the absence rules in different clothing — starting
+from the agreement and deducting unclaimable absences diverges from starting at attendance and
+adding claimable ones the moment a child attends *more* than their agreement. Item 55, and it is why
+`0085` mattered more than the rule it was built for.
+
+**`FUNDING_RULES_VERIFIED` is now a roll-up of eight named flags**, each carrying the source that
+would have to be re-read to change it — the `ratios.ts` lesson from a day earlier, where one boolean
+covered one of four ratio schedules. A test asserts it is genuinely derived rather than asserted
+beside the detail, so the two cannot drift.
+
+**And §9-2 answered item 52's open question**: the child hour counts round *"to the nearest whole
+number"* like the staff ones — but the instruction rounds the **daily total across children**, not
+each child's hours. Rounding per child and summing gives a different answer, and it is the answer a
+per-child calculation would naturally produce.
+
 2026-09-04 — **Phase 1c: the enrolment agreement exists, and the contract-versus-actuals question
 was asked *before* the shape was cloned this time.** New: [[unverified-claims]] item 53 (two places
 now record which days a child attends). Corrected: [[eli-integration]]'s event catalogue, whose

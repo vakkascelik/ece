@@ -7,6 +7,69 @@ itself, and from the wiki pages, which hold the durable *why*. This file is the 
 
 ---
 
+## 2026-09-04 (second) — Phase 2a: the figure can be too high, which nothing here had allowed for
+
+Phase 2 starts with transcription, and my own repeated lesson said not to build on the "Plus 10"
+wording I had quoted earlier — that came from a multi-page search summary rather than from a page.
+So I read §9-2 and §9-3 directly, and both were worth reading.
+
+**The verbatim caps.** §9-3: *"A maximum of 6 hours per day and 30 hours per week of funding can be
+claimed per child"*, *"20 Hours ECE hours must only be claimed for up to 20 hours per week for each
+child"*, *"The remainder (up to 30 hours) may be claimed as Plus 10 ECE hours."* §9-2: *"a maximum
+of 6 hours can be claimed each day for each licensed child-place"*. The unit differs between the two
+sections — per child in one, per licensed child-place in the other — and that is recorded rather
+than reconciled.
+
+**Then the finding I was not looking for.** Our caps are gated on the 20 Hours attestation: an
+unattested child is capped at nothing. The comment justifying it said *"there is nothing to cap
+without the entitlement, and pretending otherwise would understate an ordinary fee-paying
+enrolment"* — which conflates 20 Hours ECE with the ECE Funding Subsidy. The subsidy is claimable
+for an unattested child, at 6 a day and 30 a week. So a nine-hour day shows **nine** funded hours
+where six are claimable.
+
+**That matters more than its size**, because every other gap in this file runs the other way and the
+disclaimer says so: *"the total may be lower than what you are entitled to claim."* True about the
+gaps somebody had thought about, false about this one — and a manager told the figures only ever run
+low has been handed a reason not to check the long days. The disclaimer now names both directions,
+with the over-statement in its own sentence because the action differs: an under-claim means *you may
+be owed more*, an over-statement means *do not key this in as it stands*.
+
+**And a second finding that reframes the phase.** §9-2 step 1 for the subsidy is *"List the daily
+number of hours of **enrolment** for each permanently enrolled child"*. Attended hours appear only in
+the separate step for casual and conditional children. So the source of the number depends on the
+enrolment type, and this product derives everything from attendance. That is not the absence rules
+wearing a different hat: starting from the agreement and deducting unclaimable absences diverges from
+starting at attendance and adding claimable ones the moment a child attends *more* than their
+agreement. It also means `0085` was more load-bearing than the rule it was built for — until
+yesterday the product had no record of enrolment hours at all.
+
+**What I did not do:** change any arithmetic. Both findings are money, and a money figure changes
+with worked-example tests and a `scripts/reconcile-funding.ts` run beside it, not as a drive-by while
+correcting a comment. So Phase 2a is the flags, the citations, the corrected comments and two new
+register entries; Phase 2b is the caps model.
+
+**One thing I nearly left standing as an endorsement.** There is an existing test, *"does not cap a
+child without the attestation"*, asserting `fundedHours` is 8 — with a comment repeating the wrong
+reasoning. Changing the expectation without changing `childFunding` would turn the suite red for an
+unfixed defect, so it stays; but its title now warns that it pins a known defect, and its comment
+says what the right number is and when it changes. **A test that pins wrong behaviour with a
+confident comment is worse than no test**, because the next reader takes it as the decision rather
+than the symptom.
+
+**`FUNDING_RULES_VERIFIED` is now derived.** Eight named flags, each with the source that would have
+to be re-read to flip it, and the boolean is `every(r => r.verified)` — the `ratios.ts` lesson from
+the previous day, where one flag stood for one of four ratio schedules. A test asserts the roll-up
+is genuinely derived, so it cannot drift from the detail the way a hand-maintained boolean did.
+
+**Item 52's open question is closed** by the same reading: child hours round *"to the nearest whole
+number"* like staff hours — but §9-2 rounds the **daily total across children**, not each child's
+hours, which is not what a per-child calculation would naturally produce.
+
+**And the heredoc hazard bit for the third time today** while writing these entries, which is the
+last time it will: `CLAUDE.md` says to prefer the editing tools for anything long, and I had been
+piping long Python through `bash <<'EOF'` because it batches nicely. It broke on an unbalanced quote
+bash could see and Python could not. This script was written to a file instead.
+
 ## 2026-09-04 — Phase 1c: the enrolment agreement, and asking the contract question before cloning the shape
 
 `0085` adds `child_booking_schedule` — effective-dated ISO-weekday blocks with times, more than one

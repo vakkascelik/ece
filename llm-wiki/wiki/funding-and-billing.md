@@ -11,6 +11,23 @@ two different sources, and keeping them apart is the point of the phase.
 A **funding claim** comes from `attendance_events`: the Crown pays for hours actually delivered, and
 a claim built on what was *planned* would be a claim for hours nobody observed.
 
+> **HALF-RIGHT, and corrected 2026-09-04 rather than deleted, because the reasoning behind it is
+> sound.** §9-2 of the Funding Handbook, read that day, calculates the subsidy from **enrolment**
+> hours for a permanently enrolled child — step 1 is *"List the daily number of hours of enrolment
+> for each permanently enrolled child"* — and from **attended** hours only for a casual or
+> conditional one: *"list the number of hours each of these children attended"*.
+>
+> So the source depends on the enrolment type, and this product uses attendance for both. The
+> hazard this sentence names is real — a claim for hours nobody observed is exactly what §6-4
+> forbids for a casual child — but the Handbook's answer for a *permanent* child is that the
+> observation which matters is **the agreement plus the absence rules**, not the turnstile.
+>
+> That is not "attendance plus absence funding" wearing a different hat. Starting from the
+> agreement and deducting unclaimable absences is a different computation from starting at
+> attendance and adding claimable ones, and the two diverge the moment a child attends *more* than
+> their agreement. [[unverified-claims]] item 55 is the entry; `0085` is why the product can now
+> hold the agreement at all.
+
 An **invoice** comes from bookings: a family is charged for the days they held, because a centre
 cannot resell a Tuesday somebody did not turn up for.
 
