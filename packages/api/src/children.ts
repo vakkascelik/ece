@@ -983,13 +983,26 @@ export async function addCustodyArrangement(
   if (error) throw new Error(`addCustodyArrangement: ${error.message}`);
 }
 
-/** Supersede rather than edit, so the arrangement in force on a given date stays answerable. */
+/**
+ * Supersede rather than edit, so the arrangement in force on a given date stays answerable.
+ *
+ * Zero-row check (item 49, 2026-09-03). A custody arrangement reported as superseded
+ * while it still stands is the one silent refusal on this page with a safety consequence
+ * rather than a bookkeeping one: staff read this field to know who a child may leave
+ * with. Named by id, so nothing legitimately matches nothing.
+ */
 export async function supersedeCustodyArrangement(db: Db, id: string): Promise<void> {
-  const { error } = await db
+  const { data, error } = await db
     .from('custody_arrangements')
     .update({ superseded_at: new Date().toISOString() })
-    .eq('id', id);
+    .eq('id', id)
+    .select('id');
   if (error) throw new Error(`supersedeCustodyArrangement: ${error.message}`);
+  if (!data || data.length === 0) {
+    throw new Error(
+      'supersedeCustodyArrangement: nothing was superseded. Either the id is wrong or the policy refused it.',
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------

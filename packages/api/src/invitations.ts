@@ -93,9 +93,18 @@ export async function createInvitation(
 ): Promise<void> {
   const email = input.email.trim().toLowerCase();
 
-  // Withdraw any live invitation for this mailbox first, so the partial unique
-  // index does not reject the new one. Revoked rather than deleted: who invited
-  // whom, and when, is part of how somebody got access to children's records.
+  /*
+   * Withdraw any live invitation for this mailbox first, so the partial unique
+   * index does not reject the new one. Revoked rather than deleted: who invited
+   * whom, and when, is part of how somebody got access to children's records.
+   *
+   * DELIBERATELY NO ZERO-ROW CHECK, unlike `revokeInvitation` below. This statement
+   * matches nothing in the ordinary case — a mailbox with no live invitation, which is
+   * most of them — so a check here would turn the common path into an error. Named
+   * because item 49 lists 34 unguarded writes and this is one of the ones that must
+   * stay that way; it is the reason that item is a per-call-site judgement rather than
+   * a codemod. See [[conventions]], *A write that does not count its rows*.
+   */
   const { error: revokeError } = await db
     .from('invitations')
     .update({ revoked_at: new Date().toISOString() })
@@ -116,12 +125,26 @@ export async function createInvitation(
   if (error) throw new Error(`createInvitation: ${error.message}`);
 }
 
+/**
+ * Withdraw one named invitation.
+ *
+ * Zero-row check, unlike the superseding update above and for the opposite reason: this
+ * one names a single invitation by id, so nothing legitimately matches nothing. A
+ * manager told "withdrawn" about a link that still works is how somebody accepts an
+ * invitation the centre believes it cancelled.
+ */
 export async function revokeInvitation(db: Db, invitationId: string): Promise<void> {
-  const { error } = await db
+  const { data, error } = await db
     .from('invitations')
     .update({ revoked_at: new Date().toISOString() })
-    .eq('id', invitationId);
+    .eq('id', invitationId)
+    .select('id');
   if (error) throw new Error(`revokeInvitation: ${error.message}`);
+  if (!data || data.length === 0) {
+    throw new Error(
+      'revokeInvitation: nothing was revoked. Either the invitation id is wrong or the policy refused it.',
+    );
+  }
 }
 
 export type InvitationStatus = 'live' | 'unknown' | 'expired' | 'used' | 'revoked';

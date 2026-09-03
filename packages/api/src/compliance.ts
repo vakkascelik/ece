@@ -145,22 +145,51 @@ export async function renewStaffRecord(
   await archiveStaffRecord(db, previous.id);
 }
 
-/** Records the fact that somebody sighted the original, after the record was created. */
+/**
+ * Records the fact that somebody sighted the original, after the record was created.
+ *
+ * Zero-row check (item 49, 2026-09-03), and this is the one on this page where a silent
+ * refusal is worst. *"A named person recorded that they saw this document"* is the whole
+ * evidentiary value of the field — the binder prints it as exactly that claim — so
+ * reporting it saved when the write was refused puts an assertion in front of a reviewer
+ * that nobody made. Nothing legitimately matches nothing: the record is named by id, and
+ * an UPDATE matches whether or not the value changes.
+ */
 export async function markSighted(db: Db, recordId: string): Promise<void> {
   const { data: auth } = await db.auth.getUser();
-  const { error } = await db
+  const { data, error } = await db
     .from('staff_records')
     .update({ sighted_by: auth.user?.id ?? null, sighted_at: new Date().toISOString() })
-    .eq('id', recordId);
+    .eq('id', recordId)
+    .select('id');
   if (error) throw new Error(`markSighted: ${error.message}`);
+  if (!data || data.length === 0) {
+    throw new Error(
+      'markSighted: nothing was updated. Either the record id is wrong or the policy refused it.',
+    );
+  }
 }
 
+/**
+ * Archive rather than delete — a lapsed certificate quietly removed is
+ * indistinguishable from one that never existed.
+ *
+ * Zero-row check, and note it makes `replaceStaffRecord` above louder rather than
+ * riskier: that function inserts the replacement and then archives the previous one, so
+ * a refusal here already left a half-done replacement. Now it says so.
+ */
 export async function archiveStaffRecord(db: Db, recordId: string): Promise<void> {
-  const { error } = await db
+  const { data, error } = await db
     .from('staff_records')
     .update({ archived_at: new Date().toISOString() })
-    .eq('id', recordId);
+    .eq('id', recordId)
+    .select('id');
   if (error) throw new Error(`archiveStaffRecord: ${error.message}`);
+  if (!data || data.length === 0) {
+    throw new Error(
+      'archiveStaffRecord: nothing was archived. Either the record id is wrong or the policy refused it.',
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -373,11 +402,18 @@ export async function addEvidence(
 }
 
 export async function archiveEvidence(db: Db, evidenceId: string): Promise<void> {
-  const { error } = await db
+  // Zero-row check, item 49. Named by id, so nothing legitimately matches nothing.
+  const { data, error } = await db
     .from('evidence')
     .update({ archived_at: new Date().toISOString() })
-    .eq('id', evidenceId);
+    .eq('id', evidenceId)
+    .select('id');
   if (error) throw new Error(`archiveEvidence: ${error.message}`);
+  if (!data || data.length === 0) {
+    throw new Error(
+      'archiveEvidence: nothing was archived. Either the evidence id is wrong or the policy refused it.',
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------

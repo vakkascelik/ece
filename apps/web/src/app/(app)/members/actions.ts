@@ -10,6 +10,7 @@ import {
   setMemberRole,
 } from '@ece/api';
 import { MEMBER_ROLES, type MemberRole } from '@ece/core';
+import { actionError } from '@/lib/actionError';
 import { requireCapability } from '@/lib/auth';
 import { hashInviteToken, inviteExpiry, newInviteToken } from '@/lib/inviteToken';
 import { publicAppBase } from '@/lib/origin';
@@ -17,6 +18,17 @@ import { serverDb } from '@/lib/supabase';
 
 /** The link is returned once and never stored — see `invite` below. */
 export type InviteResult = { error: string } | { ok: true; email: string; link: string };
+
+/**
+ * The shape every action on this page returns.
+ *
+ * Declared rather than inferred as of 2026-09-03. `changeRole` and `revoke` grew a
+ * `catch` when their API writers gained zero-row checks, and the inferred union then
+ * stopped assigning to the loose `{ error?: string; ok?: boolean }` the row component
+ * had been using — a typecheck failure on the *client*, two files from the change.
+ * Naming the contract puts the error where the contract is.
+ */
+export type Result = { error: string } | { ok: true };
 
 /**
  * Roster changes.
@@ -34,7 +46,7 @@ async function ownMembership(centreId: string, membershipId: string) {
   return members.find((m) => m.id === membershipId) ?? null;
 }
 
-export async function changeRole(_prev: unknown, form: FormData) {
+export async function changeRole(_prev: unknown, form: FormData): Promise<Result> {
   const ctx = await requireCapability('manageMembers');
   const membershipId = String(form.get('membershipId') ?? '');
   const role = String(form.get('role') ?? '') as MemberRole;
@@ -55,12 +67,25 @@ export async function changeRole(_prev: unknown, form: FormData) {
   }
 
   const db = await serverDb();
-  await setMemberRole(db, membershipId, role);
+  /*
+   * Wrapped as of 2026-09-03, because `setMemberRole` can now throw.
+   *
+   * It gained a zero-row check (item 49): under RLS a refused UPDATE matches no rows
+   * and PostgREST reports success, so until now this action could report a role change
+   * that had not happened. Adding the check without this `try` would have swapped a
+   * silent lie for an unhandled server-action error — the guard has to arrive with
+   * somewhere for its failure to go.
+   */
+  try {
+    await setMemberRole(db, membershipId, role);
+  } catch (e) {
+    return actionError(e, 'members.setRole');
+  }
   revalidatePath('/members');
   return { ok: true };
 }
 
-export async function revoke(_prev: unknown, form: FormData) {
+export async function revoke(_prev: unknown, form: FormData): Promise<Result> {
   const ctx = await requireCapability('manageMembers');
   const membershipId = String(form.get('membershipId') ?? '');
 
@@ -77,7 +102,12 @@ export async function revoke(_prev: unknown, form: FormData) {
   }
 
   const db = await serverDb();
-  await revokeMember(db, membershipId);
+  // Same reasoning as `setRole` above: the zero-row check needs a handler.
+  try {
+    await revokeMember(db, membershipId);
+  } catch (e) {
+    return actionError(e, 'members.revoke');
+  }
   revalidatePath('/members');
   return { ok: true };
 }
@@ -144,7 +174,7 @@ export async function invite(_prev: unknown, form: FormData): Promise<InviteResu
   return { ok: true, email, link: `${await publicAppBase()}/invite/${token}` };
 }
 
-export async function withdrawInvite(_prev: unknown, form: FormData) {
+export async function withdrawInvite(_prev: unknown, form: FormData): Promise<Result> {
   await requireCapability('manageMembers');
   const id = String(form.get('invitationId') ?? '');
   if (!id) return { error: 'Missing invitation.' };

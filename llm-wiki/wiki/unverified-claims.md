@@ -1564,7 +1564,7 @@ existing `RATIO_TABLES_VERIFIED` discipline, not a redesign.
 | | |
 |---|---|
 | **What is asserted** | Implicitly, by every screen in the product: that when a save reports success, something was saved |
-| **Where** | `packages/api`. Measured 2026-09-03 by scanning every write statement in the package: **20 guarded, 34 unguarded** |
+| **Where** | `packages/api`. Measured 2026-09-03 by scanning every write statement in the package: **20 guarded, 34 unguarded**. **Now 27 / 27** — the seven access-control and evidence writes below were done the same day |
 | **The mechanism** | A PostgREST `UPDATE`/`DELETE` matching no rows returns **`error: null`**, and under RLS "matched no rows" is precisely what a refusal looks like. A writer inspecting only `error` therefore returns normally, the action calls `revalidatePath`, and the screen says *"Saved."* See [[conventions]], *A write that does not count its rows* |
 | **Why it matters here more than in most products** | Because [AGENTS.md §4.1](../../AGENTS.md) makes Postgres the security boundary and the application deliberately contains no tenant filtering. The design is *"the database will refuse"* — and on 34 paths the refusal is invisible to the caller and therefore to the user |
 
@@ -1585,15 +1585,33 @@ the e2e suite came back to life after six days ([item 41](#41-ci-has-never-been-
 and one test asserted a corrected incident draft that had not been corrected. Two writers on that
 one table turned out to lack the check; the scan that followed found it was the majority.
 
-**What would close it:** a judgement per call site, not a codemod. Zero rows is a legitimate and
-benign outcome in some places — `engagement.ts` has a comment relying on exactly that, where a
-second concurrent decision on the same row *should* be a no-op. So each site needs the question
-*can this legitimately match nothing?* answered, and the ones that cannot need the check. The
-guarded twenty are the pattern to copy.
+**Seven done, 2026-09-03** — the access-control and evidence writes, chosen because a silent
+refusal on those is a false statement to somebody deciding who may read children's records:
+`setMemberRole`, `revokeMember`, `revokeInvitation`, `markSighted`, `archiveStaffRecord`,
+`archiveEvidence`, `supersedeCustodyArrangement`. Each names a single row by id, and an UPDATE
+matches its row whether or not the value changes — so setting a role to the value it already holds
+still matches, and zero rows can only mean a wrong id or a refusal.
+
+**One was deliberately left unguarded, and it is the proof that this is not a codemod.** The
+superseding update inside `createInvitation` withdraws any live invitation for a mailbox before
+issuing a new one, and **matches nothing in the ordinary case** — most mailboxes have no live
+invitation. A check there would turn the common path into an error. It now carries a comment
+saying so, so the next reader does not "fix" it.
+
+**The second-order lesson, which cost a typecheck failure two files away.** A zero-row check makes
+a function *able to throw* — and `changeRole` and `revoke` had no `try`/`catch`, because until then
+their writers never threw. Adding the guard alone would have swapped a silent lie for an unhandled
+server-action error. **A guard has to arrive with somewhere for its failure to go**, which for
+these means a `catch` returning `actionError`, and that in turn changed the action's return union
+and broke a loosely-typed `Result` in the client component. Worth knowing before touching the
+remaining 27: each one is a guard, a handler, and possibly a type.
+
+**What would close the rest:** the same judgement per call site — *can this legitimately match
+nothing?* The 27 guarded are the pattern to copy.
 
 **What must not happen:** a blanket `.select('id')` sweep with a throw, which would turn benign
-no-ops into user-facing errors and be reverted within a week — and would leave the real cases
-looking handled.
+no-ops into user-facing errors, be reverted within a week, and leave the real cases looking
+handled.
 
 ## See Also
 

@@ -257,6 +257,27 @@ rather than an error. The check is a judgement per call site about whether zero 
 possible-and-fine outcome or a refusal being swallowed, which is why this is a convention for new
 writers and a tracked item for the existing ones rather than a codemod.
 
+**Seven were done on 2026-09-03** (the access-control and evidence writes; now 27 guarded, 27 not)
+and doing them taught the part this convention was missing:
+
+> **A guard has to arrive with somewhere for its failure to go.**
+
+Adding the check makes a function *able to throw*. `changeRole` and `revoke` had no `try`/`catch`,
+because until then their writers never threw — so the guard alone would have swapped a silent lie
+for an unhandled server-action error, which is not obviously an improvement. Each site is therefore
+three things, not one:
+
+1. the `.select('id')` and the zero-row throw, in `packages/api`;
+2. a `catch` in the calling action returning `actionError`, so the failure reaches the screen;
+3. possibly a **type** — adding that `catch` widened the action's return union and broke a
+   loosely-declared `Result` in the client component two files away, which is a typecheck failure
+   nowhere near the change. Declare the action's return type rather than letting it be inferred.
+
+**And the counter-example, kept deliberately unguarded**: the superseding update inside
+`createInvitation` withdraws any live invitation for a mailbox before issuing a new one and matches
+nothing in the ordinary case. It carries a comment saying so. If a future reader "fixes" it, the
+invite flow errors on every mailbox that has never been invited.
+
 ### A `fetch` whose body you never read stays in flight
 
 Found 2026-09-03, and it cost six days of a completely dead end-to-end suite — the full story is

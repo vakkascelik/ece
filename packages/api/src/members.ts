@@ -57,9 +57,36 @@ export async function listMembers(db: Db, centreId: string): Promise<MemberWithU
   }));
 }
 
+/*
+ * ZERO-ROW CHECKS ON BOTH WRITERS BELOW — added 2026-09-03, item 49.
+ *
+ * A PostgREST UPDATE matching no rows returns `error: null`, and under RLS "matched no
+ * rows" is exactly what a refusal looks like. Without the check these two report success
+ * on a refusal — and these are the access-control writes: *"this person is now an
+ * educator"* and *"this person no longer has access"*, said to somebody who is deciding
+ * who may read children's records.
+ *
+ * Neither can legitimately match nothing. An UPDATE matches its row whether or not the
+ * value changes, so setting a role to the value it already holds still matches, and
+ * revoking an already-revoked membership still matches. Zero rows therefore means the id
+ * is wrong or the policy refused — never "nothing needed doing".
+ *
+ * That distinction is the whole reason this is not a codemod: the superseding update in
+ * `createInvitation` is *supposed* to match nothing when a mailbox has no live
+ * invitation, and a check there would break it. See [[conventions]].
+ */
 export async function setMemberRole(db: Db, membershipId: string, role: MemberRole): Promise<void> {
-  const { error } = await db.from('memberships').update({ role }).eq('id', membershipId);
+  const { data, error } = await db
+    .from('memberships')
+    .update({ role })
+    .eq('id', membershipId)
+    .select('id');
   if (error) throw new Error(`setMemberRole: ${error.message}`);
+  if (!data || data.length === 0) {
+    throw new Error(
+      'setMemberRole: nobody was updated. Either the membership id is wrong or the policy refused it.',
+    );
+  }
 }
 
 /**
@@ -70,11 +97,17 @@ export async function setMemberRole(db: Db, membershipId: string, role: MemberRo
  * a childcare setting. The row stays; `revoked_at` closes the access.
  */
 export async function revokeMember(db: Db, membershipId: string): Promise<void> {
-  const { error } = await db
+  const { data, error } = await db
     .from('memberships')
     .update({ revoked_at: new Date().toISOString() })
-    .eq('id', membershipId);
+    .eq('id', membershipId)
+    .select('id');
   if (error) throw new Error(`revokeMember: ${error.message}`);
+  if (!data || data.length === 0) {
+    throw new Error(
+      'revokeMember: nobody was revoked. Either the membership id is wrong or the policy refused it.',
+    );
+  }
 }
 
 export async function countOwners(db: Db, centreId: string): Promise<number> {

@@ -2,9 +2,22 @@
 
 import { useActionState } from 'react';
 import { MEMBER_ROLES, type MemberRole } from '@ece/core';
-import { changeRole, revoke } from './actions';
+import { changeRole, revoke, type Result } from './actions';
 
-type Result = { error?: string; ok?: boolean } | null;
+/**
+ * `Result` now comes from the actions rather than being restated loosely here.
+ *
+ * It used to be `{ error?: string; ok?: boolean } | null` — a shape that accepted
+ * anything and let `state?.error` compile against a branch that has no `error`. That
+ * held until the actions gained a `catch`, at which point the real union stopped
+ * assigning to it and the typecheck failed here rather than where the change was. One
+ * declaration, imported by both, is the same argument `help/tabs.ts` makes for one
+ * array.
+ */
+type State = Result | null;
+
+/** Narrowing, because only one branch of the union carries a message. */
+const errorOf = (s: State): string | undefined => (s && 'error' in s ? s.error : undefined);
 
 /**
  * One roster row.
@@ -24,9 +37,9 @@ export function MemberRow({
   role: MemberRole;
   isSelf: boolean;
 }) {
-  const [roleState, roleAction, roleBusy] = useActionState(changeRole, null as Result);
-  const [revokeState, revokeAction, revokeBusy] = useActionState(revoke, null as Result);
-  const error = roleState?.error ?? revokeState?.error;
+  const [roleState, roleAction, roleBusy] = useActionState(changeRole, null as State);
+  const [revokeState, revokeAction, revokeBusy] = useActionState(revoke, null as State);
+  const error = errorOf(roleState) ?? errorOf(revokeState);
 
   /*
    * WCAG 4.1.2 and 2.4.6, found by the axe audit rather than by looking.

@@ -5,6 +5,36 @@ says so.*
 
 ---
 
+2026-09-03 (fifth) — **Seven of item 49's thirty-four, and the lesson was in the second order.**
+Extended: [[unverified-claims]] item 49, [[conventions]] (*A write that does not count its rows*).
+
+The seven are the access-control and evidence writes, chosen because a silent refusal on those is a
+false statement to somebody deciding who may read children's records: `setMemberRole`,
+`revokeMember`, `revokeInvitation`, `markSighted`, `archiveStaffRecord`, `archiveEvidence`,
+`supersedeCustodyArrangement`. Each names one row by id, and an UPDATE matches its row whether or
+not the value changes — so zero rows can only be a wrong id or a refusal. **27 guarded, 27 not.**
+
+**One was left unguarded on purpose, and it is why item 49 is not a codemod.** The superseding
+update inside `createInvitation` withdraws any live invitation for a mailbox before issuing a new
+one, and matches nothing in the ordinary case, because most mailboxes have never been invited. A
+check there would error on the common path. It now says so in a comment.
+
+**The lesson worth keeping is the second-order one.** A zero-row check makes a function *able to
+throw* — and `changeRole` and `revoke` had no `try`/`catch`, because until then their writers never
+threw. The guard alone would have swapped a silent lie for an unhandled server-action error, which
+is not obviously an improvement. Then adding the `catch` widened the action's return union and
+broke a loosely-declared `Result` in a **client component two files away** — a typecheck failure
+nowhere near the change.
+
+So each site is three things: the guard, a handler for it, and possibly a type. That is now written
+into [[conventions]] as *a guard has to arrive with somewhere for its failure to go*, and it is the
+most useful thing to know before touching the remaining 27.
+
+`typecheck`, `lint`, 678 unit tests, `test:rls` 634/634, `review:security` 16/16, `check:docs`, and
+`test:e2e` **118 passing, 0 failing** — including the role-boundary test that revokes a membership
+and asserts access ends, which is the one that would have caught a guard firing on a legitimate
+write.
+
 2026-09-03 (fourth) — **Correcting an incident draft had never once worked, and the suite is
 green.** New migration `0082`. Extended: [[conventions]] (*Adding a column to a table with
 COLUMN-level grants* gains its second instance), [[incident-register]]. **Corrected: my own claim

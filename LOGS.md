@@ -7,6 +7,42 @@ itself, and from the wiki pages, which hold the durable *why*. This file is the 
 
 ---
 
+## 2026-09-03 (third) — Seven of item 49's thirty-four, and the lesson was in the second order
+
+Took the access-control and evidence writes first, because a silent refusal on those is a false
+statement to somebody deciding who may read children's records: `setMemberRole`, `revokeMember`,
+`revokeInvitation`, `markSighted`, `archiveStaffRecord`, `archiveEvidence`,
+`supersedeCustodyArrangement`. **27 guarded, 27 not**, from 20/34.
+
+The judgement for each was the same question: *can this legitimately match nothing?* All seven name
+one row by id, and an UPDATE matches its row whether or not the value changes — setting a role to
+the value it already holds still matches — so zero rows can only mean a wrong id or a refusal.
+
+**One I deliberately did not touch, and it justifies the whole per-site approach.** The superseding
+update inside `createInvitation` withdraws any live invitation for a mailbox before issuing a new
+one. It matches nothing in the ordinary case, because most mailboxes have never been invited. A
+check there would turn the common path into an error. It now carries a comment saying so, because
+the next person reading item 49 will see an unguarded write and reach for the pattern.
+
+**The part I did not anticipate, and the reason this took longer than seven edits.** A zero-row
+check makes a function *able to throw*. `changeRole` and `revoke` had no `try`/`catch` — they never
+needed one, because their writers never threw. So the guard on its own would have swapped a silent
+lie for an unhandled server-action error, which is not obviously better. Adding the `catch` then
+widened the action's inferred return union and broke a loosely-declared `Result` in a **client
+component two files away**: `type Result = { error?: string; ok?: boolean } | null` had been
+accepting anything and letting `state?.error` compile against a branch with no `error`.
+
+Fixed by declaring the contract in the actions file and importing it in the component, with a
+narrowing helper — one declaration imported by both, which is the same argument `help/tabs.ts`
+makes for one array. **Each remaining site is therefore a guard, a handler, and possibly a type**,
+not a one-line change, and that is now written into `conventions.md` as *a guard has to arrive with
+somewhere for its failure to go*.
+
+`typecheck`, `lint`, 678 unit tests, `test:rls` 634/634, `review:security` 16/16, `check:docs`, and
+`test:e2e` **118 passing, 0 failing** — including the role-boundary test that revokes a membership
+and asserts access ends immediately, which is what would have caught a guard firing on a write that
+was supposed to succeed.
+
 ## 2026-09-03 (second) — Correcting an incident draft had never once worked, and I had the diagnosis backwards
 
 Took the one failure left from the e2e recovery. It was not a stale read. It was a missing grant,
