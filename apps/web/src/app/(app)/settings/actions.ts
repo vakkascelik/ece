@@ -2,7 +2,14 @@
 
 import { revalidatePath } from 'next/cache';
 import { createRoom, updateCentre, updateRoom } from '@ece/api';
-import { RATIO_SOURCES, type RatioSource } from '@ece/core';
+import {
+  LICENCE_TYPES,
+  RATIO_SOURCES,
+  SERVICE_MODELS,
+  type LicenceType,
+  type RatioSource,
+  type ServiceModel,
+} from '@ece/core';
 import { actionError } from '@/lib/actionError';
 import { requireCapability } from '@/lib/auth';
 import { serverDb } from '@/lib/supabase';
@@ -104,6 +111,25 @@ export async function saveCentre(_prev: unknown, form: FormData) {
     licensedPlaces = n;
   }
 
+  /*
+    Licence type and service model. Blank is a value, not a missing answer: it means the
+    centre has not stated one, and it is what both selects default to.
+
+    Validated against the constants rather than trusted, because the CHECK constraints in
+    0083 will refuse anything else and a `23514` reaching the user is a worse message than
+    a sentence. An unrecognised value becomes null rather than an error — the only way to
+    send one is to edit the form, and silently not-stating is the safe reading.
+  */
+  const licenceRaw = String(form.get('licenceType') ?? '').trim();
+  const licenceType = (LICENCE_TYPES as readonly string[]).includes(licenceRaw)
+    ? (licenceRaw as LicenceType)
+    : null;
+
+  const modelRaw = String(form.get('serviceModel') ?? '').trim();
+  const serviceModel = (SERVICE_MODELS as readonly string[]).includes(modelRaw)
+    ? (modelRaw as ServiceModel)
+    : null;
+
   const sourceRaw = String(form.get('ratioSource') ?? '').trim();
   const ratioSource = (RATIO_SOURCES as readonly string[]).includes(sourceRaw)
     ? (sourceRaw as RatioSource)
@@ -122,7 +148,9 @@ export async function saveCentre(_prev: unknown, form: FormData) {
       other sections' values would make one person's save overwrite another's.
     */
     await updateCentre(db, ctx.centre.id, {
-      ...(wants('details') ? { name, moeServiceNumber: raw || null, licensedPlaces } : {}),
+      ...(wants('details')
+        ? { name, moeServiceNumber: raw || null, licensedPlaces, licenceType, serviceModel }
+        : {}),
       ...(wants('practice')
         ? {
             medicationRequiresWitness: witness,

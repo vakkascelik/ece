@@ -1,7 +1,16 @@
 'use client';
 
 import { useActionState, type ReactNode } from 'react';
-import { RATIO_SOURCES, type RatioSource } from '@ece/core';
+import {
+  LICENCE_TYPES,
+  LICENCE_TYPE_LABELS,
+  RATIO_SOURCES,
+  SERVICE_MODELS,
+  SERVICE_MODEL_LABELS,
+  type LicenceType,
+  type RatioSource,
+  type ServiceModel,
+} from '@ece/core';
 import { saveCentre } from './actions';
 
 type Result = { error?: string; ok?: boolean } | null;
@@ -90,6 +99,8 @@ export function SettingsForm({
   ratioSource,
   aiFeatures,
   licensedPlaces,
+  licenceType,
+  serviceModel,
 }: {
   name: string;
   moeServiceNumber: string | null;
@@ -102,6 +113,9 @@ export function SettingsForm({
   /** Off until somebody turns it on. Nothing leaves this product while it is false. */
   aiFeatures: boolean;
   licensedPlaces: number | null;
+  /** `null` means not stated. Nothing defaults either of these — see 0083. */
+  licenceType: LicenceType | null;
+  serviceModel: ServiceModel | null;
 }) {
   return (
     <>
@@ -149,6 +163,52 @@ export function SettingsForm({
             From your licence. Leave it blank if you would rather not state it &mdash; the
             occupancy report will show how many tamariki attended and say it cannot work out a
             percentage.
+          </p>
+        </div>
+
+        {/*
+          What kind of service this is. Two questions, because they are two facts: a
+          kindergarten and a full-day education-and-care centre hold the same licence and
+          run differently.
+
+          "Not stated" is a real answer and the default, for the same reason blank is a real
+          answer above — and a sharper one. The service model chooses a ratio schedule, and
+          only the all-day centre-based one has been transcribed from Schedule 2. So stating
+          it does not yet change the ratio figure; what it does is let this product stop
+          applying one schedule to every service silently. See 0083 and unverified-claims 51.
+        */}
+        <div>
+          <label htmlFor="licenceType">Licence type</label>
+          <select id="licenceType" name="licenceType" defaultValue={licenceType ?? ''}>
+            <option value="">Not stated</option>
+            {LICENCE_TYPES.map((t) => (
+              <option key={t} value={t}>
+                {LICENCE_TYPE_LABELS[t]}
+              </option>
+            ))}
+          </select>
+          <p className="sub settings-hint">
+            From your licence. If yours is a type not listed here &mdash; a kōhanga reo licence,
+            for instance &mdash; leave this blank and tell us, because the list comes from the
+            Ministry&rsquo;s licensing page and two of its pages disagree about it.
+          </p>
+        </div>
+
+        <div>
+          <label htmlFor="serviceModel">How this service operates</label>
+          <select id="serviceModel" name="serviceModel" defaultValue={serviceModel ?? ''}>
+            <option value="">Not stated</option>
+            {SERVICE_MODELS.map((m) => (
+              <option key={m} value={m}>
+                {SERVICE_MODEL_LABELS[m]}
+              </option>
+            ))}
+          </select>
+          <p className="sub settings-hint">
+            The Ministry asks for this on the RS7 return, as a count of all-day, sessional and
+            parent-led operating days. The ratio bands also differ between all-day and
+            sessional services, and only the all-day ones have been checked against the
+            regulation &mdash; so the figure beside a room still says which schedule it used.
           </p>
         </div>
       </SettingsCard>

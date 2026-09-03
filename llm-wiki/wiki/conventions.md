@@ -300,6 +300,37 @@ when the consent gate refuses a child, then returns the gate's reason. Letting t
 do with a crash. It is caught, and a failed rollback is *added* to the gate's reason rather than
 hidden — because a photo nobody may see left in storage is what that branch exists to prevent.
 
+#### Line endings are not uniform in this repo, and a scripted anchor has to match
+
+Small, and it cost three failed attempts in one sitting on 2026-09-03, so it is written down.
+
+`supabase/tests/rls_isolation.sql` is **CRLF** — 8,940 CRLF, zero bare LF.
+`packages/core/src/funding.ts` is **LF** — 588 LF, zero CRLF. Both are correct: `.gitattributes`
+and `core.autocrlf` decide what lands in the working tree, and the two files have different
+histories. The Edit tool matches whatever the file already uses and preserves it.
+
+A hand-written Python or `sed` anchor does not. Reading with `newline=''` gives the raw bytes, so
+`"...set licence_type = 'x'\n"` finds **nothing** in a CRLF file, and the failure mode is an
+assertion that says `found 0` rather than anything about line endings. Match on `\r\n` when the
+file has it, or match a substring that stops before the newline.
+
+**And the same afternoon, the other half of the documented hazard bit as well.** An anchor
+containing an em dash, passed through a bash heredoc, did not survive to Python — so the match
+failed for a second, unrelated reason before the line-ending one was even reached. Two failed
+mutation attempts, two different encoding causes, on one edit.
+
+The rule that follows is narrower than "don't use heredocs": **anchor on ASCII, and check the
+file's line endings first.**
+
+```bash
+python -c "import io; s=io.open('path',encoding='utf-8',newline='').read(); \
+  print('CRLF:', s.count(chr(13)+chr(10)), 'bare LF:', s.count(chr(10))-s.count(chr(13)+chr(10)))"
+```
+
+Or, better, use the Edit tool, which is what [CLAUDE.md](../../CLAUDE.md) already says for anything
+long — the scripted route is only worth it for a mutation drill that must be applied and reversed
+mechanically.
+
 #### The script put a guard in the wrong function, and only one test noticed
 
 **The most useful thing to come out of the sweep, and it is about mechanical edits, not about

@@ -7,6 +7,74 @@ itself, and from the wiki pages, which hold the durable *why*. This file is the 
 
 ---
 
+## 2026-09-03 (ninth) — Phase 1a: two columns instead of one, and my argument against building them was wrong
+
+`0083` gives `centres` a `licence_type` and a `service_model`. Until now the product could not say
+what kind of early learning service it was, at all — which blocked the RS7 advance-month counts, the
+50-service capability answer, three of the eight mandatory functionalities, and the ratio-schedule
+selection.
+
+**Two columns, and that is the whole design.** A kindergarten and a full-day education-and-care
+centre hold the **same licence** and run differently. One column would have forced a choice between
+answering the licensing question and answering the funding question, and answered neither well.
+
+**The second column has a better source than the first, which I did not expect.** `service_model`'s
+values — `all_day`, `sessional`, `parent_led` — are taken from the ELI schema's own
+`RS7AdvanceMonthCounts`, which enumerates `AllDayDaysCount`, `SessionalDaysCount` and
+`ParentLedDaysCount`. Those element names *are* the classification the Ministry's machine-readable
+contract uses, which is stronger than a web page. `licence_type` is the weaker one: three values
+from the licensing page, while the Ministry's own regulatory-framework page names four and treats Te
+Kōhanga Reo separately. That disagreement is recorded in the migration header, in a
+`comment on column`, in the `@ece/core` constant and in the settings hint — and an unlisted licence
+is refused by a CHECK, so it stops and gets looked at rather than being filed under a neighbour.
+
+**I argued against this column yesterday. The owner overrode me and was right.** My first reason was
+that it "would not enable anything", because the sessional and home-based ratio tables are not
+transcribed, so knowing the service type would only let the product *refuse* to state a ratio. That
+argument scoped the column's usefulness to a single consumer and then rejected it for failing to
+serve that one — ignoring three other consumers that need exactly this axis. The wrong argument is
+kept in `unverified-claims` item 51 with the flaw named, because deleting it would lose the reason it
+was wrong. My second reason — the values are not settled — survived, and is now built *into* the
+constraint instead of being used to avoid having one.
+
+**The grant, for the third time in this repo's life.** `centres` carries column-scoped UPDATE
+grants, and `updateCentre` builds one statement from every changed field, so a column missing from
+that grant breaks the entire settings card rather than its own feature. I measured the existing
+grants **per verb** before writing a line — nine columns — and put the new grant in the same
+migration. 0047 added `ai_features` without it and broke the whole form; 0066 added
+`incidents.room_id`, checked the INSERT grants, missed the UPDATE grants, and no incident draft could
+be corrected for six days. The rule is not "check the grants", which 0066 did. It is per verb.
+
+**Guarded three ways, on purpose.** A catalogue positive in the RLS suite (an owner *can* write both
+columns — a negative would pass just as happily if they were unwritable by everybody), two CHECK
+assertions that an unlisted value is refused rather than stored, and an e2e test asserting `.error`
+is absent **before** the reload. That last one is the only assertion that can tell a refusal from a
+write that never happened, and its absence from `incidents.spec.ts` is precisely why 0066 survived
+six days of green runs.
+
+**The mutation drill found something about the shape of this failure.** Pointing the new assertion at
+`slug` — SELECT granted, UPDATE deliberately not — turned the suite red with
+`permission denied for table centres`. Not a `FAIL` on the label: a missing column grant **raises**,
+so the block propagates and the suite aborts before `expect` records anything. Red is still red, so
+the gate holds; but the label is documentation, not the message anyone will see. And that message is
+the reason 0047 was hard — Postgres names the **table**, not the column, so it reads like a policy
+problem and is a grant problem.
+
+**Two encoding failures in one sitting, both documented hazards, both mine.** The mutation anchor
+failed twice before it worked: once because an em dash did not survive a bash heredoc into Python,
+and once because `rls_isolation.sql` is CRLF while `funding.ts` is LF, so a `\n` anchor found
+nothing and reported `found 0` with no hint as to why. Written up in `conventions.md` with the
+one-liner that checks a file's line endings, and the narrower rule that follows: **anchor on ASCII,
+check the endings first, and prefer the editing tools** — the scripted route only earns its keep for
+a drill that must be applied and reversed mechanically.
+
+**Noticed, not fixed:** `settings/actions.ts` carries two pre-existing comment typos — "New Zealand'
+largest services", "a fact about today' market" — where apostrophes were eaten by exactly the
+encoding hazard above, at some earlier point. Unrelated to this change, so left alone and mentioned
+rather than silently tidied.
+
+---
+
 ## 2026-09-03 (eighth) — Phase 0: the RS7 figure count was never sourced, and a rounding rule would have biased the return
 
 Owner approved a five-phase plan to close the ELI gaps, funding chain first. Phase 0 is the cheap

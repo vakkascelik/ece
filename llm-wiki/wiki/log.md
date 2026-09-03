@@ -5,6 +5,52 @@ says so.*
 
 ---
 
+2026-09-03 (eleventh) — **Phase 1a: `centres` can say what kind of service it is, and the argument
+I wrote against building it was wrong on its first point.** Corrected: [[unverified-claims]] item 51
+(the heading, the "why no caller can" row, and the whole *"why not a service-type column"* section),
+item 48's service-type row, [[attendance-and-ratios]]'s Key Points bullet — which I wrote this
+morning and which stated something now false. Extended: [[conventions]] (*Line endings are not
+uniform in this repo*).
+
+**Two columns, not one, and that is the design.** `0083` adds `licence_type` and `service_model`
+because they are different facts: a kindergarten and a full-day education-and-care centre hold the
+same licence and run differently. One column would have forced a choice between answering the
+licensing question and answering the funding question.
+
+**`service_model` has a better source than `licence_type` does**, which was not obvious before
+looking. Its three values — `all_day`, `sessional`, `parent_led` — come from the ELI schema's own
+`RS7AdvanceMonthCounts`, which enumerates `AllDayDaysCount`, `SessionalDaysCount` and
+`ParentLedDaysCount`. Those element names *are* the classification the Ministry's machine-readable
+contract uses, which is a stronger citation than a web page. `licence_type`'s three values come from
+the licensing page, and the Ministry's regulatory-framework page names four — so that disagreement is
+recorded in the migration, in a `comment on column` and in the settings hint, and an unlisted licence
+is refused by a CHECK so it stops and gets looked at rather than being filed under a neighbour.
+
+**I argued against this column yesterday and the owner overrode it. The override was right.** My
+first reason was that a column "would not enable anything", because the sessional and home-based
+ratio tables are not transcribed so knowing the type would only let the product refuse. That reason
+scoped the column's usefulness to **one consumer** and then rejected it for failing to serve that
+one — while the RS7 advance-month counts need it, the 50-service capability requirement is stated
+across service types, and three of the eight mandatory functionalities are service models. The
+section is kept in item 51 with that named, because deleting a wrong argument loses the reason it
+was wrong. My second reason — that the values are not settled — survived intact and is now built
+into the constraint rather than used to avoid the constraint.
+
+**The grant, for the third time.** `centres` carries column-scoped UPDATE grants and `updateCentre`
+builds one statement from every changed field, so a column missing from that grant breaks the whole
+settings card rather than its own feature. Measured the existing grants **per verb** before writing
+— nine columns — and put the new grant in the same migration. That is the 0047/0048 lesson and then
+the 0066/0082 lesson, and the rule is not "check the grants" (0066 did) but *check them per verb*.
+
+**The mutation drill produced something worth recording about how this failure looks.** Pointing the
+new assertion at `slug` — a column with SELECT and deliberately no UPDATE grant — turned the suite
+red with `permission denied for table centres`. Not a `FAIL` on the assertion's label: a missing
+column grant **raises**, so the `do` block propagates and the suite aborts before `expect` records
+anything. Red is still red so the gate holds, but the label is documentation rather than the text
+anybody will see. And that message is the whole reason 0047 was hard to find — Postgres names the
+**table**, not the column, so "permission denied for table centres" after adding a column to
+`centres` reads like a policy problem and is a grant problem.
+
 2026-09-03 (tenth) — **Phase 0 of the ELI plan: a figure quoted forward three times without ever
 being sourced, and a rounding rule that would have biased a Crown return.** New:
 [[unverified-claims]] item 52. Corrected: [[funding-and-billing]]'s RS7 paragraph,

@@ -422,6 +422,82 @@ begin
    where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 end $$;
 
+/*
+ * 0083 — the service type columns, asserted the same way and for the same reason.
+ *
+ * Two positives and two constraint checks. The positives are the ones that matter: they
+ * are the third attempt at guarding a failure mode this schema has now hit twice. 0047
+ * added `ai_features` without extending the column-scoped UPDATE grant and broke the
+ * WHOLE settings form, because `updateCentre` builds one statement from every changed
+ * field. 0066 added `incidents.room_id`, checked the INSERT grants, missed the UPDATE
+ * grants, and no incident draft could be corrected for six days.
+ *
+ * A negative assertion ("a parent cannot set the licence type") would pass just as
+ * happily if the column were unwritable by everybody, which is precisely the broken
+ * state. So these assert that an owner CAN write them.
+ *
+ * Restored to null afterwards, like the flag above, so no later block inherits a value
+ * it did not set.
+ *
+ * MUTATION-DRILLED 2026-09-03, and the result changes how to read these labels. Pointing
+ * the first update at `slug` — a column with SELECT and deliberately no UPDATE grant —
+ * turned the suite red with:
+ *
+ *     permission denied for table centres
+ *
+ * Not a `FAIL` on the label below. A missing column grant RAISES, so the `do` block
+ * propagates and the suite aborts before `expect` ever records anything. Red is still
+ * red, so the gate holds — but the label is documentation for whoever reads the file, not
+ * the text they will see when it breaks.
+ *
+ * Which is worth knowing, because that message is the whole reason 0047 was hard: Postgres
+ * names the TABLE and not the column. "permission denied for table centres" after adding
+ * a column to `centres` reads like a policy problem and is a grant problem, and the fix is
+ * one line in the migration that added the column.
+ */
+do $$
+declare n integer;
+begin
+  update public.centres set licence_type = 'education_and_care'
+   where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  get diagnostics n = row_count;
+  perform pg_temp.expect(n = 1, 'an owner CAN state the licence type — the column grant exists (0083)');
+
+  update public.centres set service_model = 'all_day'
+   where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  get diagnostics n = row_count;
+  perform pg_temp.expect(n = 1, 'an owner CAN state the service model — the column grant exists (0083)');
+
+  update public.centres set licence_type = null, service_model = null
+   where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+end $$;
+
+-- The CHECK refuses a value that is not on the list, rather than storing whatever arrives.
+-- This is what makes "extend the list in a new migration" the only way to add a licence
+-- type, which is the point: the two Crown pages disagree about this classification, so an
+-- unlisted value must stop and be looked at rather than being filed under a neighbour.
+do $$
+declare code text := 'none';
+begin
+  begin
+    update public.centres set licence_type = 'kohanga_reo'
+     where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '23514', 'an unlisted licence type is refused by the CHECK, not stored (0083)');
+end $$;
+
+do $$
+declare code text := 'none';
+begin
+  begin
+    update public.centres set service_model = 'all-day'
+     where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '23514', 'a hyphenated service model is refused — the stored form is all_day (0083)');
+end $$;
+
 -- The constraint from 0003: audit rows outlive the record they describe, so they
 -- carry column names and never values. A generic trigger logging to_jsonb(NEW)
 -- would have copied allergies and custody orders in here.

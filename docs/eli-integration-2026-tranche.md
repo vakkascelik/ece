@@ -236,10 +236,36 @@ qualification, which cannot be computed until a qualification can be recorded.
 | *"sessional and all-day licensed services"* | **All-day only.** Sessional ratio bands differ (1–8 → 1, 9–30 → 2) and are explicitly excluded |
 | *"a minimum of 50 services"* | **Architecturally sound, untested at that scale.** RLS-enforced pooled tenancy, `centre_id` indexed everywhere, and `fetchAll` in `packages/api/src/paging.ts` pages past PostgREST's 1,000-row cap and *throws* rather than returning a partial — a defect that once produced 72 hours where 100 was correct. `drill:rowcap` holds it. No load test at 50 services exists |
 
-**`public.centres` has no service-type or licence-type column.** It has six columns added since
-`0001` — witness requirements, sleep-check minutes, drill interval, ratio source, AI features,
-licensed places — and none of them says what kind of service this is. So the product cannot record
-the distinction the Ministry's capability requirement is stated *across*.
+~~**`public.centres` has no service-type or licence-type column.**~~ **Built 2026-09-03 — `0083`.**
+It previously had six columns added since `0001` — witness requirements, sleep-check minutes, drill
+interval, ratio source, AI features, licensed places — and none of them said what kind of service
+this is, so the product could not record the distinction the Ministry's capability requirement is
+stated *across*. It now has two more, and it is two rather than one because they are two facts:
+
+- **`licence_type`** — `education_and_care`, `home_based` or `hospital_based`, from the Ministry's
+  *Licences to operate in early childhood education and care* page, read 2026-09-03. The Ministry's
+  regulatory-framework page names **four** and treats Te Kōhanga Reo as its own licensed type; that
+  disagreement is recorded in the migration and in a `comment on column` rather than resolved, and
+  an unlisted licence is refused by a CHECK so it stops and gets looked at instead of being filed
+  under a neighbour.
+- **`service_model`** — `all_day`, `sessional` or `parent_led`, taken from the ELI schema's own
+  `RS7AdvanceMonthCounts`, which enumerates `AllDayDaysCount`, `SessionalDaysCount` and
+  `ParentLedDaysCount`. That is a stronger citation than a web page: the element names *are* the
+  classification the Ministry's machine-readable contract uses. This is also the axis Schedule 2
+  distinguishes for ratios, so one column serves the return and the ratio schedule both.
+
+Both nullable, nothing defaulted — a guess at the service model selects a ratio schedule, and being
+wrong about that is being wrong about how many adults a room needs. Both settable on `/settings`,
+with the column-scoped UPDATE grant in the same migration (the third time that has had to be said —
+`0047`/`0048`, then `0066`/`0082`) and asserted as a **positive** in both the RLS suite and
+`settings.spec.ts`, because a negative assertion passes just as happily when a column is unwritable
+by everybody.
+
+**What this closes and what it does not.** The 50-service capability answer can now be given
+honestly, and the RS7 advance-month counts have the axis they need. It does **not** make the ratio
+figure correct for a sessional, home-based or hospital-based service: only the all-day centre-based
+bands have been transcribed from Schedule 2, so a caller can now know the service is sessional and
+still has nothing correct to pass. The three rows above therefore stay as they are.
 
 **The mitigating fact, and it is a real one:** `ratios.ts` takes the ratio table as an argument.
 Its own header says a different service type *"changes data and not logic"*. Adding sessional and

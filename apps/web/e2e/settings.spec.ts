@@ -137,3 +137,71 @@ test('a nonsensical interval never reaches the database', async ({ page }) => {
  */
 const practiceSave = (page: Page) =>
   page.locator('form').filter({ hasText: 'Daily practice' }).getByRole('button', { name: 'Save' });
+
+const detailsCard = (page: Page) => page.locator('form').filter({ hasText: 'Centre details' });
+const detailsSave = (page: Page) => detailsCard(page).getByRole('button', { name: 'Save' });
+
+/**
+ * 0083 — the licence type and service model save, and this test exists for the GRANT.
+ *
+ * `centres` carries **column-scoped** UPDATE grants, not a table-wide one, and
+ * `updateCentre` builds one statement from every changed field. So a column added without
+ * being added to that grant does not break its own feature — it breaks the whole card,
+ * with `42501 permission denied for table centres`, which names the table and not the
+ * column. That is 0047, fixed by 0048; then 0066 did it again on `incidents.room_id` and
+ * no incident draft could be corrected for six days until 0082.
+ *
+ * WHY THE ASSERTION BEFORE THE RELOAD IS THE POINT OF THE TEST.
+ *
+ * A test that only reloads and reads the value back cannot tell a refusal from a write
+ * that never happened — both look like the old value coming back. `expect(error).toHaveCount(0)`
+ * BEFORE reloading is the only assertion here that distinguishes them, and its absence from
+ * `incidents.spec.ts` is exactly why 0066 survived six days of green runs.
+ *
+ * The RLS suite also asserts the grant at the catalogue level. Both are wanted: that one
+ * proves the privilege exists, this one proves the form that needs it works.
+ */
+test('the licence type and service model save, which proves the column grant', async ({
+  page,
+}) => {
+  await visit(page, '/settings');
+
+  const licence = page.getByLabel('Licence type');
+  const model = page.getByLabel('How this service operates');
+
+  // Not stated is the default and a real answer — nothing guesses a licence, because a
+  // guess at the service model would select a ratio schedule.
+  await expect(licence).toHaveValue('');
+  await expect(model).toHaveValue('');
+
+  await licence.selectOption('education_and_care');
+  await model.selectOption('all_day');
+
+  const done = page.waitForResponse(
+    (r) => new URL(r.url()).pathname === '/settings' && r.request().method() === 'POST',
+  );
+  await detailsSave(page).click();
+  await done;
+
+  // THE ASSERTION THAT MATTERS. A missing column grant surfaces here, before any reload.
+  await expect(detailsCard(page).locator('.error')).toHaveCount(0);
+
+  await page.reload({ waitUntil: 'networkidle' });
+  await expect(page.getByLabel('Licence type')).toHaveValue('education_and_care');
+  await expect(page.getByLabel('How this service operates')).toHaveValue('all_day');
+
+  // And back to not stated, because null has to be reachable from the form — a column
+  // whose "not stated" cannot be restored is a column that silently becomes mandatory.
+  await page.getByLabel('Licence type').selectOption('');
+  await page.getByLabel('How this service operates').selectOption('');
+  const undone = page.waitForResponse(
+    (r) => new URL(r.url()).pathname === '/settings' && r.request().method() === 'POST',
+  );
+  await detailsSave(page).click();
+  await undone;
+  await expect(detailsCard(page).locator('.error')).toHaveCount(0);
+
+  await page.reload({ waitUntil: 'networkidle' });
+  await expect(page.getByLabel('Licence type')).toHaveValue('');
+  await expect(page.getByLabel('How this service operates')).toHaveValue('');
+});

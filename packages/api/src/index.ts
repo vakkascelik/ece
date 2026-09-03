@@ -14,7 +14,14 @@
  */
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import type { Centre, Membership, RatioSource, Session } from '@ece/core';
+import type {
+  Centre,
+  LicenceType,
+  Membership,
+  RatioSource,
+  ServiceModel,
+  Session,
+} from '@ece/core';
 
 export type Db = SupabaseClient;
 
@@ -83,6 +90,8 @@ interface CentreRow {
   licensed_places: number | null;
   ratio_source: RatioSource;
   ai_features: boolean;
+  licence_type: LicenceType | null;
+  service_model: ServiceModel | null;
   archived_at: string | null;
 }
 
@@ -112,6 +121,10 @@ const toCentre = (r: CentreRow): Centre => ({
   licensedPlaces: r.licensed_places,
   ratioSource: r.ratio_source,
   aiFeatures: r.ai_features,
+  // Null is meaningful a fourth and fifth time: not stated. Nothing guesses a licence
+  // or a service model, because a guess selects a ratio schedule. See 0083.
+  licenceType: r.licence_type,
+  serviceModel: r.service_model,
   archivedAt: r.archived_at,
 });
 
@@ -127,7 +140,7 @@ const toMembership = (r: MembershipRow): Membership => ({
 export async function listMyCentres(db: Db): Promise<Centre[]> {
   const { data, error } = await db
     .from('centres')
-    .select('id, name, moe_service_number, slug, timezone, medication_requires_witness, sleep_check_minutes, drill_interval_days, licensed_places, ratio_source, ai_features, archived_at')
+    .select('id, name, moe_service_number, slug, timezone, medication_requires_witness, sleep_check_minutes, drill_interval_days, licensed_places, ratio_source, ai_features, licence_type, service_model, archived_at')
     .is('archived_at', null)
     .order('name');
   if (error) throw new Error(`listMyCentres: ${error.message}`);
@@ -197,7 +210,7 @@ export async function createCentre(
       slug: input.slug,
       moe_service_number: input.moeServiceNumber ?? null,
     })
-    .select('id, name, moe_service_number, slug, timezone, medication_requires_witness, sleep_check_minutes, drill_interval_days, licensed_places, ratio_source, ai_features, archived_at')
+    .select('id, name, moe_service_number, slug, timezone, medication_requires_witness, sleep_check_minutes, drill_interval_days, licensed_places, ratio_source, ai_features, licence_type, service_model, archived_at')
     .single();
   if (error) throw new Error(`createCentre: ${error.message}`);
 

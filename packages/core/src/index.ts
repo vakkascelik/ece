@@ -61,11 +61,84 @@ export interface Centre {
    * person typed — those need a recorded consent as well. See `docs/claude-api-plan.md`.
    */
   aiFeatures: boolean;
+  /**
+   * The licence this service holds. Null means not stated, and nothing guesses — see 0083.
+   *
+   * A guess here would select a ratio schedule, and being wrong about that is being wrong
+   * about how many adults a room needs.
+   */
+  licenceType: LicenceType | null;
+  /**
+   * How this service operates. Null means not stated, same contract. See 0083.
+   *
+   * Separate from `licenceType` because they are different facts: a kindergarten and a
+   * full-day education-and-care centre hold the same licence and run differently. This is
+   * the axis the RS7 advance-month counts ask about and the axis Schedule 2 distinguishes.
+   */
+  serviceModel: ServiceModel | null;
   archivedAt: string | null;
 }
 
 export const RATIO_SOURCES = ['declared', 'derived'] as const;
 export type RatioSource = (typeof RATIO_SOURCES)[number];
+
+/**
+ * The three licensed early childhood service types.
+ *
+ * Source: Ministry of Education, *"Licences to operate in early childhood education and
+ * care"*, read 2026-09-03. It names exactly these three and says playgroups "are not
+ * licensed, but they can choose to be certified".
+ *
+ * **AND THE MINISTRY CONTRADICTS ITSELF, WHICH IS WHY THIS COMMENT IS LONG.** Its
+ * regulatory-framework page, read the same day, names *four* licensed types — centre-based
+ * (folding in kindergartens, playcentres, education and care, puna reo, reo rua),
+ * home-based, hospital-based, and **Te Kōhanga Reo as its own**. The two pages disagree on
+ * granularity and on whether kōhanga reo is a separate licence.
+ *
+ * The licensing page wins here because it is the page about licences. That is a judgement,
+ * not a verification, and [[unverified-claims]] item 51 stays OPEN for it: a column
+ * existing does not make a classification checked. If a service says it holds a kōhanga reo
+ * licence, extend this list in a migration citing what they said — do **not** file them
+ * under education and care because the CHECK refused them.
+ *
+ * These are values in a CHECK constraint rather than a `code_sets` domain because they are
+ * not an unenumerated Ministry `LookupCode`. Same standing as `RATIO_SOURCES`.
+ */
+export const LICENCE_TYPES = ['education_and_care', 'home_based', 'hospital_based'] as const;
+export type LicenceType = (typeof LICENCE_TYPES)[number];
+
+/** What a person sees. The stored values are snake_case; these are not. */
+export const LICENCE_TYPE_LABELS: Record<LicenceType, string> = {
+  education_and_care: 'Education and care service',
+  home_based: 'Home-based service',
+  hospital_based: 'Hospital-based service',
+};
+
+/**
+ * How a service operates, and this one has a better source than the licence types do.
+ *
+ * These three come from the ELI schema itself: `RS7AdvanceMonthCounts` enumerates
+ * `AllDayDaysCount`, `SessionalDaysCount` and `ParentLedDaysCount`. Retrieved from
+ * `https://eli.minedu.govt.nz/eli.xsd` on 2026-09-03.
+ *
+ * Worth stating why that is stronger than a web page: the element names **are** the
+ * classification the Ministry's own machine-readable contract uses, not somebody's
+ * description of one. It is also the axis Schedule 2 turns on — the all-day and sessional
+ * tables differ for the 2-and-over band — so one column serves the return and the ratio
+ * schedule both.
+ *
+ * What it does not settle is which model a licence implies. That is a fact about the
+ * service, so the service states it.
+ */
+export const SERVICE_MODELS = ['all_day', 'sessional', 'parent_led'] as const;
+export type ServiceModel = (typeof SERVICE_MODELS)[number];
+
+/** What a person sees. */
+export const SERVICE_MODEL_LABELS: Record<ServiceModel, string> = {
+  all_day: 'All-day',
+  sessional: 'Sessional',
+  parent_led: 'Parent-led',
+};
 
 /**
  * `kiosk` is a device, not a person, and it is last on purpose.

@@ -33,15 +33,22 @@ drift in a ratio does not report itself as broken — it reports itself as compl
   missing: three or fewer children of mixed ages need one adult, not the sum of the bands.
   The inputs are still narrower than the schedule — it counts every person present aged
   under 6. See [[unverified-claims]] item 1.
-- **And that one schedule is applied to every service, because nothing records which service
-  this is.** `assessRatio` takes both tables as parameters so a different service type can
-  supply different ones, three modules forward them faithfully, and **no call site has ever
-  passed one** — so a sessional, home-based or hospital-based service gets the all-day
-  centre-based figure. `centres` has no service-type column for a caller to read. As of
-  2026-09-03 `ratioInputCaveat()` says this on the screen instead of leaving it in a source
-  comment; the column is deliberately *not* the fix, and [[unverified-claims]] item 51
-  records why (the other schedules are not transcribed, and two Crown pages disagree on what
-  the service types even are).
+- **And that one schedule is still applied to every service — but the reason changed on
+  2026-09-03, twice in one day.** `assessRatio` takes both tables as parameters so a different
+  service type can supply different ones, three modules forward them faithfully, and **no call
+  site has ever passed one** — so a sessional, home-based or hospital-based service gets the
+  all-day centre-based figure. `ratioInputCaveat()` now says so on the screen rather than in a
+  source comment.
+
+  ~~`centres` has no service-type column for a caller to read.~~ **It does now: `0083` adds
+  `licence_type` and `service_model`, and `/settings` can state both.** So the missing input
+  exists and the caveat is no longer the whole story — what remains missing is the *tables*.
+  Only the all-day centre-based bands have been transcribed from Schedule 2, so knowing a
+  service is sessional still does not let this product compute its ratio; it lets it stop
+  pretending the question was never asked. The next step is transcribing the sessional and
+  home-based schedules with the same row-by-row discipline as 2026-08-18, at which point
+  every caller already has the parameter waiting. [[unverified-claims]] item 51 stays open for
+  that, and for the fact that two Crown pages disagree about what the licence types are.
 - **There is now a third tense.** This page and the replay both answer what is or was; the
   roster forecast answers what *will be*, from bookings and shifts rather than events. It
   shares `assessRatio` and nothing else — see [[staff-as-people]].

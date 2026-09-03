@@ -7,7 +7,7 @@
  * than expected, the answer is a missing membership, not a missing filter.
  */
 
-import type { MemberRole, RatioSource } from '@ece/core';
+import type { LicenceType, MemberRole, RatioSource, ServiceModel } from '@ece/core';
 import type { Db } from './index';
 
 export interface MemberWithUser {
@@ -146,6 +146,17 @@ export async function updateCentre(
     aiFeatures?: boolean;
     /** Same null-means-none-stated contract as the intervals above. See 0050. */
     licensedPlaces?: number | null;
+    /**
+     * The licence this service holds, and how it operates. Two fields because they are
+     * two facts — see 0083 and `LICENCE_TYPES` in `@ece/core`.
+     *
+     * Same null-means-not-stated contract as everything above it. `undefined` leaves the
+     * column alone; `null` is the centre saying it has not stated one, and nothing here
+     * defaults either of them, because a guess at the service model selects a ratio
+     * schedule.
+     */
+    licenceType?: LicenceType | null;
+    serviceModel?: ServiceModel | null;
   },
 ): Promise<void> {
   const row: Record<string, unknown> = {};
@@ -159,6 +170,8 @@ export async function updateCentre(
   if (patch.ratioSource !== undefined) row.ratio_source = patch.ratioSource;
   if (patch.aiFeatures !== undefined) row.ai_features = patch.aiFeatures;
   if (patch.licensedPlaces !== undefined) row.licensed_places = patch.licensedPlaces;
+  if (patch.licenceType !== undefined) row.licence_type = patch.licenceType;
+  if (patch.serviceModel !== undefined) row.service_model = patch.serviceModel;
   if (Object.keys(row).length === 0) return;
 
   /*

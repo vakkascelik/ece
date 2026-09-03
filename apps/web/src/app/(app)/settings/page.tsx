@@ -28,6 +28,8 @@ export default async function SettingsPage() {
         ratioSource={ctx.centre.ratioSource}
         aiFeatures={ctx.centre.aiFeatures}
         licensedPlaces={ctx.centre.licensedPlaces}
+        licenceType={ctx.centre.licenceType}
+        serviceModel={ctx.centre.serviceModel}
       />
       <RoomList rooms={sortRooms(rooms)} />
     </>

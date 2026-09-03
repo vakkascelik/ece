@@ -1622,7 +1622,7 @@ functionalities and the four service-model requirements on that page:
 | **Home-based services** | Not modelled. Named in `ratios.ts` as an excluded schedule |
 | **Sessional services** | Not modelled. The 2-and-over bands differ (1–8 → 1, 9–30 → 2) |
 | **Kindergarten** | Not modelled. The word does not appear in the schema, `packages/` or `apps/web/src` |
-| **Any service type at all** | `centres` has no service-type or licence-type column, so the product cannot record the distinction the 50-service capability requirement is stated *across* |
+| ~~**Any service type at all**~~ **Built 2026-09-03** | ~~`centres` has no service-type or licence-type column, so the product cannot record the distinction the 50-service capability requirement is stated *across*.~~ **`0083` adds two columns, because they are two facts:** `licence_type` (the three statutory types from the Ministry's licensing page, with the regulatory-framework page's disagreement recorded rather than resolved) and `service_model` (`all_day` / `sessional` / `parent_led`, sourced from the ELI schema's own `RS7AdvanceMonthCounts` element names). Both nullable, nothing defaulted, settable on `/settings`, with the column-scoped UPDATE grant in the same migration and asserted as a positive in both the RLS suite and `settings.spec.ts`. **What this does and does not close:** the 50-service answer can now be given, and the RS7 advance-month counts have their axis. It does **not** make the ratio figure correct for a sessional or home-based service — only the all-day tables are transcribed. See item 51 |
 
 Three assessed items also fail on infrastructure rather than function, and they fail harder:
 `AST06` expects **three** environments and there is **one, which is production**; `AST09` expects
@@ -1783,20 +1783,45 @@ screen says.
 
 **Do not resolve it by reading the XSD again.** The XSD is what produced the assumption.
 
-### 51. Every ratio figure in this product is computed from the all-day centre-based schedule, for every service — **PARTLY CLOSED 2026-09-03: the assumption is now stated on screen, the input still does not exist**
+### 51. Every ratio figure in this product is computed from the all-day centre-based schedule, for every service — **PARTLY CLOSED 2026-09-03, in two steps: the assumption is stated on screen AND the input now exists. What is still missing is the other schedules.**
 
 | | |
 |---|---|
 | **What is asserted** | On the attendance screen, the overview, the incident detail page and the mobile `RatioBar`: that the adults-required figure beside a room is the figure the regulation requires *for that service* |
 | **Where** | `packages/core/src/ratios.ts` — `assessRatio` falls back to `UNDER_TWO_TABLE` / `TWO_AND_OVER_TABLE`, the all-day centre-based bands, whenever no table is passed |
 | **How many callers pass a table** | **None.** `staff.ts:473`, `ratioForecast.ts:132` and `ratioHistory.ts:122` all accept the two optional tables and forward them faithfully; the two call sites that actually assess a room — `attendance/page.tsx:119` and `page.tsx:128` — pass three numbers. The parameter was designed in and has never been supplied |
-| **Why no caller can** | `centres` has no service-type or licence-type column ([item 48](#48-this-product-does-not-meet-the-ministrys-sms-development-criteria--open-added-2026-09-02-and-it-is-not-a-claim-so-much-as-a-measurement)). The information needed to choose a schedule is not recorded anywhere in the schema |
+| ~~**Why no caller can**~~ **Why no caller could, until 0083** | `centres` had no service-type or licence-type column at all, so the information needed to choose a schedule was recorded nowhere in the schema. **`0083` adds `licence_type` and `service_model`, both nullable, both settable on `/settings`.** The remaining blocker is no longer the input — it is that only the all-day centre-based tables have been transcribed, so a caller can now know the service is sessional and still has nothing correct to pass |
 | **Who this is wrong for** | A sessional service (the 2-and-over bands genuinely differ: 1–8 → 1, 9–30 → 2), a home-based service (a different schedule entirely) and a hospital-based service. `RATIO_TABLES_VERIFIED` has always covered **all-day centre-based only** — the file's header has said so since 2026-08-18 — but nothing said it *on the screen*, next to the number |
 
 **What changed today, and it is deliberately small.** `ratioInputCaveat()` now opens by naming the
 schedule: *"Assessed against the all-day centre-based schedule, which is the only one transcribed —
 a sessional, home-based or hospital-based service is on a different schedule and this figure does
 not apply to it."* One sentence, one function, three screens that already render it.
+
+> **OVERTAKEN THE SAME DAY — the column was built, and this section is kept because the reasoning
+> was not all wrong.** The argument below recommended against a service-type column. The owner
+> read it and decided to build it anyway, with the three statutory licence types. That was the
+> right call and the argument below was wrong on its first point in a way worth naming: it treated
+> "the column would only let the product refuse" as decisive, and skipped over the fact that
+> **recording what a service is has value independent of the ratio tables** — the RS7 advance-month
+> counts need it, the 50-service capability requirement is stated across service types, and three
+> of the eight mandatory functionalities are service models. I had scoped the column's usefulness
+> to one consumer and then rejected it for failing to serve that one.
+>
+> Its second point survives intact and is now written into the migration, the CHECK constraint and
+> the settings hint: **the values are not settled**, so an unlisted licence must stop and be looked
+> at rather than be filed under a neighbour. `0083` uses the licensing page's three types because
+> it is the page about licences, records the disagreement in a `comment on column`, and says in as
+> many words that extending the list is a migration citing what a service told us.
+>
+> One thing the build added that the argument had not anticipated: **two columns, not one.**
+> `licence_type` and `service_model` are different facts — a kindergarten and a full-day
+> education-and-care centre hold the same licence and run differently — and the second has a
+> *better* source than the first, because the ELI schema's `RS7AdvanceMonthCounts` enumerates
+> `AllDayDaysCount`, `SessionalDaysCount` and `ParentLedDaysCount` itself. An element name from the
+> Ministry's own machine-readable contract is a stronger citation than a web page.
+>
+> **This item stays OPEN**, because a column existing does not make a classification verified.
 
 **Why not a service-type column, which is the obvious fix.** Two reasons, and the second is the
 one that decided it.
