@@ -14,7 +14,7 @@
  */
 
 import {
-  contactHoursOn,
+  blocksOn,
   summariseCensus,
   type CensusStaffInput,
   type CensusSummary,
@@ -140,7 +140,7 @@ function toHours(r: HoursRow): ContactHoursRow {
  *
  * Paged, and **not** filtered to a date in SQL, deliberately. Two reasons: a screen
  * that lets somebody supersede a contract has to show them the history they are
- * superseding, and `contactHoursOn` in `@ece/core` is the one place the effective-date
+ * superseding, and `blocksOn` in `@ece/core` is the one place the effective-date
  * rule is written down — filtering here as well would be a second copy of it, and the
  * two would disagree the first time one was changed.
  *
@@ -458,4 +458,4 @@ export async function deleteContactHours(db: Db, id: string): Promise<void> {
 }
 
 /** Re-exported so a screen can filter without importing two packages. */
-export { contactHoursOn };
+export { blocksOn };

@@ -348,4 +348,48 @@ test('an enrolment is filed as permanent, and the record says so', async ({ page
     column working.
   */
   await expect(page.locator('span.flag').filter({ hasText: /^Permanent$/ })).toBeVisible();
+
+  /*
+    ---- and then the days and times, which is the agreement itself ----------
+
+    `child_booking_schedule` (0085) shipped with zero readers or writers, so this is the first
+    assertion that the whole path works: form → server action → `caller_may_enrol` → the GiST
+    overlap constraint → read back.
+
+    Scoped to the panel's own section, because `getByLabel('Day')` would otherwise be ambiguous with
+    the enrolment form's "Days attending" a few hundred pixels up the same page — accessible-name
+    matching is substring by default, and that is exactly the kind of near-miss that makes a test
+    pass against the wrong control.
+  */
+  const schedule = page.locator('div.section').filter({ hasText: 'Days and times' });
+
+  // Nothing recorded yet, and the empty state says what the enrolment holds instead rather than
+  // implying the child attends no days.
+  await expect(schedule.getByText('No days and times recorded.')).toBeVisible();
+
+  await schedule.getByLabel('Day').selectOption('2');
+  await schedule.getByLabel('From', { exact: true }).fill('08:00');
+  await schedule.getByLabel('To', { exact: true }).fill('15:00');
+  await schedule.getByLabel('Applies from').fill(new Date().toISOString().slice(0, 10));
+  await schedule.getByRole('button', { name: 'Add' }).click();
+
+  // Before any reload. A refused write and a write that did not persist look identical after one,
+  // and 0085's write predicate is narrower than its read predicate — so this is the assertion that
+  // would catch a policy or grant mistake rather than reporting a missing row.
+  await expect(schedule.locator('.error')).toHaveCount(0);
+
+  // Read back from the database, with the ELI wire code beside the day name.
+  await expect(schedule.getByRole('cell', { name: /Tue/ })).toBeVisible();
+  await expect(schedule.getByText('Tu', { exact: true })).toBeVisible();
+  await expect(schedule.getByText('✓ current')).toBeVisible();
+
+  /*
+    Changing an agreement is two gestures, not an edit — §6-7 requires the agreement to be changed
+    when attendance stops matching it, and the earlier period has to stay answerable because a
+    funding claim was calculated against it. Ending the block is the first half.
+  */
+  await schedule.getByLabel(/Last day for/).fill(new Date().toISOString().slice(0, 10));
+  await schedule.getByRole('button', { name: 'End' }).click();
+  await expect(schedule.locator('.error')).toHaveCount(0);
+  await expect(schedule.getByText('not in force')).toBeVisible();
 });

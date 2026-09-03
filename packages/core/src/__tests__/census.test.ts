@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   censusRow,
-  contactHoursOn,
+  blocksOn,
   contractedMinutes,
   eliWeekday,
   summariseCensus,
@@ -104,21 +104,21 @@ describe('eliWeekday', () => {
   });
 });
 
-describe('contactHoursOn', () => {
+describe('blocksOn', () => {
   it('keeps only the blocks whose effective window covers the date', () => {
     const blocks = [
       block({ weekday: 1, effectiveTo: '2026-06-30' }), // ended
       block({ weekday: 2, effectiveFrom: '2027-01-01' }), // not started
       block({ weekday: 3 }), // open-ended
     ];
-    expect(contactHoursOn(blocks, AS_AT).map((b) => b.weekday)).toEqual([3]);
+    expect(blocksOn(blocks, AS_AT).map((b) => b.weekday)).toEqual([3]);
   });
 
   it('includes a block whose window closes exactly on the date', () => {
     // The window is inclusive of its end date: a contract ending on the return date
     // was in force on the return date.
-    expect(contactHoursOn([block({ effectiveTo: AS_AT })], AS_AT)).toHaveLength(1);
-    expect(contactHoursOn([block({ effectiveFrom: AS_AT })], AS_AT)).toHaveLength(1);
+    expect(blocksOn([block({ effectiveTo: AS_AT })], AS_AT)).toHaveLength(1);
+    expect(blocksOn([block({ effectiveFrom: AS_AT })], AS_AT)).toHaveLength(1);
   });
 
   it('sorts by weekday then start, so the wire order is stable', () => {
@@ -127,7 +127,7 @@ describe('contactHoursOn', () => {
       block({ weekday: 1, fromTime: '13:00:00' }),
       block({ weekday: 1, fromTime: '08:00:00' }),
     ];
-    expect(contactHoursOn(blocks, AS_AT).map((b) => `${b.weekday}@${b.fromTime}`)).toEqual([
+    expect(blocksOn(blocks, AS_AT).map((b) => `${b.weekday}@${b.fromTime}`)).toEqual([
       '1@08:00:00',
       '1@13:00:00',
       '3@13:00:00',

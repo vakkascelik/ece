@@ -5,6 +5,45 @@ says so.*
 
 ---
 
+2026-09-04 (sixth) — **Phase 2A: the booking schedule is reachable, and a drill found a fourth
+assertion that had encoded the pre-2b defect.** Extended: [[conventions]] (*An extraction that
+changes behaviour is not an extraction*). Corrected: `drill-rowcap.ts`'s funded assertion and its
+header note, both of which said caps do not apply without an attestation.
+
+`child_booking_schedule` shipped on 2026-09-04 with **zero readers or writers**. It now has an API
+module, three server actions, a panel on the child record's Documents tab, and an e2e test that
+drives form → action → `caller_may_enrol` → the GiST overlap constraint → read back.
+
+**The fourth assertion, and why 2b missed it.** `drill:rowcap` asserted
+`fundedHours === attendedHours` with the label *"funded equals attended, since no attestation means
+no caps"*. Phase 2b found three assertions encoding that defect — two unit tests and
+`reconcile-funding.ts` — and reported that as the complete set. **It was not.** 2b added no
+multi-row read, so `drill:rowcap` was not in its conditional gates and never ran; the assertion
+surfaced a day later when 2A added one.
+
+The reconciliation 2b performed was the right idea and **searched the wrong set of files**: the unit
+tests, and the script with "funding" in its name. A grep for the *figure* would have found this; a
+grep for the files expected to hold it did not. Now a bound plus a deterministic side-effect
+(`cappedDates.length === DAYS`) rather than an equality, because eight consecutive days straddle
+ISO weeks differently depending on the weekday the drill runs — the same nondeterminism
+`reconcile-funding` had.
+
+**`weekdayBlock.ts` extracted, and the near-miss inside it is the more useful half.**
+`staff_contact_hours` and `child_booking_schedule` share a shape, so `blocksOn`, `timeToMinutes`,
+`blockMinutes` and `coversDate` now live in one place — deferred until the second consumer existed,
+which was the whole argument for deferring it.
+
+But the first draft **relaxed `timeToMinutes` from `hours > 23` to allow `24:00`**. The existing
+test rejects `'25:00'` and never exercises `'24:00'`, so the change would have passed the suite.
+Reverted: an extraction that changes behaviour is not an extraction, and whether a block may end at
+midnight deserves its own commit and a source.
+
+**And `coversDate` had a second consumer nobody would guess** — `codes` rows in `census.ts`, where
+`0080` defines an undated set as *"not dated"* rather than *"always valid"*. So it is a general
+effective-window predicate, exported with that noted rather than copied. A four-line date
+comparison is exactly the size of thing that gets duplicated, after which one copy learns about a
+null bound and the other does not.
+
 2026-09-04 (fifth) — **The licensed-place cap is now reported, and the restructuring it seemed to
 need turned out to be smaller than I said.** Corrected: [[unverified-claims]] item 57's own
 conclusion, written hours earlier — it claimed the calculation must move from per-child to

@@ -7,6 +7,82 @@ itself, and from the wiki pages, which hold the durable *why*. This file is the 
 
 ---
 
+## 2026-09-04 (sixth) — Phase 2A: the schedule becomes reachable, and a drill catches what I missed
+
+`child_booking_schedule` was migrated, secured, RLS-tested and left with **zero readers or writers**
+this morning. It now has `packages/api/src/bookingSchedule.ts`, three actions on the child record,
+a `BookingSchedulePanel` on the Documents tab, and an e2e test covering add → read back → end.
+
+### The thing worth reading: a drill found a fourth stale assertion
+
+`drill:rowcap` failed — *1 of 7 checks*. It was not from 2A. It was
+`fundedHours === attendedHours`, labelled *"funded equals attended, since no attestation means no
+caps"* — **the fourth assertion encoding the defect Phase 2b fixed, and 2b's commit said it had
+found them all.**
+
+Three had been found: two unit tests and `reconcile-funding.ts`. This one was invisible because 2b
+changed no multi-row read, so `drill:rowcap` was not in its conditional gate list and never
+executed. Adding one read in 2A triggered it.
+
+**The reconciliation was the right instinct pointed at the wrong set.** I asked "what already
+asserts this figure?" and looked in the unit tests and the script with *funding* in its name. The
+drills were not in the set I searched, and one of them asserts a funding figure. A grep for the
+number would have found it; a grep for the files I expected to hold it did not — which is the same
+shape as the item-49 audit that checked 14 of 48 guards because it matched one phrasing of a
+message.
+
+Fixed as a **bound plus a deterministic side-effect** rather than an equality: `cappedDates.length
+=== DAYS` is exact (each day is 6.25 hours against a 6-hour cap), while the funded total is not,
+because eight consecutive days straddle ISO weeks differently depending on the weekday the drill
+runs. Asserting a fixed number would make the gate pass on some days and fail on others.
+
+The drill's header note also had to be corrected, and its reasoning is worth keeping: it explained
+that caps **compress** the difference the drill measures, which is why `attendedHours` — uncapped —
+is the load-bearing assertion and 50.00-against-41.67 is a sharper instrument than any funded
+figure.
+
+### The extraction, and a behaviour change I nearly smuggled into it
+
+`weekdayBlock.ts` now holds `WeekdayBlock`, `blocksOn`, `timeToMinutes`, `blockMinutes` and
+`coversDate` — shared by `staff_contact_hours` (0081) and `child_booking_schedule` (0085), which are
+the same shape because 0085 reused 0081's idiom deliberately. Deferred yesterday because there was
+one consumer; done today because there are two. The census keeps `ContactHoursBlock` and
+`contractedMinutes` as aliases, because they read correctly in its own vocabulary — but the function
+that filters by date has exactly one name, since one behaviour with two exported names is what a
+reviewer would object to.
+
+**My first draft changed behaviour.** It relaxed `timeToMinutes` from `hours > 23` to allow
+`24:00` — a session ending at midnight, which Postgres accepts and both tables' CHECKs would store.
+The existing test rejects `'25:00'` and **never exercises `'24:00'`**, so it would have passed.
+Reverted with the reasoning in the file: an extraction that changes behaviour is not an extraction,
+and that question deserves its own commit, its own test and a source.
+
+**And `coversDate` turned out to have a second consumer** I had not looked for: `codes` rows in
+`census.ts`, where `0080` treats a set imported with no dates as *"not dated"* rather than *"always
+valid"*, and this predicate is what lets an undated set pass. So it is a general effective-window
+rule, not a block-only one — exported and imported rather than copied.
+
+### Three smaller decisions
+
+**`manageEnrolment`, not the `manageCentre` the plan specified.** The agreement is what funded hours
+derive from, and `EnrolmentPanel` two sections up the same page already uses `manageEnrolment`. The
+database predicate is independent and narrower either way — `caller_may_enrol` is owner-or-manager
+at the child's own centre — so an educator reads the agreement and cannot rewrite it.
+
+**The empty table is handled visibly rather than preferred silently.** The panel ships against an
+empty table, so when there is no schedule it says what the enrolment holds instead — *"The enrolment
+above records Mon, Tue, Wed with no times"* — rather than implying the child attends none. That is
+item 53's duplication shown rather than prematurely resolved.
+
+**A re-export dropped rather than duplicated.** `census.ts` and `bookingSchedule.ts` are both
+`export *` in the API barrel, so a second `export { blocksOn }` is an ambiguous export — it would
+have surfaced as a confusing error a long way from either file. Screens take it from `@ece/core`.
+
+**The e2e test is scoped to the panel's section**, because `getByLabel('Day')` would otherwise match
+the enrolment form's *"Days attending"* on the same page — accessible-name matching is substring by
+default. That is the same class of near-miss as the three selector collisions in yesterday's test,
+caught before running it this time rather than after two nine-minute suites.
+
 ## 2026-09-04 (fifth) — The place cap gets reported, and my own conclusion needed correcting first
 
 The previous entry ended by saying Phase 2 needed the calculation restructured from per-child to

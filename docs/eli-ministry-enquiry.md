@@ -1,6 +1,6 @@
 # Draft enquiry to ELI.Queries — before submitting the 2026 tranche application
 
-**SENT 2026-09-03**, as a reply-all on Halaholo Mataele's thread. Drafted 2026-09-02, rewritten the
+**There are now two enquiries on this page. The first was SENT 2026-09-03**, as a reply-all on Halaholo Mataele's thread; **the second is drafted 2026-09-04 and NOT yet sent** — see *The second enquiry* below. Drafted 2026-09-02, rewritten the
 next day after searching for the answers first, and sent as the five-question short version below.
 
 **Nothing in this repo may read an unanswered question as a yes.** Five answers are now outstanding
@@ -17,6 +17,70 @@ ELI.Queries@education.govt.nz before submitting this form."*
 have been the wrong kind of thorough.** They are recorded below rather than deleted, because what
 each one turned out to be is more useful than the question was — and one of them was the question
 this whole application was said to depend on.
+
+---
+
+## The second enquiry — drafted 2026-09-04, **not yet sent**
+
+Two new questions and one reminder. Both new ones came out of reading Chapters 6, 7 and 9 of the
+Funding Handbook against the code between 3 and 4 September, and **each blocks a specific piece of
+work that is otherwise ready to build**.
+
+**What is deliberately not here.** Four candidate questions were answered by reading instead:
+
+| Was going to ask | Answered by |
+|---|---|
+| What are the absence-rule exemptions, and do they need Ministry approval? | §7-7, read 2026-09-04. Special needs or health problems, evidenced by EC12/EC13; **not** pre-approved — *"provide these documents to the Ministry or its Resourcing Auditors on request"*. And the window extends from three weeks to **twelve** |
+| Are a permanent child's funded hours based on enrolment or attendance? | §9-2 step 1 — *"List the daily number of hours of **enrolment** for each permanently enrolled child"*, with attended hours in the separate step for casual and conditional children. Glossary: permanent means *"entitled to attend for the enrolled hours"* |
+| Is the 6-hour daily cap per child or per licensed place? | Glossary. An FCH is *"an occupied child-place that is funded for 1 hour"*, capped *"per child-place per day"*. §9-3's "per child" is loose phrasing of the same rule |
+| Do the child hour counts round the same way as the staff hour count? | §9-2 step 5 — *"Round the total to the nearest whole number"* — and note it rounds the **daily total across children**, not each child's hours |
+
+### Suggested subject
+
+`ELI integration — two calculation questions before we submit (Little Pearls Educare)`
+
+### Draft body
+
+> Kia ora Halaholo,
+>
+> Two further questions, both about the RS7 calculation rather than the process. We have worked
+> through Chapters 6, 7 and 9 and the Glossary and answered everything else we had from them.
+>
+> **1. Does the two-and-over subsidy figure exclude Plus 10 hours, or only the first twenty?**
+> §9-2 says to repeat the calculation *"for children aged 2 or over less any hours for children
+> claimed as 20 Hours ECE"*. §14-4 lists both *"20 Hours ECE Funded Hours (20 Hours ECE)"* and
+> *"20 Hours ECE Funded Hours (Plus 10)"* under that one heading, which suggests both are deducted
+> — but we would rather not infer it. If only the first twenty are deducted, a child's Plus 10
+> hours would appear in both figures.
+>
+> Relatedly: §9-2's worked examples for Kowhai Street Childcare Centre and Huia Playcentre are
+> published as images, so the numeric tables are not readable in the page text. Could you send them
+> in any text or spreadsheet form? They would answer this question directly.
+>
+> **2. When a day's claimable hours exceed the licensed places, whose hours are not claimable?**
+> Six funded child hours per child-place per day, and a place may be used by more than one child in
+> a day — so a sessional service can have every individual child inside the six-hour limit while
+> the day's total exceeds six times its licensed places. Is there a prescribed order for deciding
+> which hours fall outside the cap, or is that the service's choice to make and document?
+>
+> **3. And a reminder, if it is helpful.** The five questions in our 3 September reply are still
+> outstanding. Two of them hold up work rather than paperwork: whether `ContactHoursDetailList` is
+> contracted or actual hours, and where the staff role, wait-time and closure-reason code lists are
+> published.
+>
+> Ngā mihi,
+> `[OWNER — name, role]`
+
+### What each answer unblocks
+
+| Question | Blocks | If we had to guess |
+|---|---|---|
+| 1 — Plus 10 deduction | `rs7.ts`'s aggregation, [[unverified-claims]] item 56 | **Double-counting up to ten hours a week per child** on a Crown return, or under-counting by the same. The one question here with a money consequence in both directions |
+| 2 — place-cap attribution | Applying the cap rather than reporting it, item 57 | An invented allocation propagating into RS7's age-band and 20 Hours splits, which is worse than reporting the day and leaving the figures alone — which is what the product does today |
+| 3 — the five outstanding | Six census fields stay disabled; item 50 stays open | Nothing new; already recorded |
+
+**Do not read silence as an answer.** The product currently *reports* both unresolved cases rather
+than adjusting for them, which is the state that survives a wrong guess. See item 56 and item 57.
 
 ---
 

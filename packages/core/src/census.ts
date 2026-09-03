@@ -43,6 +43,17 @@
 import { currentStaff, type StaffMember } from './staff';
 import type { StaffRecord } from './compliance';
 
+import {
+  blockMinutes,
+  blocksOn,
+  coversDate,
+  timeToMinutes,
+  type WeekdayBlock,
+} from './weekdayBlock';
+
+// Re-exported so every existing importer of `@ece/core` keeps working unchanged.
+export { blockMinutes, blocksOn, coversDate, timeToMinutes, type WeekdayBlock };
+
 // ---------------------------------------------------------------------------
 // Sourced value domains
 //
@@ -129,17 +140,10 @@ export const AGE_TAUGHT_MAX_MONTHS = 72;
 // Inputs
 // ---------------------------------------------------------------------------
 
-/** A `staff_contact_hours` row: a contracted block on one weekday. */
-export interface ContactHoursBlock {
-  /** ISO weekday, 1 = Monday. */
-  weekday: number;
-  /** `HH:MM` or `HH:MM:SS`, as Postgres `time` serialises. */
-  fromTime: string;
-  toTime: string;
-  effectiveFrom: string;
-  /** Null means open-ended. */
-  effectiveTo: string | null;
-}
+/*
+  A `staff_contact_hours` row is a `WeekdayBlock` — see the alias further down, and the note on
+  why the shape moved out of this file.
+*/
 
 /** A `staff_census_details` row. Every field nullable — see the migration header. */
 export interface StaffCensusDetails {
@@ -277,59 +281,24 @@ export interface CensusSummary {
 // ---------------------------------------------------------------------------
 
 /**
- * `HH:MM` or `HH:MM:SS` to minutes since midnight, or null if it is neither.
+ * MOVED to `./weekdayBlock` on 2026-09-04, when `child_booking_schedule` (0085) became the second
+ * consumer of the same shape. `timeToMinutes`, the effective-window rule and the per-week minutes
+ * sum are not census concepts — they are properties of a recurring weekday block, and `0085` reused
+ * `0081`'s idiom deliberately, so a second copy here would be the divergence risk that
+ * `tokens:check` exists to prevent, in a place where it changes a funding figure.
  *
- * Null rather than a throw or a zero: a malformed time in one block should surface as
- * that block being unusable, not as a crash on a return page or — worse — as a
- * midnight start that quietly adds hours to somebody's contract.
+ * The census names survive as thin aliases below, because `contractedMinutes` reads correctly in
+ * the census's own vocabulary and `ContactHoursRow extends ContactHoursBlock` in `@ece/api` reads
+ * better than the neutral name would. The FUNCTION that filters by date does not get an alias:
+ * one behaviour with two exported names is the thing a reviewer would rightly object to, so
+ * `contactHoursOn` is gone and `blocksOn` is the one name.
  */
-export function timeToMinutes(value: string): number | null {
-  const m = /^(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(value.trim());
-  if (!m) return null;
-  const hours = Number(m[1]);
-  const minutes = Number(m[2]);
-  if (hours > 23 || minutes > 59) return null;
-  // Seconds are parsed to validate the shape and then discarded: the schema's
-  // ContactHoursDetail carries xs:time, but a contracted block measured to the second
-  // is a precision this product does not have and should not imply.
-  return hours * 60 + minutes;
-}
 
-function coversDate(from: string | null, to: string | null, asAt: string): boolean {
-  if (from !== null && from > asAt) return false;
-  if (to !== null && to < asAt) return false;
-  return true;
-}
+/** The census's name for a `WeekdayBlock`. Identical shape; kept for local vocabulary. */
+export type ContactHoursBlock = WeekdayBlock;
 
-/** The contracted blocks in force on a date, sorted for a stable wire order. */
-export function contactHoursOn(blocks: ContactHoursBlock[], asAt: string): ContactHoursBlock[] {
-  return blocks
-    .filter((b) => coversDate(b.effectiveFrom, b.effectiveTo, asAt))
-    .slice()
-    .sort((a, b) => a.weekday - b.weekday || a.fromTime.localeCompare(b.fromTime));
-}
-
-/**
- * Contracted minutes across a week, or null if no block yields a usable duration.
- *
- * A block whose times will not parse, or whose end is not after its start, contributes
- * nothing and is not silently treated as zero — `censusRow` reports it. The database
- * has a `to_time > from_time` check, so a bad row should be impossible; this is the
- * second check, because "the constraint exists" is an assumption about a database that
- * a unit test cannot see.
- */
-export function contractedMinutes(blocks: ContactHoursBlock[]): number | null {
-  let total = 0;
-  let any = false;
-  for (const b of blocks) {
-    const from = timeToMinutes(b.fromTime);
-    const to = timeToMinutes(b.toTime);
-    if (from === null || to === null || to <= from) continue;
-    total += to - from;
-    any = true;
-  }
-  return any ? total : null;
-}
+/** The census's name for `blockMinutes`. Contracted, per §14-2's open question — item 50. */
+export const contractedMinutes = blockMinutes;
 
 // ---------------------------------------------------------------------------
 // Code resolution
@@ -459,7 +428,7 @@ export function censusRow(
     if (!checked) allChecked = false;
   };
 
-  const blocks = contactHoursOn(input.contactHours, asAt);
+  const blocks = blocksOn(input.contactHours, asAt);
   const minutes = contractedMinutes(blocks);
   const isRegistered = registrationOf(member.id, records, asAt);
 

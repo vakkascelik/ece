@@ -9,6 +9,7 @@ import {
   listConsentRequests,
   listConsents,
   listCustodyArrangements,
+  listBookingSchedule,
   listEnrolments,
   guardianPinStatus,
   listGuardiansOfChild,
@@ -22,6 +23,7 @@ import {
   can,
   compareBySeverity,
   dosesOnDate,
+  isEnrolmentCurrent,
   lastCompletedWeek,
   shiftLocalDate,
   summariseVerification,
@@ -36,6 +38,7 @@ import { ConfirmPanel } from '../ConfirmPanel';
 import { ConsentPanel } from '../ConsentPanel';
 import { CustodyPanel } from '../CustodyPanel';
 import { DetailsForm } from '../DetailsForm';
+import { BookingSchedulePanel } from '../BookingSchedulePanel';
 import { EnrolmentPanel } from '../EnrolmentPanel';
 import type { WitnessOption } from '../GiveMedicine';
 import { HealthPanel, type DosesToday } from '../HealthPanel';
@@ -430,14 +433,16 @@ export default async function ChildTabPage({
   // Documents: the paperwork. Consent decisions, the enrolment, the identity record, and
   // leaving — the things a manager opens sitting down, which is why they are behind a tab
   // rather than above the fold.
-  const [consents, history, requests, whanau, enrolments] = await Promise.all([
+  const [consents, history, requests, whanau, enrolments, schedule] = await Promise.all([
     listConsents(db, id),
     listConsentHistory(db, id),
     listConsentRequests(db, id),
     listGuardiansOfChild(db, id),
     listEnrolments(db, id),
+    listBookingSchedule(db, [id]),
   ]);
   const ownGuardianId = whanau.find((g) => g.guardian.userId === ctx.userId)?.guardian.id ?? null;
+  const currentEnrolment = enrolments.find((e) => isEnrolmentCurrent(e, today));
 
   return (
     <>
@@ -488,6 +493,42 @@ export default async function ChildTabPage({
           enrolments={enrolments}
           canEdit={can(ctx.role, 'manageEnrolment')}
           today={today}
+        />
+      </div>
+
+      <div className="section">
+        <div className="has-help">
+          <h2>Days and times</h2>
+          <HelpNote label="Days and times">
+            <p>
+              The days and times this child is expected to attend &mdash; the enrolment agreement.
+              The Ministry requires an enrolment record to state them, and to record any later
+              change signed and dated by a parent or guardian.
+            </p>
+            <p>
+              This is what the funding rules mean by the hours a child is <em>enrolled to attend</em>,
+              as distinct from the hours they actually attended. Both matter: a permanently enrolled
+              child can be claimed for some booked absences, and whether their attendance matches
+              this agreement decides for how long.
+            </p>
+            <p>
+              To change a day, end the current block and add the new one. Editing in place would
+              lose what the agreement said last term, which is what an earlier funding claim was
+              calculated from.
+            </p>
+          </HelpNote>
+        </div>
+        {/*
+          The current enrolment's days, for the comparison note when no schedule exists yet.
+          `find`, not `[0]`: enrolments are newest-first but a child who left and came back has
+          two rows, and the open one is not necessarily the first.
+        */}
+        <BookingSchedulePanel
+          childId={id}
+          blocks={schedule}
+          canEdit={can(ctx.role, 'manageEnrolment')}
+          today={today}
+          enrolmentDays={currentEnrolment?.days ?? []}
         />
       </div>
 

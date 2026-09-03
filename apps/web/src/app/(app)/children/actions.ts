@@ -27,7 +27,10 @@ import {
   reportAbsence,
   reportAbsenceRange,
   createChild,
+  addScheduleBlock as addScheduleBlockRow,
   createEnrolment,
+  deleteScheduleBlock as deleteScheduleBlockRow,
+  endScheduleBlock as endScheduleBlockRow,
   createGuardian,
   linkGuardian,
   recordAdministration,
@@ -937,4 +940,98 @@ export async function verifyWeekPortal(input: {
     // distinctions are for the office, not for a screen that already filtered its offer.
     return { message: 'You cannot verify this week. Please talk to the centre.' };
   }
+}
+
+// ---------------------------------------------------------------------------
+// The enrolment agreement — the weekday pattern (0085)
+// ---------------------------------------------------------------------------
+
+/*
+  Three actions, mirroring `/census`'s block editor, because the tables are the same shape and the
+  editing gestures are the same three: add a block, close an open one, delete a mistake.
+
+  `manageEnrolment`, not `manageCentre`. The agreement is the thing funded hours are derived from,
+  and this repo already gates enrolment writes on that capability — `EnrolmentPanel` uses it two
+  sections up the same page. The database is narrower still and independent of this:
+  `caller_may_enrol` in `0085` is owner-or-manager at the child's own centre, so an educator reads
+  the agreement and cannot rewrite it. The capability decides whether a form is drawn; Postgres
+  decides whether a row changes.
+
+  Validation mirrors `census/actions.ts:127-190`: the same ISO_DATE and TIME shapes, weekday as an
+  integer 1-7, and `toTime > fromTime` checked here as well as by the CHECK constraint — because a
+  `23514` reaching a centre manager is a worse message than a sentence.
+*/
+
+const TIME = /^\d{2}:\d{2}(:\d{2})?$/;
+
+export async function addScheduleBlock(_prev: unknown, form: FormData): Promise<Result> {
+  await requireCapability('manageEnrolment');
+  const db = await serverDb();
+
+  const childId = str(form, 'childId');
+  const weekday = Number(str(form, 'weekday'));
+  const fromTime = str(form, 'fromTime');
+  const toTime = str(form, 'toTime');
+  const effectiveFrom = str(form, 'effectiveFrom');
+
+  if (!childId) return { error: 'Missing child.' };
+  if (!Number.isInteger(weekday) || weekday < 1 || weekday > 7) {
+    return { error: 'Choose a day of the week.' };
+  }
+  if (!TIME.test(fromTime) || !TIME.test(toTime)) {
+    return { error: 'Give a start and end time, as HH:MM.' };
+  }
+  if (toTime <= fromTime) return { error: 'The end time has to be after the start time.' };
+  if (!ISO_DATE.test(effectiveFrom)) return { error: 'Give the date this pattern starts from.' };
+
+  const { data: auth } = await db.auth.getUser();
+  try {
+    await addScheduleBlockRow(
+      db,
+      { childId, weekday, fromTime, toTime, effectiveFrom },
+      auth.user?.id ?? null,
+    );
+  } catch (e) {
+    // `addScheduleBlockRow` already turns the 23P01 overlap into a sentence about ending the
+    // existing block first, so this passes it through rather than replacing it.
+    return actionError(e, 'children.addScheduleBlock');
+  }
+  revalidatePath(`/children/${childId}/documents`);
+  return { ok: true };
+}
+
+export async function endScheduleBlock(_prev: unknown, form: FormData): Promise<Result> {
+  await requireCapability('manageEnrolment');
+  const db = await serverDb();
+
+  const childId = str(form, 'childId');
+  const id = str(form, 'blockId');
+  const effectiveTo = str(form, 'effectiveTo');
+  if (!id) return { error: 'Missing block.' };
+  if (!ISO_DATE.test(effectiveTo)) return { error: 'Give the last day this pattern applies.' };
+
+  try {
+    await endScheduleBlockRow(db, id, effectiveTo);
+  } catch (e) {
+    return actionError(e, 'children.endScheduleBlock');
+  }
+  revalidatePath(`/children/${childId}/documents`);
+  return { ok: true };
+}
+
+export async function removeScheduleBlock(_prev: unknown, form: FormData): Promise<Result> {
+  await requireCapability('manageEnrolment');
+  const db = await serverDb();
+
+  const childId = str(form, 'childId');
+  const id = str(form, 'blockId');
+  if (!id) return { error: 'Missing block.' };
+
+  try {
+    await deleteScheduleBlockRow(db, id);
+  } catch (e) {
+    return actionError(e, 'children.removeScheduleBlock');
+  }
+  revalidatePath(`/children/${childId}/documents`);
+  return { ok: true };
 }

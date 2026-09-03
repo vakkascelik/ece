@@ -253,6 +253,12 @@ export * from './staff';
 // rather than reading those tables again — the registration flag comes from the same
 // practising-certificate row the licensing binder reads, so the two cannot disagree.
 export * from './census';
+
+// The enrolment agreement as a weekday pattern (0085). Separate from `children.ts` because
+// the agreement is a funding input with its own write predicate, not part of the child record's
+// vocabulary — and separate from `census.ts` because the two tables share a shape and nothing
+// else: one is a staff contract, the other a parent-signed agreement.
+export * from './bookingSchedule';
 // Definer functions only — a kiosk holds no table grant, so there is nothing here to
 // select from and no query for a later reader to widen.
 export * from './kiosk';

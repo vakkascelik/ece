@@ -348,6 +348,54 @@ assertions whose mechanism has not been read is how a suite quietly stops testin
 — that an hour of today has elapsed. Like the RLS suite's need for exclusive database access, a
 precondition nobody wrote down is indistinguishable from a bug the first time it is violated.
 
+#### An extraction that changes behaviour is not an extraction
+
+Caught on 2026-09-04, in the move of `timeToMinutes` from `census.ts` into `weekdayBlock.ts`.
+
+The original refuses `hours > 23`. The moved copy allowed `24:00` — a session ending at midnight,
+which Postgres `time` accepts and which both tables' `to_time > from_time` CHECKs would happily
+store. A defensible widening, arrived at while thinking about *sessions* rather than about the move.
+
+**The existing test rejects `'25:00'` and never exercises `'24:00'`, so it would have passed.** That
+is what makes this class dangerous: a refactor is the one kind of change a reviewer reads *quickly*,
+because the diff is supposed to be a move. A behavioural change smuggled inside one is reviewed by
+nobody, including its author.
+
+Reverted, with the question left open in the file. Whether a block may end at midnight has a real
+answer in the Handbook's session rules and deserves its own commit, its own test and a source.
+
+**The rule:** during a move, the diff of the moved code must be empty. Anything else — a widened
+bound, a renamed parameter, a tidier early return — goes in a separate commit, where the title says
+what changed and the tests are written to fail without it.
+
+**And the corollary that actually caught it here:** after moving something, re-read the *original*
+alongside the copy rather than reading the copy for plausibility. Plausible is what a wrong bound
+looks like.
+
+#### The reconciliation was right and searched the wrong set of files
+
+Also 2026-09-04, and the second time this shape has appeared.
+
+Phase 2b corrected a funding cap and then asked the right question — *what already asserts this
+figure?* It found three: two unit tests and `scripts/reconcile-funding.ts`. It reported that as the
+complete set and it was not. `scripts/drill-rowcap.ts` asserted the same figure with the label
+*"funded equals attended, since no attestation means no caps"*, and it went unnoticed because 2b
+added no multi-row read, so `drill:rowcap` was not in its conditional gates and never ran. It
+surfaced a day later when unrelated work added a read.
+
+**The search was for the files expected to hold the figure, not for the figure.** The unit tests and
+the script with *funding* in its name were obvious; the drills were not in the mental set at all,
+and one of them asserts a funding total.
+
+This is the item-49 audit again from a new direction — that one matched a single phrasing of a
+generated message and so inspected 14 of 48 guards while reporting a clean result. Same failure:
+**a search scoped by where you expect the thing to be, rather than by what the thing is.**
+
+**The rule:** when a figure, constant or invariant changes, grep the whole repo for the *value* and
+for the *claim*, `scripts/` and `supabase/` included — not just the test files for the module. And
+check which conditional gates the change does *not* trigger, because those are precisely the files
+whose stale assertions will not be seen.
+
 #### Line endings are not uniform in this repo, and a scripted anchor has to match
 
 Small, and it cost three failed attempts in one sitting on 2026-09-03, so it is written down.

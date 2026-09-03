@@ -31,14 +31,30 @@
  * every date boundary — genuinely incomplete days, correctly reported, and a hopeless
  * instrument for measuring anything else.
  *
- * No enrolment is created, so `twenty_hours_ece` is false and NO CAPS apply. Deliberate: a
- * 6-hour daily cap would clamp both the true and the truncated total to the same number and
- * hide exactly the difference this drill is measuring.
+ * ~~No enrolment is created, so `twenty_hours_ece` is false and NO CAPS apply.~~
+ *
+ * **STALE AS OF 2026-09-04, and the reasoning behind it survives.** The caps used to be gated on
+ * the 20 Hours attestation, so a child with no enrolment was uncapped. They are not any more: the
+ * ECE Funding Subsidy caps at 6 hours a day and 30 a week for **every** child (Handbook §9-2,
+ * §9-3), and Phase 2b applied it. See unverified-claims item 54.
+ *
+ * The design note was right about why it mattered, though, and it is why `attendedHours` is the
+ * load-bearing assertion here rather than `fundedHours`: a daily cap **compresses** the difference
+ * this drill exists to measure. At 6.25 hours a day, true and truncated reads both clamp to 6 per
+ * day, so the only signal left in the funded figure is the number of days — a much blunter
+ * instrument than 50.00 against 41.67. `attendedHours` is uncapped and stays sharp.
+ *
+ * So the funded assertions below became a **bound plus a deterministic side-effect**, not an
+ * equality. 8 days × 6.25 hours clamps to 8 × 6 = 48, and the 30-hour weekly cap then bites
+ * differently depending on which ISO weeks the eight days straddle — which varies by the day the
+ * drill runs. Asserting a fixed number would make this drill fail on some weekdays and pass on
+ * others, which is the nondeterminism `reconcile-funding.ts` had for the same reason.
  *
  *   npm run drill:rowcap
  */
 import { createClient } from '@supabase/supabase-js';
 import { readFundingPeriod } from '@ece/api';
+import { DEFAULT_CAPS } from '@ece/core';
 
 const DAYS = 8;
 const SESSIONS_PER_DAY = 75;
@@ -162,10 +178,35 @@ async function main() {
       `attended hours is exactly ${EXPECTED_HOURS.toFixed(2)}`,
       `got ${child?.attendedHours}`,
     );
+    /*
+      THE FOURTH ASSERTION THAT HAD ENCODED THE PRE-2b DEFECT, and the one its commit missed.
+
+      It read `child?.fundedHours === EXPECTED_HOURS` with the label "funded equals attended, since
+      no attestation means no caps". Phase 2b found and corrected three others — two unit tests and
+      `reconcile-funding.ts` — and reported that as the complete set. It was not: 2b's conditional
+      gates did not include `drill:rowcap`, because that change added no multi-row read, so this
+      file was never run against it. It surfaced a day later when Phase 2A added one.
+
+      Worth the paragraph because the reconciliation 2b did — "check what already asserts this
+      figure" — was sound and **searched the wrong set of files**: the unit tests and the script
+      with "funding" in its name, not the drills. A grep for the figure would have found it; a grep
+      for the files I expected to hold it did not.
+    */
+    const dailyCap = DEFAULT_CAPS.maxHoursPerDay;
     check(
-      child?.fundedHours === EXPECTED_HOURS,
-      'funded equals attended, since no attestation means no caps',
+      child?.cappedDates.length === DAYS,
+      `every one of the ${DAYS} days hit the ${dailyCap}h daily cap — ${(SESSIONS_PER_DAY * MINUTES_PER_SESSION) / 60}h attended each`,
+      `${child?.cappedDates.length ?? '?'} capped`,
+    );
+    check(
+      (child?.fundedHours ?? 0) <= DAYS * dailyCap,
+      `funded is at most ${DAYS * dailyCap}.00 — a bound, not an equality, because the weekly cap bites differently depending on which ISO weeks these ${DAYS} days straddle`,
       `got ${child?.fundedHours}`,
+    );
+    check(
+      (child?.fundedHours ?? 0) < (child?.attendedHours ?? 0),
+      'and funded is now strictly below attended, which it was not before 2026-09-04',
+      `${child?.fundedHours} < ${child?.attendedHours}`,
     );
     check(
       child?.unresolvedDates.length === 0,
