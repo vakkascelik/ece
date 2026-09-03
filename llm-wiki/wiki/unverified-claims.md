@@ -1882,6 +1882,33 @@ specifically. Assuming it generalises is exactly the move this page exists to pr
 [[eli-integration]] caveat applies, *"the XSD bounds what a field may contain; only the Handbook
 says what it means"*.
 
+### 53. Two places now record which days a child attends — **OPEN, added 2026-09-04, by construction rather than by accident**
+
+| | |
+|---|---|
+| **What is asserted** | Nothing yet, and that is the point: `enrolments.days` and `child_booking_schedule` both record which days a child attends, and nothing decides which one is right when they disagree |
+| **Where** | `enrolments.days smallint[]` (0004) and `public.child_booking_schedule` (0085) |
+| **Measured before shipping the second one** | `enrolments.days` is **display-only**. `formatDays()` renders it on the children list (`children/page.tsx:175`) and on the enrolment row (`EnrolmentPanel.tsx:105`), and **nothing** in funding, ratios, the roll or the forecast computes with it. So this is not yet a duplicated *computed* fact |
+| **Why it is a hazard anyway** | It is a duplicated *recorded* fact, in a repo where two hand-maintained copies of the design tokens diverged silently — a page background of `#fafaf9` against `#faf9f7`, and a muted grey a full contrast point worse than the value the contrast test asserted. `tokens:check` exists because of it |
+| **The stated rule** | **Where a schedule block exists it is authoritative; `enrolments.days` is the coarse older form.** Written into `0085`'s header and the table comment |
+
+**Why the collapse was not done in the same migration**, which is the part worth keeping. Deriving
+the display from the schedule and dropping the column is the obvious tidy-up, and it would have
+been wrong on the day it shipped: `child_booking_schedule` is **empty**, so a reader that preferred
+it would show every existing child as having no days. The same reasoning that keeps `0080`'s code
+sets empty rather than seeded — a mechanism with no data in it must not be allowed to overwrite the
+answer that does exist.
+
+**To close it, in order:** (a) a screen that writes schedule blocks, so the table stops being
+empty; (b) a backfill deriving one open-ended block per weekday from `enrolments.days`, with the
+times left null or stated as unknown — **and that is where this gets interesting, because `days`
+carries no times and the new table requires them**, so the backfill cannot be lossless and has to
+decide what an unstated time means; (c) then, and only then, derive `formatDays` from the schedule
+and drop the column.
+
+**Do not close it by deleting `enrolments.days` alone.** It is what two screens render today, and
+the enrolment form writes it.
+
 ## See Also
 
 - [[eli-integration]] — the public schema, the event catalogue, and items 47 and 48

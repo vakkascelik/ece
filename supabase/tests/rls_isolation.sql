@@ -987,6 +987,175 @@ begin
     'an unlisted enrolment type is refused, got ' || code);
 end $$;
 
+-- ===========================================================================
+-- 0085 — the child booking schedule: the enrolment agreement as a pattern
+--
+-- The table §6-5 and §6-7 need, and the one ELI calls `ChildBookingSchedule`. Keyed on the
+-- child rather than the enrolment, because the XSD is and because `audit_trigger()` can
+-- resolve a centre from `child_id`.
+--
+-- The boundary that matters here is the one INSIDE a centre, not between centres. An
+-- educator may read a child's record and must not be able to rewrite the agreement the
+-- child's funding rests on — that is what `caller_may_enrol` narrows and what a policy
+-- keyed on `caller_is_staff_for_child` would have got wrong.
+-- ===========================================================================
+
+set local role postgres;
+insert into public.child_booking_schedule (child_id, weekday, from_time, to_time, effective_from)
+values ('a1111111-1111-4111-8111-111111111111', 2, '08:00', '15:00', '2026-02-01');
+set local role authenticated;
+
+-- The owner writes it. Positive first: a negative alone passes just as happily when the
+-- table is unwritable by everybody.
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+do $$
+declare n integer;
+begin
+  insert into public.child_booking_schedule (child_id, weekday, from_time, to_time, effective_from)
+  values ('a1111111-1111-4111-8111-111111111111', 3, '08:00', '15:00', '2026-02-01');
+  get diagnostics n = row_count;
+  perform pg_temp.expect(n = 1, 'an owner CAN record a booking schedule for their own child (0085)');
+end $$;
+
+-- Split sessions on one weekday are legal: the XSD allows more than one block per day
+-- (maxOccurs unbounded) and a sessional service is the case it exists for.
+do $$
+declare n integer;
+begin
+  insert into public.child_booking_schedule (child_id, weekday, from_time, to_time, effective_from)
+  values ('a1111111-1111-4111-8111-111111111111', 3, '15:30', '17:30', '2026-02-01');
+  get diagnostics n = row_count;
+  perform pg_temp.expect(n = 1, 'two non-overlapping blocks on one weekday are allowed (0085)');
+end $$;
+
+-- Overlapping the same minute of the same weekday is not. Double-counting an agreement is
+-- the same class of error as an overlapping enrolment.
+do $$
+declare code text := 'none (the insert SUCCEEDED)';
+begin
+  begin
+    insert into public.child_booking_schedule (child_id, weekday, from_time, to_time, effective_from)
+    values ('a1111111-1111-4111-8111-111111111111', 3, '14:00', '16:00', '2026-02-01');
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '23P01',
+    'an overlapping block on the same weekday is refused, got ' || code);
+end $$;
+
+-- And an OPEN-ENDED block blocks a later overlapping one until it is closed, because a null
+-- `effective_to` is infinity in the exclusion constraint. This is the behaviour that
+-- surprised 0081's author, asserted here so the next person meets it as a test rather than
+-- as a puzzle.
+do $$
+declare code text := 'none (the insert SUCCEEDED)';
+begin
+  begin
+    insert into public.child_booking_schedule (child_id, weekday, from_time, to_time, effective_from)
+    values ('a1111111-1111-4111-8111-111111111111', 2, '08:00', '15:00', '2027-06-01');
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '23P01',
+    'an open-ended block blocks a later overlapping one until closed, got ' || code);
+end $$;
+
+-- Closing it first makes the same insert legal, which is how an agreement is changed —
+-- exactly what §6-7 requires when attendance stops matching it.
+do $$
+declare n integer;
+begin
+  update public.child_booking_schedule set effective_to = '2027-05-31'
+   where child_id = 'a1111111-1111-4111-8111-111111111111' and weekday = 2;
+  insert into public.child_booking_schedule (child_id, weekday, from_time, to_time, effective_from)
+  values ('a1111111-1111-4111-8111-111111111111', 2, '08:00', '15:00', '2027-06-01');
+  get diagnostics n = row_count;
+  perform pg_temp.expect(n = 1, 'closing a block then adding the next is how an agreement changes (0085)');
+end $$;
+
+-- The audit row is asserted, not assumed. 0059's failure mode was three tables carrying
+-- triggers that wrote nothing for months because audit_trigger() could not resolve a centre.
+select pg_temp.expect(
+  (select count(*) from public.audit_events
+    where entity = 'child_booking_schedule' and action = 'insert') >= 1,
+  'writing a booking schedule leaves an audit row — audit_trigger resolves child_id (0085)'
+);
+
+-- The other centre cannot see it.
+set local request.jwt.claims = '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.child_booking_schedule) = 0,
+  'another centre CANNOT read this centre''s booking schedules (0085)'
+);
+
+-- THE ASSERTION THIS TABLE'S POLICY EXISTS FOR. An educator reads the agreement — they run
+-- the room and need to know who is expected — and cannot change it, because the funded hours
+-- claimed for an absence are derived from it.
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.child_booking_schedule) > 0,
+  'an educator CAN read the booking schedule for a child at their centre (0085)'
+);
+/*
+  ONE row, and shrinking. The first version of this assertion updated every row for the
+  child and set `to_time` LATER, which — when the policy was deliberately weakened to drill
+  it — made two blocks on weekday 3 overlap, so the exclusion constraint raised before
+  `expect` was reached. The suite went red, which is something, but not on this assertion
+  and not with this message.
+
+  A negative assertion has to fail for ITS OWN reason when the thing it guards is removed.
+  Narrowing one block cannot collide with anything, so a permitted write here shows up as
+  `n = 1` and nothing else.
+*/
+do $$
+declare n integer;
+begin
+  update public.child_booking_schedule set from_time = '09:00'
+   where child_id = 'a1111111-1111-4111-8111-111111111111'
+     and weekday = 3 and from_time = '08:00';
+  get diagnostics n = row_count;
+  perform pg_temp.expect(n = 0,
+    'an educator CANNOT rewrite the enrolment agreement — caller_may_enrol, not caller_is_staff_for_child (0085)');
+end $$;
+
+-- A parent reads their own child's agreement. It is their agreement: §6-7's reconfirmation
+-- is signed and dated by them.
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.child_booking_schedule) > 0,
+  'a guardian CAN read their own child''s booking schedule (0085)'
+);
+do $$
+declare n integer;
+begin
+  update public.child_booking_schedule set from_time = '09:00'
+   where child_id = 'a1111111-1111-4111-8111-111111111111'
+     and weekday = 3 and from_time = '08:00';
+  get diagnostics n = row_count;
+  perform pg_temp.expect(n = 0, 'a guardian CANNOT change the agreement themselves (0085)');
+end $$;
+
+-- The other parent, whose child is at the same centre, reads nothing. The in-centre
+-- guardianship boundary, which is the harder of the two.
+set local request.jwt.claims = '{"sub":"44444444-4444-4444-8444-444444444444","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.child_booking_schedule) = 0,
+  'a guardian of a DIFFERENT child at the same centre reads no schedule (0085)'
+);
+
+-- `anon` is stopped by the grant, before any policy runs.
+do $$
+declare code text := 'none';
+begin
+  set local role anon;
+  begin
+    perform 1 from public.child_booking_schedule;
+  exception when others then code := sqlstate;
+  end;
+  set local role authenticated;
+  perform pg_temp.expect(code = '42501', 'anon is refused by the GRANT on child_booking_schedule, got ' || code);
+end $$;
+
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+
 -- A half-recorded attestation is worse than none: a date with nobody's name against it
 -- reads, in an audit, as though somebody attested and we lost who. Same paired-completeness
 -- shape as `immunisation_sighting_complete` in 0036.

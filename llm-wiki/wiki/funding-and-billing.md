@@ -575,9 +575,19 @@ be treated as ineligible for absence funding, not eligible.
 type: a three-week window per absence spell (§6-5), **the suspension of that window while the
 service is closed for two weeks or more (§6-6 — which this page did not know about until
 2026-09-03)**, a monthly frequent-absence check against the enrolment agreement (§6-7), and a record
-of reconfirmations that is a **dated act by a named person**, not a boolean. It also needs the
-enrolment agreement itself as an effective-dated weekday pattern, which is `ChildBookingSchedule`
-and does not exist yet.
+of reconfirmations that is a **dated act by a named person**, not a boolean.
+
+~~It also needs the enrolment agreement itself as an effective-dated weekday pattern, which is
+`ChildBookingSchedule` and does not exist yet.~~ **Built 2026-09-04 — `0085`,
+`child_booking_schedule`.** Effective-dated ISO-weekday blocks with times, keyed on the child,
+allowing more than one block per weekday for a sessional service. So §6-7 now has something to
+compare attendance *against*, and §6-5 has a definition of "enrolled to attend".
+
+**And the contract-versus-actuals question was asked before the shape was cloned**, because item
+50 is the record of getting it wrong on the staff side. The child side answers the other way and
+the reason is a quotation rather than an inference: §6-5 says *"enrolled to attend"* and §6-7
+says *"match their enrolment agreement"*. Both are about what was agreed, and the actuals they
+are compared against already exist in `attendance_events`. A contract is the right thing here.
 
 **And one rule that breaks the shape of the whole calculation.** §6-4: *"Funding must not be claimed
 for both an absent permanently enrolled child under an absence rule and for the conditional or casual

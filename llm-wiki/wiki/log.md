@@ -5,6 +5,53 @@ says so.*
 
 ---
 
+2026-09-04 — **Phase 1c: the enrolment agreement exists, and the contract-versus-actuals question
+was asked *before* the shape was cloned this time.** New: [[unverified-claims]] item 53 (two places
+now record which days a child attends). Corrected: [[eli-integration]]'s event catalogue, whose
+`ChildBookingSchedule` row said *"Nothing maps … the clearest structural gap in the child data"*,
+and [[funding-and-billing]]'s list of what absence funding still needs.
+
+`0085` adds `child_booking_schedule`: effective-dated ISO-weekday blocks with times, more than one
+block per weekday allowed.
+
+**Item 50 exists because the staff side got this wrong, so the question got asked first.** `0081`
+built `staff_contact_hours` as a *contracted* pattern because the XSD's `ContactHoursDetailList`
+has that shape — and §14-2 then turned out to ask for *"actual contact hours … actual contact start
+and finish times spent teaching children"*. The child side answers the **other** way, and the
+reason is a quotation rather than an inference: §6-5 claims for sessions a child was *"enrolled to
+attend"*, §6-7 compares attendance *"against their enrolment agreement"*. Both are about what was
+agreed, and the actuals already exist in `attendance_events`. So a contract is right here, and the
+trap did not transfer.
+
+**Keyed on the child, not the enrolment, and two unrelated reasons agree.** The XSD keys it on the
+child — `ChildBookingSchedule` carries `ChildEntityId` and no enrolment reference — and
+`audit_trigger()` can only resolve a centre from a fixed column set that includes `child_id` and
+**not** `enrolment_id`. Keying on the enrolment would have needed a new branch in that function and
+a new entry in the attributability class assertion. `0081` picked `staff_member_id` for the same
+reason. When the message format and the audit infrastructure independently point the same way, that
+is worth taking.
+
+**A new predicate, because the read-side one is too broad.** `caller_may_enrol(child)` — owner or
+manager at the child's centre — shaped exactly like `caller_may_roster` (0041). A policy keyed on
+`caller_is_staff_for_child` would have let an **educator rewrite the agreement their funding rests
+on**, and that is the assertion the whole policy exists for.
+
+**The mutation drill caught a flaw in my own assertion before it caught the policy.** Weakening the
+write policy to the read predicate turned the suite red — but with
+`conflicting key value violates exclusion constraint`, not on the named assertion. The educator's
+attempted UPDATE targeted *every* row for the child and pushed `to_time` later, so once permitted it
+made two weekday-3 blocks overlap and the constraint fired first. **A negative assertion has to fail
+for its own reason when the thing it guards is removed.** Narrowed to one block shrinking, re-drilled,
+and it now fails on exactly its own label.
+
+**The duplication is recorded rather than tidied away.** `enrolments.days` also records which days a
+child attends. Measured first: it is display-only, rendered by `formatDays()` in two places, with
+nothing in funding, ratios, the roll or the forecast computing from it. So the rule is stated — a
+schedule block is authoritative where it exists — and the collapse is deliberately deferred, because
+the new table is **empty** on the day it ships and a reader preferring it would show every existing
+child as having no days. Item 53 also names the part that makes the eventual backfill interesting:
+`days` carries no times and the new table requires them, so it cannot be lossless.
+
 2026-09-03 (twelfth) — **Phase 1b: the axis absence funding turns on now exists, and null is
 deliberately not "permanent".** Corrected: [[funding-and-billing]]'s *"the blocker is the schema"*
 paragraph and [[unverified-claims]] item 6's blocker row — both said `enrolments` has no

@@ -7,6 +7,71 @@ itself, and from the wiki pages, which hold the durable *why*. This file is the 
 
 ---
 
+## 2026-09-04 — Phase 1c: the enrolment agreement, and asking the contract question before cloning the shape
+
+`0085` adds `child_booking_schedule` — effective-dated ISO-weekday blocks with times, more than one
+block per weekday permitted. It is the table §6-5 and §6-7 need and the one ELI calls
+`ChildBookingSchedule`, and it was the clearest remaining structural gap in the child data.
+
+**The valuable part was a question, not the code.** `unverified-claims` item 50 exists because the
+staff side got this exact decision wrong: `0081` built `staff_contact_hours` as a *contracted*
+pattern because the XSD's `ContactHoursDetailList` has that shape, and §14-2 then turned out to ask
+for *"actual contact hours"*. So before cloning the shape I went and read what the Handbook says
+about the child side. It answers the **other way**, and quotably: §6-5 claims for sessions a child
+was *"enrolled to attend"*; §6-7 compares attendance *"against their enrolment agreement"*. Both
+concern what was agreed, and the actuals they are measured against already exist in
+`attendance_events`. A contract is correct here — and that is now a citation in the migration header
+rather than an assumption nobody wrote down.
+
+**Two independent reasons picked the key, which is the sort of agreement worth noticing.** The
+agreement intuitively belongs to an enrolment. But the XSD keys `ChildBookingSchedule` on the child
+(`ChildEntityId`, no enrolment reference), *and* `audit_trigger()` can only resolve a centre from a
+fixed column set containing `child_id` and not `enrolment_id` — so keying on the enrolment would
+have required a new branch in that function plus a new entry in the attributability class assertion.
+`0081` chose `staff_member_id` for precisely that second reason. Message format and audit
+infrastructure pointing the same way is a good sign you have the grain right.
+
+**A new predicate, because reusing the read-side one would have been the bug.**
+`caller_may_enrol(child)` is owner-or-manager at the child's centre, shaped exactly like
+`caller_may_roster` (0041). `caller_is_staff_for_child` is the read predicate and is too broad: an
+educator legitimately reads the agreement — they run the room and need to know who is expected — and
+must not be able to rewrite the thing the child's absence funding is derived from. That is the single
+assertion this table's policy exists for.
+
+**And the mutation drill caught a flaw in my assertion before it caught anything about the policy.**
+Weakening the write policy to `caller_is_staff_for_child` turned the suite red, but with
+`conflicting key value violates exclusion constraint` — not on the named assertion. The educator's
+attempted UPDATE targeted *every* block for the child and pushed `to_time` later, so the moment the
+policy permitted it, two weekday-3 blocks overlapped and the constraint raised before `expect` was
+reached. Red is red, but **a negative assertion has to fail for its own reason when the thing it
+guards is removed**, or it is testing the wrong mechanism. Narrowed to one block shrinking — which
+cannot collide with anything — re-drilled, and it now fails on exactly its own label naming the
+predicate. Restored, and `migrate --status` confirms the file is still byte-identical to what was
+applied, which is the real check that a hand-restored migration is intact.
+
+**13 assertions, and I predicted 12.** Second time today I have estimated an assertion count instead
+of counting one. The suite reports 656 and the arithmetic works out; the habit does not.
+
+**The duplication is recorded rather than tidied away.** `enrolments.days` also records which days a
+child attends. Measured before shipping the second one: it is **display-only** — `formatDays()` in
+two screens, and nothing in funding, ratios, the roll or the forecast computes from it. So the rule
+is stated (a schedule block is authoritative where it exists) and the collapse is deliberately
+deferred, because `child_booking_schedule` is **empty** on the day it ships and a reader preferring
+it would show every existing child as having no days. That is the same argument that keeps `0080`'s
+code sets empty rather than seeded: a mechanism with no data must not overwrite the answer that does
+exist. New item 53, which also names the part that will make the backfill awkward — `days` carries
+no times and the new table requires them, so it cannot be lossless.
+
+**Committed as schema-only, following the census's own precedent** of landing schema+core first and
+api+screen second. And one thing deliberately *not* done: `contactHoursOn` and `ContactHoursBlock` in
+`census.ts` are structurally identical to what a child-schedule reader needs, so the no-duplication
+rule says extract a neutral `WeekdayBlock`/`blocksOn`. But today there is exactly **one** consumer,
+and renaming a working function across a test file to prepare for code not yet written is
+speculative refactoring. The extraction happens in the next commit, when the second consumer exists
+and justifies it.
+
+---
+
 ## 2026-09-03 (tenth) — Phase 1b: the absence-funding axis exists, and null must not mean permanent
 
 `0084` adds `enrolments.enrolment_type` — `permanent`, `casual`, `conditional` — plus
