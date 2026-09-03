@@ -30,6 +30,79 @@ question 1 now.
 
 ---
 
+## The Ministry wrote first — reply to that, not to a new thread
+
+**Received ~2026-08-31 from Halaholo Mataele** (Senior Advisor, Early Learning Information, Te
+Mahau), marked `[IN-CONFIDENCE - RELEASE EXTERNAL]`, to the ELI Queries thread:
+
+> *"This email is being sent to you as you have previously contacted the Ministry to inquire/express
+> an interest in the Early Learning Information (ELI) integration process. I would like to advise
+> you that the process for integration to the ELI system is available here <link>. Please follow the
+> instructions on the above webpage if you wish to apply for an assessment."*
+
+Two things follow. **Reply-all on that thread** rather than opening a new one — it keeps the history
+together and reaches the named advisor as well as the shared mailbox. And the invitation to *"apply
+for an assessment"* is the opening the form's pre-submission question requirement wants.
+
+**Worth recording rather than glossing:** the Ministry told us the tranche was open, unprompted,
+and the notification sat unread for three days while this repo went on asserting that applications
+were closed. The 2026-08-18 reply had said the review had no end date, so nothing here was watching
+the page — but something *was* watching us, and the answer arrived by email. Not every open question
+needs a poller; some need somebody to read the inbox.
+
+## The short version — this is the one to send
+
+The owner asked for brief questions. Five, in the order that matters: question 1 is the only one
+whose answer changes code that is already written.
+
+> Kia ora Halaholo,
+>
+> Thank you — that is helpful. We do intend to apply for the 2026 tranche before 30 October.
+>
+> We have worked through the webpage and both application documents and answered most of our
+> questions from them. Five we could not:
+>
+> **1. Contact hours — contracted or actual?** `ContactHoursDetailList` in the ELI Events schema is
+> a weekday with start and end times and no dates, which reads as a contracted pattern. §14-2 of
+> the Funding Handbook describes the same field as *actual* contact hours spent teaching children
+> in the census week. Which is intended? It decides whether we source them from roster agreements
+> or from recorded staff attendance.
+>
+> **2. Assurance requirements.** What security and privacy evidence does the Ministry require of a
+> vendor — an independent security assessment or penetration test, a privacy impact assessment —
+> and at what stage? This was one question in our 14 August enquiry that the reply did not reach.
+>
+> **3. Specifications.** Could you resend the seven specification documents with the password? And
+> is the schema served publicly at `https://eli.minedu.govt.nz/eli.xsd` the same as ELI Events
+> v10.0, and the version we should validate against?
+>
+> **4. Code lists.** Where are the staff role, wait-time and closure-reason lists published? We have
+> found ethnicity, iwi and ECE language codes on Education Counts. Do the published lists carry
+> effective start and end dates, or is a vendor expected to maintain those?
+>
+> **5. Waha Rumaki/PITA.** §14-5 limits the return to Puna Reo, Reo Rua and Leo o Fanau Moana
+> services. Is a vendor still required to build it in order to be approved if it serves none of
+> those service types?
+>
+> Ngā mihi,
+> `[OWNER — name, role]`
+
+**Held back to keep it short**, both askable later without cost: how the 50-service capability is
+evidenced (it shapes how we prepare, not what we build), and §14-2 listing two pairs of staff dates
+where the schema carries one — the specifications will likely settle that once resent.
+
+**Why brevity is the right call here and not a compromise.** The 2026-08-14 enquiry asked five
+questions and two came back unanswered or answered sideways; the one that failed was a sentence
+buried inside a paragraph about fees. Fewer questions, each standing alone, is the shape that got
+an answer on 2026-08-31.
+
+---
+
+## The long version, kept for the reasoning
+
+Not for sending. This is the full set with the argument behind each, and the record of what was
+answered without asking.
+
 ## Suggested subject
 
 `ELI/NSI SMS vendor — 2026 tranche: six questions before submitting`

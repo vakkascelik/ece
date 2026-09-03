@@ -336,6 +336,26 @@ particular system does any of it, and no reply to an email ever will. Nothing on
 the product may be worded to suggest the Ministry has approved, endorsed or reviewed this
 software, because it has not — it has described the conditions under which any system qualifies.
 
+### The Ministry told us, and nobody read the email for three days
+
+**Recorded 2026-09-03.** Halaholo Mataele — the same Senior Advisor who replied on 2026-08-18 —
+wrote to the ELI Queries thread on **~2026-08-31**, unprompted:
+
+> *"This email is being sent to you as you have previously contacted the Ministry to inquire/express
+> an interest in the Early Learning Information (ELI) integration process… Please follow the
+> instructions on the above webpage if you wish to apply for an assessment."*
+
+So the answer to *"has the review concluded"* arrived by email, addressed to us, days before this
+repo worked it out by re-reading a webpage. The 2026-08-18 reply had said the review had no
+published end date, which was true, and the conclusion this repo drew — nothing to do but wait —
+was reasonable and wrong in one specific way: **it treated a question as blocked when the Ministry
+had put us on a list of people it would notify.**
+
+Worth keeping because the general form recurs. This page has an answer that came from asking rather
+than re-reading (item 37), an answer that came from reading a public URL nobody had tried
+([[eli-integration]]), and now an answer that came to us and sat unopened. **Not every open question
+needs a poller; some need somebody to read the inbox.**
+
 ### The review lifted, and the barrier is now one place and eight weeks
 
 **2026-09-02.** The Ministry's integration page, last updated 2026-09-01, no longer says the
@@ -759,4 +779,4 @@ claim only what it actually proves.
 - [[unverified-claims]] — the caps, and the absence of rates
 - [[compliance-and-evidence]] — the other thing attendance is evidence for
 
-*Last updated: 2026-09-02*
+*Last updated: 2026-09-03*
