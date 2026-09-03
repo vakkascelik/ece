@@ -210,6 +210,22 @@ export default async function FundingPage({
                     <td>{c.attendedHours.toFixed(2)}</td>
                     <td>
                       <strong>{c.fundedHours.toFixed(2)}</strong>
+                      {/*
+                        The split, in the cell rather than in two more columns. This table already
+                        has six and the screen has a phone-width test; the two components belong
+                        beside the total they add up to, not at the far right of a row somebody is
+                        scrolling.
+
+                        Only for an attested child with a Plus 10 remainder — for everyone else the
+                        components are zero or identical to the total, and printing "20.00 + 0.00"
+                        on every row is noise that hides the rows where it matters. The CSV carries
+                        them unconditionally, because that is what gets keyed into ELI Web.
+                      */}
+                      {c.plusTenHours > 0 && (
+                        <span className="sub" style={{ display: 'block' }}>
+                          {c.twentyHoursHours.toFixed(2)} + {c.plusTenHours.toFixed(2)} Plus 10
+                        </span>
+                      )}
                     </td>
                     <td>
                       {c.cappedDates.length === 0 ? (

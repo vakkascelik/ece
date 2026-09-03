@@ -55,6 +55,19 @@ export async function GET(request: Request) {
       { header: '20 Hours ECE', value: (c) => (c.twentyHoursEce ? 'yes' : 'no') },
       { header: 'Attended hours', value: (c) => c.attendedHours.toFixed(2) },
       { header: 'Funded hours', value: (c) => c.fundedHours.toFixed(2) },
+      /*
+        The two components, added 2026-09-04, because this file is what somebody keys into ELI
+        Web and ELI Web asks for them separately — `TwentyHoursFundedChildCount` and
+        `TwentyHoursFundedChildPlusTenCount` in the RS7 return.
+
+        Both are zero for a child with no attestation, whose whole figure is subsidy, and for an
+        attested child they sum to the funded total. Carried as columns rather than left to be
+        worked out from the total, because "20 minus the funded hours, unless the week straddled
+        a month boundary" is exactly the arithmetic a spreadsheet gets wrong once and nobody
+        checks again.
+      */
+      { header: '20 Hours ECE hours', value: (c) => c.twentyHoursHours.toFixed(2) },
+      { header: 'Plus 10 hours', value: (c) => c.plusTenHours.toFixed(2) },
       { header: 'Days capped', value: (c) => c.cappedDates.length },
       // The disclaimer, as data. A file whose totals exclude three days must say which
       // three on the row they came from, or somebody keys the total into ELI Web.

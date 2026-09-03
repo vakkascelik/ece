@@ -75,22 +75,27 @@ describe('these test the arithmetic, not the policy', () => {
     }
   });
 
-  it('the disclaimer names the over-statement, not only the two under-claims', () => {
+  it('the disclaimer no longer warns about things that have been fixed', () => {
     /*
-      Added 2026-09-04 with the finding it describes. Every other sentence in that paragraph says
-      the figures run LOW — absence funding is not calculated, Plus 10 is not calculated — and one
-      case runs the other way: a child with no 20 Hours attestation is not capped at all, so a
-      nine-hour day appears in full where §9-2 allows six.
+      This test asserted the OPPOSITE this morning, and the change is the point.
 
-      This is pinned separately from the direction assertion below it because the two must both
-      hold. A disclaimer that promised only under-claiming would be a false statement to somebody
-      about to key a figure into a Ministry system, and it is exactly the kind of comfortable
-      sentence that stops a person checking.
+      On 2026-09-04 the disclaimer gained a sentence saying the figure could run HIGH for a child
+      with no 20 Hours attestation, because the caps were gated on the attestation. Later the same
+      day the caps were fixed — 6 a day and 30 a week for every child — so that sentence became
+      false, and a false caveat is what `ratios.ts` and `DEFAULT_CAPS.basis` have each had to have
+      removed already. It teaches people to skip the disclaimers.
+
+      Same for Plus 10: it said the remaining entitlement was not computed, and now `plusTenHours`
+      is on every child.
+
+      What must still be there is absence funding, which is genuinely missing — asserted below.
+      So this test pins the ABSENCE of two warnings, which is the only way to stop a stale caveat
+      quietly surviving its own fix.
     */
     const text = exportDisclaimer(summariseFunding(period, []));
-    expect(text).toContain('runs the other way');
-    expect(text).toContain('six is the daily maximum');
-    expect(text).toContain('higher than what you can claim');
+    expect(text).not.toContain('runs the other way');
+    expect(text).not.toContain('higher than what you can claim');
+    expect(text).not.toContain('"Plus 10" — is not computed');
   });
 
   it('reports the basis of the caps it was given, not the default basis', () => {
@@ -110,7 +115,12 @@ describe('these test the arithmetic, not the policy', () => {
       the only thing standing between that and the dead ternary coming back: revert the fix and
       it fails, which is more than the other 40 tests in this file can say about it.
     */
-    const custom = { maxHoursPerDay: 4, maxHoursPerWeek: 12, basis: 'A variation on the licence.' };
+    const custom = {
+      maxHoursPerDay: 4,
+      maxHoursPerWeek: 12,
+      twentyHoursWeeklyCap: 8,
+      basis: 'A variation on the licence.',
+    };
     expect(summariseFunding(period, [], undefined, custom).capsBasis).toBe(custom.basis);
     // And omitting them still describes the default, because that is then the truth.
     expect(summariseFunding(period, []).capsBasis).toBe(DEFAULT_CAPS.basis);
@@ -131,27 +141,18 @@ describe('the daily cap', () => {
     expect(r.cappedDates).toEqual(['2026-08-03']);
   });
 
-  it('does not cap a child without the attestation — PINS A KNOWN DEFECT, see the comment', () => {
+  it('caps a child WITHOUT the attestation too — the subsidy does not depend on it', () => {
     /*
-      ~~There is nothing to cap without the entitlement, and pretending otherwise would understate
-      an ordinary fee-paying enrolment.~~
+      This expectation was 8 until 2026-09-04, on the reasoning that "there is nothing to cap
+      without the entitlement". That conflated 20 Hours ECE with the ECE Funding Subsidy, which an
+      ordinary fee-paying enrolment also attracts: §9-2, *"a maximum of 6 hours can be claimed each
+      day for each licensed child-place"*.
 
-      **THAT REASONING IS WRONG and this test currently pins the wrong number — 2026-09-04.**
+      So an eight-hour day yields SIX, and the two hours it used to yield were an over-statement of
+      what the service could claim — the one direction this file promises never to move in.
 
-      It conflates 20 Hours ECE with the **ECE Funding Subsidy**, which is a separate entitlement
-      claimable for a child with no 20 Hours attestation at all. Handbook §9-2: *"a maximum of 6
-      hours can be claimed each day for each licensed child-place"*, to 30 a week. So the expected
-      value below — eight funded hours from an eight-hour day — is two hours more than the service
-      can claim.
-
-      **Kept, failing nothing, and labelled.** Changing the expectation without changing
-      `childFunding` would make the suite red for a defect nobody had fixed; changing both belongs
-      in Phase 2b, where the caps model becomes two components and the change arrives with worked
-      examples and a `reconcile-funding` run. What must not happen is this test sitting here with a
-      comment that reads like an endorsement of the number.
-
-      When 2b lands: this expectation becomes 6, the title loses its warning, and the over-claim
-      sentence in `exportDisclaimer` comes out. See unverified-claims item 54.
+      `twentyHoursHours` and `plusTenHours` are both zero: an unattested child has no 20 Hours
+      component, and the whole of their figure is subsidy.
     */
     const r = childFunding({
       childId: 'c',
@@ -160,8 +161,11 @@ describe('the daily cap', () => {
       period,
       twentyHoursEce: false,
     });
-    expect(r.fundedHours).toBe(8);
-    expect(r.cappedDates).toEqual([]);
+    expect(r.attendedHours).toBe(8);
+    expect(r.fundedHours).toBe(6);
+    expect(r.cappedDates).toEqual(['2026-08-03']);
+    expect(r.twentyHoursHours).toBe(0);
+    expect(r.plusTenHours).toBe(0);
   });
 
   it('leaves a short day alone', () => {
@@ -178,18 +182,44 @@ describe('the daily cap', () => {
 });
 
 describe('the weekly cap, applied AFTER the daily one', () => {
-  it('caps a full week at the weekly maximum', () => {
-    // Five eight-hour days: 40 attended, 30 after the daily cap, 20 after the weekly one.
+  it('caps a full week at the weekly maximum, and splits it into the two components', () => {
+    /*
+      Five eight-hour days. 40 attended; 30 after the daily cap of 6; and 30 after the weekly cap,
+      which is **30** and not 20 — 20 is the cap on the 20 Hours ECE component inside it.
+
+      Before 2026-09-04 this expected 20, discarding the ten hours §9-3 calls Plus 10: "The
+      remainder (up to 30 hours) may be claimed as Plus 10 ECE hours."
+    */
     const events = [3, 4, 5, 6, 7].flatMap((d) => fullDay(d));
     const r = childFunding({ childId: 'c', events, timeZone: NZ, period, twentyHoursEce: true });
     expect(r.attendedHours).toBe(40);
+    expect(r.fundedHours).toBe(30);
     expect(r.fundedHours).toBe(DEFAULT_CAPS.maxHoursPerWeek);
+    // 20 as 20 Hours ECE, the remaining 10 as Plus 10 — and they must sum to the total.
+    expect(r.twentyHoursHours).toBe(20);
+    expect(r.plusTenHours).toBe(10);
+    expect(r.twentyHoursHours + r.plusTenHours).toBe(r.fundedHours);
+  });
+
+  it('a short week is all 20 Hours ECE and no Plus 10', () => {
+    // Two six-hour days: 12 funded, under the 20-hour component cap, so nothing spills into
+    // Plus 10. The boundary in the other direction from the test above.
+    const events = [
+      ev('in', at(3, 9)),
+      ev('out', at(3, 15)),
+      ev('in', at(4, 9)),
+      ev('out', at(4, 15)),
+    ];
+    const r = childFunding({ childId: 'c', events, timeZone: NZ, period, twentyHoursEce: true });
+    expect(r.fundedHours).toBe(12);
+    expect(r.twentyHoursHours).toBe(12);
+    expect(r.plusTenHours).toBe(0);
   });
 
   it('does not let a long Monday absorb capacity Tuesday was entitled to', () => {
     // THE ORDERING TEST. Monday 8h, Tuesday 4h.
-    //   Daily cap first:  min(8,6) + min(4,6) = 10, then weekly min(10,20) = 10.
-    //   Weekly cap first: min(12,20) = 12 — which claims two hours nobody was entitled to,
+    //   Daily cap first:  min(8,6) + min(4,6) = 10, then weekly min(10,30) = 10.
+    //   Weekly cap first: min(12,30) = 12 — which claims two hours nobody was entitled to,
     //                     because Monday's excess is not transferable.
     const events = [...fullDay(3), ev('in', at(4, 9)), ev('out', at(4, 13))];
     const r = childFunding({ childId: 'c', events, timeZone: NZ, period, twentyHoursEce: true });
@@ -198,18 +228,31 @@ describe('the weekly cap, applied AFTER the daily one', () => {
   });
 
   it('applies the weekly cap per ISO week, not per seven days from the start', () => {
-    // Mon 3 – Fri 7 is one week; Mon 10 – Tue 11 is the next. Each gets its own 20-hour allowance,
-    // so a fortnight is not capped at 20.
+    // Mon 3 – Fri 7 is one week; Mon 10 – Tue 11 is the next. Each gets its own 30-hour
+    // allowance, so a fortnight is not capped at 30.
     const events = [...[3, 4, 5, 6, 7].flatMap(fullDay), ...[10, 11].flatMap(fullDay)];
     const r = childFunding({ childId: 'c', events, timeZone: NZ, period, twentyHoursEce: true });
-    // Week one caps at 20; week two is 2 × 6 = 12, under the cap.
-    expect(r.fundedHours).toBe(32);
+    // Week one: 5 × 6 = 30, exactly at the cap. Week two: 2 × 6 = 12, under it. Expected 32 until
+    // 2026-09-04, when the weekly cap went from 20 to 30.
+    expect(r.fundedHours).toBe(42);
+    // And the component split is per week, so week two's 12 hours are all inside ITS own 20-hour
+    // allowance — 20 + 12 as 20 Hours ECE, and only week one's 10 spill into Plus 10.
+    expect(r.twentyHoursHours).toBe(32);
+    expect(r.plusTenHours).toBe(10);
   });
 
-  it('does not cap weekly for a child without the attestation', () => {
+  it('caps weekly for a child without the attestation too', () => {
+    /*
+      Expected 40 until 2026-09-04 — every attended hour, uncapped. §9-2 caps the subsidy at 6 a
+      day and 30 a week for every child, so five eight-hour days give 30, not 40. Ten hours of
+      over-statement in one week for one child, on a figure keyed into ELI Web.
+    */
     const events = [3, 4, 5, 6, 7].flatMap((d) => fullDay(d));
     const r = childFunding({ childId: 'c', events, timeZone: NZ, period, twentyHoursEce: false });
-    expect(r.fundedHours).toBe(40);
+    expect(r.attendedHours).toBe(40);
+    expect(r.fundedHours).toBe(30);
+    expect(r.twentyHoursHours).toBe(0);
+    expect(r.plusTenHours).toBe(0);
   });
 });
 
@@ -250,7 +293,11 @@ describe('the period boundary', () => {
   it('includes both boundary dates', () => {
     const oneDay: FundingPeriod = { label: 'Aug 3', from: '2026-08-03', to: '2026-08-03' };
     const r = childFunding({ childId: 'c', events: fullDay(3), timeZone: NZ, period: oneDay, twentyHoursEce: false });
-    expect(r.fundedHours).toBe(8);
+    // 6, not the 8 attended: the subsidy daily cap applies to every child as of 2026-09-04. This
+    // test is about the period boundary and not about the cap, so it asserts `attendedHours` too —
+    // otherwise a future cap change looks like a boundary regression.
+    expect(r.attendedHours).toBe(8);
+    expect(r.fundedHours).toBe(6);
   });
 });
 
@@ -340,7 +387,10 @@ describe('summariseFunding and the disclaimer', () => {
     const summary = summariseFunding(period, [good, bad]);
     expect(summary.complete).toBe(false);
     expect(summary.unresolvedChildCount).toBe(1);
-    expect(summary.totalFundedHours).toBe(8);
+    // 6 from the one complete eight-hour day, since 2026-09-04 — the daily subsidy cap now applies
+    // to an unattested child. What this test is about is that the incomplete child contributes
+    // nothing and does not make the total look finished.
+    expect(summary.totalFundedHours).toBe(6);
   });
 
   it('is complete when every record is', () => {
@@ -509,8 +559,18 @@ describe('the 20 Hours age band', () => {
       dateOfBirth: '2024-08-05',
     });
     expect(r.ineligibleDates).toEqual([]);
-    // And no cap applied either — there is no entitlement to cap.
-    expect(r.fundedHours).toBe(8);
+    /*
+      ~~And no cap applied either — there is no entitlement to cap.~~
+
+      The age band is still not flagged, which is what this test is for: a two-year-old with no
+      attestation is not "outside the 20 Hours band", they are simply not claiming it, and flagging
+      them would put a warning on every under-three in the centre.
+
+      But the CAP does apply now, from 2026-09-04. The eight-hour day yields six, because the ECE
+      Funding Subsidy caps at six a day whether or not a child is attested — §9-2. The old comment
+      conflated the entitlement with the subsidy, which is unverified-claims item 54.
+    */
+    expect(r.fundedHours).toBe(6);
   });
 
   it('counts the children in the summary and says so in the disclaimer', () => {

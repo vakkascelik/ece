@@ -123,16 +123,44 @@ because that is when the child arrived.
 
 Daily cap first, then weekly, on what survives.
 
-With a 6h daily and 20h weekly cap, an 8-hour Monday and a 4-hour Tuesday:
+With a 6h daily and 30h weekly cap, an 8-hour Monday and a 4-hour Tuesday:
 
-- **Daily first:** `min(8,6) + min(4,6) = 10`, then `min(10,20) = 10`. Correct.
-- **Weekly first:** `min(12,20) = 12` — two hours nobody was entitled to, because Monday's excess is
+- **Daily first:** `min(8,6) + min(4,6) = 10`, then `min(10,30) = 10`. Correct.
+- **Weekly first:** `min(12,30) = 12` — two hours nobody was entitled to, because Monday's excess is
   not transferable to Tuesday.
 
-Tested directly. The weekly cap is applied per **ISO week**, so a fortnight is not capped at 20.
+Tested directly. The weekly cap is applied per **ISO week**, so a fortnight is not capped at 30.
 
-Caps apply only where the 20 Hours ECE attestation is in force. Without it there is nothing to cap,
-and applying one anyway would understate an ordinary fee-paying enrolment.
+#### The caps were wrong in both directions until 2026-09-04
+
+~~Caps apply only where the 20 Hours ECE attestation is in force. Without it there is nothing to cap,
+and applying one anyway would understate an ordinary fee-paying enrolment.~~
+
+That was two defects in one sentence, and the second is the serious one.
+
+**The weekly figure was 20, and the subsidy runs to 30.** §9-3: *"A maximum of 6 hours per day and
+30 hours per week of funding can be claimed per child"*, of which *"20 Hours ECE hours must only be
+claimed for up to 20 hours per week"*, and *"The remainder (up to 30 hours) may be claimed as Plus
+10 ECE hours."* So 20 is the cap on a **component**, not on the week, and hours 20–30 were being
+discarded for every attested child.
+
+**And gating the caps on the attestation meant applying none at all to an unattested child.** The
+ECE Funding Subsidy is claimable for an ordinary fee-paying enrolment; §9-2 caps it at *"a maximum
+of 6 hours … each day for each licensed child-place"*. So a nine-hour day produced nine funded hours
+where six were claimable — an **over**-statement, on the one figure this page promises never
+over-states. [[unverified-claims]] item 54.
+
+**Both fixed together, because they are one model.** The caps are now 6 a day and 30 a week for
+every child, and for an attested child the week splits into `twentyHoursHours` (up to 20) and
+`plusTenHours` (the rest) — the two figures RS7 asks for by name. `ChildFunding` carries both, the
+CSV has a column for each, and the screen shows the split in the funded cell where there is a Plus
+10 remainder.
+
+**One good side effect worth recording.** `scripts/reconcile-funding.ts` asserted its main figure as
+a bound — `fundedHours <= 28` — because a 20-hour weekly cap made the answer depend on which ISO
+week each relative day landed in. At 30 it cannot bite on 28 hours however they fall, so that
+assertion is now an equality. Raising a cap to the number the Handbook states removed the source of
+the nondeterminism, rather than a looser assertion papering over it.
 
 ### Rounding, deliberately downward
 

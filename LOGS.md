@@ -7,6 +7,63 @@ itself, and from the wiki pages, which hold the durable *why*. This file is the 
 
 ---
 
+## 2026-09-04 (third) — Phase 2b: the caps were wrong in both directions
+
+`maxHoursPerWeek` was 20. §9-3 says the subsidy runs to 30, and 20 is the cap on the 20 Hours ECE
+*component* inside it. And because the caps were gated on the 20 Hours attestation, an unattested
+child was capped at nothing at all, where §9-2 caps the subsidy at six hours a day whether or not a
+child is attested.
+
+So the same number was wrong twice: under-claiming hours 20–30 for an attested child, over-stating
+for an unattested one. Fixed together, because they are one model rather than two bugs — 6 a day and
+30 a week for every child, with an attested child's week splitting into `twentyHoursHours` (up to 20)
+and `plusTenHours` (the rest). Those are the two figures RS7 asks for by name, so they are carried
+on `ChildFunding` rather than derived at a call site, given a column each in the CSV a manager keys
+from, and shown in the funded cell on screen where there is a remainder to show.
+
+**The part worth writing down is how many assertions had encoded the defect.** Three, and one of
+them was in the verification script:
+
+- *"does not cap a child without the attestation"* — expected 8 from an eight-hour day. Now 6.
+- *"does not cap weekly for a child without the attestation"* — expected 40 from a five-day week.
+  Now 30.
+- `scripts/reconcile-funding.ts`: *"funded is 16.00 — the caps must NOT apply without the
+  attestation."* **Hand arithmetic, in a file whose entire purpose is catching a wrong funding
+  figure, confirming a four-hour over-statement across two days.**
+
+That last one is the sharpest thing in this phase. A reconciliation script exists precisely because
+a suite can be green against the wrong model; this one had been recruited into the wrong model. The
+fixture child is still called "Uncapped", and I left the name, because it now records what the script
+used to believe.
+
+**Two disclaimer sentences came out, and a test asserts their absence.** They described Plus 10 not
+being computed and the figure possibly running high — both true this morning, both false by
+afternoon. Deleting a warning is honest only once the warning has stopped being true; `ratios.ts` and
+`DEFAULT_CAPS.basis` have each already had a stale caveat removed for teaching people to skip the
+disclaimers. Asserting the *absence* is the only way to stop one quietly surviving its own fix.
+
+**A good side effect.** `reconcile-funding` asserted `fundedHours <= 28` as a **bound**, because with
+a 20-hour weekly cap the answer depended on which ISO week each relative day landed in. At 30 the cap
+cannot bite on 28 hours however they fall, so it is now an equality. Raising the cap to the figure the
+Handbook actually states removed the source of the nondeterminism — better than a looser assertion
+covering for it.
+
+**What I deliberately did not decide.** §9-2 computes the RS7 two-and-over figure *"less any hours
+for children claimed as 20 Hours ECE"*, and whether that deduction covers the Plus 10 hours or only
+the first twenty is not settled by anything I have read. §14-4 lists both under the heading *"20
+Hours ECE Funded Hours"*, which is suggestive — and a heading is not a rule, and this repo has
+already been wrong once by treating a suggestive shape as one (item 50, where the XSD's shape said
+contract and the Handbook said actuals). It changes an RS7 aggregate rather than the per-child split,
+so it belongs to `rs7.ts`, which does not exist. New item 56, with the cheapest route to closing it:
+§9-2 names two worked examples, an all-day service and a sessional one, which would show the
+arithmetic directly.
+
+**And the drill was not run.** `reconcile-funding` needs `ECE_DRILL_PASSWORD` — the demo centre
+owner's own login — which is not available here. The hand arithmetic is updated and it typechecks;
+nobody has watched it pass. `design-system.md` has already had to make the same disclosure for the
+same reason, so there is a precedent for recording it rather than quietly omitting it. To run it:
+`ECE_ALLOW_DEMO_SEED=yes ECE_DRILL_PASSWORD=… npm run reconcile:funding`.
+
 ## 2026-09-04 (second) — Phase 2a: the figure can be too high, which nothing here had allowed for
 
 Phase 2 starts with transcription, and my own repeated lesson said not to build on the "Plus 10"

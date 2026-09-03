@@ -183,7 +183,11 @@ async function main() {
    * ─────────────────────────────────────────────────────────────────────────
    * THE MONTH, AND THE ARITHMETIC DONE BY HAND
    *
-   * Caps: 6 hours a day, 20 a week (unverified — DEFAULT_CAPS).
+   * Caps, corrected 2026-09-04 from Handbook §9-2 and §9-3: **6 hours a day and 30 a week for
+   * EVERY child**, of which up to 20 a week may be claimed as 20 Hours ECE and the rest as
+   * Plus 10. This script previously said "6 a day, 20 a week (unverified)" and asserted that no
+   * cap at all applied without an attestation — see Child B below, where the hand arithmetic was
+   * verifying the defect.
    *
    * Child A ("Reconcile"), 20 Hours ECE = yes:
    *   day -9   08:00–16:00   8h attended → daily cap → 6h
@@ -195,14 +199,29 @@ async function main() {
    *
    *   Attended, complete days only: 8 + 8 + 8 + 5 + 5 = 34h
    *   After the daily cap:          6 + 6 + 6 + 5 + 5 = 28h
-   *   Weekly cap: days -9 to -5 and days -2 fall in different ISO weeks in most months, so the
-   *   20h weekly cap may bite on the first group. Asserted as a bound rather than a fixed number,
-   *   because which ISO week a relative day lands in depends on when this is run — see below.
+   *   Weekly cap: **28 is now deterministic.** It used to be asserted as a bound (`<= 28`) because
+   *   the weekly cap was 20, so the answer depended on which ISO week each relative day landed in
+   *   — days -9 to -5 and day -2 usually straddle two weeks, and 20 bites on the larger group. At
+   *   30 a week it cannot bite: even if all 28 hours fell in one ISO week, min(28, 30) = 28. So
+   *   raising the cap to the figure the Handbook actually states removed the source of the
+   *   nondeterminism, which is a better outcome than a looser assertion.
+   *
+   *   The 20 Hours / Plus 10 split is NOT deterministic, and asserted as an invariant instead:
+   *   28 hours in one week splits 20 + 8, and split 18/10 across two weeks it is 18 + 10 = 28 as
+   *   20 Hours with no Plus 10 at all, because each week gets its own 20-hour allowance. What must
+   *   hold either way is that the two components sum to the funded total.
    *
    * Child B ("Uncapped"), 20 Hours ECE = no:
-   *   day -9   08:00–16:00   8h → no cap → 8h
-   *   day -8   08:00–16:00   8h → no cap → 8h
-   *   Funded = 16h exactly, and the cap must not touch it.
+   *   day -9   08:00–16:00   8h attended → daily cap → 6h
+   *   day -8   08:00–16:00   8h attended → daily cap → 6h
+   *   Funded = 12h, and BOTH days are capped.
+   *
+   *   **This block asserted 16h until 2026-09-04, with the message "the caps must NOT apply
+   *   without the attestation".** That was hand arithmetic verifying a defect: the ECE Funding
+   *   Subsidy is claimable for an unattested child and §9-2 caps it at six hours a day. So this
+   *   script was confirming a four-hour over-statement across two days, in a file whose whole
+   *   purpose is to catch exactly that. The child's name in the fixture — "Uncapped" — is left
+   *   as it is, because it now records what this script used to believe.
    * ─────────────────────────────────────────────────────────────────────────
    */
   const add = async (id: string, kind: 'in' | 'out', when: { iso: string }, corrects?: number) => {
@@ -290,8 +309,16 @@ async function main() {
   );
   check(a.cappedDates.length === 3, `three days hit the ${DEFAULT_CAPS.maxHoursPerDay}h daily cap (got ${a.cappedDates.length})`);
   check(
-    a.fundedHours <= 28,
-    `funded is at most 28.00 — the daily cap applied to complete days (got ${a.fundedHours})`,
+    a.fundedHours === 28,
+    `funded is exactly 28.00 — deterministic since the weekly cap became ${DEFAULT_CAPS.maxHoursPerWeek}h, because 28 cannot be capped by 30 however the ISO weeks fall (got ${a.fundedHours})`,
+  );
+  check(
+    a.twentyHoursHours + a.plusTenHours === a.fundedHours,
+    `the 20 Hours and Plus 10 components sum to the funded total (${a.twentyHoursHours} + ${a.plusTenHours} = ${a.fundedHours})`,
+  );
+  check(
+    a.twentyHoursHours <= DEFAULT_CAPS.twentyHoursWeeklyCap * 2,
+    `and the 20 Hours component respects its own weekly cap across at most two ISO weeks (got ${a.twentyHoursHours})`,
   );
   check(a.fundedHours <= a.attendedHours, `and never more than attended (${a.fundedHours} ≤ ${a.attendedHours})`);
   // The correction: without it the 10:00 sign-in would pair with the 14:00 sign-out for 4h, and the
@@ -301,10 +328,17 @@ async function main() {
     'the corrected day is complete, so the superseded sign-in was dropped',
   );
 
-  console.log('\n  --- Child B: no attestation, so no caps ---');
+  console.log('\n  --- Child B: no attestation, and the subsidy cap applies anyway ---');
   check(b.attendedHours === 16, `attended is 16.00 (got ${b.attendedHours})`);
-  check(b.fundedHours === 16, `funded is 16.00 — the caps must NOT apply without the attestation (got ${b.fundedHours})`);
-  check(b.cappedDates.length === 0, 'and nothing was capped');
+  check(
+    b.fundedHours === 12,
+    `funded is 12.00 — the subsidy caps at ${DEFAULT_CAPS.maxHoursPerDay}h a day whether or not a child is attested (got ${b.fundedHours})`,
+  );
+  check(b.cappedDates.length === 2, `both eight-hour days were capped (got ${b.cappedDates.length})`);
+  check(
+    b.twentyHoursHours === 0 && b.plusTenHours === 0,
+    'and an unattested child has no 20 Hours component and no Plus 10 — the whole figure is subsidy',
+  );
 
   console.log('\n  --- the summary ---');
   check(summary.complete === false, 'the period is reported INCOMPLETE because of the missing sign-out');

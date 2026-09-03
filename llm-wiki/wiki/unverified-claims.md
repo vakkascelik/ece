@@ -1921,7 +1921,7 @@ and drop the column.
 **Do not close it by deleting `enrolments.days` alone.** It is what two screens render today, and
 the enrolment form writes it.
 
-### 54. The funded-hours figure over-states for a child with no 20 Hours attestation — **OPEN, added 2026-09-04, and it is the one error that runs the wrong way**
+### 54. The funded-hours figure over-states for a child with no 20 Hours attestation — **CLOSED 2026-09-04, the same day it was opened**
 
 | | |
 |---|---|
@@ -1939,11 +1939,23 @@ claim."* A manager who has been told the numbers only ever run low has been give
 check the long days**. That sentence was true about the gaps somebody had thought about and false
 about this one.
 
-**Fixed in the disclaimer today, not in the arithmetic**, and the split is deliberate. The
-disclaimer now names both directions, the test that pins the eight-hour expectation carries a
-comment saying it pins a defect, and `FUNDING_RULES.subsidyWeeklyCapAndPlusTen` is `false`. Changing
-the number is Phase 2b, because a money figure changes with worked examples and a
-`scripts/reconcile-funding.ts` run beside it — not as a drive-by while correcting a comment.
+~~**Fixed in the disclaimer today, not in the arithmetic.**~~ **CLOSED the same day, in Phase 2b.**
+The caps are now 6 a day and 30 a week for **every** child, and the disclaimer's over-statement
+sentence came out with the defect rather than lingering as a stale caveat — a test now asserts its
+**absence**, which is the only way to stop a warning surviving its own fix.
+
+Three assertions changed direction with it, and each is worth naming because each had encoded the
+defect: the unit test *"does not cap a child without the attestation"* expected 8 and now expects 6;
+*"does not cap weekly for a child without the attestation"* expected 40 and now expects 30; and
+`scripts/reconcile-funding.ts` asserted `funded is 16.00 — the caps must NOT apply without the
+attestation`, which was hand arithmetic **verifying a four-hour over-statement** in a script whose
+entire purpose is catching that.
+
+**The reconcile drill was NOT run**, and that is a real gap in this closure rather than a formality:
+it needs `ECE_DRILL_PASSWORD`, the demo centre owner's own login, which is not available here. Its
+hand arithmetic is updated and it typechecks; nobody has watched it pass. Same disclosure as
+[[design-system]] made for the same reason. To run it:
+`ECE_ALLOW_DEMO_SEED=yes ECE_DRILL_PASSWORD=… npm run reconcile:funding`.
 
 **What Phase 2b has to get right, and it is more than adding a cap:** §9-2 calculates the
 2-and-over subsidy *"less any hours for children claimed as 20 Hours ECE"*, so the four RS7 child
@@ -1970,6 +1982,26 @@ so nothing changes until a screen fills it.
 there rather than deleted, because the reasoning behind it is sound: a claim for hours nobody
 observed *is* the hazard, and the Handbook's answer is that for a permanently enrolled child the
 observation that matters is the **agreement plus the absence rules**, not the turnstile.
+
+### 56. Whether the RS7 two-and-over subsidy figure excludes Plus 10 hours or only the first twenty — **OPEN, added 2026-09-04**
+
+| | |
+|---|---|
+| **What would be asserted** | By any `rs7.ts` that aggregates the per-child figures: that it knows which hours belong in `SubsidyFundedChildTwoAndOverCount` |
+| **The instruction** | §9-2, read 2026-09-04: the 2-and-over step is *"Repeat Step 1 (above) for children aged 2 or over **less any hours for children claimed as 20 Hours ECE**."* |
+| **The ambiguity** | Do the Plus 10 hours count as *"claimed as 20 Hours ECE"* for the purpose of that deduction, or only the first twenty? §14-4 lists the two fields as *"daily total of 20 Hours ECE Funded Hours (20 Hours ECE)"* and *"daily total of 20 Hours ECE Funded Hours (Plus 10)"* — both under the heading **20 Hours ECE Funded Hours**, which suggests both are deducted. But it is a heading, not a rule |
+| **Why it matters** | It decides whether an attested child's Plus 10 hours appear **once** (as Plus 10) or **twice** (as Plus 10 and again inside the 2-and-over subsidy). Getting it wrong double-counts up to ten hours a week per child on a return to the Crown |
+| **Why it is not decided in `funding.ts`** | It changes an RS7 **aggregate**, not the per-child split, which is unambiguous. `childFunding` computes `twentyHoursHours` and `plusTenHours` from §9-3's plain wording; how they are then bucketed into the four RS7 counts belongs to `rs7.ts`, and that file does not exist yet |
+
+**Deliberately not resolved by inference.** The heading argument is suggestive and this repo has been
+wrong once already by treating a suggestive shape as a rule — the census's contact hours, item 50,
+where the XSD's shape said contract and the Handbook said actuals. A field grouping is a weaker
+signal than that shape was.
+
+**To close it:** the RS7 Return Specification 6.0, or §9-2's worked examples — the page names two,
+*"Kowhai Street Childcare Centre is an all-day service and Huia Playcentre is a sessional service"* —
+which would show the arithmetic directly. Reading those examples is the cheapest route and is the
+next thing to do before `rs7.ts` is written.
 
 ## See Also
 

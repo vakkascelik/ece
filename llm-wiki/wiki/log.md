@@ -5,6 +5,46 @@ says so.*
 
 ---
 
+2026-09-04 (third) — **Phase 2b: the caps were wrong in both directions, and three assertions had
+encoded the wrong one.** Corrected: [[funding-and-billing]]'s cap-ordering section and its worked
+example. Closed: [[unverified-claims]] item 54, the same day it was opened. New: item 56, the one
+thing Phase 2b deliberately did not decide.
+
+**Two defects in one number.** `maxHoursPerWeek` was 20, which is the cap on the 20 Hours ECE
+*component*; §9-3 puts the subsidy at 30 — *"A maximum of 6 hours per day and 30 hours per week of
+funding can be claimed per child"*, with *"The remainder (up to 30 hours) … claimed as Plus 10 ECE
+hours"*. And because the caps were gated on the attestation, an unattested child got **no cap at
+all**, where §9-2 caps the subsidy at six a day regardless. So the file under-claimed hours 20–30 for
+attested children and over-stated for unattested ones.
+
+Both fixed together because they are one model: 6 a day and 30 a week for every child, and an
+attested child's week splits into `twentyHoursHours` (up to 20) and `plusTenHours` (the rest) — the
+two figures RS7 names. Carried on `ChildFunding`, a column each in the CSV, and shown in the funded
+cell on screen where there is a remainder.
+
+**Three assertions had to change direction, and each had encoded the defect.** The unit tests
+*"does not cap a child without the attestation"* (8 → 6) and *"does not cap weekly for a child
+without the attestation"* (40 → 30); and in `scripts/reconcile-funding.ts`, *"funded is 16.00 — the
+caps must NOT apply without the attestation"*, which was **hand arithmetic verifying a four-hour
+over-statement** in a script whose entire purpose is catching that.
+
+**The disclaimer lost two sentences, and a test now asserts their absence.** Both described things
+that are now fixed — Plus 10 not being computed, and the figure possibly running high. Deleting a
+warning is only honest once the warning has stopped being true, and a stale caveat is what
+`ratios.ts` and `DEFAULT_CAPS.basis` have each already had to have removed. Pinning the *absence* is
+the only way to stop one surviving its own fix.
+
+**A side effect worth keeping.** `reconcile-funding` asserted its main figure as a bound,
+`fundedHours <= 28`, because a 20-hour weekly cap made the answer depend on which ISO week each
+relative day fell in. At 30 it cannot bite on 28 hours however they fall, so the assertion is now an
+equality. Raising a cap to the number the Handbook states removed the nondeterminism, rather than a
+looser assertion hiding it.
+
+**And the drill was not run.** It needs `ECE_DRILL_PASSWORD`, the demo centre owner's own login,
+which is not available here — the same disclosure [[design-system]] has already had to make. Its
+hand arithmetic is updated and typechecks; nobody has watched it pass, and item 54 says so rather
+than implying otherwise.
+
 2026-09-04 (second) — **Phase 2a: reading §9-2 and §9-3 properly found that the funded-hours figure
 can be too HIGH, which every sentence in this repo had said was impossible.** New:
 [[unverified-claims]] items 54 and 55. Corrected: item 52's open question (now answered),
