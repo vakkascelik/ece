@@ -72,9 +72,11 @@ whose answer changes code that is already written.
 > vendor — an independent security assessment or penetration test, a privacy impact assessment —
 > and at what stage? This was one question in our 14 August enquiry that the reply did not reach.
 >
-> **3. Specifications.** Could you resend the seven specification documents with the password? And
-> is the schema served publicly at `https://eli.minedu.govt.nz/eli.xsd` the same as ELI Events
-> v10.0, and the version we should validate against?
+> **3. Specifications.** Could you resend the current versions with the password? We hold the list
+> as NSI GINS 6.19, ECE NSI GINS Appendix 1.41, InfoHub 1.3, ELI Data Collection 11, ELI Events
+> 10.0, RS7 Return 6.0 and Teacher Data Collection 1.1 — please correct any that have moved on.
+> Separately: is the schema served publicly at `https://eli.minedu.govt.nz/eli.xsd` the same as ELI
+> Events 10.0, and the version we should validate against?
 >
 > **4. Code lists.** Where are the staff role, wait-time and closure-reason lists published? We have
 > found ethnicity, iwi and ECE language codes on Education Counts. Do the published lists carry
@@ -90,6 +92,35 @@ whose answer changes code that is already written.
 **Held back to keep it short**, both askable later without cost: how the 50-service capability is
 evidenced (it shapes how we prepare, not what we build), and §14-2 listing two pairs of staff dates
 where the schema carries one — the specifications will likely settle that once resent.
+
+**Why question 3 names the versions instead of saying "the seven documents".** It does three things
+in one sentence rather than one: it gets the files, it confirms currency *per document*, and it
+fills the template's own *Prerequisite documents* version table — which is the part of a submission
+that shows whether a vendor did the reading. Asking for "the seven" would have got the files and
+nothing else.
+
+### Seven files, six specifications, eight prerequisite documents — all three counts are right
+
+Worth pinning down, because the numbers differ across the Ministry's own material and a submission
+has to use the right one in the right place:
+
+| Count | Where | What it counts |
+|---|---|---|
+| **Seven** | The integration page's request list, and the 2026-08-18 email's attachments | *Files.* The seventh is **ELI Events 10.0**, which is **Appendix A of the ELI Data Collection Specification** rather than a document in its own right |
+| **Six** | The template's *Prerequisite documents* version table (`Additional Information`) | *Specifications to state a version for.* It omits ELI Events, treating it as the appendix it is |
+| **Eight** | The template's *Prerequisite documents* list at the front | *Documents to have read.* The six above **plus the ECE Funding Handbook and the Regulatory Framework**, both public — and both of which this repo has now read in part |
+
+Two consequences that are not obvious from the counts.
+
+**The one document that turned out to be public is the one whose absence hurt least.** ELI Events
+10.0 is the XSD, and an equivalent is served at `eli.minedu.govt.nz/eli.xsd` — which is why the
+*message format* was recoverable while the *transport* was not. **InfoHub 1.3 has no public
+counterpart**, and that is precisely why `AST24`, `AST37` and `AST39` remain blocked: they are
+about endpoints, authentication and the Destination Header, none of which a schema describes.
+
+**And the version table cannot be filled truthfully today**, because none of the seven is on this
+machine — see [[unverified-claims]] item 38. That is why resending them is a numbered question and
+not a footnote.
 
 **Why brevity is the right call here and not a compromise.** The 2026-08-14 enquiry asked five
 questions and two came back unanswered or answered sideways; the one that failed was a sentence
