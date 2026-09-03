@@ -28,10 +28,20 @@ drift in a ratio does not report itself as broken — it reports itself as compl
 - **Staff *and* the child's own guardians can record attendance** — in New Zealand the
   attendance record underpinning a funding claim carries a parent's signature.
 - **The adult count is an append-only event, not a setting** — see below.
-- **The ratio bands are verified** (2026-08-18, Schedule 2 as at 29 June 2026), and the
-  reading found a row the product was missing: three or fewer children of mixed ages need
-  one adult, not the sum of the bands. The inputs are still narrower than the schedule —
-  it counts every person present aged under 6. See [[unverified-claims]] item 1.
+- **The ratio bands are verified for one service type — the all-day centre-based schedule**
+  (2026-08-18, Schedule 2 as at 29 June 2026), and the reading found a row the product was
+  missing: three or fewer children of mixed ages need one adult, not the sum of the bands.
+  The inputs are still narrower than the schedule — it counts every person present aged
+  under 6. See [[unverified-claims]] item 1.
+- **And that one schedule is applied to every service, because nothing records which service
+  this is.** `assessRatio` takes both tables as parameters so a different service type can
+  supply different ones, three modules forward them faithfully, and **no call site has ever
+  passed one** — so a sessional, home-based or hospital-based service gets the all-day
+  centre-based figure. `centres` has no service-type column for a caller to read. As of
+  2026-09-03 `ratioInputCaveat()` says this on the screen instead of leaving it in a source
+  comment; the column is deliberately *not* the fix, and [[unverified-claims]] item 51
+  records why (the other schedules are not transcribed, and two Crown pages disagree on what
+  the service types even are).
 - **There is now a third tense.** This page and the replay both answer what is or was; the
   roster forecast answers what *will be*, from bookings and shifts rather than events. It
   shares `assessRatio` and nothing else — see [[staff-as-people]].
@@ -116,10 +126,10 @@ cascades from the children.
   rather than `at` decides whether an approval has gone stale
 - [[compliance-and-evidence]] — where the history becomes evidence
 - [[staff-as-people]] — the same arithmetic run forwards, over the planned roster
-- [[unverified-claims]] — the ratio bands
+- [[unverified-claims]] — the ratio bands (item 1), and item 51: one schedule applied to every service type
 - [[tenancy-and-rls]]
 
-*Last updated: 2026-08-08*
+*Last updated: 2026-09-03*
 
 
 > ### CORRECTED 2026-08-07: two of three readers ignored `corrects`

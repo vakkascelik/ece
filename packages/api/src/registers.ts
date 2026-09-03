@@ -246,11 +246,17 @@ export async function finaliseIncident(db: Db, id: string): Promise<void> {
  */
 export async function recordParentNotified(db: Db, id: string, at: string): Promise<void> {
   const { data: auth } = await db.auth.getUser();
-  const { error } = await db
+  const { data, error } = await db
     .from('incidents')
     .update({ parent_notified_at: at, notified_by: auth.user?.id ?? null })
-    .eq('id', id);
+    .eq('id', id)
+    .select('id');
   if (error) throw new Error(`recordParentNotified: ${error.message}`);
+  if (!data || data.length === 0) {
+    throw new Error(
+      'recordParentNotified: nothing was recorded. Either the id is wrong or the policy refused it.',
+    );
+  }
 }
 
 /**
@@ -266,11 +272,17 @@ export async function acknowledgeIncident(
   guardianId: string,
   at: string,
 ): Promise<void> {
-  const { error } = await db
+  const { data, error } = await db
     .from('incidents')
     .update({ acknowledged_at: at, acknowledged_by: guardianId })
-    .eq('id', id);
+    .eq('id', id)
+    .select('id');
   if (error) throw new Error(`acknowledgeIncident: ${error.message}`);
+  if (!data || data.length === 0) {
+    throw new Error(
+      'acknowledgeIncident: nothing was acknowledged. Either the id is wrong or the policy refused it.',
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -389,8 +401,13 @@ export async function updateIncidentInvestigation(
 ): Promise<void> {
   const row = investigationPatchRow(patch);
   if (Object.keys(row).length === 0) return;
-  const { error } = await db.from('incident_investigations').update(row).eq('id', id);
+  const { data, error } = await db.from('incident_investigations').update(row).eq('id', id).select('id');
   if (error) throw new Error(`updateIncidentInvestigation: ${error.message}`);
+  if (!data || data.length === 0) {
+    throw new Error(
+      'updateIncidentInvestigation: nothing was updated. Either the id is wrong or the policy refused it.',
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------

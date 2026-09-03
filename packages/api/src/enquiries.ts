@@ -170,7 +170,7 @@ export async function setEnquiryStatus(
   db: Db,
   input: { id: string; status: EnquiryStatus; movedBy: string },
 ): Promise<void> {
-  const { error } = await db
+  const { data, error } = await db
     .from('enrolment_applications')
     .update({
       status: input.status,
@@ -180,6 +180,16 @@ export async function setEnquiryStatus(
     .eq('id', input.id)
     .select('id');
   if (error) throw new Error(`setEnquiryStatus: ${error.message}`);
+  // Zero-row check (item 49), and the second one the mechanical pass got wrong: it appended
+  // the `.select('id')` and then put the check somewhere else, leaving a select that did
+  // nothing. Nothing caught that — the destructuring stayed `{ error }`, so there was no
+  // unused variable for lint to flag. Found by counting writes against guards instead.
+  // `.eq('id', …)` names one row, so zero rows is a wrong id or a refusal.
+  if (!data || data.length === 0) {
+    throw new Error(
+      'setEnquiryStatus: nothing was updated. Either the id is wrong or the policy refused it.',
+    );
+  }
 }
 
 /**
@@ -191,6 +201,11 @@ export async function setEnquiryStatus(
  * the only evidence the enquiry existed.
  */
 export async function deleteEnquiry(db: Db, id: string): Promise<void> {
-  const { error } = await db.from('enrolment_applications').delete().eq('id', id);
+  const { data, error } = await db.from('enrolment_applications').delete().eq('id', id).select('id');
   if (error) throw new Error(`deleteEnquiry: ${error.message}`);
+  if (!data || data.length === 0) {
+    throw new Error(
+      'deleteEnquiry: nothing was deleted. Either the id is wrong or the policy refused it.',
+    );
+  }
 }

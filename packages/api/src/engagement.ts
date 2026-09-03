@@ -167,20 +167,32 @@ export async function createPost(
 
 /** Publishing is a separate act from writing, and it is what a notification hangs off. */
 export async function publishPost(db: Db, postId: string): Promise<void> {
-  const { error } = await db
+  const { data, error } = await db
     .from('posts')
     .update({ published_at: new Date().toISOString() })
     .eq('id', postId)
-    .is('published_at', null);
+    .is('published_at', null)
+    .select('id');
   if (error) throw new Error(`publishPost: ${error.message}`);
+  if (!data || data.length === 0) {
+    throw new Error(
+      'publishPost: nothing was published. Either the id is wrong or the policy refused it. The post may already be published.',
+    );
+  }
 }
 
 export async function archivePost(db: Db, postId: string): Promise<void> {
-  const { error } = await db
+  const { data, error } = await db
     .from('posts')
     .update({ archived_at: new Date().toISOString() })
-    .eq('id', postId);
+    .eq('id', postId)
+    .select('id');
   if (error) throw new Error(`archivePost: ${error.message}`);
+  if (!data || data.length === 0) {
+    throw new Error(
+      'archivePost: nothing was archived. Either the id is wrong or the policy refused it.',
+    );
+  }
 }
 
 /**
@@ -191,17 +203,28 @@ export async function archivePost(db: Db, postId: string): Promise<void> {
  * every family sees.
  */
 export async function setPinned(db: Db, postId: string, pinned: boolean): Promise<void> {
-  const { error } = await db
+  const { data, error } = await db
     .from('posts')
     .update({ pinned_at: pinned ? new Date().toISOString() : null })
-    .eq('id', postId);
+    .eq('id', postId)
+    .select('id');
   if (error) throw new Error(`setPinned: ${error.message}`);
+  if (!data || data.length === 0) {
+    throw new Error(
+      'setPinned: nothing was changed. Either the id is wrong or the policy refused it.',
+    );
+  }
 }
 
 /** Change how comments on one post are handled. 0076. */
 export async function setCommentMode(db: Db, postId: string, mode: CommentMode): Promise<void> {
-  const { error } = await db.from('posts').update({ comment_mode: mode }).eq('id', postId);
+  const { data, error } = await db.from('posts').update({ comment_mode: mode }).eq('id', postId).select('id');
   if (error) throw new Error(`setCommentMode: ${error.message}`);
+  if (!data || data.length === 0) {
+    throw new Error(
+      'setCommentMode: nothing was changed. Either the id is wrong or the policy refused it.',
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -317,6 +340,24 @@ export async function moderateComment(
   decision: 'approve' | 'decline',
 ): Promise<void> {
   const now = new Date().toISOString();
+  /*
+   * NO ZERO-ROW CHECK, and this is the call site that defines the exception.
+   *
+   * The two `.is(… null)` filters make the write conditional: it moderates a comment only
+   * if nobody has moderated it already. **Zero rows is therefore the meaningful outcome of
+   * a race** — two kaiako opening the queue at once, the second one's decision correctly
+   * declining to overwrite the first. Throwing there would turn "somebody else got here
+   * first" into an error on a screen.
+   *
+   * Item 49 guarded 23 of the 27 unguarded writes in this package on 2026-09-03 and left
+   * four. This is the one that proves it had to be a judgement per call site rather than a
+   * codemod: the pattern that is right almost everywhere is wrong here, and the filters in
+   * the statement are what tell you which case you are in.
+   *
+   * What that costs: a refusal by policy is indistinguishable from losing the race. The
+   * trade is accepted because both outcomes mean *the comment is already decided*, which is
+   * what the moderator's screen will show them on the next render either way.
+   */
   const { error } = await db
     .from('post_comments')
     .update(decision === 'approve' ? { approved_at: now } : { declined_at: now })
@@ -592,8 +633,13 @@ export async function deleteMedia(db: Db, item: MediaItem): Promise<void> {
   // Storage first. Deleting the row first and failing here would leave an unreferenced object
   // that no policy can reach and nothing knows about; the sweeper catches the reverse.
   await db.storage.from(MEDIA_BUCKET).remove([item.storagePath]);
-  const { error } = await db.from('media').delete().eq('id', item.id);
+  const { data, error } = await db.from('media').delete().eq('id', item.id).select('id');
   if (error) throw new Error(`deleteMedia: ${error.message}`);
+  if (!data || data.length === 0) {
+    throw new Error(
+      'deleteMedia: nothing was deleted. Either the id is wrong or the policy refused it.',
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -732,6 +778,16 @@ export async function sendMessage(db: Db, threadId: string, body: string): Promi
 /** Marks the *other* side's messages read. The policy refuses your own. */
 export async function markThreadRead(db: Db, threadId: string): Promise<void> {
   const { data: auth } = await db.auth.getUser();
+  /*
+   * NO ZERO-ROW CHECK — item 49, deliberately.
+   *
+   * This is a **bulk** update: every unread message in the thread that somebody else
+   * wrote. Zero rows means there was nothing unread, which is the state of most threads
+   * most of the time — opening a thread you have already read would error.
+   *
+   * It is also the only write in this package that is genuinely fire-and-forget: nobody
+   * is told "marked as read", so there is no false success to report.
+   */
   const { error } = await db
     .from('messages')
     .update({ read_at: new Date().toISOString() })
@@ -742,9 +798,15 @@ export async function markThreadRead(db: Db, threadId: string): Promise<void> {
 }
 
 export async function closeThread(db: Db, threadId: string): Promise<void> {
-  const { error } = await db
+  const { data, error } = await db
     .from('message_threads')
     .update({ closed_at: new Date().toISOString() })
-    .eq('id', threadId);
+    .eq('id', threadId)
+    .select('id');
   if (error) throw new Error(`closeThread: ${error.message}`);
+  if (!data || data.length === 0) {
+    throw new Error(
+      'closeThread: nothing was closed. Either the id is wrong or the policy refused it.',
+    );
+  }
 }

@@ -305,8 +305,13 @@ export async function updateChild(
   if (patch.gender !== undefined) row.gender = patch.gender;
   if (Object.keys(row).length === 0) return;
 
-  const { error } = await db.from('children').update(row).eq('id', childId);
+  const { data, error } = await db.from('children').update(row).eq('id', childId).select('id');
   if (error) throw new Error(`updateChild: ${error.message}`);
+  if (!data || data.length === 0) {
+    throw new Error(
+      'updateChild: nothing was updated. Either the id is wrong or the policy refused it.',
+    );
+  }
 }
 
 /**
@@ -317,11 +322,17 @@ export async function updateChild(
  * with them.
  */
 export async function archiveChild(db: Db, childId: string): Promise<void> {
-  const { error } = await db
+  const { data, error } = await db
     .from('children')
     .update({ archived_at: new Date().toISOString() })
-    .eq('id', childId);
+    .eq('id', childId)
+    .select('id');
   if (error) throw new Error(`archiveChild: ${error.message}`);
+  if (!data || data.length === 0) {
+    throw new Error(
+      'archiveChild: nothing was archived. Either the id is wrong or the policy refused it.',
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -382,8 +393,13 @@ export async function updateGuardian(
   if (patch.userId !== undefined) row.user_id = patch.userId;
   if (Object.keys(row).length === 0) return;
 
-  const { error } = await db.from('guardians').update(row).eq('id', guardianId);
+  const { data, error } = await db.from('guardians').update(row).eq('id', guardianId).select('id');
   if (error) throw new Error(`updateGuardian: ${error.message}`);
+  if (!data || data.length === 0) {
+    throw new Error(
+      'updateGuardian: nothing was updated. Either the id is wrong or the policy refused it.',
+    );
+  }
 }
 
 export interface GuardianOfChild extends ChildGuardian {
@@ -479,17 +495,28 @@ export async function updateGuardianLink(
   if (patch.isAuthorisedSignatory !== undefined) row.is_authorised_signatory = patch.isAuthorisedSignatory;
   if (Object.keys(row).length === 0) return;
 
-  const { error } = await db.from('child_guardians').update(row).eq('id', linkId);
+  const { data, error } = await db.from('child_guardians').update(row).eq('id', linkId).select('id');
   if (error) throw new Error(`updateGuardianLink: ${error.message}`);
+  if (!data || data.length === 0) {
+    throw new Error(
+      'updateGuardianLink: nothing was updated. Either the id is wrong or the policy refused it.',
+    );
+  }
 }
 
 /** Revoke, not delete — who was on the collection list in March is a real question. */
 export async function revokeGuardianLink(db: Db, linkId: string): Promise<void> {
-  const { error } = await db
+  const { data, error } = await db
     .from('child_guardians')
     .update({ revoked_at: new Date().toISOString() })
-    .eq('id', linkId);
+    .eq('id', linkId)
+    .select('id');
   if (error) throw new Error(`revokeGuardianLink: ${error.message}`);
+  if (!data || data.length === 0) {
+    throw new Error(
+      'revokeGuardianLink: nothing was revoked. Either the id is wrong or the policy refused it.',
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -579,12 +606,26 @@ export async function updateEnrolment(
   if (patch.notes !== undefined) row.notes = patch.notes?.trim() || null;
   if (Object.keys(row).length === 0) return;
 
-  const { error } = await db.from('enrolments').update(row).eq('id', enrolmentId);
+  const { data, error } = await db
+    .from('enrolments')
+    .update(row)
+    .eq('id', enrolmentId)
+    .select('id');
   if (error) {
     if (error.code === '23P01') {
       throw new Error('That would overlap another enrolment for this child.');
     }
     throw new Error(`updateEnrolment: ${error.message}`);
+  }
+  // Zero-row check (item 49). Added by hand rather than with the others: this is the one
+  // writer in the sweep with a multi-line error handler — it translates `23P01` into a
+  // sentence about overlapping enrolments — so the pattern the others matched on did not
+  // fit, and lint caught the resulting unused `data`. An enrolment carries funded hours
+  // and the 20 Hours attestation, so a refusal reported as a save is a funding figure.
+  if (!data || data.length === 0) {
+    throw new Error(
+      'updateEnrolment: nothing was updated. Either the id is wrong or the policy refused it.',
+    );
   }
 }
 
@@ -662,11 +703,17 @@ export async function addHealthCondition(
 }
 
 export async function resolveHealthCondition(db: Db, conditionId: string): Promise<void> {
-  const { error } = await db
+  const { data, error } = await db
     .from('health_conditions')
     .update({ resolved_at: new Date().toISOString() })
-    .eq('id', conditionId);
+    .eq('id', conditionId)
+    .select('id');
   if (error) throw new Error(`resolveHealthCondition: ${error.message}`);
+  if (!data || data.length === 0) {
+    throw new Error(
+      'resolveHealthCondition: nothing was resolved. Either the id is wrong or the policy refused it.',
+    );
+  }
 }
 
 export async function listMedications(db: Db, childId: string): Promise<MedicationAuthority[]> {

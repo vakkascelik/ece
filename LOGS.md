@@ -7,6 +7,151 @@ itself, and from the wiki pages, which hold the durable *why*. This file is the 
 
 ---
 
+## 2026-09-03 (seventh) — The RLS suite owns the database while it runs, and nobody had written that down
+
+Ran `test:rls` after the e2e suite went green and it **failed**: *"ONE notification exists for this
+report — two overall, counting 0051's"*. A failure whose text reads exactly like a broken tenancy
+policy, which is the worst possible thing for it to be wrong about.
+
+It was not a policy. `rls_isolation.sql` asserts **absolute** row counts — `count(*) from
+public.notifications where kind = 'attendance'` must equal 2, read as `postgres` so it counts every
+tenant's rows. That is deliberate, with a comment explaining that the counts start at one rather
+than zero, and it is the right choice: an absolute count catches a policy leaking rows *from
+anywhere*, which a delta would miss. The cost is that **the suite owns the database while it runs**,
+and that prerequisite had never been written down anywhere.
+
+**I got the mechanism wrong first, and the correction is the useful part.** My first explanation was
+that a local e2e run had still been going. I wrote that into a CI comment and a wiki entry before
+checking it. The timestamps then killed it outright: audit tenant created 06:10:50Z, notifications
+06:12:58Z, e2e reported `119 passed` and finished ~06:20Z, failing RLS run started ~06:24Z. Nothing
+was concurrent. Both places are now corrected and separate what was observed from what is inferred.
+
+**What was actually wrong needs no race.** The e2e teardown reported `ok` — `cleanup.teardown.ts:18
+› drop the audit tenant (1.5s)` — and left both audit centres in the database with their two
+notifications. `sweepStaleAuditTenants` has a two-hour grace period so a run in progress elsewhere
+is never touched, so nothing reclaims a tenant that young. **The RLS suite is broken by e2e
+leftovers for up to two hours after a run, in any job order.**
+
+**Three hypotheses, two of them mine, all three eliminated.** *Concurrency* — dead on the
+timestamps. *A silent zero-row delete in `destroyAuditTenant`* — this was my strong prior, because
+line 762 is `.delete().in('id', […])` inspecting only `error`, which is item 49 exactly, in the
+function whose whole job is preventing leftovers. It would have been a very satisfying find. It is
+also **wrong**: replaying that call with the service key against those two ids returned
+`error: null` and **matched 2 rows**, and both centres went. No FK blocks it, and `service_role`
+holds DELETE on `centres`. *An early return on an unreadable `TENANT_FILE`* — doesn't fit either:
+`.artifacts/tenant.json` is absent while `owner.json` and `parent.json` remain, which is the state
+*after* `rmSync`, so `destroyAuditTenant` was reached.
+
+So the question of why that teardown removed nothing while reporting success **is left open in
+[`unverified-claims`](llm-wiki/wiki/unverified-claims.md) item 41 rather than closed with a guess.**
+
+**The experiment ran and did not reproduce.** Database cleared to zero `audit-%` centres, then a
+full run: `119 passed (8.6m)`, teardown ok in 1.6s, **zero centres and zero notifications left
+behind**. A completed run does clean up correctly. One trial is one trial, though — *not reproduced*
+is not *cannot happen* — so the entry stays open. The best-fitting candidate is an earlier run
+disrupted mid-flight; a `taskkill //F //IM node.exe` was issued in this session while chasing a port,
+which is precisely what `sweepStaleAuditTenants` exists for and precisely what its two-hour grace
+period declines to handle promptly. Consistent with the timestamps, not established, and the run
+whose tenant survived reported `119 passed` with a green teardown, which is *not* what an interrupted
+run looks like.
+
+The tempting fix — a zero-row check on line 762 — is explicitly the wrong move: it would guard a
+failure mode demonstrated not to occur, and would make the entry look closed. Shortening the sweep's
+grace period is wrong for the same reason it exists: two hours protects a run on another machine
+against the same single project.
+
+**The cheap operational takeaway.** Before trusting a red `test:rls`, run
+`select count(*) from public.centres where slug like 'audit-%'`. Non-zero means the suite is
+measuring leftovers, not a policy failure.
+
+**One thing that did come out of it is a real CI defect, found by reading rather than by running.**
+`ci.yml` had **no `needs:` anywhere** — all three jobs ran in parallel. `checks` is safe there
+(typecheck, lint, unit, build, budgets, `expo export`, no database). The other two both write to the
+**one** Supabase project, because AST06 wants three environments and this project has one, which is
+production. `tenant-isolation` asserts absolute counts and runs `drill:restore`, which extracts
+every row in `public` and compares counts against a shadow reload; `audit` seeds a tenant and drives
+119 browser tests through it. Those cannot share a database concurrently.
+
+Fixed with `needs: [tenant-isolation]` on `audit` — isolation first, because AGENTS.md §5 calls the
+RLS suite *"the one that matters"* and there is no point spending ten minutes on browser tests when
+it is red. **Nothing in CI had ever exposed this and nothing could have**, because those are exactly
+the two jobs gated on the secrets item 41 is waiting on: the sequence would have been add the
+secrets, watch the RLS job go red, and go hunting for a tenancy bug that does not exist. The comment
+beside the `needs:` says to delete it when the e2e job gets its own project, and not before.
+
+**The generalisable lesson, and it is not about YAML.** An absolute-count assertion is a claim about
+the whole database, not about the rows the test made. That is a deliberate, well-argued choice in
+`rls_isolation.sql`. Its consequence — exclusive access — was never stated, and **a prerequisite
+that lives only in the author's head is indistinguishable from a bug** the first time somebody
+violates it. Which today was me, twice, with two different wrong theories about why.
+
+---
+
+## 2026-09-03 (sixth) — Item 49 closes, and the script that closed it broke two things
+
+Twenty-seven writes still could not tell a refusal from a success. Twenty-three of them were
+guarded by a script, and the script was wrong in a way that four of six gates could not see.
+
+**It anchored on the wrong scope.** For each target: find the function, find its write, append
+`.select('id')`, then insert the check after the `if (error) throw` that follows. That last anchor
+searched *forward* from the write, and the replacement was applied to the first match **in the
+file** rather than in the function.
+
+`updateEnrolment` is the one writer in the sweep with a multi-line error handler — it translates a
+`23P01` exclusion violation into a sentence about overlapping enrolments. So the forward search ran
+straight past it and matched the handler of the next function down, `listHealthConditions`. A guard
+labelled `updateEnrolment` was inserted into a **read**.
+
+Every newly enrolled child's record page then threw, because a new child has no health conditions
+and the guard treats an empty list as a refusal.
+
+**What did not catch it.** `typecheck` — the code is valid. `lint` — a read genuinely uses `data`,
+so nothing was unused *there*. `test`, `test:rls`, `review:security` — all blind to it. **118 of
+119 e2e tests passed.** The single failure was `journey.spec.ts:47`, the enrolment journey, which
+is the only test that creates a child from scratch and then opens its record: the only path where
+that list is guaranteed to be empty. The error surfaced as the app's own boundary saying *"This
+failed while reading, not while writing"* — which was exactly true and exactly the clue.
+
+**Then the second one, which nothing caught at all.** With the misplacement fixed I audited every
+guard against its enclosing function and got `0 mismatched`, and very nearly stopped there. The
+audit was matching only the phrase `nothing was`, and the generated messages come in variants
+(*no room was updated*, *nobody was updated*, *no hazard was updated*). It had inspected **14 of 48
+guards** and reported nothing about the other 34.
+
+Counting instead of inspecting found the rest: **54 `update`/`delete` statements** in the package,
+against 49 guards and 4 documented exceptions — one short. The missing one was `setEnquiryStatus`,
+which had received its `.select('id')` and no check whatsoever. A select that did nothing, on the
+writer that moves an enrolment enquiry through its pipeline and stamps who moved it. Lint had no
+opinion because the destructuring stayed `const { error }` — no unused variable — and a mismatch
+audit cannot inspect a guard that was never inserted.
+
+**The signal I had and threw away.** Lint *did* report one thing during the batch pass: an unused
+`data` in `updateEnrolment`. That was half of defect one, announcing that the edit had gone wrong
+somewhere. I fixed the unused variable by hand and carried on without asking why the script had
+missed that function — and the answer to that question was a guard sitting in a read. **One
+warning out of a batch edit is a report about the edit, not about the line.** Reading it as a local
+annoyance cost a full suite run and hid the second defect for another hour.
+
+Three things are written down as a result, in [`conventions.md`](llm-wiki/wiki/conventions.md):
+never anchor a batch edit on the first match in a file; reconcile totals rather than only checking
+the items you can see, because every guard present can be correct while one that should exist is
+missing; and check an audit's own reach before quoting it as evidence.
+
+**Final tally, measured rather than asserted.** 54 `update`/`delete` statements, **50 guarded, 4
+deliberately not** — `moderateComment` (zero rows means losing a moderation race), `markThreadRead`
+(bulk, and nobody is told it happened), and the superseding updates inside `recordImmunisation` and
+`createInvitation` (both match nothing on a first record). Each of the four carries a comment
+saying so. `INSERT` and `UPSERT` are excluded from that denominator — the package has 115 writes
+all told — because a policy refusal on an insert fails its `WITH CHECK` and returns an *error*; it
+cannot match zero rows and report success. That asymmetry is the whole reason this bug class exists
+on one half of the writes and not the other.
+
+Also corrected: item 49's closing line in `unverified-claims.md` had said *"lint caught the one
+function it could not fit."* It caught neither defect. The correction is a new paragraph rather than
+an edit, per this repo's rule.
+
+---
+
 ## 2026-09-03 (fifth) — The enquiry went out, and the last red gate was a translation layer nobody uses
 
 Owner sent the enquiry. Recorded it in `eli-ministry-enquiry.md` as sent, with the five answers

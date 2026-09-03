@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { deleteApplication, listApplications, setApplicationStatus } from '@ece/api';
 import { APPLICATION_STATUSES, type ApplicationStatus } from '@ece/core';
+import { actionError } from '@/lib/actionError';
 import { requireCapability } from '@/lib/auth';
 import { serverDb } from '@/lib/supabase';
 
@@ -44,11 +45,17 @@ export async function changeStatus(_prev: ActionResult, form: FormData): Promise
    * null leaves `status_changed_by`/`_at` untouched. Same shape as `members/actions.ts`, which
    * branches on `target.role` for the same reason.
    */
-  await setApplicationStatus(db, applicationId, {
-    status,
-    note,
-    movedBy: status === target.status ? null : ctx.userId,
-  });
+  // Wrapped 2026-09-03: `setApplicationStatus` gained a zero-row check (item 49) and can
+  // now throw, and a guard needs somewhere for its failure to go.
+  try {
+    await setApplicationStatus(db, applicationId, {
+      status,
+      note,
+      movedBy: status === target.status ? null : ctx.userId,
+    });
+  } catch (e) {
+    return actionError(e, 'applications.setStatus');
+  }
   revalidatePath('/applications');
   return { ok: true };
 }
@@ -89,7 +96,18 @@ export async function remove(_prev: ActionResult, form: FormData): Promise<Actio
   }
 
   const db = await serverDb();
-  await deleteApplication(db, applicationId);
+  /*
+   * Wrapped 2026-09-03, same reason — and it matters more here than anywhere else in the
+   * sweep. This is the only real delete in the product, the screen says *"we removed your
+   * application"*, and until now a refusal reported success. Telling somebody their
+   * personal details are gone when they are not is the worst sentence this action could
+   * produce.
+   */
+  try {
+    await deleteApplication(db, applicationId);
+  } catch (e) {
+    return actionError(e, 'applications.remove');
+  }
   revalidatePath('/applications');
   return { ok: true };
 }

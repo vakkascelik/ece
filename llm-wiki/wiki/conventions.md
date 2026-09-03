@@ -257,6 +257,119 @@ rather than an error. The check is a judgement per call site about whether zero 
 possible-and-fine outcome or a refusal being swallowed, which is why this is a convention for new
 writers and a tracked item for the existing ones rather than a codemod.
 
+#### The discriminator is in the statement's own filters
+
+**Completed 2026-09-03: 50 guarded, 4 not.** Triaging 34 sites turned out to need one question, and
+the answer is visible in the query without reading the function:
+
+| Filters on the write | Verdict |
+|---|---|
+| **`.eq('id', …)` alone** — one row, named | **Guard.** Zero rows can only be a wrong id or a refusal. An `UPDATE` matches its row whether or not the value changes, so "nothing needed doing" is not an available explanation |
+| **A composite key naming one row** — `.eq('excursion_id', …).eq('child_id', …)` | **Guard**, with a message that admits the other possibility ("the child may not be on this excursion") |
+| **A state filter** — `.is('published_at', null)`, `.eq('status', 'draft')` | **Judgement.** The filter exists to make the write conditional, so zero rows means *already in that state* — which is indistinguishable from a refusal |
+| **A non-unique key** — `.eq('thread_id', …)`, `.eq('child_id', …)` | **Do not guard.** These are bulk or first-time writes and matching nothing is the ordinary case |
+
+The four left unguarded, each now carrying a comment saying why, because the next reader will see an
+unguarded write and reach for the pattern:
+
+- **`moderateComment`** — the call site that defines the exception. Its two `.is(… null)` filters
+  mean zero rows is *somebody else moderated it first*, and throwing would turn losing a race into
+  an error on a screen.
+- **`markThreadRead`** — bulk, and the only genuinely fire-and-forget write in the package: nobody
+  is told "marked as read", so there is no false success available to report.
+- **`recordImmunisation`**'s supersede, and **`createInvitation`**'s — both clear a *previous*
+  record before inserting, and both match nothing the first time, which is every child's first
+  immunisation record and every mailbox never invited.
+
+**Three state-filtered writes were guarded anyway, and the trade is worth stating rather than
+hiding.** `issueInvoice`, `publishPost` and `removeChildFromExcursion` can now error on a
+double-submit. Accepted because the harm on the other side is larger — a pānui the centre believes
+families can see, an invoice it believes was issued — and because the message names both outcomes
+rather than pretending to know which happened. Distinguishing them properly needs a read before the
+write, which is a round trip to tell two rare cases apart.
+
+**Two things the sweep turned up that were not the point of it.** `issueInvoice` and `voidInvoice`
+have **no callers anywhere** — dead code, exactly as `updateIncidentDraft` was before the edit path
+was built. And a mechanical pass caught one function it could not fit: `updateEnrolment` has a
+multi-line error handler translating `23P01` into a sentence about overlapping enrolments, so the
+anchor missed and the leftover unused `data` was caught by **lint**, not by review.
+
+**And a rollback path needs the opposite treatment.** `posts/actions.ts` deletes an uploaded photo
+when the consent gate refuses a child, then returns the gate's reason. Letting the newly-throwing
+`deleteMedia` propagate there would replace the one message that names the child and says what to
+do with a crash. It is caught, and a failed rollback is *added* to the gate's reason rather than
+hidden — because a photo nobody may see left in storage is what that branch exists to prevent.
+
+#### The script put a guard in the wrong function, and only one test noticed
+
+**The most useful thing to come out of the sweep, and it is about mechanical edits, not about
+zero-row checks.**
+
+Twenty-three of the guards were applied by a script: find the function, find its
+`const { error } = await db…` statement, add `.select('id')`, then insert the check after the
+`if (error) throw new Error(` line that follows. The anchor for that last step was found by
+searching **forward** from the statement, and applied with `str.replace(anchor, …, 1)` — which
+replaces the first occurrence **in the whole file**.
+
+`updateEnrolment` has a multi-line error handler, because it translates `23P01` into a sentence
+about overlapping enrolments. So the forward search skipped past it and matched the handler of the
+**next** function in the file — `listHealthConditions`, a read — and the global replace put the
+guard there. A read that returns no rows then threw:
+
+```
+Error: updateEnrolment: nothing was updated. Either the id is wrong or the policy refused it.
+```
+
+…from `listHealthConditions`, on the child record page, for **every newly enrolled child**, because
+a new child has no health conditions.
+
+**What did not catch it.** `typecheck` passed — the code is valid. `lint` passed *in that
+function*, because a read genuinely uses `data`. `test:rls` and `review:security` are blind to
+TypeScript. **118 of 119 e2e tests passed.** The one that failed was the enrolment journey, and only
+because it creates a child from scratch and then opens the record — the single path where the list
+is guaranteed empty.
+
+**What half-caught it, and the mistake I made with the signal.** Lint *did* flag the other half of
+the same bug: an unused `data` in `updateEnrolment`, because the guard that belonged there had gone
+elsewhere. I fixed that symptom by hand and moved on **without asking why the script had missed
+it** — and the answer to that question was the misplaced guard. A tool reporting one anomaly in a
+batch edit is reporting the edit went wrong somewhere, not that one line needs correcting.
+
+**And the same script bug had a second victim, which the mismatch audit could not have found.**
+`setEnquiryStatus` got its `.select('id')` appended and then **no check at all** — the guard that
+belonged to it had gone elsewhere. Nothing flagged it: the destructuring stayed `const { error }`,
+so there was no unused `data` for lint to complain about, and a mismatch audit only inspects guards
+that exist. It sat there as a `.select('id')` that did nothing, on the writer that moves an
+enrolment enquiry through its pipeline and stamps who moved it.
+
+It was found by **counting instead of inspecting**: 54 `update`/`delete` statements in the package,
+against 49 guards and 4 documented exceptions, leaves one unaccounted for. Subtraction found what
+pattern-matching could not.
+
+**The rules that follow, and they cost one full suite run to learn:**
+
+1. **Never anchor a batch edit on the first match in a file.** Scope the replacement to the
+   function's own text span, or match on text unique to the site.
+2. **Audit the result mechanically, not by reading the diff** — and check the audit's own reach
+   before believing it. The first version of this audit matched only the phrase `nothing was`, and
+   the generated messages come in variants (*no room was updated*, *nobody was updated*). It
+   inspected **14 of 48 guards** and reported a clean result for the rest. An audit that silently
+   covers a quarter of the population is worse than none, because it is quoted as evidence.
+3. **Reconcile totals, do not just check the items you can see.** Every guard present can be
+   correct while a guard that should exist is missing. Count the writes, count the guards, count the
+   documented exceptions, and require that they add up.
+4. **A per-site assertion is cheap after a batch edit**: no guard belongs in a function whose name
+   starts with `list`, `get`, `read` or `count`, and no guard should read a `data` that no
+   `.select()` populates. Both scans now report zero across all 48.
+5. **When a batch edit produces one warning, stop and explain the warning** before fixing it. Lint's
+   unused `data` in `updateEnrolment` was the whole bug announcing itself. Fixing the symptom by
+   hand and moving on cost a suite run and hid a second defect for another hour.
+
+**What counts as vulnerable, for the reconciliation above.** `UPDATE` and `DELETE` only — 54 of the
+package's 115 write statements. An `INSERT` or `UPSERT` refused by a policy fails its `WITH CHECK`
+and returns an *error*; it cannot match zero rows and report success. That asymmetry is the whole
+reason this class of bug exists on one half of the writes and not the other.
+
 **Seven were done on 2026-09-03** (the access-control and evidence writes; now 27 guarded, 27 not)
 and doing them taught the part this convention was missing:
 

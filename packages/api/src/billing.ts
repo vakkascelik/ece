@@ -528,12 +528,18 @@ export async function createInvoice(
 
 /** Issuing freezes the lines: the policy refuses writes to a non-draft invoice. */
 export async function issueInvoice(db: Db, invoiceId: string): Promise<void> {
-  const { error } = await db
+  const { data, error } = await db
     .from('invoices')
     .update({ status: 'issued', issued_at: new Date().toISOString() })
     .eq('id', invoiceId)
-    .eq('status', 'draft');
+    .eq('status', 'draft')
+    .select('id');
   if (error) throw new Error(`issueInvoice: ${error.message}`);
+  if (!data || data.length === 0) {
+    throw new Error(
+      'issueInvoice: nothing was issued. Either the id is wrong or the policy refused it. The invoice may no longer be a draft.',
+    );
+  }
 }
 
 /**
@@ -544,11 +550,17 @@ export async function issueInvoice(db: Db, invoiceId: string): Promise<void> {
  */
 export async function voidInvoice(db: Db, invoiceId: string, reason: string): Promise<void> {
   if (reason.trim().length < 3) throw new Error('voidInvoice: a reason is required.');
-  const { error } = await db
+  const { data, error } = await db
     .from('invoices')
     .update({ status: 'void', voided_at: new Date().toISOString(), void_reason: reason.trim() })
-    .eq('id', invoiceId);
+    .eq('id', invoiceId)
+    .select('id');
   if (error) throw new Error(`voidInvoice: ${error.message}`);
+  if (!data || data.length === 0) {
+    throw new Error(
+      'voidInvoice: nothing was voided. Either the id is wrong or the policy refused it.',
+    );
+  }
 }
 
 /**

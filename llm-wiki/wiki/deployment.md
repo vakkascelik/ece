@@ -482,6 +482,33 @@ Three jobs, three different failures, and only one of them is a defect:
 instead of skipping quietly, which is the difference between "this was not checked" and a green
 tick over nothing. The fix is secrets, not a `continue-on-error`.
 
+**The two credentialled jobs are now serialised, and were not before — 2026-09-03.** The table above
+described three jobs and left out the thing that mattered about them: they all ran **in parallel**,
+because `ci.yml` had no `needs:` anywhere. `typecheck · lint · tests · build` is safe there — it
+touches no database. The other two both write to the **one** Supabase project, since `AST06` wants
+three environments and this project has one, which is production.
+
+That is not survivable given what they assert. `RLS isolation` checks **absolute** row counts, on
+purpose and with a comment in `rls_isolation.sql` arguing for it — `count(*) from
+public.notifications where kind = 'attendance'` must equal 2, read as `postgres` so it counts every
+tenant's rows — and then runs `drill:restore`, which extracts every row in `public` and compares
+counts against a shadow reload. `e2e · accessibility` seeds a tenant and drives 119 browser tests
+through it, and it was **measured** creating exactly two `kind = 'attendance'` notifications while
+doing so. Run together, the isolation job goes red with a message that reads like a tenancy leak.
+
+Fixed with `needs: [tenant-isolation]` on `audit` — the only `needs:` in the file. Isolation first
+because AGENTS.md §5 calls the RLS suite *"the one that matters"*; a red cross there means something
+worth stopping for. **Delete the `needs:` when the e2e job gets its own project and not before** —
+the comment beside it says so, because serialising is a workaround for having one database, not a
+design.
+
+**Neither CI nor any local run had ever exposed this**, and CI could not have: these are the two
+jobs gated on the two missing secrets, so they have never both executed. Adding the secrets would
+have produced a red RLS job on the first run. Found by reading the workflow while chasing a
+different failure — a *local* `test:rls` broken by an audit tenant a finished e2e run had left in
+the database, which is a related but separate hazard that this change does **not** fix and which
+[[unverified-claims]] item 41 records with its cause still open.
+
 **The consequence used to be the part that mattered, and it is worth keeping in past tense.**
 `Bundle mobile` — `expo export --platform android`, the step that catches a package resolving
 through TypeScript's path mapping but not through Metro's resolver — sits directly after

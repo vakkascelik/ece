@@ -47,12 +47,16 @@ Nothing here is a bug. They are known gaps with known closures.
   teaching children"***. If it is actual, the source is recorded staff attendance, not the roster
   agreement — and a service without per-person staff sign-in cannot answer it at all. **A schema
   tells you what a field may contain, not what it means.**
-- **Thirty-four writes cannot tell a refusal from a success — item 49, added 2026-09-03.** A
-  PostgREST update matching no rows returns `error: null`, and under RLS that is exactly what a
-  refusal looks like. Measured across `packages/api`: **20 guarded, 34 not.** Among the unguarded
-  are revoking a membership, revoking an invitation, sighting a certificate and superseding a
-  custody arrangement — where the screen currently says *"Saved."* either way. This matters more
-  here than elsewhere precisely because the application holds no tenant filtering by design.
+- ~~**Thirty-four writes cannot tell a refusal from a success**~~ — **item 49, CLOSED the day it
+  was opened: 50 guarded, 4 deliberately not.** The triage question turned out to be answerable
+  from the query itself: `.eq('id', …)` alone means one named row, so zero rows is a wrong id or a
+  refusal; a state filter means *already in that state*; a non-unique key means bulk. The four
+  exceptions each carry a comment, because the next reader will see an unguarded write and reach
+  for the pattern. It mattered more here than it would elsewhere for the reason
+  [AGENTS.md §4.1](../../AGENTS.md) gives — the application holds no tenant filtering by design, so
+  *the database will refuse* **is** the security model, and the writes that could not tell included
+  revoking a membership, revoking an invitation, sighting a certificate and superseding a custody
+  arrangement.
 - **The Supabase region is Sydney — `ap-southeast-2`, answered 2026-09-02, and it was one API call.**
   [`privacy-statement.md`](../../docs/privacy-statement.md) carried it as an explicit blank since
   2026-08-06, asking whether children's records sat in *"Sydney, Singapore or Oregon"*. Both regions
@@ -1258,7 +1262,101 @@ laptop, by hand, produced six days of failures that looked exactly like an envir
 | **What that makes unverified** | `test:rls`, migration status, the restore drill, `review:security` and the Playwright accessibility audit have **never executed in CI** — every one of them has only ever run locally, by hand, on this machine. And `Bundle mobile` (`expo export --platform android`) is skipped on every run because it sits after the budget step, so a gate written specifically to catch a Metro-vs-TypeScript resolution failure has never once fired |
 | **The second-order problem** | A build that has been red since run 1 carries no signal. The 137th failure is indistinguishable from the first real one, and nothing in this repo would look different if a genuine regression landed tomorrow |
 | **Not a defect** | The credential guards. They fail loudly rather than skipping quietly, which is the difference between "not checked" and a green tick over nothing. Softening them with `continue-on-error` would be the worst available fix |
-| **To close it** | Two decisions, neither of them a code change. **Attribute the 7kB** — raising the limit to make it pass is the move AGENTS.md forbids by name. And **decide whether the service-role key belongs in GitHub Actions secrets**, which is a question about where that key lives rather than a chore |
+| **To close it** | ~~Two decisions, neither of them a code change.~~ **Two decisions and one code change — see the paragraph below, added 2026-09-03.** **Attribute the 7kB** — raising the limit to make it pass is the move AGENTS.md forbids by name. And **decide whether the service-role key belongs in GitHub Actions secrets**, which is a question about where that key lives rather than a chore |
+
+**A third thing was needed and it is a code change: the two credentialled jobs would have collided
+with each other on their first run together.** Found 2026-09-03.
+
+`tenant-isolation` and `audit` had no `needs:` between them, so GitHub ran all three jobs in
+parallel. `checks` is safe there — typecheck, lint, unit tests, build, budgets, `expo export`, none
+of which touch the database. The other two both **write to the one Supabase project**, because
+`AST06` wants three environments and this project has one, which is production
+([item 48](#48-this-product-does-not-meet-the-ministrys-sms-development-criteria--open-added-2026-09-02-and-it-is-not-a-claim-so-much-as-a-measurement)).
+
+And the RLS suite asserts **absolute** row counts, deliberately, with a comment in
+`rls_isolation.sql` explaining that they start at one rather than zero. For example
+`count(*) from public.notifications where kind = 'attendance'` must equal 2 — read as `postgres`,
+so it counts every tenant's rows. `drill:restore`, in the same job, extracts every row in `public`
+and compares counts against a shadow reload. Both are correct assertions **about a quiet
+database**. The `audit` job seeds its own tenant and drives 119 browser tests through it, so it is
+precisely the thing that makes the database not quiet.
+
+**That last step is an inference, not an observation, and it is labelled as such in the workflow
+comment too.** A concurrent e2e run would break these assertions given what both suites verifiably
+do — but the failure actually seen was caused by leftovers from a *finished* run, not by a race.
+The serialisation below is still correct; it just closes a hazard nobody has watched fire.
+
+**How it was found, and the first explanation written here was wrong — corrected within the hour.**
+`npm run test:rls` failed on that notifications assertion, and this paragraph originally said it had
+been *"started while a local e2e run was still going"*. **It had not.** Checking the timestamps
+killed that story: the audit tenant was created 06:10:50Z, the notifications at 06:12:58Z, the e2e
+suite reported `119 passed` and finished around 06:20Z, and the RLS run that failed started about
+06:24Z. Nothing was running concurrently.
+
+**What was actually wrong is worse, because it needs no race at all.** The e2e run's teardown
+reported `ok` — `cleanup.teardown.ts:18 › drop the audit tenant (1.5s)` — and **left both audit
+centres in the database**, with their two attendance notifications. `sweepStaleAuditTenants` has a
+deliberate two-hour grace period, precisely so that a run in progress on another machine is never
+touched, so nothing would reclaim a tenant that young. **The RLS suite is therefore broken by e2e
+leftovers for up to two hours after a run, in any job order, and the `needs:` below does not fix
+that.** The leftovers were removed by hand to get the suite green; see the open question at the end
+of this block.
+
+**Three hypotheses were tested and two died.** *Concurrency* — dead, on the timestamps above.
+*A silent zero-row delete in `destroyAuditTenant`* — this looked extremely likely, because line 762
+is `.delete().in('id', […])` inspecting only `error`, which is [item
+49](#49-writes-that-cannot-tell-a-refusal-from-a-success--closed-2026-09-03-50-of-54-guarded-4-deliberately-not)
+exactly, in the code whose entire job is to prevent leftovers. **Also dead**: replaying that call
+with the service key against those two ids returned `error: null` and **matched 2 rows**, and both
+centres went. No FK blocks it (as `postgres`, the same delete affects 2 rows), and `service_role`
+holds DELETE on `centres`. *An early return* — the teardown returns silently when `TENANT_FILE`
+cannot be read, but `.artifacts/tenant.json` is absent while `owner.json` and `parent.json` remain,
+which is the state after `rmSync` runs, i.e. after `destroyAuditTenant` was called. So the third
+hypothesis does not fit either.
+
+**The experiment was run and it did not reproduce.** With the database cleared to zero `audit-%`
+centres, the next full run — `119 passed (8.6m)`, teardown `ok` in 1.6s — left **zero centres and
+zero notifications** behind. So a completed run does clean up correctly, at least once, and the
+earlier leftover was not the normal behaviour of this code.
+
+**Which leaves the cause open, and it is recorded open rather than narrated shut.** One trial is one
+trial: *not reproduced* is not *cannot happen*. The candidate that best fits is an earlier run whose
+process was disrupted — a `taskkill //F //IM node.exe` was issued in this session while chasing a
+port, and killing the runner mid-flight is exactly the case `sweepStaleAuditTenants` exists for and
+exactly the case its two-hour grace period declines to handle promptly. That is consistent with the
+timestamps but **not established**: the run whose tenant survived reported `119 passed` and a green
+teardown, which is not what an interrupted run looks like.
+
+**What must not happen is the obvious "fix".** Adding a zero-row check to line 762 would guard a
+failure mode that has now been *demonstrated* not to occur — the delete was replayed against those
+exact ids and matched 2 rows — and it would make this entry look closed while the real mechanism
+went unexamined. The same applies to shortening the sweep's grace period: two hours is there to
+protect a run happening on another machine against the same single project, which is the very
+constraint [item 41's serialisation](#41-ci-has-never-been-green-and-nothing-that-needs-credentials-has-run-in-it)
+is about.
+
+**The operational note that is worth more than the diagnosis**, and it is cheap: before trusting a
+red `test:rls`, check `select count(*) from public.centres where slug like 'audit-%'`. A non-zero
+answer means the suite is measuring somebody else's leftovers, not a policy failure. `npm run
+sweep:audit` clears them once they age past the grace period.
+
+Nothing in CI had ever surfaced any of it, and nothing could have: `audit` and `tenant-isolation`
+have **never both run**, because they are the two jobs gated on the very secrets this item asks the
+owner to add.
+
+**Fixed by serialising, isolation first:** `needs: [tenant-isolation]` on `audit`, the only `needs:`
+in the file, with the reasoning in a comment beside it. Isolation-first because AGENTS.md §5 calls
+the RLS suite *"the one that matters"* — if it is red there is no reason to spend ten minutes on
+browser tests. **The real fix is a second database and it stays owner-blocked**; the comment says to
+delete the `needs:` when the e2e job gets its own project, and not before.
+
+**The generalisable lesson, and it is not about YAML.** An absolute-count assertion is a claim about
+the whole database, not about the rows the test made. That is a deliberate and well-documented
+choice in `rls_isolation.sql` — the counts catch a policy that leaks rows *from anywhere*, which a
+delta would miss. The cost of that choice is that the suite **owns the database while it runs**, and
+that requirement was never written down anywhere until it was violated. **A test that depends on
+exclusive access to a shared resource has a prerequisite, and a prerequisite that lives only in the
+author's head is indistinguishable from a bug.**
 
 ### 42. Evidence photos take no photo consent — an owner's ruling, not a sourced rule
 
@@ -1565,12 +1663,12 @@ an argument and says in its own header that a different service type *"changes d
 logic"*. Sessional and home-based bands are a sourced transcription against Schedule 2 under the
 existing `RATIO_TABLES_VERIFIED` discipline, not a redesign.
 
-### 49. Thirty-four writes in `packages/api` cannot tell a refusal from a success — **OPEN, added 2026-09-03**
+### 49. Writes that cannot tell a refusal from a success — **CLOSED 2026-09-03. 50 of 54 guarded, 4 deliberately not**
 
 | | |
 |---|---|
 | **What is asserted** | Implicitly, by every screen in the product: that when a save reports success, something was saved |
-| **Where** | `packages/api`. Measured 2026-09-03 by scanning every write statement in the package: **20 guarded, 34 unguarded**. **Now 27 / 27** — the seven access-control and evidence writes below were done the same day |
+| **Where** | `packages/api`. Measured 2026-09-03 by scanning every write statement in the package: **20 guarded, 34 unguarded** at the start of the day. **50 guarded and 4 deliberately unguarded by the end of it**, in three passes — seven access-control and evidence writes, then the two incident writers that started this, then the remaining twenty-three |
 | **The mechanism** | A PostgREST `UPDATE`/`DELETE` matching no rows returns **`error: null`**, and under RLS "matched no rows" is precisely what a refusal looks like. A writer inspecting only `error` therefore returns normally, the action calls `revalidatePath`, and the screen says *"Saved."* See [[conventions]], *A write that does not count its rows* |
 | **Why it matters here more than in most products** | Because [AGENTS.md §4.1](../../AGENTS.md) makes Postgres the security boundary and the application deliberately contains no tenant filtering. The design is *"the database will refuse"* — and on 34 paths the refusal is invisible to the caller and therefore to the user |
 
@@ -1612,12 +1710,53 @@ these means a `catch` returning `actionError`, and that in turn changed the acti
 and broke a loosely-typed `Result` in the client component. Worth knowing before touching the
 remaining 27: each one is a guard, a handler, and possibly a type.
 
-**What would close the rest:** the same judgement per call site — *can this legitimately match
-nothing?* The 27 guarded are the pattern to copy.
+**CLOSED the same day, and the triage question turned out to be answerable from the query itself.**
+`.eq('id', …)` alone means one named row, so zero rows can only be a wrong id or a refusal — guard
+it. A **state filter** (`.is('published_at', null)`, `.eq('status', 'draft')`) means the write is
+conditional and zero rows means *already in that state*. A **non-unique key**
+(`.eq('thread_id', …)`) means bulk or first-time, where matching nothing is ordinary. The full table
+is in [[conventions]].
 
-**What must not happen:** a blanket `.select('id')` sweep with a throw, which would turn benign
-no-ops into user-facing errors, be reverted within a week, and leave the real cases looking
-handled.
+**Four remain unguarded on purpose**, each now carrying a comment so the next reader does not
+"fix" them: `moderateComment` (zero rows is losing a moderation race), `markThreadRead` (bulk, and
+nobody is told it happened), and the superseding updates in `recordImmunisation` and
+`createInvitation` (both match nothing on a first record).
+
+**Three state-filtered writes were guarded anyway** — `issueInvoice`, `publishPost`,
+`removeChildFromExcursion` — accepting that a double-submit can now error, because a pānui the
+centre believes families can see is worse than a message on a second click. Their messages name
+both outcomes rather than pretending to know which occurred.
+
+**What must not happen, and did not:** a blanket `.select('id')` sweep with a throw. It would have
+broken all four of the above, been reverted within a week, and left the real cases looking handled.
+The mechanical pass that *was* used covered only the sites already triaged as needing it.
+
+> **Correction, same day.** The sentence that stood here — *"and lint caught the one function it
+> could not fit"* — was wrong, and comfortably so. The mechanical pass broke **two** things and lint
+> caught neither:
+>
+> 1. A guard labelled `updateEnrolment` was inserted into **`listHealthConditions`**, a read, because
+>    the script anchored on the first matching throw in the *file* rather than in the function. Every
+>    newly enrolled child's record page then threw, since a new child has no health conditions. One
+>    e2e test of 119 caught it; `typecheck`, `lint`, `test`, `test:rls` and `review:security` all
+>    passed.
+> 2. **`setEnquiryStatus`** received its `.select('id')` and no check, leaving a select that did
+>    nothing on the writer that moves an enquiry through its pipeline. Nothing caught this one at
+>    all — the destructuring stayed `const { error }`, so there was no unused variable — and it was
+>    found only by reconciling counts: 54 `update`/`delete` statements against 49 guards and 4
+>    documented exceptions leaves one unaccounted for.
+>
+> What lint actually caught was an unused `data` in `updateEnrolment` — half of defect (1),
+> announcing that the batch edit had gone wrong somewhere. It was fixed by hand as a local
+> annoyance instead of read as a signal, which is what let both defects survive. **So the claim
+> that a triaged mechanical pass is safe because lint backstops it does not hold**; what backstops
+> it is a reconciliation that has to add up, and a scan asserting no guard sits in a read. Both are
+> now written down in [[conventions]], and both now report clean across all 48 guards.
+
+**Guarded count, as measured rather than as asserted:** 54 `update`/`delete` statements, of which
+**50 guarded and 4 deliberately not**. `INSERT` and `UPSERT` are excluded from the denominator
+because a policy refusal on those returns an error rather than zero rows — the asymmetry is why
+this bug class exists on one half of the package's 115 writes and not the other.
 
 ### 50. Whether the ECE Return's contact hours are contracted or actual — **OPEN, added 2026-09-03**
 
@@ -1643,6 +1782,56 @@ product may present the hours figure as anything but derived from the contract, 
 screen says.
 
 **Do not resolve it by reading the XSD again.** The XSD is what produced the assumption.
+
+### 51. Every ratio figure in this product is computed from the all-day centre-based schedule, for every service — **PARTLY CLOSED 2026-09-03: the assumption is now stated on screen, the input still does not exist**
+
+| | |
+|---|---|
+| **What is asserted** | On the attendance screen, the overview, the incident detail page and the mobile `RatioBar`: that the adults-required figure beside a room is the figure the regulation requires *for that service* |
+| **Where** | `packages/core/src/ratios.ts` — `assessRatio` falls back to `UNDER_TWO_TABLE` / `TWO_AND_OVER_TABLE`, the all-day centre-based bands, whenever no table is passed |
+| **How many callers pass a table** | **None.** `staff.ts:473`, `ratioForecast.ts:132` and `ratioHistory.ts:122` all accept the two optional tables and forward them faithfully; the two call sites that actually assess a room — `attendance/page.tsx:119` and `page.tsx:128` — pass three numbers. The parameter was designed in and has never been supplied |
+| **Why no caller can** | `centres` has no service-type or licence-type column ([item 48](#48-this-product-does-not-meet-the-ministrys-sms-development-criteria--open-added-2026-09-02-and-it-is-not-a-claim-so-much-as-a-measurement)). The information needed to choose a schedule is not recorded anywhere in the schema |
+| **Who this is wrong for** | A sessional service (the 2-and-over bands genuinely differ: 1–8 → 1, 9–30 → 2), a home-based service (a different schedule entirely) and a hospital-based service. `RATIO_TABLES_VERIFIED` has always covered **all-day centre-based only** — the file's header has said so since 2026-08-18 — but nothing said it *on the screen*, next to the number |
+
+**What changed today, and it is deliberately small.** `ratioInputCaveat()` now opens by naming the
+schedule: *"Assessed against the all-day centre-based schedule, which is the only one transcribed —
+a sessional, home-based or hospital-based service is on a different schedule and this figure does
+not apply to it."* One sentence, one function, three screens that already render it.
+
+**Why not a service-type column, which is the obvious fix.** Two reasons, and the second is the
+one that decided it.
+
+1. **It would not enable anything.** The sessional, home-based and hospital-based tables are not
+   transcribed. Knowing the service type would let this product *refuse* to state a ratio, not
+   state a better one — and on the day the column ships every centre is NULL, so refusing on
+   unknown would blank the figure for every existing service. That is the "blanket unverified
+   notice that says less" which `ratios.ts` rejects in its own header, and it would be a
+   regression for the majority who *are* all-day centre-based.
+2. **The values are not settled from public sources.** Measured 2026-09-03 against two Crown pages
+   on the same day:
+
+   | Source | Licensed types named |
+   |---|---|
+   | MoE, *Licences to operate in early childhood education and care* | **Three**: "education and care services", "home-based services", "hospital-based services". Kōhanga reo, kindergarten and playcentre are not named as separate categories. Playgroups "are not licensed, but they can choose to be certified" |
+   | MoE, *Laws and regulations for early learning services* (the regulatory framework) | **Four**: "centre-based services — including kindergartens, playcentres, education and care services, puna reo, reo rua education and care", "home-based services", "hospital-based services", "Te Kōhanga Reo" |
+
+   The two disagree on granularity and on whether Te Kōhanga Reo is its own licensed type.
+   CHECK-constraining a column to either list would be asserting a classification nobody here has
+   verified, which [AGENTS.md §7](../../AGENTS.md) forbids by name — the same rule that keeps
+   `0080`'s nine code sets empty.
+
+**To close it properly, in order:** (a) the ELI service-type code list, which is
+[enquiry](../../docs/eli-ministry-enquiry.md) question 6's territory — where the lists are published
+and in what form; (b) transcribe the sessional and home-based schedules from Schedule 2 with the
+same row-by-row discipline as 2026-08-18, and extend `RATIO_TABLES_VERIFIED` to say *which*
+schedules it covers rather than being one boolean; (c) then, and only then, the column — at which
+point every existing caller already has the parameter waiting.
+
+**The generalisable part.** An optional parameter that no caller supplies is not a seam, it is a
+default nobody chose, and it reads as configurability in a code review. This one was designed in
+correctly, plumbed through three modules correctly, and has produced a single hard-coded schedule
+for the life of the product. **Grep for who actually passes it** before believing a design is
+service-type-aware.
 
 ## See Also
 

@@ -231,13 +231,24 @@ ends in `ROLLBACK`) precisely because that is where it runs. The repository's ow
 integration configuration carries the note that this is worth moving to a dedicated database
 "before this holds real children's records".
 
+**And as of 2026-09-03 this is no longer only a policy gap — it measurably limits our ability to
+test.** Two things surfaced on the same day. Our continuous integration has a job that asserts
+tenant isolation and a job that drives the application through a browser; because both point at the
+one project, **they cannot run at the same time**. The isolation suite deliberately asserts absolute
+row counts across the whole database — that is what catches a policy leaking rows from anywhere —
+and the browser suite seeds a service and writes to it, so run together the isolation job fails with
+a message indistinguishable from a real tenancy breach. They are now run one after the other, and
+the change is commented as the workaround it is. Separately, a browser run that leaves seeded data
+behind breaks the isolation suite until it is removed, which happened and is recorded with its cause
+still under investigation rather than assumed. Neither problem exists once there are two databases.
+
 Building the Test environment the Ministry expects is a second Supabase project and a second
 Railway service. The migration runner already tracks applied migrations with checksums and refuses
 to run against a database whose files have changed, so standing up a second environment is
 mechanical rather than architectural. **It is the single highest-value thing to do before
 submitting**, because it converts a failed assessed item into a passed one, it is a prerequisite
-for the Ministry's own testing (AST56 asks for remote access to a *test* environment), and it is
-correct regardless of this application.
+for the Ministry's own testing (AST56 asks for remote access to a *test* environment), it removes
+the testing constraint described above, and it is correct regardless of this application.
 
 **AST07 — production access control model.**
 
@@ -549,8 +560,8 @@ is a new migration, and the status command tells you what you are rolling back o
 
 | Suite | Scale | What it proves |
 |---|---|---|
-| Unit | **631 tests across 46 files**, Vitest — measured by running them on 2026-09-02, not counted from source | Ratios, funding, hours, roll, CSV, redaction, the offline queue, capabilities, date handling |
-| **RLS isolation** | **607 assertions**, one self-contained 8,435-line SQL script | Two services and two members, each impersonated exactly as the API layer would by setting the role and the JWT claims; neither can read *or write* the other's rows, in both directions; guardianship inside a service; and six catalogue-driven class assertions that cover tables which do not exist yet |
+| Unit | **678 tests across 47 files**, Vitest — measured by running them on 2026-09-03, not counted from source, across five workspaces (core 554, web 67, site 40, api 11, ai 6). The previous figure here was 631 across 46 files on 2026-09-02; the difference is the census suite | Ratios, funding, hours, roll, CSV, redaction, the offline queue, capabilities, date handling, the ECE Return's staffing section |
+| **RLS isolation** | **634 assertions**, one self-contained 8,880-line SQL script — the count is the one the runner prints, measured 2026-09-03 (previously stated as 607 over 8,435 lines) | Two services and two members, each impersonated exactly as the API layer would by setting the role and the JWT claims; neither can read *or write* the other's rows, in both directions; guardianship inside a service; and six catalogue-driven class assertions that cover tables which do not exist yet |
 | End-to-end and accessibility | Playwright + axe-core. **119 passing as at 2026-09-03** — see the disclosure below | 21 screens across owner and parent sessions against **WCAG 2.2 AA with all six axe tags**, on a production build, with data seeded — because auditing an empty page measures nothing. The role matrix in the same suite proves an educator cannot open the office screens and a parent cannot open another family's child by URL: the second tenant boundary, checked at the HTTP layer as well as in Postgres |
 | Live-schema security review | 17 checks | RLS enabled everywhere; a policy on every reachable table; append-only grants; definer functions with pinned search paths; the consent gate restrictive; invitation hashes unreadable; no public storage bucket; `anon` holding no grants |
 | Purpose-built drills | 4 | The offline queue against live PostgreSQL (10/10); the PostgREST row cap (1,200 events, exactly 50.00 hours); a full extract-and-reload restore (6/6 over 12,930 rows and 72 tables); documentation link integrity |
@@ -593,14 +604,36 @@ update matches nothing and the database driver reports that as success, so those
 report a saved correction on a compliance record that had not been saved. Fixed, with the check
 that three sibling functions already had.
 
-**One failure remains and we are not glossing it:** a corrected incident draft is not appearing on
+~~**One failure remains and we are not glossing it:** a corrected incident draft is not appearing on
 the screen that reports it saved. The write provably succeeds and the page is revalidated, so the
-cause is not yet known. It is on a compliance record and it is the next thing we will do.
+cause is not yet known.~~
 
-The honest lesson, which is also the clearest argument for the test environment `AST06` asks for:
-a suite run by hand, from one laptop, against the single live database produced six days of
-failures that looked exactly like an environment problem — and hid four real defects behind them.
-A vendor that cannot tell those apart is a vendor whose green run means less than it appears to.
+**Closed 2026-09-03, and the sentence above was wrong in a way worth stating rather than deleting.**
+*"The write provably succeeds"* was not a finding, it was an inference from the wrong signal: a
+newly-added zero-row check was not firing, and we read that as proof the write had landed. It was
+silent because the **error** branch fired first — the write was raising
+`42501 permission denied for table incidents` every time. A passing zero-row check only means an
+update did not silently match nothing; it is not evidence that anything was written.
+
+The cause was a missing column privilege. Migration `0066` added `incidents.room_id` without adding
+it to the column-scoped UPDATE grant, so **no incident draft could be corrected between 2026-08-28
+and `0082`** — on a compliance record. The end-to-end suite is now **119 passing, 0 failing**, and
+the RLS suite carries an assertion that fails against a database without `0082`.
+
+**Two honest lessons, and both are arguments for the test environment `AST06` asks for.**
+
+First, a suite run by hand from one laptop against the single live database produced six days of
+failures that looked exactly like an environment problem, and hid four real defects behind them. A
+vendor that cannot tell those apart is a vendor whose green run means less than it appears to.
+
+Second, and more concrete: on 2026-09-03 we found that our two credentialled CI jobs **cannot run at
+the same time**, because the RLS-isolation job asserts absolute row counts across the whole database
+and the end-to-end job seeds a tenant and writes to it — and both point at the one project, because
+there is only one. They are now serialised, which is a workaround and is commented as one. The same
+single project also means an end-to-end run that leaves anything behind breaks the isolation suite
+until it is cleaned up, which happened and is recorded with its cause still open. **A shared
+production database is not merely a policy gap; it is now a measured constraint on our ability to
+test at all.**
 
 **AST19 — defect management.**
 
@@ -1140,10 +1173,10 @@ In dependency order, not importance order. The first two change assessed answers
 
 | # | Do | Changes |
 |---|---|---|
-| 1 | **Send the enquiry.** The form requires it, and question 1 decides whether any of this is worth doing | Everything |
-| 2 | **Build the Test environment** — second Supabase project, second service, seeded demo data | `AST06`, `AST08`, `AST09`, `AST56` |
+| 1 | ~~**Send the enquiry.**~~ **Sent 2026-09-03.** The form requires it, and question 1 decides whether any of this is worth doing | Everything |
+| 2 | **Build the Test environment** — second Supabase project, second service, seeded demo data. **Now also the fix for a CI defect found 2026-09-03**: the RLS-isolation and e2e jobs cannot run concurrently because they share the one project, so they are serialised as a workaround — see `AST18` | `AST06`, `AST08`, `AST09`, `AST56` |
 | 3 | ~~Read and record the Supabase region~~ **Done 2026-09-02: Sydney, `ap-southeast-2`, now named in the privacy statement.** What remains is the *acceptance* half — the service acknowledging offshore storage in writing | `AST03`, `AST11` (IPP 12) |
-| 4 | **Get CI green** — the two secrets into repository secrets, and the 7kB attributed rather than waived | `AST18`, `AST19` |
+| 4 | **Get CI green** — the two secrets into repository secrets, the 7kB attributed rather than waived (**done 2026-09-03**), and the two credentialled jobs serialised so they do not collide over the single database (**done 2026-09-03** — without it, adding the secrets produces a red RLS job on the first run) | `AST18`, `AST19` |
 | 5 | **Read and cite the platform's encryption-at-rest position** | `AST10` |
 | 6 | **Write a support plan** — hours, channel, response targets, escalation, names | `AST23`, `INF04` |
 | 7 | **Adopt an issue tracker** | `AST19` |

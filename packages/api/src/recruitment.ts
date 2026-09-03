@@ -140,8 +140,13 @@ export async function setApplicationStatus(
     patch.status_changed_at = new Date().toISOString();
   }
 
-  const { error } = await db.from('job_applications').update(patch).eq('id', applicationId);
+  const { data, error } = await db.from('job_applications').update(patch).eq('id', applicationId).select('id');
   if (error) throw new Error(`setApplicationStatus: ${error.message}`);
+  if (!data || data.length === 0) {
+    throw new Error(
+      'setApplicationStatus: nothing was updated. Either the id is wrong or the policy refused it.',
+    );
+  }
 }
 
 /**
@@ -153,8 +158,13 @@ export async function setApplicationStatus(
  * stores changed column names on update and nothing otherwise), so this really is removal.
  */
 export async function deleteApplication(db: Db, applicationId: string): Promise<void> {
-  const { error } = await db.from('job_applications').delete().eq('id', applicationId);
+  const { data, error } = await db.from('job_applications').delete().eq('id', applicationId).select('id');
   if (error) throw new Error(`deleteApplication: ${error.message}`);
+  if (!data || data.length === 0) {
+    throw new Error(
+      'deleteApplication: nothing was deleted. Either the id is wrong or the policy refused it.',
+    );
+  }
 }
 
 /**

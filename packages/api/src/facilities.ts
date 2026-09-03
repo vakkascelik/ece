@@ -556,12 +556,18 @@ export async function removeChildFromExcursion(
   excursionId: string,
   childId: string,
 ): Promise<void> {
-  const { error } = await db
+  const { data, error } = await db
     .from('excursion_children')
     .delete()
     .eq('excursion_id', excursionId)
-    .eq('child_id', childId);
+    .eq('child_id', childId)
+    .select('id');
   if (error) throw new Error(`removeChildFromExcursion: ${error.message}`);
+  if (!data || data.length === 0) {
+    throw new Error(
+      'removeChildFromExcursion: nothing was removed. Either the id is wrong or the policy refused it. The child may not be on this excursion.',
+    );
+  }
 }
 
 const CONSENT_COLUMNS = 'id, excursion_id, child_id, granted, given_by, recorded_by, note, at';
@@ -779,6 +785,16 @@ export async function recordImmunisation(
 ): Promise<void> {
   const { data: auth } = await db.auth.getUser();
 
+  /*
+   * NO ZERO-ROW CHECK — item 49, deliberately.
+   *
+   * This supersedes the child's current immunisation record before inserting the new one,
+   * and **matches nothing the first time a child's status is ever recorded** — which is
+   * every child's first record. A check here would make the common path an error.
+   *
+   * The insert below is what must succeed, and its failure is reported. Same shape as the
+   * superseding update in `createInvitation`.
+   */
   const { error: supersedeError } = await db
     .from('immunisation_records')
     .update({ superseded_at: input.at })

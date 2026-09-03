@@ -5,6 +5,95 @@ says so.*
 
 ---
 
+2026-09-03 (ninth) — **The RLS suite requires exclusive access to the database and nothing said so,
+and my first two explanations for the failure it produced were both wrong.** Extended:
+[[unverified-claims]] item 41 (the CI serialisation, the leftover-tenant hazard, and an open
+question left open). Corrected: the same block, twice within the hour — it first blamed a
+concurrently-running e2e suite, which the timestamps disproved.
+
+`test:rls` failed on *"ONE notification exists for this report"* — an absolute count
+(`count(*) from public.notifications where kind = 'attendance'` = 2, read as `postgres` so it sees
+every tenant). Absolute is the right choice and is argued for in `rls_isolation.sql`: it catches a
+policy leaking rows *from anywhere*, which a delta would miss. **Its unstated cost is that the suite
+owns the database while it runs.**
+
+**Wrong theory one: concurrency.** Written into a CI comment and this wiki before being checked.
+Timestamps: tenant 06:10:50Z, notifications 06:12:58Z, e2e `119 passed` finishing ~06:20Z, failing
+RLS run ~06:24Z. Nothing overlapped.
+
+**Wrong theory two, and it was the seductive one: a silent zero-row delete.**
+`destroyAuditTenant` line 762 is `.delete().in('id', […])` inspecting only `error` — [item
+49](unverified-claims.md) exactly, sitting in the function whose entire purpose is preventing
+leftovers. A beautiful find, and false: replaying that call with the service key against those two
+ids returned `error: null` and **matched 2 rows**, removing both. No FK blocks it and `service_role`
+holds DELETE. A third theory (early return on an unreadable `TENANT_FILE`) also fails, because
+`tenant.json` was absent while the other artifacts remained — the state *after* `rmSync`.
+
+**What is actually true** is that a completed e2e run left its tenant behind while its teardown
+reported `ok`, and `sweepStaleAuditTenants` has a deliberate two-hour grace period so nothing
+reclaims one that young. **Why** is recorded as an open question rather than guessed at, with the
+note that adding a zero-row check to line 762 is the wrong fix precisely because it would guard a
+mechanism shown not to occur.
+
+**What the reading did find, independently: `ci.yml` had no `needs:` at all.** All three jobs ran in
+parallel and two of them write to the one Supabase project. Fixed with `needs: [tenant-isolation]`
+on `audit`, isolation first per AGENTS.md §5. Never exposed by CI because those are the two jobs
+gated on the secrets item 41 is waiting for — adding them would have produced a red RLS job and an
+afternoon hunting a tenancy bug that does not exist.
+
+**The lesson worth keeping:** a prerequisite that lives only in the author's head is
+indistinguishable from a bug the first time somebody violates it. And a hypothesis that would be
+satisfying — the same defect class I had spent the day fixing, in the cleanup code — is the one to
+test hardest, not the one to write up.
+
+2026-09-03 (eighth) — **Item 49 closes at 50 of 54, and the mechanical pass that closed it broke
+two things — one caught by a single e2e test, one caught only by arithmetic.** Corrected:
+[[unverified-claims]] item 49, whose closing sentence claimed *"lint caught the one function it
+could not fit"* — it caught neither defect. Extended: [[conventions]] (*The script put a guard in
+the wrong function, and only one test noticed*).
+
+The remaining twenty-three guards were applied by script: find the function, find its write, append
+`.select('id')`, insert the check after the `if (error) throw` that follows. The anchor for that last
+step searched **forward** from the write and was applied with a replace-first-occurrence — scoped to
+the file, not the function.
+
+**Defect one.** `updateEnrolment` has a multi-line error handler, because it translates `23P01` into
+a sentence about overlapping enrolments. The forward search skipped past it and matched the handler
+of the *next* function — `listHealthConditions`, a **read** — and the file-scoped replace put the
+guard there. Every newly enrolled child's record page then threw `updateEnrolment: nothing was
+updated`, because a new child has no health conditions. `typecheck`, `lint`, `test`, `test:rls` and
+`review:security` all passed. **118 of 119 e2e tests passed.** The one that failed was the enrolment
+journey — the only path that creates a child and then opens the record, so the only path where the
+list is guaranteed empty.
+
+**Defect two, and nothing caught this one.** `setEnquiryStatus` got its `.select('id')` appended and
+no check at all, leaving a select that did nothing on the writer that moves an enquiry through its
+pipeline and stamps who moved it. The destructuring stayed `const { error }`, so there was no unused
+variable to flag, and a mismatch audit can only inspect guards that exist. It was found by
+**reconciling counts**: 54 `update`/`delete` statements against 49 guards and 4 documented
+exceptions leaves one unaccounted for.
+
+**And the first audit I ran was itself too narrow, which is the part worth keeping.** It matched only
+the phrase `nothing was`, and the generated messages come in variants — *no room was updated*,
+*nobody was updated*. It inspected **14 of 48 guards** and I read its `0 mismatched` as a clean bill
+of health for all of them. An audit that silently covers a quarter of its population is worse than
+none, because it gets quoted as evidence. The rewritten one checks three properties across all 49 —
+claimed name against enclosing function, no guard inside a read, no `data` without a `.select()` to
+populate it — and reports clean.
+
+**The signal I had and wasted.** Lint *did* flag an unused `data` in `updateEnrolment` — half of
+defect one, announcing that the batch edit had gone wrong somewhere. I fixed it by hand as a local
+annoyance and moved on without asking *why the script missed that function*, and the answer to that
+question was the misplaced guard. **One warning from a batch edit is a report about the edit, not
+about the line.**
+
+Final tally, measured rather than asserted: **54 `update`/`delete` statements, 50 guarded, 4
+deliberately not** (`moderateComment`, `markThreadRead`, and the superseding updates in
+`recordImmunisation` and `createInvitation`). `INSERT` and `UPSERT` are excluded from the
+denominator — 115 writes in the package all told — because a policy refusal on those returns an
+error rather than matching zero rows. That asymmetry is the entire reason this bug class exists on
+one half of the writes and not the other.
+
 2026-09-03 (seventh) — **The last red gate was a translation layer nobody uses, and every gate in
 this repo now passes.** Extended: [[i18n]] (*The provider was in the root layout*), which is where
 this belongs. Corrected: [[unverified-claims]] item 41's job table, [[deployment]]'s CI table and

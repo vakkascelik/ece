@@ -487,8 +487,13 @@ export async function addChecklistItem(
 
 /** Only possible while the version is a draft: 0068's policy tests `published_at is null`. */
 export async function removeChecklistItem(db: Db, id: string): Promise<void> {
-  const { error } = await db.from('checklist_items').delete().eq('id', id);
+  const { data, error } = await db.from('checklist_items').delete().eq('id', id).select('id');
   if (error) throw new Error(`removeChecklistItem: ${error.message}`);
+  if (!data || data.length === 0) {
+    throw new Error(
+      'removeChecklistItem: nothing was removed. Either the id is wrong or the policy refused it.',
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------

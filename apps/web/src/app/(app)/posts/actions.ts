@@ -241,10 +241,26 @@ export async function attach(_prev: unknown, form: FormData): Promise<Result> {
   for (const childId of childIds) {
     const outcome = await attachChildToMedia(db, media.id, childId);
     if (!outcome.ok) {
-      // Refused by the gate. Take the file and the row back out rather than leaving a photo
-      // nobody may see sitting in storage, and pass the database's own message through — it
-      // already names the child and says what to do.
-      await deleteMedia(db, media);
+      /*
+       * Refused by the gate. Take the file and the row back out rather than leaving a photo
+       * nobody may see sitting in storage, and pass the database's own message through — it
+       * already names the child and says what to do.
+       *
+       * Wrapped as of 2026-09-03, because `deleteMedia` gained a zero-row check (item 49)
+       * and can now throw. Letting it propagate would be the wrong trade **here
+       * specifically**: this is a rollback path, and an unhandled throw would replace
+       * `outcome.reason` — the one message that names the child and tells the person what to
+       * do — with a crash. So the gate's reason survives either way, and a failed rollback
+       * is added to it rather than hidden, because a photo nobody may see left sitting in
+       * storage is exactly what this branch exists to prevent.
+       */
+      try {
+        await deleteMedia(db, media);
+      } catch {
+        return {
+          error: `${outcome.reason} The upload could not be removed automatically — tell whoever administers this centre.`,
+        };
+      }
       return { error: outcome.reason };
     }
   }

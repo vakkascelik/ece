@@ -154,6 +154,53 @@ jobs:
     name: e2e · accessibility
     runs-on: ubuntu-latest
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    # SERIALISED AGAINST `tenant-isolation`, BECAUSE THERE IS ONLY ONE DATABASE.
+    #
+    # This is the only `needs:` in the file and it is not about build order — both jobs
+    # start from a clean checkout. It is about the fact that `AST06` wants three
+    # environments and this project has one, which is production (see
+    # unverified-claims item 48). Both jobs write to it.
+    #
+    # `test:rls` asserts ABSOLUTE row counts, deliberately and with a comment saying so
+    # — e.g. `count(*) from public.notifications where kind = 'attendance'` = 2, read as
+    # `postgres` so it sees every tenant's rows. `drill:restore` extracts every row in
+    # `public` and compares row counts against a shadow reload. Both are correct
+    # assertions about a quiet database and both are meaningless while something else is
+    # inserting.
+    #
+    # This job seeds its own tenant and drives 119 browser tests through it, so it is
+    # that something else. Run in parallel, `tenant-isolation` fails with a count that
+    # looks exactly like a broken policy or a broken restore.
+    #
+    # WHAT WAS OBSERVED, AND WHAT IS INFERRED — kept apart on purpose, because the first
+    # explanation written here was wrong.
+    #
+    # Observed 2026-09-03: `test:rls` failed on that notifications assertion twice, and
+    # the first note in this comment blamed a concurrently-running local e2e run. Checking
+    # the timestamps killed that: the e2e run had finished nine minutes earlier. The actual
+    # rows belonged to an audit tenant from that finished run which its teardown had left
+    # behind, and `sweepStaleAuditTenants` has a deliberate two-hour grace period so it
+    # will not reclaim a tenant that young. So the RLS suite is broken by e2e **leftovers**
+    # for up to two hours, whatever the job order — and this `needs:` does not fix that.
+    #
+    # Inferred, and the reason the `needs:` is still right: an e2e run happening *at the
+    # same time* would break the same assertions, because it inserts attendance
+    # notifications and the assertion counts them across every tenant. That follows from
+    # what both suites demonstrably do, but it has not been reproduced, and it is not what
+    # was seen here.
+    #
+    # Either way **nothing in CI had ever exposed this**, because `audit` and
+    # `tenant-isolation` have never both run — they are the two jobs gated on the secrets
+    # that unverified-claims item 41 is about. The RLS job is the single worst place in
+    # this repo for a spurious red: a red cross there is supposed to mean one centre can
+    # reach another centre's children.
+    #
+    # Ordered isolation-first on purpose. AGENTS.md §5 calls the RLS suite "the one that
+    # matters"; if it is red there is no reason to spend ten minutes on browser tests.
+    #
+    # The real fix is a second database and it is owner-blocked (AST06). Delete this
+    # `needs:` when the e2e job gets its own project — not before.
+    needs: [tenant-isolation]
     steps:
       - uses: actions/checkout@v4
 

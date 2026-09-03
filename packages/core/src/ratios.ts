@@ -208,9 +208,45 @@ function adultsRequiredFor(underTwo: number, twoAndOver: number, under: RatioTab
  * TODO(ratios): non-enrolled under-6s have nowhere to be recorded. A "visitors under
  * 6" count on the attendance screen would close it and is a schema change, not a
  * wording one.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * IT NOW ALSO NAMES THE SCHEDULE, added 2026-09-03
+ *
+ * `assessRatio` takes both tables as arguments precisely so a different service type
+ * can supply different ones — and **no caller anywhere passes them.** `staff.ts`,
+ * `ratioForecast.ts` and `ratioHistory.ts` all accept and forward the parameters; the
+ * two screens that actually assess a room (`attendance/page.tsx`, the overview) call
+ * `assessRatio` with three numbers and get the all-day centre-based defaults. So a
+ * home-based service reading this product today gets a confident figure computed from
+ * a schedule that does not govern it, and nothing on the screen says so.
+ *
+ * The cause is upstream of this file: `centres` has no service-type or licence-type
+ * column, so no caller *can* pass a table. That is [[unverified-claims]] item 48.
+ *
+ * WHY THE FIX IS A SENTENCE AND NOT A COLUMN. Two reasons, and the second is the real
+ * one. A column would be speculative — the sessional, home-based and hospital-based
+ * tables are not transcribed, so knowing the service type would not let this file
+ * compute anything new; it would only let it refuse, and refusing for every centre
+ * (all of them NULL on the day the column ships) is the blanket unverified notice this
+ * file's header already rejects as saying less. And the *values* for such a column are
+ * not settled from public sources: the Ministry's licensing page names three licensed
+ * types (education and care, home-based, hospital-based) while its regulatory-framework
+ * page names four and treats Te Kōhanga Reo as its own, with kindergartens and
+ * playcentres folded under centre-based. Both retrieved 2026-09-03. Picking one of
+ * those and CHECK-constraining a column to it would be asserting a classification
+ * nobody here has verified, which [AGENTS.md §7] forbids by name.
+ *
+ * So the assumption becomes visible instead of becoming a schema. Naming the schedule
+ * costs one sentence in three places that already render this string, and it is true
+ * today, whereas a column would be true only after somebody transcribes two more
+ * schedules and sources the classification.
+ * ─────────────────────────────────────────────────────────────────────────────
  */
 export function ratioInputCaveat(): string {
   return (
+    'Assessed against the all-day centre-based schedule, which is the only one transcribed — a ' +
+    'sessional, home-based or hospital-based service is on a different schedule and this figure ' +
+    'does not apply to it. ' +
     'Counts children signed in today. Schedule 2 also counts any other person present aged under 6, ' +
     'including a staff member’s own child, and an adult does not count while on a break or on non-contact time.'
   );
