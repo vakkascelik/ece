@@ -276,3 +276,76 @@ test('no CSP violation on the routes that are reached without a session', async 
   expect(violations, `CSP blocked something:\n${violations.join('\n')}`).toEqual([]);
   await context.close();
 });
+
+/**
+ * 0084 — an enrolment records whether it is permanent, and that reaches the database.
+ *
+ * WHY THIS IS WORTH A BROWSER. The column exists to answer one question: may this child's
+ * booked-but-absent days be claimed? Funding Handbook 6-4 says yes for a permanently
+ * enrolled child and no for a casual or conditional one, so the value has to survive the
+ * whole round trip — select, server action, CHECK constraint, read back — or absence
+ * funding will be computed against something nobody chose.
+ *
+ * Files its own child rather than reusing the fixture's, because `enrolments_no_overlap`
+ * refuses a second open enrolment for the same child and the fixture's may already have
+ * one. A self-contained child is cheaper than knowing.
+ *
+ * ASSERTS THE FLAG, NOT THE SELECT. Reading the select back would prove the form
+ * remembered its own state; the flag in the enrolment row is rendered from what the
+ * database returned.
+ */
+test('an enrolment is filed as permanent, and the record says so', async ({ page }) => {
+  const t = tenant();
+  const surname = `Enrolled-${t.tag}`;
+
+  await visit(page, '/children/new');
+  await page.getByLabel('First name').fill('Tama');
+  await page.getByLabel('Last name').fill(surname);
+  const dob = new Date(Date.now() - 4 * 365 * 86_400_000).toISOString().slice(0, 10);
+  await page.getByLabel('Date of birth').fill(dob);
+  await page.getByRole('button', { name: 'Enrol' }).click();
+  await expect(page.getByRole('heading', { name: /Tama/ })).toBeVisible();
+
+  /*
+    The enrolment panel lives on the DOCUMENTS tab, not the overview. The record's tabs are
+    routes rather than state (see `tabs.ts`), so this is a navigation and not a click on a
+    toggle — and the first version of this test looked for the button on the overview and
+    timed out for sixty seconds against a page that was working perfectly.
+
+    Scoped to the record's own nav: the tab labels are ordinary words and `Documents` could
+    plausibly appear elsewhere on the page later.
+  */
+  await page
+    .getByRole('navigation', { name: /record/i })
+    .getByRole('link', { name: 'Documents' })
+    .click();
+
+  await page.getByRole('button', { name: 'File an enrolment' }).click();
+
+  // Not stated is the default, and that is the assertion — nothing pre-selects a type,
+  // because a pre-selected 'Permanent' would be the product deciding whether absences
+  // may be claimed.
+  await expect(page.getByLabel('Enrolment type')).toHaveValue('');
+
+  await page.getByLabel('First day').fill(new Date().toISOString().slice(0, 10));
+  await page.getByLabel('Funded hours a week').fill('20');
+  await page.getByLabel('Enrolment type').selectOption('permanent');
+  await page.getByRole('button', { name: 'File enrolment' }).click();
+
+  // The refusal check first. A 23P01 overlap or a CHECK violation surfaces here as a
+  // sentence, and asserting the flag without this would report "the flag is missing" for a
+  // write that was refused — two different bugs with one symptom.
+  await expect(page.locator('.error')).toHaveCount(0);
+
+  /*
+    Located by CLASS, not by text, and that matters: `getByText('Permanent')` also matches
+    the select's own `<option>Permanent</option>`, so it would pass whether or not anything
+    was stored. The flag is rendered from the row the database returned, so this is proof of
+    a round trip.
+
+    The child's surname deliberately avoids the word too — it was `Permanent-<tag>` in the
+    first version of this test, which is a third way to match the assertion without the
+    column working.
+  */
+  await expect(page.locator('span.flag').filter({ hasText: /^Permanent$/ })).toBeVisible();
+});

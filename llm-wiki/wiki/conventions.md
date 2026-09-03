@@ -300,6 +300,54 @@ when the consent gate refuses a child, then returns the gate's reason. Letting t
 do with a crash. It is caught, and a failed rollback is *added* to the gate's reason rather than
 hidden — because a photo nobody may see left in storage is what that branch exists to prevent.
 
+#### A relative timestamp in a test is a bug for one hour in every twenty-four
+
+Found 2026-09-04 at **00:13 New Zealand time**, which is the only time it could have been found.
+
+`rls_isolation.sql` seeded a typed adult count with `now() - interval '1 hour'` and asserted that
+`adults_present_now` returned it. That function filters `at >= centre_day_start(...)`. At 00:13, an
+hour ago is **yesterday**, so the row was correctly excluded and the assertion read 0 instead of 7.
+**The product was right and the test was wrong**, and the failure message —
+*"a centre defaults to declared, so the typed count is the answer"* — reads like a broken ratio
+source.
+
+**This repo had already learned this once and not written it down where it would be reused.**
+`recentlyToday()` in `apps/web/e2e/fixtures/tenant.ts` exists for exactly this, and carries the
+comment *"an hour before 00:07 is yesterday"*. The e2e fixture learned it in August; the SQL suite
+never did.
+
+**The fix is a fraction of the elapsed day, not a clamp.** `recentlyToday()` clamps to `now - 60s`
+and accepts that ordering is lost, which is fine for one event. The block that failed seeds **five
+ordered events across three hours**, and at 00:13 there are not three hours of today to put them in
+— so clamping collapses the order the assertions depend on, and anchoring to `day_start + 3 hours`
+puts them in the future. Hence `pg_temp.today_at(centre, fraction)`:
+
+```sql
+create or replace function pg_temp.today_at(p_centre uuid, p_fraction numeric)
+returns timestamptz language sql stable as $$
+  select public.centre_day_start(p_centre)
+       + (now() - public.centre_day_start(p_centre)) * p_fraction;
+$$;
+```
+
+Order is preserved at any hour, every event is inside today, and none is ever in the future.
+
+**Verified by causation, not by coincidence.** After the fix the suite passed 643/643 — still inside
+the failing hour. Reverting that one timestamp to `now() - interval '1 hour'` made it fail again, and
+restoring it made it pass. A fix applied during the failing window and confirmed both ways is worth
+more than a green run at 10am would have been.
+
+**What is NOT fixed, stated plainly.** Twenty-two other `now() - interval` seeds remain in that
+file. Most are deliberately old — 20 days, 400 days, a year — for expiry and retention tests, and
+those are correct. But several are small and feed reads that may be day-scoped: around lines 2349,
+2501, 2730, 2905, 3009, 3029, 3042, 3694 and 3882. **They have not been audited**, and any of them
+could be the next 00:13 failure. Only the one that actually fired was changed, because changing
+assertions whose mechanism has not been read is how a suite quietly stops testing what it claims to.
+
+**The general rule:** a test that seeds "an hour ago" and reads "today" has an unstated precondition
+— that an hour of today has elapsed. Like the RLS suite's need for exclusive database access, a
+precondition nobody wrote down is indistinguishable from a bug the first time it is violated.
+
 #### Line endings are not uniform in this repo, and a scripted anchor has to match
 
 Small, and it cost three failed attempts in one sitting on 2026-09-03, so it is written down.

@@ -57,6 +57,32 @@ create or replace function pg_temp.sql_code(src text) returns text language sql 
            '/\*.*?\*/', '', 'g')
 $fn$;
 
+/*
+ * A timestamp inside whatever part of TODAY has actually elapsed at this centre.
+ *
+ * ADDED 2026-09-04 because the suite failed at 00:13 New Zealand time and had done so for
+ * one hour in every twenty-four since the ratio-source block was written. `now() - interval
+ * '1 hour'` at 00:13 is YESTERDAY, and `adults_present_now` filters on
+ * `at >= centre_day_start(...)`, so a typed count of 7 seeded an hour ago was correctly
+ * excluded and the assertion read 0. The product was right and the test was wrong.
+ *
+ * This is the same defect `recentlyToday()` in `apps/web/e2e/fixtures/tenant.ts` already
+ * exists to avoid, with the same comment on it - 'an hour before 00:07 is yesterday'. The
+ * e2e fixture learned it and the SQL suite never did.
+ *
+ * WHY A FRACTION RATHER THAN A CLAMP. The e2e helper clamps to `now - 60s` and accepts that
+ * ordering is lost, which is fine for one event. This block seeds FIVE ordered events across
+ * three hours, and at 00:13 there are not three hours of today to place them in - so
+ * clamping collapses the order the assertions depend on, and anchoring to `day_start + 3
+ * hours` puts them in the future. A fraction of the elapsed day preserves order at any hour,
+ * keeps every event inside today, and never produces a future timestamp.
+ */
+create or replace function pg_temp.today_at(p_centre uuid, p_fraction numeric)
+returns timestamptz language sql stable as $$
+  select public.centre_day_start(p_centre)
+       + (now() - public.centre_day_start(p_centre)) * p_fraction;
+$$;
+
 create or replace function pg_temp.expect(condition boolean, label text)
 returns void language plpgsql as $$
 begin
@@ -908,6 +934,88 @@ begin
   end;
   perform pg_temp.expect(code = '23P01',
     'an overlapping enrolment is refused by the database, got ' || code);
+end $$;
+
+/*
+ * 0084 — the enrolment type and the 20 Hours attestation.
+ *
+ * `enrolments` carries TABLE-level grants, not column-scoped ones (measured: authenticated
+ * holds SELECT, INSERT, UPDATE and DELETE, and its column-privilege counts equal its
+ * column count in every verb). So unlike 0083's columns on `centres`, these need no grant
+ * and the positive below is a weaker assertion than that one was. It is still worth having:
+ * it proves the column exists, is writable through a policy, and accepts the value the
+ * Handbook's own wording implies.
+ *
+ * The two negatives are the interesting ones.
+ */
+do $$
+declare n integer;
+begin
+  update public.enrolments set enrolment_type = 'permanent'
+   where child_id = 'a1111111-1111-4111-8111-111111111111';
+  get diagnostics n = row_count;
+  perform pg_temp.expect(n >= 1, 'an owner CAN state that an enrolment is permanent (0084)');
+end $$;
+
+-- NULL is not "permanent". Absence funding cannot be computed for a child whose type
+-- nobody has stated, and defaulting to permanent would OVER-claim — the direction the
+-- funding export currently promises is impossible. So the column must accept null and the
+-- absence rules must refuse to guess, which is asserted here as a property of the schema
+-- rather than left to the code that will read it.
+do $$
+declare n integer;
+begin
+  update public.enrolments set enrolment_type = null
+   where child_id = 'a1111111-1111-4111-8111-111111111111';
+  get diagnostics n = row_count;
+  perform pg_temp.expect(n >= 1, 'not stated is a storable enrolment type, and is not permanent (0084)');
+end $$;
+
+-- An unlisted type stops rather than being filed under a neighbour. The three values come
+-- from Handbook 6-4 and nowhere else — ChildEnrolment in the ELI schema has no enrolment
+-- type element at all — so a fourth arriving means somebody read something new, and it
+-- should surface as a refusal and not as a row.
+do $$
+declare code text := 'none (the update SUCCEEDED)';
+begin
+  begin
+    update public.enrolments set enrolment_type = 'temporary'
+     where child_id = 'a1111111-1111-4111-8111-111111111111';
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '23514',
+    'an unlisted enrolment type is refused, got ' || code);
+end $$;
+
+-- A half-recorded attestation is worse than none: a date with nobody's name against it
+-- reads, in an audit, as though somebody attested and we lost who. Same paired-completeness
+-- shape as `immunisation_sighting_complete` in 0036.
+do $$
+declare code text := 'none (the update SUCCEEDED)';
+begin
+  begin
+    update public.enrolments set twenty_hours_attested_on = '2026-03-01'
+     where child_id = 'a1111111-1111-4111-8111-111111111111';
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '23514',
+    'an attestation date with no signatory is refused, got ' || code);
+end $$;
+
+-- And the pair together is accepted, which is the half a negative cannot prove.
+do $$
+declare n integer;
+begin
+  update public.enrolments
+     set twenty_hours_attested_on = '2026-03-01',
+         twenty_hours_attested_by = '11111111-1111-4111-8111-111111111111'
+   where child_id = 'a1111111-1111-4111-8111-111111111111';
+  get diagnostics n = row_count;
+  perform pg_temp.expect(n >= 1, 'a dated attestation with a signatory is accepted (0084)');
+
+  update public.enrolments
+     set twenty_hours_attested_on = null, twenty_hours_attested_by = null
+   where child_id = 'a1111111-1111-4111-8111-111111111111';
 end $$;
 
 -- Filing a child's enrolment against the operator's other site would put the
@@ -4199,9 +4307,9 @@ set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","r
 -- An educator signs themselves in, and signs in the reliever who has no account.
 -- The second is the case the whole `staff_members` design exists for.
 insert into public.staff_attendance_events (staff_member_id, kind, at, recorded_by, client_uuid)
-values ('d5555555-5555-4555-8555-555555555555', 'in', now() - interval '3 hours',
+values ('d5555555-5555-4555-8555-555555555555', 'in', pg_temp.today_at('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 0.1),
         '55555555-5555-4555-8555-555555555555', '0b111111-1111-4111-8111-111111111111'),
-       ('d6666666-6666-4666-8666-666666666666', 'in', now() - interval '2 hours',
+       ('d6666666-6666-4666-8666-666666666666', 'in', pg_temp.today_at('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 0.2),
         '55555555-5555-4555-8555-555555555555', '0b222222-2222-4222-8222-222222222222');
 
 select pg_temp.expect(
@@ -4302,7 +4410,8 @@ set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","r
 
 -- Two staff signed in above, and a typed count that disagrees with them.
 insert into public.staff_count_events (centre_id, adults, at, recorded_by, client_uuid)
-values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 7, now() - interval '1 hour',
+values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 7,
+        pg_temp.today_at('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 0.3),
         '55555555-5555-4555-8555-555555555555', gen_random_uuid());
 
 select pg_temp.expect(
@@ -4324,7 +4433,7 @@ select pg_temp.expect(
 -- Signing one out drops the count. The typed 7 is still sitting there and still
 -- irrelevant, which is the no-blend rule doing its work.
 insert into public.staff_attendance_events (staff_member_id, kind, at, recorded_by, client_uuid)
-values ('d6666666-6666-4666-8666-666666666666', 'out', now() - interval '10 minutes',
+values ('d6666666-6666-4666-8666-666666666666', 'out', pg_temp.today_at('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 0.7),
         '55555555-5555-4555-8555-555555555555', gen_random_uuid());
 
 select pg_temp.expect(
@@ -4340,7 +4449,7 @@ select pg_temp.expect(
  * Here: correct the sign-OUT back to a sign-IN, timestamped before it.
  */
 insert into public.staff_attendance_events (staff_member_id, kind, at, recorded_by, client_uuid, corrects, note)
-values ('d6666666-6666-4666-8666-666666666666', 'in', now() - interval '20 minutes',
+values ('d6666666-6666-4666-8666-666666666666', 'in', pg_temp.today_at('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 0.5),
         '55555555-5555-4555-8555-555555555555', gen_random_uuid(),
         (select id from public.staff_attendance_events
           where staff_member_id = 'd6666666-6666-4666-8666-666666666666'

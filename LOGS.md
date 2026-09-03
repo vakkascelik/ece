@@ -7,6 +7,154 @@ itself, and from the wiki pages, which hold the durable *why*. This file is the 
 
 ---
 
+## 2026-09-03 (tenth) — Phase 1b: the absence-funding axis exists, and null must not mean permanent
+
+`0084` adds `enrolments.enrolment_type` — `permanent`, `casual`, `conditional` — plus
+`twenty_hours_attested_on` and `_by`. `funding.ts` has named this exact column as the blocker on
+absence funding since 2026-08-18, so this is the schema catching up with a comment that was right.
+
+**Transcribed from the Handbook, not the schema.** §6-4's own words are *"permanently enrolled
+child"*, *"casual"* and *"conditional"*. The XSD is the natural place to look and the values are not
+there — `ChildEnrolment` carries two entity ids, a primary and optional secondary address, and the
+start and end dates, **and no enrolment type element at all**. So this is a funding concept used to
+compute the counts; it is never serialised. Worth writing into the migration header, because the
+next person will look for it in the XSD and conclude it was missed.
+
+**The decision that matters is what null means.** Every enrolment filed before today is not-stated,
+and `createEnrolment` writes `null` rather than defaulting to permanent. Absence funding may only be
+claimed for a *permanently* enrolled child, so defaulting an unknown would let it be claimed for
+children nobody has classified — **over**-claiming, the one direction this product's funding figures
+promise they never go. There is an RLS assertion pinning null as a storable value precisely so a
+later "sensible default" has something to break.
+
+**A tick is not an attestation.** ELI's `TwentyHoursSchedule` wants an `AttestationDate`;
+`twenty_hours_ece` is a boolean. The two new columns are paired by a CHECK in the shape 0036 uses,
+because a date with nobody's name against it reads, in an audit, as though somebody attested and we
+lost who. Deliberately not a history: recording one attestation properly beats recording none, and a
+chain of re-attestations is its own append-only table if anyone ever needs it.
+
+**A trap avoided rather than fallen into.** The obvious guard on the attestation date is
+`check (… <= current_date)`, refusing a future date. That is exactly the defect `0078` existed to
+undo — six time-relative CHECKs made the roll, sleep, medication and staff attendance
+**unrestorable** beyond a fortnight, because a dump recreates constraints before it inserts rows. So
+no such constraint here, and the migration says why so nobody adds one back.
+
+**And the opposite mistake to 0083's.** `0083` needed a column grant because `centres` is
+column-scoped. `enrolments` is not — measured first: table-level SELECT, INSERT, UPDATE, DELETE, and
+column-privilege counts equal to its column count in every verb. After 0047/0048 and 0066/0082 the
+reflex is now to add a grant line everywhere, and one here would be harmless **and misleading** — it
+would imply the table is column-scoped and send the next reader hunting for the rest of the list.
+Check, then write what is true.
+
+**Mutation-drilled, and the diagnostics were better than 0083's.** Weakened both negatives in turn —
+the unlisted type swapped for an allowed one, the half-attestation given a signatory — and each gave
+a clean named failure: *"an unlisted enrolment type is refused, got none (the update SUCCEEDED)"*.
+Better than the grant case, which aborts with `permission denied for table centres` and never
+reaches its label at all. Restored, and confirmed with `git diff --stat` showing insertions only —
+82 lines added, nothing removed — rather than trusting the restore.
+
+**Wired all the way through**, because a column nobody can set is the trap I refused to build in
+Phase 1a: core type and constant, the API row/mapper/columns, `createEnrolment` and
+`updateEnrolment`, a select on the enrolment form defaulting to *Not stated*, a flag on the enrolment
+row shown only when a type has been stated, and an e2e test that files an enrolment as permanent and
+asserts **the flag** rather than the select — because reading the select back would only prove the
+form remembered its own state.
+
+### The new test failed twice, and I diagnosed it wrong the first time
+
+Worth writing down because the mistake was in how I read the evidence, not in the code.
+
+**The actual cause: the enrolment panel is on the child record's DOCUMENTS tab**, and my test looked
+for its button on the overview. The record's tabs are *routes* rather than state — a deliberate
+decision in `tabs.ts`, so a manager can send a colleague a link — so the button genuinely was not on
+the page, and Playwright waited sixty seconds against a page that was working perfectly.
+
+**And the first error report said so.** Its page snapshot contained `- text: No enrolment on file`
+with the tab list immediately beneath it. I had the answer before the first re-run and did not read
+it. Instead I reasoned about my selectors, found three plausible collisions, and fixed those:
+
+- the child's surname was `Permanent-${tag}`, so `getByText('Permanent', { exact: true })` had the
+  child's own name as a candidate;
+- the select contains `<option>Permanent</option>`, a second candidate that exists whether or not
+  anything was stored;
+- there was no `.error` assertion before the flag lookup, so a refused write and an unrendered flag
+  produced the same symptom.
+
+**Those three fixes were all correct and none of them was the bug.** The first two matter more than
+the failure did: either one could have made this test pass with the column completely broken, which
+is the [[conventions]] problem of a test that cannot fail, arrived at from a different direction. The
+flag is now located as `span.flag` matching `/^Permanent$/`, the child is `Enrolled-${tag}`, and the
+error assertion comes first.
+
+**The cost was two nine-minute suite runs**, plus one destroyed set of artefacts: I ran
+`npx playwright test -g …` directly to get a faster signal, which overwrote `test-results/` — and
+could not have worked anyway, because it does not load `.env.local`. Two mistakes in one command,
+and the second one is already documented in `playwright.config.ts`.
+
+**The rule, and it is not about Playwright:** when a check fails, read what the check *reported*
+before reasoning about what it might have meant. A page snapshot is a description of reality; a
+theory about selectors is not. Hardening a test against imagined causes while the real one sits in
+the output is how two runs become four.
+
+### And then the RLS suite went red for a reason that only exists between midnight and 1am
+
+With e2e finally at 121 passing, a confirming `test:rls` failed on *"a centre defaults to declared,
+so the typed count is the answer"* — a message that reads like a broken ratio source. It had passed
+643/643 forty minutes earlier and I had touched nothing near it.
+
+**It was 00:13 in New Zealand.** The block seeds a typed adult count with
+`now() - interval '1 hour'` and asserts `adults_present_now` returns it; that function filters
+`at >= centre_day_start(...)`. An hour before 00:13 is **yesterday**, so the row was correctly
+excluded and the assertion read 0. The product was right, the test was wrong, and it had been wrong
+for one hour in every twenty-four since the block was written — nobody had run the suite at that
+hour before.
+
+**Checked my own rule first**, the one written this morning: zero leftover `audit-%` centres, and
+every centre's `ratio_source` was `declared`. So not leftovers, and not mine.
+
+**This repo had already learned this and filed it somewhere it could not be reused.**
+`recentlyToday()` in the e2e tenant fixture exists for precisely this, with the comment *"an hour
+before 00:07 is yesterday"*. August's lesson, never carried into the SQL suite.
+
+**The fix had to be a fraction of the elapsed day rather than a clamp**, because this block seeds
+five *ordered* events across three hours and at 00:13 there are not three hours of today to place
+them in — clamping collapses the ordering the assertions depend on, and anchoring to
+`day_start + 3 hours` puts them in the future. So `pg_temp.today_at(centre, fraction)`, which
+preserves order at any hour and never produces a future timestamp.
+
+**Verified by causation while still inside the failing window**, which is the part I would not get
+another chance at for 23 hours: fix applied → 643/643 at 00:13; that one timestamp reverted → the
+same failure returned; restored → green again. And `git diff` confirms five deletions, all of them
+the five timestamp lines, nothing else.
+
+**One near-miss worth recording.** The restore failed its own assertion — `found 2` — because my
+mutation had created a second copy of `now() - interval '1 hour',` with identical indentation, and
+line ~3882 already had one. Anchoring on it would have edited an unrelated block. The
+`assert count == 1` discipline caught it and nothing was written; I restored with a two-line anchor
+instead. This is the same failure mode as the item-49 guard that landed in the wrong function, and
+the same check stopped it this time.
+
+**What I did not do, deliberately:** fix the other twenty-two relative timestamps. Most are
+deliberately old for expiry tests, but roughly nine are small and may feed day-scoped reads. They are
+named with line numbers in [[conventions]] and left alone, because rewriting assertions whose
+mechanism I have not read is how a suite quietly stops testing what it claims to. Any of them could
+be the next 00:13 failure.
+
+**Two more line-ending failures, and then a fix rather than a lesson.** The first scripted edit
+failed on `packages/core/src/children.ts` for the same CRLF reason as this morning. So the helper now
+detects each file's own newline and rewrites the anchors to match — and it immediately proved the
+point by reporting `children.ts (CRLF)` in core and `children.ts (LF)` in api. **Two files with the
+same name, in the same repo, with different line endings.**
+
+**Done, having been flagged as pending an hour earlier:** `funding.ts`'s header claimed the
+blocker was that `enrolments` has no permanent/casual distinction. Corrected, and while correcting
+it the missing pieces got enumerated properly - the three-week window, **the 6-6 suspension the
+header never knew about**, the frequent-absence check against an enrolment agreement that does not
+exist, a reconfirmation that is a dated act rather than a boolean, and 6-4's cross-child rule that
+no per-child calculation can express.
+
+---
+
 ## 2026-09-03 (ninth) — Phase 1a: two columns instead of one, and my argument against building them was wrong
 
 `0083` gives `centres` a `licence_type` and a `service_model`. Until now the product could not say

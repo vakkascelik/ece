@@ -308,6 +308,10 @@ describe('enrolment', () => {
     endDate: null,
     fundedHoursPerWeek: 20,
     twentyHoursEce: true,
+    // Null, not 'permanent'. The fixture default has to be the state a real row starts in,
+    // and 0084 ships every existing enrolment as not-stated — a fixture that quietly said
+    // 'permanent' would make absence-funding tests pass against data no centre has entered.
+    enrolmentType: null,
     days: [1, 2, 3],
     notes: null,
     ...over,

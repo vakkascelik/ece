@@ -5,6 +5,54 @@ says so.*
 
 ---
 
+2026-09-03 (twelfth) — **Phase 1b: the axis absence funding turns on now exists, and null is
+deliberately not "permanent".** Corrected: [[funding-and-billing]]'s *"the blocker is the schema"*
+paragraph and [[unverified-claims]] item 6's blocker row — both said `enrolments` has no
+permanent/casual distinction and that *"the word casual appears nowhere in this repo"*, which
+`0084` makes false. Also the tranche doc's *child enrolment* row.
+
+`0084` adds `enrolments.enrolment_type` (`permanent` / `casual` / `conditional`) plus
+`twenty_hours_attested_on` and `_by`. `funding.ts` has named this exact column as the blocker since
+2026-08-18, so this is the schema catching up with a comment.
+
+**The values come from the Handbook and not from the schema**, which is worth stating because the
+XSD is the natural place to look and they are not in it: `ChildEnrolment` carries two entity ids, a
+primary and optional secondary residential address, and the start and end dates — **and no enrolment
+type element at all**. This is a funding concept used to compute the counts correctly; it is never
+serialised. §6-4's own words are *"permanently enrolled child"*, *"casual"* and *"conditional"*.
+
+**Null means not stated, and it must not mean permanent.** Every enrolment filed before `0084` is
+not-stated, and `createEnrolment` writes null rather than defaulting — with a comment saying why, and
+an RLS assertion pinning it. Absence funding may only be claimed for a *permanently* enrolled child,
+so defaulting an unknown to permanent would let it be claimed for children nobody has classified.
+That is **over**-claiming, which is the one direction [[unverified-claims]] item 6 and
+`exportDisclaimer` both promise these figures never go.
+
+**A tick is not an attestation.** `twenty_hours_ece` is a boolean, and ELI's `TwentyHoursSchedule`
+asks for an `AttestationDate`. The two new columns are paired by a CHECK in the shape
+`immunisation_sighting_complete` uses (0036), because a date with nobody's name against it reads in
+an audit as though somebody attested and we lost who. Deliberately *not* a history — one attestation
+recorded properly beats none, and a chain of re-attestations would be its own append-only table.
+
+**No time-relative CHECK on the attestation date, and that is not an oversight.** Refusing a future
+date with `check (… <= current_date)` is the obvious guard and it is the defect `0078` existed to
+undo: six such constraints made the roll, sleep, medication and staff attendance **unrestorable**
+beyond a fortnight, because a dump recreates constraints before it inserts rows. If a future date
+needs refusing it belongs in a trigger.
+
+**No column grant, and that was checked rather than assumed.** `0083` needed one because `centres`
+is column-scoped. `enrolments` is not — `authenticated` holds table-level SELECT, INSERT, UPDATE and
+DELETE, and its column-privilege counts equal its column count in every verb. Recorded in the
+migration because after 0047/0048 and 0066/0082 the reflex is now to add a grant line everywhere,
+and one here would be harmless *and misleading*: it would imply the table is column-scoped and send
+the next reader looking for the rest of the list.
+
+**Mutation-drilled, and the diagnostics were better than 0083's.** Both negative assertions were
+weakened in turn — the unlisted type changed to an allowed one, the half-attestation given a
+signatory — and each produced a clean named failure saying *"got none (the update SUCCEEDED)"*.
+That is a better failure than the grant case, which aborts with `permission denied for table
+centres` and never reaches its label.
+
 2026-09-03 (eleventh) — **Phase 1a: `centres` can say what kind of service it is, and the argument
 I wrote against building it was wrong on its first point.** Corrected: [[unverified-claims]] item 51
 (the heading, the "why no caller can" row, and the whole *"why not a service-type column"* section),

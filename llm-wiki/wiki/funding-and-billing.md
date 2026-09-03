@@ -556,12 +556,36 @@ contributes zero. Two consequences, and the second is the one that matters:
   is the same class of failure as over-claiming. It is the reason this phase names a broken day
   rather than silently zeroing it.
 
-**The blocker is the schema, not the arithmetic.** `enrolments` carries no permanent/casual
-distinction; the word "casual" appears nowhere in this repo. 6-4 turns on exactly that axis, so
-there is no way to ask the question the rule asks. Building absence funding needs an enrolment type,
-a three-week window per absence spell, a monthly frequent-absence check and a record of
-reconfirmations. That is a feature with real decisions in it, not a patch, so it is named rather
-than half-built.
+~~**The blocker is the schema, not the arithmetic.** `enrolments` carries no permanent/casual
+distinction; the word "casual" appears nowhere in this repo.~~
+
+**Half of that blocker is gone as of 2026-09-03 — `0084`.** `enrolments.enrolment_type` now holds
+`permanent`, `casual` or `conditional`, with the values transcribed from §6-4 itself and a CHECK
+that refuses a fourth. It is settable on the enrolment form, shown as a flag on the enrolment row,
+and asserted end to end in `journey.spec.ts`.
+
+**Null is not "permanent", and that is the load-bearing decision.** Every enrolment filed before
+`0084` is not-stated, and `createEnrolment` writes `null` rather than defaulting. Defaulting to
+permanent would let absence funding be claimed for children nobody has classified — the one
+direction these figures promise they never go, since [[unverified-claims]] item 6 and
+`exportDisclaimer` both say the error only ever runs *low*. So a child whose type is unknown must
+be treated as ineligible for absence funding, not eligible.
+
+**What is still missing, and it is more than it looked.** Building absence funding needs, beyond the
+type: a three-week window per absence spell (§6-5), **the suspension of that window while the
+service is closed for two weeks or more (§6-6 — which this page did not know about until
+2026-09-03)**, a monthly frequent-absence check against the enrolment agreement (§6-7), and a record
+of reconfirmations that is a **dated act by a named person**, not a boolean. It also needs the
+enrolment agreement itself as an effective-dated weekday pattern, which is `ChildBookingSchedule`
+and does not exist yet.
+
+**And one rule that breaks the shape of the whole calculation.** §6-4: *"Funding must not be claimed
+for both an absent permanently enrolled child under an absence rule and for the conditional or casual
+child who fills the absent child's place."* Every funded-hours figure in this product is computed
+**per child in isolation** — `childFunding` takes one child and cannot see the others. This rule is
+about two children competing for one place, so a per-child implementation of absence funding would
+breach it and **over-claim**. That is the constraint to design against before any of the three
+absence rules is written.
 
 **One thing already in place helps more than it looks.** `bookings` (0018) and the `absent` status
 with its reason (0063) already record *which enrolled days a child was expected and did not come* —

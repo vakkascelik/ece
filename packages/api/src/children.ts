@@ -20,6 +20,7 @@ import type {
   ConsentRequest,
   ConsentState,
   Enrolment,
+  EnrolmentType,
   Gender,
   Guardian,
   HealthCondition,
@@ -121,7 +122,7 @@ const toLink = (r: LinkRow): ChildGuardian => ({
 });
 
 const ENROLMENT_COLUMNS =
-  'id, child_id, centre_id, start_date, end_date, funded_hours_per_week, twenty_hours_ece, days, notes';
+  'id, child_id, centre_id, start_date, end_date, funded_hours_per_week, twenty_hours_ece, enrolment_type, days, notes';
 
 interface EnrolmentRow {
   id: string;
@@ -131,6 +132,7 @@ interface EnrolmentRow {
   end_date: string | null;
   funded_hours_per_week: number | string;
   twenty_hours_ece: boolean;
+  enrolment_type: EnrolmentType | null;
   days: number[] | null;
   notes: string | null;
 }
@@ -145,6 +147,7 @@ const toEnrolment = (r: EnrolmentRow): Enrolment => ({
   // callers do not each have to remember that.
   fundedHoursPerWeek: Number(r.funded_hours_per_week),
   twentyHoursEce: r.twenty_hours_ece,
+  enrolmentType: r.enrolment_type,
   days: r.days ?? [],
   notes: r.notes,
 });
@@ -561,6 +564,12 @@ export interface EnrolmentInput {
   endDate?: string | null;
   fundedHoursPerWeek?: number;
   twentyHoursEce?: boolean;
+  /**
+   * permanent, casual or conditional. `undefined` leaves it alone; `null` is the
+   * centre saying it has not stated one. Nothing defaults it - see 0084 and
+   * Handbook 6-4, where the whole absence-funding question turns on this.
+   */
+  enrolmentType?: EnrolmentType | null;
   days?: number[];
   notes?: string | null;
 }
@@ -576,6 +585,9 @@ export async function createEnrolment(
     end_date: input.endDate ?? null,
     funded_hours_per_week: input.fundedHoursPerWeek ?? 0,
     twenty_hours_ece: input.twentyHoursEce ?? false,
+    // No `?? 'permanent'`. Not stated has to survive the insert, because assuming
+    // permanent is the direction that over-claims.
+    enrolment_type: input.enrolmentType ?? null,
     days: input.days ?? [],
     notes: input.notes?.trim() || null,
   });
@@ -602,6 +614,7 @@ export async function updateEnrolment(
   if (patch.endDate !== undefined) row.end_date = patch.endDate;
   if (patch.fundedHoursPerWeek !== undefined) row.funded_hours_per_week = patch.fundedHoursPerWeek;
   if (patch.twentyHoursEce !== undefined) row.twenty_hours_ece = patch.twentyHoursEce;
+  if (patch.enrolmentType !== undefined) row.enrolment_type = patch.enrolmentType;
   if (patch.days !== undefined) row.days = patch.days;
   if (patch.notes !== undefined) row.notes = patch.notes?.trim() || null;
   if (Object.keys(row).length === 0) return;

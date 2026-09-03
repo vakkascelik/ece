@@ -1,7 +1,14 @@
 'use client';
 
 import { useActionState, useEffect, useState } from 'react';
-import { formatDays, isEnrolmentCurrent, WEEKDAY_LABELS, type Enrolment } from '@ece/core';
+import {
+  ENROLMENT_TYPES,
+  ENROLMENT_TYPE_LABELS,
+  formatDays,
+  isEnrolmentCurrent,
+  WEEKDAY_LABELS,
+  type Enrolment,
+} from '@ece/core';
 import { endEnrolment, fileEnrolment, type Result } from '../actions';
 
 /**
@@ -104,6 +111,20 @@ function EnrolmentRow({
             <span className="flag flag-quiet">20 Hours ECE</span>
           </>
         )}
+        {/*
+          Shown only when stated. An absent flag reads as "nobody has said", which is the
+          truth for every enrolment filed before 0084 — a flag saying "permanent" by default
+          would be this product asserting the thing that decides whether absences may be
+          claimed.
+        */}
+        {enrolment.enrolmentType && (
+          <>
+            {' '}
+            <span className="flag flag-quiet">
+              {ENROLMENT_TYPE_LABELS[enrolment.enrolmentType]}
+            </span>
+          </>
+        )}
       </td>
       <td>
         {current ? (
@@ -202,6 +223,34 @@ function EnrolmentForm({ childId, onDone }: { childId: string; onDone: () => voi
             */}
             <input type="checkbox" name="twentyHoursEce" /> 20 Hours ECE attestation signed
           </label>
+        </div>
+
+        {/*
+          Permanent, casual or conditional — and "Not stated" is the default because
+          nothing here guesses.
+
+          This is the axis the Funding Handbook's absence rules turn on (§6-4): funding may
+          be claimed for days a *permanently* enrolled child was booked and absent, while a
+          casual or conditional child is funded on attendance only. Defaulting an unknown to
+          permanent would over-claim, which is the one direction this product's funding
+          figures promise they never go.
+        */}
+        <div>
+          <label htmlFor="enrolmentType">Enrolment type</label>
+          <select id="enrolmentType" name="enrolmentType" defaultValue="">
+            <option value="">Not stated</option>
+            {ENROLMENT_TYPES.map((t) => (
+              <option key={t} value={t}>
+                {ENROLMENT_TYPE_LABELS[t]}
+              </option>
+            ))}
+          </select>
+          <p className="sub">
+            From the enrolment agreement. A permanently enrolled child can be claimed for some
+            booked absences; a casual or conditional child cannot. Leave it blank if you are
+            not sure &mdash; this system does not yet calculate absence funding either way, and
+            a wrong answer here would be worse than none.
+          </p>
         </div>
 
         <div>

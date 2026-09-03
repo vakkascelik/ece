@@ -45,6 +45,7 @@ import {
 } from '@ece/api';
 import {
   CONSENT_KINDS,
+  ENROLMENT_TYPES,
   GENDERS,
   HEALTH_KINDS,
   HEALTH_SEVERITIES,
@@ -52,6 +53,7 @@ import {
   REQUIRED_CONSENTS,
   todayInZone,
   type ConsentKind,
+  type EnrolmentType,
   type Gender,
   type HealthKind,
   type HealthSeverity,
@@ -296,6 +298,17 @@ export async function fileEnrolment(_prev: unknown, form: FormData): Promise<Res
     return { error: 'Funded hours must be between 0 and 50.' };
   }
 
+  /*
+    Validated against the constant, and an unrecognised value becomes null rather than an
+    error: the only way to send one is to edit the form, and silently not-stating is the
+    safe reading. The CHECK in 0084 would refuse it anyway, and a raw 23514 reaching a
+    centre manager is a worse message than a blank field.
+  */
+  const typeRaw = str(form, 'enrolmentType');
+  const enrolmentType = (ENROLMENT_TYPES as readonly string[]).includes(typeRaw)
+    ? (typeRaw as EnrolmentType)
+    : null;
+
   const days = form
     .getAll('days')
     .map((d) => Number(d.toString()))
@@ -309,6 +322,7 @@ export async function fileEnrolment(_prev: unknown, form: FormData): Promise<Res
       endDate: endDate || null,
       fundedHoursPerWeek: hours,
       twentyHoursEce: bool(form, 'twentyHoursEce'),
+      enrolmentType,
       days,
       notes: str(form, 'notes') || null,
     });

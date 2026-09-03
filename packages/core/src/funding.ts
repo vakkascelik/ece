@@ -55,11 +55,42 @@
  *   the same class of failure as over-claiming — it is the reason a broken day is named rather than
  *   silently zeroed.
  *
- * The blocker is the schema, not the arithmetic: `enrolments` has no permanent/casual distinction,
- * and 6-4 turns on exactly that. Adding absence funding means an enrolment type, a three-week
- * window per absence spell, monthly frequent-absence checks and a record of reconfirmations. That is
- * a feature with decisions in it, not a patch, so it is named here and in `exportDisclaimer` rather
- * than half-built.
+ * ~~The blocker is the schema, not the arithmetic: `enrolments` has no permanent/casual
+ * distinction, and 6-4 turns on exactly that.~~
+ *
+ * **HALF THAT BLOCKER WENT ON 2026-09-03 — `0084`.** `enrolments.enrolment_type` now holds
+ * `permanent`, `casual` or `conditional`, transcribed from §6-4 itself, with a CHECK refusing a
+ * fourth value and `ENROLMENT_TYPES` in `./children` as the single source. So the question §6-4
+ * asks can now be asked of a row.
+ *
+ * **NULL IS NOT `permanent`, and every reader of this column has to honour that.** Each enrolment
+ * filed before `0084` is not-stated, and `createEnrolment` writes null rather than defaulting.
+ * Absence funding may only be claimed for a *permanently* enrolled child, so treating an unknown
+ * as permanent would claim for children nobody has classified — **over**-claiming, the one
+ * direction `exportDisclaimer` promises these figures never go.
+ *
+ * What is still missing, and it is more than an enrolment type:
+ *
+ *   - A three-week window per absence spell (§6-5), which needs `bookings` grouped into spells.
+ *   - **The suspension of that window while the service is closed for two continuous weeks or
+ *     more (§6-6).** Read 2026-09-03; it was not in this header before, while the disclaimer
+ *     string below has always said "sections 6-4 to 6-7". A window measured in calendar dates
+ *     would expire over the Christmas break and stop funding a child whose entitlement is
+ *     *suspended*, not spent — so a spell needs the centre's operating calendar, which nothing
+ *     records. `booking_status = 'closed'` is per child-day, a different statement.
+ *   - A monthly frequent-absence check comparing attendance against the **enrolment agreement**
+ *     (§6-7) — an effective-dated weekday pattern that does not exist. `bookings` is one row per
+ *     calendar date with no pattern; ELI calls the missing thing `ChildBookingSchedule`.
+ *   - A reconfirmation record, which is **not a boolean**: §6-7 wants the agreement "signed and
+ *     dated by the child's parent/guardian", or changed to new days and times and signed. A dated
+ *     act by a named person.
+ *
+ * AND ONE RULE THAT BREAKS THE SHAPE OF THIS FILE, not just its inputs. §6-4: "Funding must not be
+ * claimed for both an absent permanently enrolled child under an absence rule and for the
+ * conditional or casual child who fills the absent child's place." `childFunding` below takes ONE
+ * child and cannot see the others. That rule is about two children competing for one place, so the
+ * obvious per-child implementation of absence funding would breach it and over-claim. Design
+ * against it before writing any of the three rules.
  *
  * **The flag stays `false` for that reason**, and it is now precise about why: the rules are read,
  * the caps and periods are confirmed, and a whole class of claimable day is not implemented. A flag

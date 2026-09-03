@@ -68,6 +68,37 @@ export interface ChildGuardian {
   revokedAt: string | null;
 }
 
+/**
+ * Whether an enrolment is permanent, casual or conditional — and the whole of absence
+ * funding turns on it.
+ *
+ * Source: ECE Funding Handbook §6-4, read from the Ministry's page on 2026-09-03. Its own
+ * words are *"permanently enrolled child"*, *"casual"* and *"conditional"*, with
+ * *"conditional or casual child"* as the combined term. The rule that makes this column
+ * necessary: *"Funding for conditional or casual children is based on attendance only.
+ * Services must not claim for conditional or casual children who book for a session or day
+ * and do not attend."*
+ *
+ * So the product's present behaviour — funded hours from attendance events alone — is
+ * **exactly right** for a casual or conditional child and **under-claims** for a permanent
+ * one, who may be claimed for absences under §6-5, §6-6 and §6-7.
+ *
+ * NOT AN ELI FIELD. Worth saying because it is the natural place to look and it is not
+ * there: `ChildEnrolment` in the schema carries the two entity ids, a primary and optional
+ * secondary residential address, and the start and end dates — and **no enrolment type
+ * element at all** (checked against the XSD, 2026-09-03). This is a funding concept used to
+ * compute the counts correctly; it is never serialised.
+ */
+export const ENROLMENT_TYPES = ['permanent', 'casual', 'conditional'] as const;
+export type EnrolmentType = (typeof ENROLMENT_TYPES)[number];
+
+/** What a person sees. */
+export const ENROLMENT_TYPE_LABELS: Record<EnrolmentType, string> = {
+  permanent: 'Permanent',
+  casual: 'Casual',
+  conditional: 'Conditional',
+};
+
 export interface Enrolment {
   id: string;
   childId: string;
@@ -77,6 +108,13 @@ export interface Enrolment {
   endDate: string | null;
   fundedHoursPerWeek: number;
   twentyHoursEce: boolean;
+  /**
+   * permanent, casual or conditional. **Null means not stated, and it is not
+   * `permanent`** - absence funding may only be claimed for a permanently enrolled
+   * child (Handbook 6-4), so defaulting an unknown to permanent would over-claim.
+   * See 0084.
+   */
+  enrolmentType: EnrolmentType | null;
   /** ISO weekdays, 1 = Monday. */
   days: number[];
   notes: string | null;
