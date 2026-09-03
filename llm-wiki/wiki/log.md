@@ -5,6 +5,37 @@ says so.*
 
 ---
 
+2026-09-04 (ninth) — **`0087`: the last two §6-1 fields, and a foreign key that could not say
+what it meant.** Corrected: [[unverified-claims]] item 58, narrowed twice in one day and now saying
+so; the `0084` defect it recorded is closed. New: a [[conventions]] entry on a migration falsifying
+an assertion's premise.
+
+`0087` adds `enrolments.hours_at_other_service_per_week` (three-state — null is not zero, because
+§6-1 wants the figure *"including none if appropriate"*), `signed_on` / `signed_by` on both
+`enrolments` and `child_booking_schedule`, and corrects `0084`'s `twenty_hours_attested_by` from
+`auth.users` to `guardians`. **Safe without a data migration, and measured rather than assumed**:
+both attestation columns were counted empty against the live database first.
+
+**The foreign key could not say what it meant.** `references guardians(id)` accepts any guardian in
+the database, including another centre's — a cross-tenant reference on a compliance field, in a
+product whose central rule is that Postgres is the boundary. A CHECK cannot query another table, so
+this is a trigger: `assert_signatories_are_guardians` requires the signatory to be a **current
+guardian of that child**, which makes the tenancy question and the right-family question one
+question. Generic over the column via `TG_ARGV`, so three columns on two tables share one body.
+
+**It validates only when the signatory is set or changed**, and that guard has its own assertion.
+Without it, revoking a guardianship would make every later update of an unrelated column on that row
+fail — a row nobody could edit because of something true about a person who signed it last year.
+
+Thirteen assertions, 673 → 686, and the cross-tenant one was mutation-drilled. **The suite also went
+red for a reason worth keeping**: an assertion written for `0084` set the attestation signatory to
+the owner's *user* id, valid under the old reference and refused under the new one. A migration had
+falsified its premise, and it failed rather than passing against a world that no longer exists —
+the opposite of the `drill:rowcap` assertion that vouched for the funding-cap defect for two days.
+
+**Schema only.** Nothing writes the columns yet, which is why item 58 stays open: an enrolment record
+a service cannot complete is not a complete enrolment record.
+
 2026-09-04 (eighth) — **The address becomes reachable, and an `upsert` turns out to be a third
 statement under RLS.** New: two [[conventions]] traps and a named convention on natural-key
 identity. Corrected: [[eli-integration]]'s `ChildEnrolment` row, which said built where it now says

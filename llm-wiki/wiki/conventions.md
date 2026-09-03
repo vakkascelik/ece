@@ -930,6 +930,27 @@ lives in `tokens.ts` and a stylesheet wants it, emit it rather than copying it.
 - **`dotenv-cli` wraps the Next scripts.** Next ignores a monorepo root `.env.local`, and the
   failure is delayed — `next build` succeeds and only a real request fails.
 
+### A migration can falsify an assertion's premise, and the good case is that it fails
+
+`0087` re-pointed `enrolments.twenty_hours_attested_by` from `auth.users` to `guardians`. An
+assertion written for `0084` three commits earlier set that column to the **owner's user id** — a
+valid signatory under the old reference, refused under the new one. The suite went red on a message
+raised by a trigger, several hundred lines from the assertion at fault.
+
+**That is the outcome to want.** The failure mode to fear is the assertion that keeps passing against
+a world that no longer exists: `drill:rowcap` carried one for two days asserting the funding caps did
+*not* apply, which was the defect being fixed, in the file whose job was catching it.
+
+So when a migration changes what a value MEANS — not just what is stored, but which values are
+legal — grep for the old value before running anything. The two questions are "what asserts this
+today" and "does that assertion still claim the right thing". Fixing the uuid silently would have
+lost the second one, so the assertion now carries a paragraph saying what changed under it.
+
+Related, from the same migration: a trigger raising `23514` rather than a bespoke sqlstate. It **is**
+a check violation; that a CHECK cannot express it — because a CHECK cannot query another table — is
+an implementation detail of Postgres, not a fact about the rule. Callers already branching on `23514`
+should not need a second branch.
+
 ### When a unique constraint names the natural key, every writer keys on it
 
 `child_addresses` has a surrogate `id` and `unique (child_id, kind)`. `saveChildAddress` upserts on

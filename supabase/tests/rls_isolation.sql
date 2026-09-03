@@ -1203,6 +1203,253 @@ select pg_temp.expect(
 );
 
 -- ===========================================================================
+-- 0087 — the rest of §6-1: the other-service hours, and the dated parent signature
+--
+-- The assertions that matter here are NOT about policies. Every column added by 0087 sits
+-- on a table whose policies were settled long ago, and the new surface is a TRIGGER:
+-- `assert_signatories_are_guardians` refuses a signature attributed to somebody who is not
+-- a current guardian of that child. A foreign key to `guardians` cannot express that — it
+-- would happily accept another centre's parent — so what is asserted below is the thing the
+-- foreign key does not say.
+-- ===========================================================================
+
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+
+-- Ana's mother signs Ana's enrolment record. The ordinary case, and it has to work before
+-- any refusal below means anything.
+do $$
+declare n integer;
+begin
+  update public.enrolments
+     set signed_on = current_date,
+         signed_by = 'd1111111-1111-4111-8111-111111111111'
+   where child_id = 'a1111111-1111-4111-8111-111111111111';
+  get diagnostics n = row_count;
+  perform pg_temp.expect(n = 1, 'a guardian of the child CAN be recorded as signing the enrolment record (0087)');
+end $$;
+
+-- A guardian with no app account signs just as well. `guardians.user_id` is nullable so a
+-- grandparent on the collection list can exist, and 0084 pointing this class of column at
+-- `auth.users` is exactly what 0087 corrects — so the grandmother is the row that proves the
+-- correction was the right one.
+do $$
+declare n integer;
+begin
+  update public.enrolments
+     set signed_on = current_date,
+         signed_by = 'd3333333-3333-4333-8333-333333333333'
+   where child_id = 'a1111111-1111-4111-8111-111111111111';
+  get diagnostics n = row_count;
+  perform pg_temp.expect(n = 1, 'a guardian with NO app account can sign - the 0084 correction (0087)');
+end $$;
+
+/*
+ * THE ASSERTION THE TRIGGER EXISTS FOR. Quinn is Beau's father: a real guardian, at this
+ * same centre, with an account and a parent membership — and not Ana's guardian. The foreign
+ * key accepts him. Nothing else in this schema would object to a signature on Ana's
+ * enrolment record attributed to another family's parent.
+ */
+do $$
+declare code text := 'none (the update SUCCEEDED)';
+begin
+  begin
+    update public.enrolments
+       set signed_on = current_date,
+           signed_by = 'd2222222-2222-4222-8222-222222222222'
+     where child_id = 'a1111111-1111-4111-8111-111111111111';
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '23514',
+    'ANOTHER FAMILY''S guardian cannot be recorded as signing this child''s record, got ' || code);
+end $$;
+
+/*
+ * And the tenancy case, which is the reason the trigger was written rather than left to the
+ * foreign key. Centre B's owner creates a guardian in their own centre — a legitimate write
+ * under their own policies — and centre A's owner then tries to record that person as having
+ * signed a centre A child's enrolment. Same trigger branch as Quinn above, different claim:
+ * this one is about a tenant boundary rather than about the right family.
+ */
+set local request.jwt.claims = '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}';
+insert into public.guardians (id, centre_id, full_name)
+values ('d9999999-9999-4999-8999-999999999999', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'Other Centre Parent');
+
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+do $$
+declare code text := 'none (the update SUCCEEDED)';
+begin
+  begin
+    update public.enrolments
+       set signed_on = current_date,
+           signed_by = 'd9999999-9999-4999-8999-999999999999'
+     where child_id = 'a1111111-1111-4111-8111-111111111111';
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '23514',
+    'ANOTHER CENTRE''S guardian cannot be recorded as a signatory - the foreign key would accept them, got ' || code);
+end $$;
+
+-- Half a signature is refused rather than stored: a date with nobody attached says an
+-- attestation happened without saying who made it, which is worse than no record at all.
+do $$
+declare code text := 'none (the update SUCCEEDED)';
+begin
+  begin
+    update public.enrolments set signed_on = current_date, signed_by = null
+     where child_id = 'a1111111-1111-4111-8111-111111111111';
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '23514', 'a signature date with no signatory is refused, got ' || code);
+end $$;
+
+/*
+ * REVOKING A GUARDIANSHIP DOES NOT MAKE THE ROW UNEDITABLE, and this is the assertion for
+ * the guard rather than for the rule. The trigger validates only when the signatory is set
+ * or changed; without that, revoking Priya would make every later update of an unrelated
+ * column on this enrolment fail — a row nobody could edit because of something true about a
+ * person who signed it last year. The signature itself deliberately stands: it records what
+ * happened on a date, and revoking a guardianship afterwards does not un-sign it.
+ */
+do $$
+declare n integer;
+begin
+  update public.enrolments
+     set signed_on = current_date, signed_by = 'd1111111-1111-4111-8111-111111111111'
+   where child_id = 'a1111111-1111-4111-8111-111111111111';
+
+  update public.child_guardians set revoked_at = now()
+   where child_id = 'a1111111-1111-4111-8111-111111111111'
+     and guardian_id = 'd1111111-1111-4111-8111-111111111111';
+
+  update public.enrolments set notes = 'edited after the guardianship was revoked'
+   where child_id = 'a1111111-1111-4111-8111-111111111111';
+  get diagnostics n = row_count;
+  perform pg_temp.expect(n = 1,
+    'revoking a guardianship does NOT make an already-signed enrolment uneditable (0087)');
+
+  -- And put it back, because every later assertion in this suite assumes Priya is still
+  -- Ana's guardian. A fixture edited mid-suite that is not undone is how an unrelated
+  -- assertion fails three hundred lines later for a reason nobody can find.
+  update public.child_guardians set revoked_at = null
+   where child_id = 'a1111111-1111-4111-8111-111111111111'
+     and guardian_id = 'd1111111-1111-4111-8111-111111111111';
+end $$;
+
+-- A revoked guardian cannot sign something NEW, which is the other half of the same rule.
+do $$
+declare code text := 'none (the update SUCCEEDED)';
+begin
+  update public.child_guardians set revoked_at = now()
+   where child_id = 'a1111111-1111-4111-8111-111111111111'
+     and guardian_id = 'd3333333-3333-4333-8333-333333333333';
+  begin
+    update public.enrolments
+       set signed_on = current_date, signed_by = 'd3333333-3333-4333-8333-333333333333'
+     where child_id = 'a1111111-1111-4111-8111-111111111111';
+  exception when others then code := sqlstate;
+  end;
+  update public.child_guardians set revoked_at = null
+   where child_id = 'a1111111-1111-4111-8111-111111111111'
+     and guardian_id = 'd3333333-3333-4333-8333-333333333333';
+  perform pg_temp.expect(code = '23514', 'a REVOKED guardian cannot sign something new, got ' || code);
+end $$;
+
+-- The 0084 correction, exercised through the column it corrects. A guardian id is now
+-- accepted where an `auth.users` id used to be required.
+do $$
+declare n integer;
+begin
+  update public.enrolments
+     set twenty_hours_attested_on = current_date,
+         twenty_hours_attested_by = 'd1111111-1111-4111-8111-111111111111'
+   where child_id = 'a1111111-1111-4111-8111-111111111111';
+  get diagnostics n = row_count;
+  perform pg_temp.expect(n = 1, 'the 20 Hours attestation now names a GUARDIAN - 0084 corrected (0087)');
+end $$;
+
+-- And a caller's own user id is no longer accepted there, which is the point of the
+-- correction. The trigger refuses it before the foreign key is ever consulted.
+do $$
+declare code text := 'none (the update SUCCEEDED)';
+begin
+  begin
+    update public.enrolments
+       set twenty_hours_attested_on = current_date,
+           twenty_hours_attested_by = '11111111-1111-4111-8111-111111111111'
+     where child_id = 'a1111111-1111-4111-8111-111111111111';
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '23514',
+    'a staff USER id is no longer accepted as the 20 Hours attesting party, got ' || code);
+end $$;
+
+-- The other-service hours: null and zero are both storable and they are different answers.
+-- 6-1 wants the figure "including none if appropriate", so "attested as none" and "nobody
+-- asked" cannot collapse into each other.
+do $$
+declare n integer; v numeric;
+begin
+  update public.enrolments set hours_at_other_service_per_week = 0
+   where child_id = 'a1111111-1111-4111-8111-111111111111';
+  get diagnostics n = row_count;
+  select hours_at_other_service_per_week into v from public.enrolments
+   where child_id = 'a1111111-1111-4111-8111-111111111111';
+  perform pg_temp.expect(n = 1 and v = 0 and v is not null,
+    'ZERO hours at another service is a recorded answer, not an absent one (0087)');
+end $$;
+
+-- Out of band is refused, on the same sanity bound `funded_hours_per_week` already uses.
+do $$
+declare code text := 'none (the update SUCCEEDED)';
+begin
+  begin
+    update public.enrolments set hours_at_other_service_per_week = 60
+     where child_id = 'a1111111-1111-4111-8111-111111111111';
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '23514', 'an implausible other-service figure is refused, got ' || code);
+end $$;
+
+-- The trigger function is granted to NOBODY. A trigger does not need EXECUTE to fire, so a
+-- grant would only widen the surface — and "granted to nobody" is one dropped revoke away
+-- from "granted to everyone signed in", which nothing else would notice. Same assertion
+-- shape as kiosk_pin_gate (0062) and report_absence_core (0063).
+do $$
+declare code text := 'none (the call SUCCEEDED)';
+begin
+  begin
+    perform public.assert_signatories_are_guardians();
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '42501',
+    'assert_signatories_are_guardians is callable by nobody directly, got ' || code);
+end $$;
+
+-- An educator still cannot sign anything, which is the policy rather than the trigger: the
+-- trigger would have accepted Priya, and `caller_may_enrol` never lets the statement run.
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+do $$
+declare n integer;
+begin
+  update public.enrolments
+     set signed_on = current_date, signed_by = 'd1111111-1111-4111-8111-111111111111'
+   where child_id = 'a1111111-1111-4111-8111-111111111111';
+  get diagnostics n = row_count;
+  perform pg_temp.expect(n = 0, 'an educator CANNOT record a signature on an enrolment (0087)');
+end $$;
+
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+
+-- Leave the fixture as it was found: the signature columns are cleared so that later
+-- assertions counting or comparing enrolment rows see what they were written against.
+update public.enrolments
+   set signed_on = null, signed_by = null,
+       twenty_hours_attested_on = null, twenty_hours_attested_by = null,
+       hours_at_other_service_per_week = null,
+       notes = null
+ where child_id = 'a1111111-1111-4111-8111-111111111111';
+
+-- ===========================================================================
 -- 0085 — the child booking schedule: the enrolment agreement as a pattern
 --
 -- The table §6-5 and §6-7 need, and the one ELI calls `ChildBookingSchedule`. Keyed on the
@@ -1386,13 +1633,25 @@ begin
     'an attestation date with no signatory is refused, got ' || code);
 end $$;
 
--- And the pair together is accepted, which is the half a negative cannot prove.
+/*
+ * And the pair together is accepted, which is the half a negative cannot prove.
+ *
+ * THE SIGNATORY CHANGED UNDER THIS ASSERTION ON 2026-09-04 and it is worth saying why rather
+ * than quietly editing the uuid. It used to name `11111111-…`, the OWNER'S USER ID, because
+ * 0084 pointed `twenty_hours_attested_by` at `auth.users` — and that was the defect 0087
+ * corrects: a 20 Hours attestation is signed by a parent, who may have no account at all.
+ * So this now names Ana's mother.
+ *
+ * The suite caught it by failing, which is the outcome to want: an assertion whose premise a
+ * migration has falsified should stop the build rather than keep passing against the old
+ * world. The one to watch for is the version that does NOT fail.
+ */
 do $$
 declare n integer;
 begin
   update public.enrolments
      set twenty_hours_attested_on = '2026-03-01',
-         twenty_hours_attested_by = '11111111-1111-4111-8111-111111111111'
+         twenty_hours_attested_by = 'd1111111-1111-4111-8111-111111111111'
    where child_id = 'a1111111-1111-4111-8111-111111111111';
   get diagnostics n = row_count;
   perform pg_temp.expect(n >= 1, 'a dated attestation with a signatory is accepted (0084)');

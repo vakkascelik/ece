@@ -2083,11 +2083,29 @@ Applying the cap, which needs the attribution rule; enforcing the two capacity c
 Glossary attaches to *permanent* and *conditional* enrolments; and `centres.licensed_places` being
 **nullable**, so for a centre that has not stated its licence none of this can be computed at all.
 
-### 58. Two of §6-1's required enrolment-record fields are still absent — **OPEN, added 2026-09-04**
+### 58. §6-1's enrolment record — the schema is complete, the screens are not — **OPEN, added 2026-09-04, narrowed the same day**
 
-`0086` closed the third — the child's residential address — and the commit after it made that table
-reachable, so this records what is left rather than what was found. **Two of the five fields below are
-still absent from the schema entirely**; the two that are done are done end to end, form included.
+**Narrowed twice in one day and the register should say so rather than read as though it was always
+this.** As first written, three of §6-1's required contents were absent. `0086` added the residential
+address and the commit after made it reachable; `0087` added the last two — the other-service hours
+and the dated parent signature — **as schema only**.
+
+So what remains is no longer a gap in the record but a gap in the product: **nothing writes the
+`0087` columns.** No core type, no API function, no form field. An enrolment record that a service
+cannot actually complete is not a complete enrolment record, which is why this stays OPEN rather
+than closing on the migration.
+
+**Two interpretations `0087` had to make, neither of them quotations:**
+
+1. **The other-service hours are recorded per week.** §6-1 says *"the hours the child is enrolled at
+   another service"* without naming a period. Weekly is chosen to match `funded_hours_per_week` on
+   the same row and the weekly cap the figure feeds. If the Ministry means something else — hours per
+   day, or total across the enrolment — the column name is wrong rather than the data.
+2. **One signature covers the whole record.** §6-1 item 5 asks for a dated signature attesting to
+   *"the accuracy of the enrolment record"*, so the other-service hours get no signature pair of
+   their own: they are part of the record being attested. The booking schedule **does** get its own
+   pair, and that is not the same interpretation — §6-1 asks separately for changes to the agreement
+   to be *"signed and dated"*, which is a different act on a different date.
 
 §6-1 lists what an enrolment record must contain. Measured against the schema on 2026-09-04:
 
@@ -2096,8 +2114,8 @@ still absent from the schema entirely**; the two that are done are done end to e
 | *"official name, date of birth, and home/residential address, and the child's preferred surname and first name"* | **Done.** `children` had all but the address; `0086` adds it |
 | *"the date the child commenced attendance … and their finish date"* | Already there — `enrolments.start_date` / `end_date` |
 | *"the days and times each child is expected to attend, and details of any later changes to the agreement **signed and dated by at least one parent/guardian**"* | **Half.** `0085` holds the days and times and `2A` made them editable. **The signature on a change does not exist** |
-| *"**attestation by the child's parent/guardian of the hours the child is enrolled at another service** (including none if appropriate)"* | **Absent entirely.** No column, nothing on any form |
-| *"**a dated signature of at least one parent/guardian** to attest to the accuracy of the enrolment record"* | **Absent** |
+| *"**attestation by the child's parent/guardian of the hours the child is enrolled at another service** (including none if appropriate)"* | **Column exists** — `0087`, `hours_at_other_service_per_week`, three-state. **Nothing writes it** |
+| *"**a dated signature of at least one parent/guardian** to attest to the accuracy of the enrolment record"* | **Columns exist** — `0087`, `signed_on` / `signed_by`, guardian-referenced. **Nothing writes them** |
 | National Student Number | Already there — `children.moe_nsn` |
 
 **Why the other-service hours matter more than they look.** The 6-hour daily and 30-hour weekly caps
@@ -2121,11 +2139,15 @@ though they were the attesting party. The columns are **unwritten** — nothing 
 is correctable without a data migration, and it should be corrected alongside the §6-1 signature
 rather than separately, since both are the same shape: a dated act by a named guardian.
 
-**To close it:** one migration adding `hours_at_other_service` (nullable, and **null is not zero** —
-§6-1 wants *"including none if appropriate"*, so "attested as none" and "not asked" are different
-states), a guardian-referenced dated signature on the enrolment, the same on a schedule change, and
-the `0084` correction. Then the form fields, and the readiness surface that names which enrolments
-are incomplete.
+**The migration landed as `0087`** — `hours_at_other_service_per_week` (nullable, and **null is not
+zero**), `signed_on` / `signed_by` on both `enrolments` and `child_booking_schedule`, the `0084`
+correction, and a trigger requiring a signatory to be a current guardian of that child. The `0084`
+defect above is **closed**: both columns were counted empty against the live database before the
+reference was changed, so no data migration was needed.
+
+**To close item 58 itself:** the core types, the API writers, the form fields — including a guardian
+picker, since the signatory is now a `guardians` reference rather than free text — and the readiness
+surface that names which enrolments are incomplete.
 
 ## See Also
 

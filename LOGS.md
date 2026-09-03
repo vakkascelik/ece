@@ -7,6 +7,92 @@ itself, and from the wiki pages, which hold the durable *why*. This file is the 
 
 ---
 
+## 2026-09-04 (ninth) — `0087`, and a foreign key that could not say what it meant
+
+The last two things §6-1 requires an enrolment record to contain, plus a correction to my own `0084`
+from three commits earlier.
+
+### What landed
+
+`enrolments.hours_at_other_service_per_week`, `signed_on` / `signed_by` on `enrolments` and on
+`child_booking_schedule`, the `0084` correction, and one trigger.
+
+**Why the other-service hours are not administrative.** The 6-hour daily and 30-hour weekly caps
+follow the **child**, so a child enrolled at two services can exceed them between the two — and this
+product applies both caps as though each service were the only one. §7-7 rests on the same fact. It
+is also **unenforceable from here**: `enrolments_no_overlap` already refuses two overlapping
+enrolments *within this database*, and an enrolment at another provider is invisible. The attestation
+is the only instrument, which is presumably why the Handbook asks the parent rather than the service.
+
+**Null is not zero**, and the column exists to hold that difference: §6-1 wants the figure
+*"including none if appropriate"*, so "attested as none" and "nobody has asked" cannot collapse.
+
+### The finding: a foreign key cannot express a tenant
+
+`signed_by uuid references public.guardians(id)` looks complete and is not. A foreign key has no idea
+what a tenant is, so it accepts **any** guardian row in the database — including one belonging to
+another centre. An owner could record another centre's parent as having signed this child's enrolment
+record and nothing in the schema would object: a cross-tenant reference stored on a compliance field.
+
+A CHECK cannot express the rule, because a CHECK cannot query another table. So it is a trigger, and
+it asks the stronger question: is this person a **current guardian of that child**? Being a guardian
+of the child implies the same centre, so one predicate answers both the tenancy question and the
+"is this even the right family" question.
+
+Three things about its shape, each a decision rather than a default:
+
+- **Generic over the column.** `TG_ARGV` carries the column names and the value comes out of
+  `to_jsonb(new)`, so one body serves `enrolments.signed_by`, `enrolments.twenty_hours_attested_by`
+  and `child_booking_schedule.signed_by`. Three near-identical function bodies is the duplication
+  this schema keeps catching.
+- **It validates only when the signatory is set or changed.** Without that guard, revoking a
+  guardianship would make every later update of an unrelated column on that row fail — a row nobody
+  could edit because of something true about a person who signed it last year. There is an assertion
+  for the guard, not just for the rule.
+- **It raises `23514`.** It *is* a check violation; that a CHECK cannot express it is a fact about
+  Postgres, not about the rule, and callers already branching on `23514` should not need a second.
+
+**It deliberately does not require `child_guardians.is_authorised_signatory`**, which is sitting
+right there and is tempting. That flag (`0061`) means "may verify the child's **attendance** record",
+which is §6-3 criterion 4 — a different authority under a different rule. §6-1 asks for "at least one
+parent/guardian" with no qualifier, and requiring the flag would be this product inventing an entry
+condition the Handbook does not state.
+
+### The correction to `0084`, and why it was cheap
+
+`twenty_hours_attested_by` referenced `auth.users`. The 20 Hours attestation is signed by a **parent**
+— `0004`'s own comment on `twenty_hours_ece` says "an attestation the parent signs" — and a guardian
+may have no account at all, since `guardians.user_id` is nullable precisely so a grandparent on the
+collection list can exist. So the column could only ever have held the staff member who ticked the
+box, recorded as though they were the attesting party.
+
+**Measured before changing it**, not assumed from the wiki: both attestation columns counted zero
+rows against the live database. Had either been non-zero this would have needed a mapping from
+`auth.users` to `guardians` and a decision about rows with no mapping — a much larger migration.
+
+### The suite went red, and that was the right outcome
+
+An assertion written for `0084` set the attestation signatory to `11111111-…`, the **owner's user
+id**. Valid under the old reference. Refused under the new one. The suite failed on a message raised
+by a trigger several hundred lines away from the assertion at fault, and I bisected my own new block
+first before finding the stale one three hundred lines further down and three commits old.
+
+That is the failure mode to want. The one to fear is the assertion that keeps **passing** against a
+world that no longer exists — `drill:rowcap` carried one for two days asserting that the funding caps
+did not apply, which was the defect being fixed, in the file whose whole job was catching it. So the
+uuid was not silently corrected: the assertion now carries a paragraph saying what changed under it
+and why.
+
+Thirteen assertions, 673 → 686. The cross-tenant one was mutation-drilled — replacing the other
+centre's guardian with Ana's own mother makes it fail on its own label.
+
+### Still schema only
+
+Nothing writes these columns. Item 58 stays open, and the reason is worth stating rather than filing
+under "next commit": an enrolment record a service **cannot complete** is not a complete enrolment
+record. The screens need a guardian picker now that the signatory is a reference rather than a name,
+which is the next piece of work.
+
 ## 2026-09-04 (eighth) — the address becomes reachable, and what an `upsert` is under RLS
 
 `0086` landed schema-only, which left `child_addresses` with no reader or writer — the exact
