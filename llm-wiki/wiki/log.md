@@ -5,6 +5,48 @@ says so.*
 
 ---
 
+2026-09-03 (sixth) — **Searched for the enquiry's answers before sending it, and found four of
+them — including the one the application was said to depend on.** New: [[unverified-claims]] item
+50 and a Key Point. Extended: [[eli-integration]] (*The schema is a message format, not the
+requirement*), [[staff-as-people]] (an open caveat above the contact-hours section). Corrected:
+`docs/eli-integration-2026-tranche.md` §3, which asserted a contradiction in the Ministry's
+material that does not exist, and the `AST47` table in `docs/eli-application-answers.md`. The
+enquiry went from nine questions to seven, all of them genuinely open.
+
+**The one that mattered.** §3 of the tranche document argued that the Ministry contradicted itself
+— *"must already be developed to the ELI integration specifications"* against a template asking for
+development durations — and called resolving it the question that decided whether applying was
+possible. **The page says no such thing.** It says *"your application must already be fully
+developed and ready for the NSI and ELI integration work to be **added**, tested and verified"* and
+*"**after we have accepted your application, you will need to develop the NSI and ELI integration
+components**"*. Functionality at application, interface after acceptance, starting late 2026.
+
+**The fragment I built that section on came from a summary of the page, not the page.** A
+summariser had compressed the sentence and dropped the six words carrying its meaning. A paraphrase
+is not a source — which this repo says about tools reading regulations ([[unverified-claims]] item
+36) and which I had not applied to a tool reading a procurement page. It cost nothing only because
+the question was drafted and never sent.
+
+**And the reading created a better question than any it removed.** §14-2 of the Handbook lists the
+census staff fields in the Ministry's own words, and the XSD had misled us about three of them: it
+shapes `ContactHoursDetailList` like a contract while §14-2 calls it *"actual contact hours …
+actually spent teaching children"*; §14-2 wants **two** pairs of staff dates where the schema
+carries one; and three flags are *"(permanent staff only)"* where the schema marks them merely
+optional. Item 50 records the first, which is the one that would change a table rather than a
+label — and if the answer is "actual", the source is `staff_attendance_events` and per-person staff
+sign-in becomes a prerequisite for the Return rather than a refinement of the ratio.
+
+**The rule that generalises, now on [[eli-integration]]:** an XSD bounds what a field may contain;
+only the Handbook says what it means. Every field mapped from the schema alone carries an unread
+requirement behind it.
+
+Also answered without asking: which page holds the development criteria (the integration page
+itself), the closing date (the form's *"September 2026 tranche"* is stale wording), and whether
+Waha Rumaki/PITA applies to a standard education and care service (**no** — §14-5 names only Puna
+Reo, Reo Rua and the two Leo o Fanau Moana types). That last one survives in narrowed form, because
+it answers the *service's* obligation and the open question is the *vendor's* — the Chapter 6
+lesson, third outing.
+
 2026-09-03 (fifth) — **Seven of item 49's thirty-four, and the lesson was in the second order.**
 Extended: [[unverified-claims]] item 49, [[conventions]] (*A write that does not count its rows*).
 

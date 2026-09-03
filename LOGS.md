@@ -7,6 +7,79 @@ itself, and from the wiki pages, which hold the durable *why*. This file is the 
 
 ---
 
+## 2026-09-03 (fourth) — Searched for the enquiry's answers before sending it, and the most important question was already answered
+
+Owner's instruction: before sending the enquiry, search online for the answers. Four of the nine
+were published. One of them was the question this whole application was said to turn on.
+
+**§3 of the tranche document was wrong, and it was my error.** It argued the Ministry contradicted
+itself — *"must already be developed to the ELI integration specifications"* set against a template
+asking for development-and-testing durations — and called resolving that the question that decided
+whether applying this tranche was possible at all.
+
+The page says no such thing:
+
+> *"Your application must already be fully developed and ready for the National Student Index (NSI)
+> and ELI integration work to be **added**, tested and verified."*
+>
+> *"**After we have accepted your application, you will need to develop the NSI and ELI integration
+> components.** This includes the interface to NSI and creation of events and transmission of
+> events to ELI."*
+
+Functionality complete at application; interface work after acceptance; process starts late 2026
+and runs 12–18 months. Exactly the reading I had called "most likely" and then declined to trust.
+
+**The fragment I built the section on came from a summary of the page, not the page.** A
+summariser compressed *"must already be fully developed and ready for the … integration work to be
+added"* into *"must already be developed to the ELI integration specifications"*, dropping the six
+words that carry the meaning and inverting it. This repo already says a paraphrase is not a source
+— it is `unverified-claims` item 36's whole complaint about a tool reading a regulation — and I did
+not apply it to a tool reading a procurement page. It cost nothing because the question was drafted
+and never sent, which is the only reason this is an anecdote.
+
+**The reading also produced a better question than any it removed**, and this one touches code I
+shipped yesterday. §14-2 of the Handbook lists the census staff fields in the Ministry's own words,
+and the XSD had misled me about three of them:
+
+- **`ContactHoursDetailList` is weekday + start + end with no dates — the shape of a contract.**
+  §14-2 calls the same field *"**Actual** contact hours for teachers/staff (start and end dates and
+  **actual** contact start and finish times spent teaching children)"* and asks separately for
+  *"Total Hours worked during the ECE Census week"*. Those are measurements. `0081` built a
+  contract, and `census.ts` derives the hours total from it. **If the Handbook's word is the
+  operative one, the source is `staff_attendance_events` for the census week** — and a centre that
+  has not adopted per-person staff sign-in cannot answer it at all, which would make the derived
+  ratio a prerequisite for the Return rather than a refinement of it. Now `unverified-claims`
+  item 50 and enquiry question 1.
+- **Two pairs of staff dates.** §14-2 wants *"working at service"* **and** *"in role at service"*.
+  The schema carries one pair, inside the role block. I had mapped it to employment dates in the
+  `AST47` table; it is more likely the in-role pair, and we hold no in-role dates at all.
+- **Three flags are "(permanent staff only)".** The schema marks them merely optional, which is a
+  weaker statement than the Handbook's, and we collect all three unconditionally.
+
+**The rule that generalises**, now written into `eli-integration.md`: an XSD bounds what a field may
+*contain*; only the Handbook says what it *means*. Every field mapped from the schema alone carries
+an unread requirement behind it. That is uncomfortable given the census was built from the schema —
+so the fields are now flagged rather than trusted.
+
+**Also answered without asking:** which page holds the development criteria (the integration page,
+under *Intended functionalities*); the closing date (30 October — the form's *"September 2026
+tranche"* is stale wording); and whether Waha Rumaki/PITA applies to a standard education and care
+service — **no**, §14-5 names only Puna Reo, Reo Rua, and Leo o Fanau Moana immersion or bilingual,
+monthly. That last one survives in narrowed form, because §14-5 answers the *service's* obligation
+and the open question is the *vendor's*: must an applicant build it to be approved even serving none
+of those types? Chapter 6's lesson, third outing.
+
+**Genuinely still open, and the enquiry is now these seven:** the contracted-versus-actual hours,
+the two date pairs, the security and assurance evidence, whether the public XSD is normative, where
+the staff-role / wait-time / closure-reason code lists live and whether they carry machine-readable
+effective dates, the Waha Rumaki vendor question, and how the 50-service capability is evidenced.
+Two of the nine dropped entirely; one replaced by something sharper.
+
+One thing worth noting in the code sets: the Ministry states that a system *"approved as meeting
+the specifications … for integration to the Early Learning Information system must capture at least
+Level 3"* ethnic groups. That is a concrete, citable vendor requirement, and it is now in the
+application rather than a question.
+
 ## 2026-09-03 (third) — Seven of item 49's thirty-four, and the lesson was in the second order
 
 Took the access-control and evidence writes first, because a silent refusal on those is a false

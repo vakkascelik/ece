@@ -41,6 +41,12 @@ Nothing here is a bug. They are known gaps with known closures.
   sentence of the funding disclaimer, **unconditional** — behind `!summary.verified` it would
   vanish on the day the figures look most trustworthy. The Ministry's word for the failure mode
   this product already discloses is *"under-claiming"*.
+- **The census's contact hours may be the wrong kind of hours — item 50, added 2026-09-03.** The
+  ELI schema shapes `ContactHoursDetailList` like a contracted weekly pattern and that is what was
+  built; **§14-2 of the Handbook calls the same field *"actual contact hours … actually spent
+  teaching children"***. If it is actual, the source is recorded staff attendance, not the roster
+  agreement — and a service without per-person staff sign-in cannot answer it at all. **A schema
+  tells you what a field may contain, not what it means.**
 - **Thirty-four writes cannot tell a refusal from a success — item 49, added 2026-09-03.** A
   PostgREST update matching no rows returns `error: null`, and under RLS that is exactly what a
   refusal looks like. Measured across `packages/api`: **20 guarded, 34 not.** Among the unguarded
@@ -1612,6 +1618,31 @@ nothing?* The 27 guarded are the pattern to copy.
 **What must not happen:** a blanket `.select('id')` sweep with a throw, which would turn benign
 no-ops into user-facing errors, be reverted within a week, and leave the real cases looking
 handled.
+
+### 50. Whether the ECE Return's contact hours are contracted or actual — **OPEN, added 2026-09-03**
+
+| | |
+|---|---|
+| **What is asserted** | By `staff_contact_hours` and by `census.ts`: that the ELI `ContactHoursDetailList` and the return-week hours total describe a **contracted** weekly pattern |
+| **Where** | `0081`, `packages/core/src/census.ts` (`contractedMinutes`, `hoursWorked`), `/census`, and the `AST47` table in [eli-application-answers](../../docs/eli-application-answers.md) |
+| **Basis for the assertion** | The ELI Events schema types `ContactHoursDetailList` as weekday + start time + end time with **no dates**, which is the shape of a recurring contract rather than a measurement |
+| **What contradicts it** | **§14-2 of the Funding Handbook, read 2026-09-03**, in the Ministry's own words: *"Actual contact hours for teachers/staff (start and end dates and actual contact start and finish times spent teaching children)"*, and separately *"Total Hours worked during the ECE Census week"*. Both read as measured actuals for one specific week |
+| **Why it matters** | The two answers need different sources. Contracted → the roster agreement, which is what is built. **Actual → recorded staff attendance for the census week**, which means deriving from `staff_attendance_events`, and means a service that has not adopted per-person staff sign-in **cannot answer accurately at all** — it would be reporting a contract as though it were a measurement, on a return to the Crown |
+| **What it is not** | A bug in the arithmetic. `contractedMinutes` correctly sums what it is given; the question is whether it is being given the right thing |
+
+**How it was found is the point.** The census schema and the screen were built from the public XSD,
+which is a *message format*. §14-2 is the *requirement*, and it says something the XSD's shape does
+not: that these hours are observed rather than agreed. **A schema tells you what a field may
+contain; it cannot tell you what the field means.** The same reading also found a field we do not
+hold at all — §14-2 asks for staff start and end dates *"working at service"* **and** *"in role at
+service"*, two pairs, where we hold one — and three flags marked *"(permanent staff only)"* whose
+condition we do not enforce.
+
+**To close it:** [enquiry](../../docs/eli-ministry-enquiry.md) question 1. Until then nothing in the
+product may present the hours figure as anything but derived from the contract, which is what the
+screen says.
+
+**Do not resolve it by reading the XSD again.** The XSD is what produced the assumption.
 
 ## See Also
 

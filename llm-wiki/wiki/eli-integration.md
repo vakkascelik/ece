@@ -157,6 +157,36 @@ the three things a Crown-facing queue needs and that are easy to get wrong:
 `classifyWriteFailure` is shared by both clients already. An ELI sender is a third caller of the
 same idea, not a new one — [AGENTS.md](../../AGENTS.md) rule 4.
 
+### The schema is a message format, not the requirement — and §14-2 proves it
+
+**Added 2026-09-03, and it is the most important caveat on this page.**
+
+Everything above was derived from the XSD, which is a *wire format*. §14-2 of the Funding Handbook
+is the *requirement*, and reading it after building against the schema found three things the
+schema's shape actively misled us about:
+
+- **`ContactHoursDetailList` is weekday + start + end with no dates**, which is the shape of a
+  contract. §14-2 calls the same field *"**Actual** contact hours for teachers/staff (start and end
+  dates and **actual** contact start and finish times spent teaching children)"*, and asks
+  separately for *"Total Hours worked during the ECE Census week"*. Those are measurements.
+  `0081` built a contract. Tracked as [[unverified-claims]] item 50, and it is the one open item
+  here that would change a table rather than a label.
+- **Two pairs of staff dates.** §14-2 asks for start and end dates *"working at service"* **and**
+  *"in role at service"*. The schema carries one pair, inside `EducationalStaffRole` — so it is
+  probably the in-role pair, and the at-service pair comes from the staff record. The schema alone
+  cannot tell you that, because it has one pair and no name for which.
+- **Three flags are conditional.** *Previously worked as teacher*, *arrived from another service*
+  and *leaving teacher destination* are marked *"(permanent staff only)"*. The schema marks them
+  `minOccurs="0" nillable="1"` — optional for everybody, which is a weaker statement than the
+  Handbook's.
+
+**The general rule this establishes for the rest of this integration:** the XSD bounds what a field
+may contain; only the Handbook says what it means. Every field mapped from the schema alone is a
+mapping with an unread requirement behind it, and the ones on this page are now flagged rather than
+trusted. The service-level `ServiceDetails` block — five age-banded wait times and one to five
+languages with usage percentages — is a case in point: nothing in this product records a waiting
+time by age, and the schema's cardinality tells you nothing about whether that matters.
+
 ### What the schema does not give, and must not be guessed
 
 - **Transport.** No endpoints, no authentication, no Destination Header. That is InfoHub

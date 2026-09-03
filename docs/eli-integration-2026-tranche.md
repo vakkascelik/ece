@@ -71,30 +71,53 @@ The completed template goes to `ELI.Queries@education.govt.nz`. The Ministry sta
 
 Our draft answers are in [eli-application-answers.md](eli-application-answers.md).
 
-## 3. The contradiction that has to be resolved before anything is signed
+## 3. The apparent contradiction, and why there was never one
 
-The page says:
+**RESOLVED 2026-09-03 by reading the page properly. This section previously argued that the
+Ministry's own material contradicted itself, and it does not.**
 
-> *"Your student management system must already be developed to the ELI integration
-> specifications."*
+What this document quoted was *"your student management system must already be developed to the
+ELI integration specifications"*, and set it against the template's request for
+development-and-testing durations for five interface components. Read together those look
+irreconcilable: if the components must exist, there is nothing to estimate.
 
-The template asks for estimated durations for *"National Student Index Interface — Development and
-testing"*, *"ELI Integration — Development and testing"*, and three more, and says the Ministry
-*"will not give approval for Go Live until all five components have been developed, tested by the
-vendor, and tested by the Ministry."* It also says ESL production credentials *"cannot be provided
-until an eligible ECE service is set up within the SMS production"*.
+The full sentences on the page settle it, and they were there the whole time:
 
-**Those two cannot both mean what they say.** If the five components must already be developed,
-there is nothing left to estimate a duration for; if durations are being estimated, development
-follows selection. The most likely reading is that the *functional* SMS must be complete and the
-*interface* work is what the 12–18 months buys — but "most likely reading" is exactly the phrase
-that produced the 50-services error, where one page was read in the pessimistic direction for four
-months and the answer came back the other way in four days when somebody asked.
+> *"Your application must already be fully developed and ready for the National Student Index (NSI)
+> and ELI integration work to be **added**, tested and verified."*
+>
+> *"**After we have accepted your application, you will need to develop the NSI and ELI integration
+> components.** This includes the interface to NSI and creation of events and transmission of
+> events to ELI."*
 
-**So it gets asked, not inferred.** The form itself requires this: *"If you have any questions
-regarding the SMS Development Criteria or process, you must contact the Ministry at
-ELI.Queries@education.govt.nz before submitting this form."* The draft enquiry is in
-[eli-ministry-enquiry.md](eli-ministry-enquiry.md), and question 1 is this one.
+So: **the SMS's own functionality must be complete at application; the interface work happens after
+acceptance.** That is exactly the reading this document called "most likely", and it is now sourced
+rather than inferred. The durations in the template are estimates for work that starts once
+selected, which is why the Ministry says the process *"will start in late 2026"* and take 12 to 18
+months.
+
+**Where the error came from is worth recording, because it is a research failure rather than a
+reading failure.** The quoted fragment came from a summary of the page, not from the page. A
+summariser had compressed *"must already be fully developed and ready for the … integration work
+to be added"* into *"must already be developed to the ELI integration specifications"* — which
+inverts the meaning of the sentence by dropping the six words that carry it. This document then
+built a section on the compressed version and proposed asking the Ministry about a conflict that
+does not exist.
+
+The lesson is the one [AGENTS.md §4.5](../AGENTS.md) already states in a different register: a
+paraphrase is not a source. It cost nothing here because the question was drafted and not sent,
+which is the only reason this is an anecdote rather than an embarrassment.
+
+**Two facts worth keeping from the same reading:**
+
+- Integration **starts late 2026** and takes 12–18 months. So the calendar is: apply by 30 October,
+  hear back, and begin interface work before the year ends.
+- *"Before starting the ELI integration process, we will advise the successful applicant of
+  timelines, sequence of events and expectations."* The agreement is signed by the successful
+  applicant, so asking to read it before submitting is a courtesy rather than a prerequisite.
+
+The remaining questions — and there are fewer than there were — are in
+[eli-ministry-enquiry.md](eli-ministry-enquiry.md).
 
 ## 4. The ELI schema is public, and that was not known
 

@@ -317,6 +317,16 @@ mutation-tested against the live database: widening the predicate to
 `caller_is_staff_for_member` fails *"reads EXACTLY their own"*, and dropping the IPP 6 branch fails
 *"an educator CAN read their OWN census record"*.
 
+> **Open, added 2026-09-03: the contract may be the wrong thing.** §14-2 of the Funding Handbook
+> calls this field *"**actual** contact hours … **actually** spent teaching children"* and asks for
+> *"Total Hours worked during the ECE Census week"*. The ELI schema's shape says contract; the
+> Handbook's words say measurement. If it is measurement, the source is `staff_attendance_events`
+> for the census week rather than the table below — and a centre that has not adopted per-person
+> staff sign-in could not answer it at all, which would make the derived ratio of `0039`/`0040` a
+> prerequisite for the Return rather than an improvement on it. [[unverified-claims]] item 50.
+> Everything in the next three paragraphs is right about what a *contract* is and open about
+> whether a contract is what the Return wants.
+
 **`staff_contact_hours` is a contract, and `shifts` is a diary.** `shifts` is one row per calendar
 date, which is what a roster needs and cannot answer *"what are this person's contracted contact
 hours on a Tuesday"*. Inferring a pattern from dated shifts would be the estimating

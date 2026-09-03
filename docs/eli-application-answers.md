@@ -967,18 +967,43 @@ prompted the work.
 | Ethnicity | Staff census record | ECE Return screen | As above. Up to three, matching the schema's cardinality |
 | Is paid / Is permanent / Is full time | Staff census record | ECE Return screen | Three-state on the screen: *not recorded*, yes, no. A blank stores null rather than false, so an unanswered question cannot be submitted as "unpaid" |
 | Is registered | **Derived** — a `practising_certificate` compliance record | Compliance records, not the Return | Not editable on the Return screen on purpose: it comes from the same row the licensing binder reads, so the two cannot disagree. A null expiry counts as *not* current. **Where no certificate is linked the value is null, not false**, and the person is reported as incomplete — we will not assert that a named individual is unregistered on the strength of a missing row |
-| Start date / End date | Staff member record | Staff screen | `started_on` / `finished_on`, and they also decide who is on the roster at the return date |
+| Start date / End date **working at the service** | Staff member record | Staff screen | `started_on` / `finished_on`. These also decide who is on the roster at the return date |
+| Start date / End date **in role at the service** | **N/A — not held.** See the correction below | — | §14-2 asks for both pairs and we hold only the first. We read the schema's `EducationalStaffRole.StartDate`/`EndDate` as the *in-role* pair, given where it sits — enquiry question 2 |
 | Age band | Staff census record | ECE Return screen | One of the twelve bands the schema enumerates, so this one is a real dropdown. **We store the band, not a date of birth** — the band is the minimum that answers the question |
 | Weekday code | **System generated** | — | From the contracted contact hours; mapped to the schema's `Mo`–`Su` at the boundary |
-| Contact start / end time | Staff contact hours | ECE Return screen | An effective-dated weekday contract, distinct from the dated roster. Superseding hours ends one block and opens another; the database refuses overlapping blocks on a weekday |
-| Hours worked (return week) | **Derived** — the sum of the contracted blocks | Not editable | Floored to the whole number the schema takes, with the exact minutes retained alongside so the truncation is visible rather than silent |
+| Contact start / end time | Staff contact hours | ECE Return screen | An effective-dated weekday contract, distinct from the dated roster. Superseding hours ends one block and opens another; the database refuses overlapping blocks on a weekday. **Whether this field wants the contract or the actual hours is open — enquiry question 1** |
+| Hours worked (census week) | **Derived** — the sum of the contracted blocks | Not editable | Floored to the whole number the schema takes, with the exact minutes retained alongside so the truncation is visible rather than silent. **Same open question:** §14-2 calls this *"Total Hours worked during the ECE Census week"*, which reads as measured rather than contracted |
 | Min / max age taught | Staff census record | ECE Return screen | Months, 0–72, as the schema specifies |
 | Previously worked as teacher / Arrived from another service / Leaving destination | Staff census record | ECE Return screen | Three-state, three-state, and one of the five codes the schema enumerates — shown as raw codes because the schema does not define them and we will not invent a label |
 
-**The honest summary of this table:** every cell has a source, and **six of them cannot yet hold a
-value**, because the Ministry code lists they draw on are published somewhere we have not obtained.
-That is `AST55` and enquiry question 6, and it is the single thing standing between this section
-and a completable Return.
+**Corrected 2026-09-03 against §14-2 of the Funding Handbook**, which lists the census fields in the
+Ministry's own words and which we had not read when this table was first drafted from the schema
+alone. Three things came out of it, and they are the reason a schema is not a specification:
+
+1. **There are two pairs of staff dates, and we hold one.** *"Staff start and end dates working at
+   service"* and *"Staff start and end dates in role at service"* are separate items. The schema
+   carries one pair, inside the role block, which we now read as the in-role pair — enquiry
+   question 2. One migration either way.
+2. **The Handbook says "actual" where we built "contracted".** *"Actual contact hours … actual
+   contact start and finish times spent teaching children"* and *"Total Hours worked during the ECE
+   Census week"*. Our `staff_contact_hours` is an effective-dated weekly **contract**, and the
+   hours total is derived from it. The schema's field has no dates and looks contract-shaped; the
+   Handbook's wording is unambiguously measured. **This is enquiry question 1 and it is the most
+   consequential open item in this application**, because if the answer is "actual" the source is
+   recorded staff attendance and a service without per-person staff sign-in cannot answer at all.
+3. **Three flags are conditional.** *Previously worked as teacher*, *arrived from another service*
+   and *leaving teacher destination* are each marked *"(permanent staff only)"*. We collect all
+   three unconditionally and do not enforce the condition.
+
+**The honest summary of this table:** every cell has a source, **six of them cannot yet hold a
+value** because the Ministry code lists they draw on are not in our hands, **one field is not held
+at all** (in-role dates), and **two are held in a shape whose correctness depends on an answer we
+do not have**. The service-level items — five age-banded wait times, and teaching languages with
+usage percentages — are not modelled at all.
+
+That is a longer list than the first draft of this answer gave, and it is longer because we read
+the Handbook section rather than inferring the requirement from the XSD. Worth stating in an
+application: we would rather hand the Ministry an accurate gap list than a short one.
 
 **AST48 — ECE Return generation, transmission and storage.** `[GAP]`/`[BLOCKED — spec]`
 
