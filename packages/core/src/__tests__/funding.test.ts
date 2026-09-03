@@ -6,6 +6,7 @@ import {
   FUNDING_RULES,
   FUNDING_RULES_VERIFIED,
   ministryFundingPeriods,
+  placeCapExceedances,
   summariseFunding,
   summariseVariance,
   type FundingPeriod,
@@ -599,5 +600,112 @@ describe('the Ministry funding periods', () => {
     const y2027 = ministryFundingPeriods(2027);
     expect(y2026[2]!.to).toBe('2027-01-31');
     expect(y2027[0]!.from).toBe('2027-02-01');
+  });
+});
+
+describe('the licensed-place cap — the cap is on a place, not a child', () => {
+  /*
+    Handbook Glossary: a funded child hour is "an occupied child-place that is funded for 1 hour",
+    capped at "6 FCHs per child-place per day", and a child-place "may be used by more than 1 child
+    during the course of a day".
+
+    `childFunding` applies that per CHILD, which is exact whenever a day's children do not
+    outnumber the licensed places and over-states when they do. `placeCapExceedances` is the
+    reporting half: it names the days and the amounts and changes no figure.
+  */
+  const fourHours = (day: number) => [ev('in', at(day, 9)), ev('out', at(day, 13))];
+  const childOn = (id: string, days: number[]) =>
+    childFunding({
+      childId: id,
+      events: days.flatMap(fourHours),
+      timeZone: NZ,
+      period,
+      twentyHoursEce: false,
+    });
+
+  it('reports null when the licence is not stated, which is not the same as no exceedance', () => {
+    /*
+      THE ASSERTION MOST LIKELY TO BE BROKEN BY A LATER "TIDY-UP". `null` and `[]` mean different
+      things: null is "nobody has told this product how many places it is licensed for", and `[]`
+      is "checked, and every day is within the licence".
+
+      `centres.licensed_places` is nullable precisely so a default cannot produce confident figures
+      against a number no centre gave — 0050 — and collapsing null to `[]` here would turn "not
+      asked" into "no problem found", on a funding figure.
+    */
+    const children = [childOn('a', [3]), childOn('b', [3])];
+    expect(placeCapExceedances({ children, licensedPlaces: null })).toBeNull();
+    // And with a licence, the same children yield an array — possibly empty, but never null.
+    expect(placeCapExceedances({ children, licensedPlaces: 10 })).toEqual([]);
+  });
+
+  it('says nothing when the children fit inside the licence', () => {
+    // Two children, four hours each on one day, two licensed places: 8 claimed against 12 allowed.
+    const children = [childOn('a', [3]), childOn('b', [3])];
+    expect(placeCapExceedances({ children, licensedPlaces: 2 })).toEqual([]);
+  });
+
+  it('names the day when children share places and the total exceeds the licence', () => {
+    /*
+      THE CASE THE WHOLE FUNCTION EXISTS FOR, and it is a sessional service: a morning child and an
+      afternoon child sharing ONE licensed place.
+
+      Two children × 4 hours = 8 hours claimed on a place that can yield 6. Per child this product
+      claims 4 + 4 = 8, because neither child exceeded the 6-hour daily cap on their own. The
+      over-statement is only visible with both children in view.
+    */
+    const children = [childOn('a', [3]), childOn('b', [3])];
+    const out = placeCapExceedances({ children, licensedPlaces: 1 });
+    expect(out).toEqual([{ date: '2026-08-03', claimedHours: 8, allowedHours: 6 }]);
+  });
+
+  it('checks each day separately and reports them in order', () => {
+    // Three children on the 4th, two on the 3rd, one licensed place. Both days exceed, and the
+    // amounts differ — a single "the licence is exceeded" flag would lose that.
+    const children = [childOn('a', [3, 4]), childOn('b', [3, 4]), childOn('c', [4])];
+    const out = placeCapExceedances({ children, licensedPlaces: 1 });
+    expect(out).toEqual([
+      { date: '2026-08-03', claimedHours: 8, allowedHours: 6 },
+      { date: '2026-08-04', claimedHours: 12, allowedHours: 6 },
+    ]);
+  });
+
+  it('changes no figure — the funded totals are untouched', () => {
+    /*
+      Deliberate, and the reason is worth pinning rather than leaving to a comment. Trimming the
+      excess would need an attribution rule — WHICH child's hours go — that nothing read so far
+      supplies, and RS7 needs the surviving hours split by age band and 20 Hours status, so an
+      invented trim would propagate into a Crown return. The choice is the service's to make and
+      defend.
+    */
+    const children = [childOn('a', [3]), childOn('b', [3])];
+    const summary = summariseFunding(period, children);
+    placeCapExceedances({ children, licensedPlaces: 1 });
+    expect(summary.totalFundedHours).toBe(8);
+    expect(children[0]!.fundedHours).toBe(4);
+  });
+
+  it('exposes daily-capped hours per date, and says why that is not funded-hours-per-date', () => {
+    /*
+      `dailyCappedByDate` is before the WEEKLY cap, and `sum` of it equals `fundedHours` only when
+      no week was capped. Asserted in both directions here, because the difference is exactly the
+      thing a future reader will want to "fix" by renaming it `fundedByDate`.
+
+      Five eight-hour days: each capped to 6, so the map holds 6 five times = 30, and the weekly cap
+      is also 30, so they agree. Six days would not agree, and the Handbook does not say which day
+      loses the excess — which is why no such field exists.
+    */
+    const r = childFunding({
+      childId: 'c',
+      events: [3, 4, 5, 6, 7].flatMap(fullDay),
+      timeZone: NZ,
+      period,
+      twentyHoursEce: true,
+    });
+    expect(Object.keys(r.dailyCappedByDate)).toHaveLength(5);
+    expect(r.dailyCappedByDate['2026-08-03']).toBe(6);
+    const summed = Object.values(r.dailyCappedByDate).reduce((t, h) => t + h, 0);
+    expect(summed).toBe(30);
+    expect(summed).toBe(r.fundedHours);
   });
 });

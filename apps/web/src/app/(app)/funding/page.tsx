@@ -1,9 +1,11 @@
 import Link from 'next/link';
 import { listChildren, listFundingReceipts, readFundingPeriod } from '@ece/api';
 import {
+  DEFAULT_CAPS,
   displayName,
   exportDisclaimer,
   formatCents,
+  placeCapExceedances,
   summariseVariance,
   todayInZone,
   type FundingPeriod,
@@ -162,6 +164,74 @@ export default async function FundingPage({
                 Whether the attendance record covers this whole period was not checked.
               </p>
             )}
+          </div>
+        );
+      })()}
+
+      {/*
+        THE LICENSED-PLACE CAP, reported and never applied.
+
+        The funding cap is 6 funded child hours per licensed child-place per day, and this product
+        computes it per CHILD — which is exact whenever a day's children do not outnumber the
+        places, and over-states when they do. A sessional service where a morning child and an
+        afternoon child share one place is the case: neither child exceeds six hours, and the place
+        yields more than six.
+
+        Nothing is reduced. Which child's hours would go is not stated by anything read so far, and
+        RS7 needs the surviving hours split by age band and 20 Hours status — so a trim here would
+        propagate an invented attribution into a Crown return. The day and the amount are named
+        instead, which is the same treatment a broken attendance day gets.
+
+        Null means the centre has not stated its licence, and that renders as a sentence rather than
+        as reassurance — the `overdue: null` contract, and the same reason the occupancy report
+        declines to compute a percentage without a denominator.
+      */}
+      {(() => {
+        const exceedances = placeCapExceedances({
+          children: summary.children,
+          licensedPlaces: ctx.centre.licensedPlaces,
+        });
+
+        if (exceedances === null) {
+          return summary.children.length === 0 ? null : (
+            <p className="sub">
+              Your licensed places are not recorded, so this could not check whether any day claims
+              more hours than your licence allows. Add the figure in{' '}
+              <Link href="/settings">Settings</Link> and it will.
+            </p>
+          );
+        }
+        if (exceedances.length === 0) return null;
+
+        return (
+          <div
+            className="card"
+            style={{
+              background: 'var(--breach-soft)',
+              borderColor: 'var(--breach-border)',
+            }}
+          >
+            <p style={{ marginTop: 0 }} role="status">
+              <strong>
+                {exceedances.length === 1
+                  ? 'One day claims more hours than your licence allows'
+                  : `${exceedances.length} days claim more hours than your licence allows`}
+              </strong>
+            </p>
+            <p>
+              Funding is capped at {DEFAULT_CAPS.maxHoursPerDay} hours per licensed place per day,
+              and you are licensed for {ctx.centre.licensedPlaces}. The figures below are{' '}
+              <strong>not</strong> reduced — which hours to drop is your decision and not this
+              system&rsquo;s, so the days are named instead.
+            </p>
+            <ul style={{ marginBottom: 0 }}>
+              {exceedances.map((e) => (
+                <li key={e.date}>
+                  {e.date} — {e.claimedHours.toFixed(2)} claimed against {e.allowedHours.toFixed(2)}{' '}
+                  allowed
+                </li>
+              ))}
+            </ul>
           </div>
         );
       })()}

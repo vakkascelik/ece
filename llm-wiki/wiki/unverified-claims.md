@@ -2003,7 +2003,7 @@ signal than that shape was.
 which would show the arithmetic directly. Reading those examples is the cheapest route and is the
 next thing to do before `rs7.ts` is written.
 
-### 57. The funding caps are per licensed child-place and this product applies them per child — **OPEN, added 2026-09-04, and it is the second reason the calculation cannot stay per-child**
+### 57. The funding caps are per licensed child-place and this product applies them per child — **REPORTED as of 2026-09-04, still not APPLIED, and the split is deliberate**
 
 | | |
 |---|---|
@@ -2040,8 +2040,48 @@ apart from different chapters, both saying the unit of funding is a place and no
 
 **So absence funding was NOT built on top of this.** Implementing §6-5 to §6-7 per child, over a
 per-child cap that should be per-place, would compound one wrong unit with another and produce a
-figure that is harder to correct than the one it replaced. The next step for Phase 2 is the
-restructuring, not the absence rules.
+figure that is harder to correct than the one it replaced.
+
+---
+
+#### Corrected the same day: the restructuring is smaller than the paragraph above claimed
+
+That paragraph said the calculation has to move from per-child to per-place. **It does not**, and
+the arithmetic settles it: the per-child cap is **exact** whenever a day's children do not outnumber
+the licensed places, because `sum(min(hᵢ, 6)) ≤ 6N ≤ 6P`. It over-states only when N > P — a
+sessional service where a morning child and an afternoon child share a place, or a day with
+conditional enrolments, which the Glossary defines as being *above* the licensed maximum.
+
+So the fix is an **additive aggregate cap**, not a restructuring, and the per-child figures stay
+exactly as they are for every all-day service that is not over-subscribed.
+
+#### What was built: the reporting half
+
+`placeCapExceedances({ children, licensedPlaces, caps })` in `packages/core/src/funding.ts`,
+reported on `/funding`, with six tests and a mutation drill on the three-state contract.
+
+- **Three states, and `null` is not `[]`.** Null means the centre has not stated its licence, so the
+  question was not asked; `[]` means checked and every day is inside it. The screen renders null as
+  a sentence pointing at Settings, not as reassurance — the `overdue: null` contract, and the same
+  reason `0050` makes the occupancy report decline a percentage without a denominator. The mutation
+  drill collapsed null to `[]` and the suite failed on exactly that assertion.
+- **It changes no figure**, and that is the decision rather than an omission. Trimming the excess
+  needs an attribution rule — *which* child's hours go — that nothing read so far supplies, and RS7
+  needs the surviving hours split by age band and 20 Hours status, so an invented trim would
+  propagate into a Crown return. The day and the amount are named instead, which is the treatment a
+  broken attendance day already gets.
+- **`ChildFunding.dailyCappedByDate`** was added to make the day-level check possible, and it is
+  named for what it is: hours **before** the weekly cap. There is deliberately no `fundedByDate`,
+  because when a week is capped the Handbook states the maximum and does not say which days lose the
+  excess. `sum(dailyCappedByDate) === fundedHours` only when no week was capped, which is an
+  uncomfortable invariant and the honest one — a single plausible `fundedByDate` would have hidden
+  it.
+
+#### What is still open
+
+Applying the cap, which needs the attribution rule; enforcing the two capacity conditions the
+Glossary attaches to *permanent* and *conditional* enrolments; and `centres.licensed_places` being
+**nullable**, so for a centre that has not stated its licence none of this can be computed at all.
 
 ## See Also
 

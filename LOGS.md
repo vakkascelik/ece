@@ -7,6 +7,50 @@ itself, and from the wiki pages, which hold the durable *why*. This file is the 
 
 ---
 
+## 2026-09-04 (fifth) — The place cap gets reported, and my own conclusion needed correcting first
+
+The previous entry ended by saying Phase 2 needed the calculation restructured from per-child to
+per-place. **That was an overstatement and the arithmetic disproves it**, which is worth leading with
+because it made this piece of work about a fifth the size.
+
+A per-child cap is **exact** whenever a day's children do not outnumber the licensed places:
+`sum(min(hᵢ, 6)) ≤ 6N ≤ 6P`. It can only over-state when N > P, which happens in a sessional service
+where a morning child and an afternoon child share a place, and on a day carrying conditional
+enrolments — which the Glossary defines as being *above* the licensed maximum. So every all-day
+service that is not over-subscribed already had correct figures, and what was needed is an
+**additive aggregate cap**, not a rewrite.
+
+I had reasoned from "the cap is on a different unit" straight to "the calculation must change unit",
+without checking when the two units actually diverge. They diverge in one identifiable case, and the
+product now records which services are in it — `centres.service_model` from two days ago.
+
+**What was built.** `placeCapExceedances` in `packages/core/src/funding.ts`: given the period's
+children and the centre's licensed places, it returns the days where the total claimable hours exceed
+6 × places, with the claimed and allowed amounts. Reported on `/funding` in a card that says plainly
+that the figures are **not** reduced. Six tests.
+
+**Three states, and the drill was on the one that matters.** `null` means the centre has not stated
+its licence — the question was not asked — and `[]` means checked and every day is inside it. The
+screen renders null as a sentence pointing at Settings rather than as silence, because silence reads
+as reassurance. Mutating `return null` to `return []` failed the suite on exactly the assertion that
+names the distinction, which is what I wanted to know: that test is the only thing standing between
+this and a later tidy-up that turns "not asked" into "no problem found" on a funding figure.
+
+**What was deliberately not built: applying the cap.** Trimming the excess needs an attribution rule
+— which child's hours go — and nothing read so far supplies one. RS7 needs the surviving hours split
+by age band and 20 Hours status, so an invented trim would propagate into a Crown return rather than
+staying a display choice. Naming the day and the amount is the same treatment a broken attendance day
+already gets: excluded from any claim of correctness, and handed to the person who can act on it.
+
+**A naming decision worth recording.** The day-level check needs per-date hours, so `ChildFunding`
+gained `dailyCappedByDate`. The tempting name is `fundedByDate`, and it would be wrong: when the
+**weekly** cap bites, the Handbook states the maximum and does not say which days lose the excess. So
+per-date *funded* hours are not a defined quantity, while per-date *daily-capped* hours are. The
+consequence is that `sum(dailyCappedByDate) === fundedHours` only when no week was capped — an
+invariant that will look like a bug to the next reader, and a test asserts it in both directions with
+the reason. A single plausible `fundedByDate` would have hidden an invented allocation behind a
+number that looked fine.
+
 ## 2026-09-04 (fourth) — Absence funding was not built, and the reason is the point
 
 Phase 2c was next. The previous entry said to read §9-2's worked examples first, because three things

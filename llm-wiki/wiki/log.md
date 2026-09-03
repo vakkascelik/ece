@@ -5,6 +5,34 @@ says so.*
 
 ---
 
+2026-09-04 (fifth) — **The licensed-place cap is now reported, and the restructuring it seemed to
+need turned out to be smaller than I said.** Corrected: [[unverified-claims]] item 57's own
+conclusion, written hours earlier — it claimed the calculation must move from per-child to
+per-place, and the arithmetic says otherwise.
+
+**The correction first, because it made the work smaller.** A per-child cap is **exact** whenever a
+day's children do not outnumber the licensed places: `sum(min(hᵢ, 6)) ≤ 6N ≤ 6P`. It over-states
+only when N > P — a sessional service sharing a place between a morning and an afternoon child, or a
+day carrying conditional enrolments, which the Glossary defines as being *above* the licensed
+maximum. So an **additive aggregate cap** is the fix, and every all-day service that is not
+over-subscribed keeps figures that were already right.
+
+**Built: `placeCapExceedances`**, which names the days and the amounts and reduces nothing. Six
+tests, and a mutation drill on the part most likely to be tidied away later — `null` (the licence is
+not stated) collapsed to `[]` (checked, nothing wrong) made the suite fail on exactly that
+assertion.
+
+**Not built: applying it.** Which child's hours to drop is not stated by anything read so far, and
+RS7 needs the surviving hours split by age band and 20 Hours status — so a trim would propagate an
+invented attribution into a Crown return. The service's decision to make and defend, not this
+product's to make quietly.
+
+**And one field was named carefully rather than conveniently.** The day-level check needs per-date
+hours, so `ChildFunding.dailyCappedByDate` exists — hours **before** the weekly cap, said in the
+name. There is no `fundedByDate`, because when a week is capped the Handbook gives the maximum and
+does not say which days lose the excess. So `sum(dailyCappedByDate)` equals `fundedHours` only when
+no week was capped: an uncomfortable invariant, and the honest one.
+
 2026-09-04 (fourth) — **Absence funding was NOT built, because reading the Glossary first found
 that the caps are on the wrong unit.** New: [[unverified-claims]] item 57. Corrected: `funding.ts`'s
 note that the §9-2/§9-3 unit discrepancy was unresolvable — the Glossary resolves it — and

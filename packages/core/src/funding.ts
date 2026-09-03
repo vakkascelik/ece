@@ -359,6 +359,25 @@ export interface ChildFunding {
    * the call site.
    */
   plusTenHours: number;
+  /**
+   * Daily-capped hours per date — **before the weekly cap**, and the name says so on purpose.
+   *
+   * Exposed for one reason: the licensed-place cap is a **daily** constraint (6 funded child
+   * hours per child-place per day), so checking it needs each date's hours across every child.
+   * See `placeCapExceedances`.
+   *
+   * WHY NOT "FUNDED HOURS PER DATE", WHICH IS WHAT A READER WILL WANT. Because that quantity is
+   * not defined by anything read so far. When the **weekly** cap bites — a week's daily-capped
+   * hours exceeding 30 — the Handbook states the maximum and does not say which days lose the
+   * excess. Allocating it would be inventing an attribution rule and then reporting per-date
+   * figures derived from the invention.
+   *
+   * So `sum(dailyCappedByDate)` equals `fundedHours` **only when no week was capped**. That is an
+   * uncomfortable invariant and it is the honest one: the daily figures are exact, the weekly
+   * total is exact, and the split of a weekly reduction across days is unknown. A single
+   * `fundedByDate` would have hidden that behind a plausible number.
+   */
+  dailyCappedByDate: Record<string, number>;
   /** Days where the daily cap bit, so a manager can see why attended and funded differ. */
   cappedDates: string[];
   /**
@@ -560,6 +579,7 @@ export function childFunding(input: {
     attendedHours: toHours(complete.reduce((t, d) => t + d.minutes, 0)),
     // Rounded down again after summing, so the total cannot creep above the sum of its parts.
     fundedHours: Math.floor(fundedHours * 100) / 100,
+    dailyCappedByDate: Object.fromEntries(perDay.map((d) => [d.date, d.hours])),
     // Floored the same way and for the same reason as the total above them.
     twentyHoursHours: Math.floor(twentyHoursHours * 100) / 100,
     plusTenHours: Math.floor(plusTenHours * 100) / 100,
@@ -731,6 +751,76 @@ export function exportDisclaimer(summary: FundingSummary): string {
     */
   }
   return parts.join(' ');
+}
+
+
+/**
+ * A day where the centre's claimable hours exceed what its licence allows.
+ *
+ * Handbook Glossary, read 2026-09-04: a funded child hour is *"an occupied child-place that is
+ * funded for 1 hour"*, and a service may be funded *"for up to 6 FCHs per child-place per day, to a
+ * maximum of 30 FCHs per child-place per week"*. A child-place *"may be used by more than 1 child
+ * during the course of a day"*.
+ *
+ * So the cap is on a **place**, and `childFunding` applies it to a **child**. That is exact whenever
+ * a day's children do not outnumber the licensed places — `sum(min(hᵢ, 6)) ≤ 6N ≤ 6P` — and it
+ * over-states when they do, which happens in a sessional service where a morning child and an
+ * afternoon child share a place, and on any day with conditional enrolments (which the Glossary
+ * defines as being *above* the licensed maximum).
+ */
+export interface PlaceCapExceedance {
+  date: string;
+  /** The centre's total daily-capped hours for that date, across every child. */
+  claimedHours: number;
+  /** `6 × licensed places`. */
+  allowedHours: number;
+}
+
+/**
+ * Which days exceed the licensed-place cap, or **null** when the licence is not stated.
+ *
+ * `null` is not an empty array, and the difference is the whole point — the same three-state
+ * contract as `periodPrecedesRecord` and `drillStatuses.overdue`. An empty array means *checked, and
+ * no day exceeds*. Null means *nobody has told this product how many places it is licensed for*, so
+ * the question was not asked. `centres.licensed_places` (0050) is nullable precisely because a
+ * default would produce confident figures against a number no centre gave.
+ *
+ * WHAT THIS DELIBERATELY DOES NOT DO: reduce anything. It reports the days and the amounts, and
+ * leaves the figures alone.
+ *
+ * Two reasons, and the second decides it. The obvious behaviour is to trim the excess — but nothing
+ * read so far says WHICH child's hours to trim, and RS7 needs the surviving hours split by age band
+ * and 20 Hours status, so a trim implies an attribution rule this product would be inventing. And
+ * the choice is the service's to make and to defend in an audit, not this product's to make
+ * silently. Naming the day and the amount is the same treatment a broken attendance day gets:
+ * excluded from any claim of correctness, and reported to the person who can act on it.
+ */
+export function placeCapExceedances(input: {
+  children: ChildFunding[];
+  /** From `centres.licensed_places`. Null means not stated. */
+  licensedPlaces: number | null;
+  caps?: FundingCaps;
+}): PlaceCapExceedance[] | null {
+  if (input.licensedPlaces === null) return null;
+
+  const caps = input.caps ?? DEFAULT_CAPS;
+  const allowedHours = caps.maxHoursPerDay * input.licensedPlaces;
+
+  const byDate = new Map<string, number>();
+  for (const child of input.children) {
+    for (const [date, hours] of Object.entries(child.dailyCappedByDate)) {
+      byDate.set(date, (byDate.get(date) ?? 0) + hours);
+    }
+  }
+
+  const out: PlaceCapExceedance[] = [];
+  for (const [date, claimed] of [...byDate.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+    // Floored the same way every other total here is, so a floating-point tail cannot invent an
+    // exceedance of 0.0000001 hours and put a warning on a screen for it.
+    const claimedHours = Math.floor(claimed * 100) / 100;
+    if (claimedHours > allowedHours) out.push({ date, claimedHours, allowedHours });
+  }
+  return out;
 }
 
 /**
