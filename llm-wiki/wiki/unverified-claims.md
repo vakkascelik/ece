@@ -2085,8 +2085,9 @@ Glossary attaches to *permanent* and *conditional* enrolments; and `centres.lice
 
 ### 58. Two of §6-1's required enrolment-record fields are still absent — **OPEN, added 2026-09-04**
 
-`0086` closed the third — the child's residential address — so this records what is left rather than
-what was found.
+`0086` closed the third — the child's residential address — and the commit after it made that table
+reachable, so this records what is left rather than what was found. **Two of the five fields below are
+still absent from the schema entirely**; the two that are done are done end to end, form included.
 
 §6-1 lists what an enrolment record must contain. Measured against the schema on 2026-09-04:
 

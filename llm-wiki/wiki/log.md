@@ -5,6 +5,50 @@ says so.*
 
 ---
 
+2026-09-04 (eighth) — **The address becomes reachable, and an `upsert` turns out to be a third
+statement under RLS.** New: two [[conventions]] traps and a named convention on natural-key
+identity. Corrected: [[eli-integration]]'s `ChildEnrolment` row, which said built where it now says
+reachable; [[unverified-claims]] item 58's opening, same distinction.
+
+`0086` shipped schema-only, so `child_addresses` had no reader or writer — the condition `0085` was
+criticised for one commit earlier. This closes it: `ChildAddress` in `@ece/core`,
+`packages/api/src/childAddresses.ts`, two server actions on `manageEnrolment`, and `AddressPanel` on
+the child record's **Whānau** tab rather than Documents, because a person looking for this thinks
+*"where does this child live"* and the guardian addresses are already there.
+
+**Three RLS assertions were missing and the gap was structural rather than careless.** The suite
+asserted a plain INSERT and a plain UPDATE on the table, and the application writes it with neither:
+`saveChildAddress` upserts on `(child_id, kind)`. `INSERT .. ON CONFLICT DO UPDATE` has to satisfy
+the insert policy's `WITH CHECK` **and** the update policy's `USING` and `WITH CHECK`, so it is a
+third statement and nothing had exercised it. Added: an owner replaces in place, the replacement
+leaves exactly one primary, and an educator's upsert is refused — with **42501, an error, not zero
+rows**, which means the API's error branch catches that one and not its zero-row guard. 670 → 673,
+and the replacement assertion was mutation-drilled against the pre-upsert value.
+
+**A `default now()` does not fire on the update half of an upsert**, so `recorded_at` is set in the
+payload. `saveCensusDetails` already did this for `updated_at`; the precedent is why there is no
+trigger.
+
+**Both writers key on `(child_id, kind)`, and the reason is that they must agree.** Keying the
+upsert on the pair and the delete on the surrogate `id` gives a screen that replaces a row its own
+delete button cannot find, and every save-and-read-back test still passes. The e2e assertion that
+earns its place is that removing the second household **leaves the first standing**.
+
+**A defect in the panel, found by writing the assertion for it rather than by running anything.**
+The inputs are uncontrolled, so after removing the second household they kept what was last typed —
+"No second household recorded" above a form still holding the address just deleted. `revalidatePath`
+re-rendered and the new `defaultValue` was ignored, because `defaultValue` seeds an input on mount
+and never again. Fixed with a `key` tied to the row id; recorded in [[conventions]] under server
+actions, because nothing in this repo would have caught it: the read-back assertion, the error
+assertion and the a11y audit all pass either way.
+
+**And a heading broke the accessibility audit without breaking accessibility.** `<h2>Where Tāne
+lives</h2>` matched `getByRole('heading', { name: /Tāne/ })` alongside the record's own `<h1>`, so
+the shared a11y test failed on a strict-mode violation *before* `auditPage` ran a single rule — a
+green-to-red that reported nothing about the page. Fixed at both ends: the heading is now a generic
+noun phrase like every other section on the record, and the shared locator says `level: 1`, which is
+what it always meant.
+
 2026-09-04 (seventh) — **Phase 2B: the child's residential address, and the schema is why it is
 five columns rather than one.** Corrected: [[eli-integration]]'s `ChildEnrolment` row and its
 *What is built* table, which have called the address the blocker since 2026-09-02. New:

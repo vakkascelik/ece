@@ -222,7 +222,16 @@ test.describe('staff screens', () => {
     test(`child record — the ${tab} tab`, async ({ page }) => {
       const t = tenant();
       await visit(page, `/children/${t.childId}/${tab}`);
-      await expect(page.getByRole('heading', { name: /Tāne/ })).toBeVisible();
+      /*
+        `level: 1` rather than any heading carrying the name, and this is a fix rather than a
+        tightening for its own sake: the whanau tab's address section (0086) is headed with a
+        sentence, and an earlier draft of it read "Where <name> lives" — which matched here as
+        well as the record's own h1 and failed the whole audit on a strict-mode violation before
+        `auditPage` ran a single accessibility rule. What this line means is "the record loaded
+        for the right child", and that is the h1. Any section heading is then free to say
+        whatever reads best without silently disabling an audit.
+      */
+      await expect(page.getByRole('heading', { level: 1, name: /Tāne/ })).toBeVisible();
       await auditPage(page, `/children/[id]/${tab}`);
     });
   }

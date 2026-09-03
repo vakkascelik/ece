@@ -393,3 +393,116 @@ test('an enrolment is filed as permanent, and the record says so', async ({ page
   await expect(schedule.locator('.error')).toHaveCount(0);
   await expect(schedule.getByText('not in force')).toBeVisible();
 });
+
+/**
+ * Where the child lives — `child_addresses` (0086).
+ *
+ * Its own test rather than an addition to the one above, even though §6-1 puts the address inside
+ * the enrolment record and the child would already exist. A failure here should name the address
+ * rather than appear as the fourth surprise in a test called "filed as permanent", and the two
+ * paths share nothing but a child.
+ *
+ * The table shipped with zero readers or writers, one commit after `0085` did the same, so this is
+ * the first proof the whole path works: form → server action → `caller_may_enrol` → the trim and
+ * `String100` CHECKs → read back.
+ */
+test('a child gets a residential address, and the second household can be removed', async ({
+  page,
+}) => {
+  const t = tenant();
+
+  await visit(page, '/children/new');
+  await page.getByLabel('First name').fill('Aroha');
+  await page.getByLabel('Last name').fill(`Addressed-${t.tag}`);
+  await page
+    .getByLabel('Date of birth')
+    .fill(new Date(Date.now() - 3 * 365 * 86_400_000).toISOString().slice(0, 10));
+  await page.getByRole('button', { name: 'Enrol' }).click();
+  await expect(page.getByRole('heading', { name: /Aroha/ })).toBeVisible();
+
+  // The panel is on the WHĀNAU tab, beside the people, not on Documents with the enrolment.
+  // A tab route, so a navigation rather than a toggle — the mistake that cost two runs on 2A.
+  await page
+    .getByRole('navigation', { name: /record/i })
+    .getByRole('link', { name: 'Whānau' })
+    .click();
+
+  const panel = page.locator('div.section').filter({ hasText: /Where .* lives/ });
+
+  /*
+    The gap is NAMED, not left blank, and that is an assertion rather than decoration: a missing
+    residential address is one of §6-1's required enrolment-record contents and a required element
+    on `ChildEnrolment`, so a record without one cannot be submitted even once submission exists.
+  */
+  await expect(panel.getByText('No home address recorded.')).toBeVisible();
+  await expect(panel.locator('span.flag').filter({ hasText: 'Not recorded' })).toBeVisible();
+
+  /*
+    Scoped to the `<section>`, not the panel: both forms carry a "Street address" and a "Town or
+    city", because there are two addresses in the schema and they take the same five fields.
+    Unscoped, `getByLabel('Street address')` matches twice and the test fails for a reason that
+    has nothing to do with the code under test.
+  */
+  const home = panel.locator('section').filter({ hasText: 'Home address' });
+  await home.getByLabel('Street address').fill('12 Example Road');
+  await home.getByLabel('Suburb or unit (optional)').fill('Mount Albert');
+  await home.getByLabel('Town or city').fill('Auckland');
+  await home.getByLabel('Postcode (optional)').fill('1025');
+  await home.getByRole('button', { name: 'Record' }).click();
+
+  // Before any reload, as everywhere in this suite: a refused write and a write that did not
+  // persist look identical afterwards, and `0086`'s write predicate is narrower than its read
+  // predicate — so this is the assertion that would catch a policy or grant mistake.
+  await expect(panel.locator('.error')).toHaveCount(0);
+
+  // Read back from the database, comma-joined in the order a person says an address.
+  await expect(panel.getByText('12 Example Road, Mount Albert, Auckland, 1025')).toBeVisible();
+  await expect(panel.locator('span.flag').filter({ hasText: 'Not recorded' })).toHaveCount(0);
+
+  /*
+    Country is deliberately NOT defaulted to New Zealand, and this pins it. The element is
+    optional and nillable; a value nobody typed would be the product asserting a country the
+    service never stated, which is what AGENTS.md §7 forbids. Blank is stored as null, so the
+    read-back above has four parts and not five.
+  */
+  await expect(home.getByLabel('Country (optional)')).toHaveValue('');
+
+  /*
+    THE PRIMARY HAS NO REMOVE BUTTON, and that is the screen's policy rather than the database's:
+    every field of it is overwritable, so removing it can only leave the enrolment record
+    incomplete against §6-1. The API function is not restricted this way.
+  */
+  await expect(home.getByRole('button', { name: /Remove/ })).toHaveCount(0);
+
+  /*
+    ---- the second household, which is the case the schema's optional address exists for ----
+
+    A child who lives in two places. Removal is offered here because "this child no longer has a
+    second household" is a real change no edit can express — the two required fields cannot be
+    blanked — and it exercises `deleteChildAddress` keyed on `(child_id, kind)` rather than on the
+    surrogate id, which is the identity decision `childAddresses.ts` makes and nothing else checks.
+  */
+  const second = panel.locator('section').filter({ hasText: 'Second household' });
+  await second.getByLabel('Street address').fill('9 Other Street');
+  await second.getByLabel('Town or city').fill('Auckland');
+  await second.getByRole('button', { name: 'Record' }).click();
+  await expect(panel.locator('.error')).toHaveCount(0);
+  await expect(panel.getByText('9 Other Street, Auckland')).toBeVisible();
+
+  await second.getByRole('button', { name: 'Remove the second household' }).click();
+  await expect(panel.locator('.error')).toHaveCount(0);
+  await expect(panel.getByText('No second household recorded.')).toBeVisible();
+
+  /*
+    And the FORM emptied with it. The inputs are uncontrolled, so without a key tied to the row
+    they keep what was last typed — a panel reading "No second household recorded" above a form
+    still holding the address just deleted, which looks like the removal failed. Asserting the
+    empty field is the only thing that catches that, because every other assertion here passes
+    either way.
+  */
+  await expect(second.getByLabel('Street address')).toHaveValue('');
+
+  // And removing the second did not take the first with it. The delete is keyed on the pair, so a
+  // predicate that dropped `kind` would empty both rows and pass every assertion above.
+  await expect(panel.getByText('12 Example Road, Mount Albert, Auckland, 1025')).toBeVisible();
+});

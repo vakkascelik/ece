@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import {
   getChild,
   listAdministrations,
+  listChildAddresses,
   listChildBookings,
   listChildIncidents,
   listConfirmations,
@@ -32,6 +33,7 @@ import {
 import { requireCtx } from '@/lib/auth';
 import { serverDb } from '@/lib/supabase';
 import { HelpNote } from '../../../HelpNote';
+import { AddressPanel } from '../AddressPanel';
 import { ArchivePanel } from '../ArchivePanel';
 import { BookingsPanel } from '../BookingsPanel';
 import { ConfirmPanel } from '../ConfirmPanel';
@@ -93,7 +95,7 @@ export default async function ChildTabPage({
   });
 
   if (tab === 'whanau') {
-    const [whanau, confirmations, custody] = await Promise.all([
+    const [whanau, confirmations, custody, addresses] = await Promise.all([
       listGuardiansOfChild(db, id),
       // Unconditional: a family is entitled to see when they last confirmed, and staff are
       // entitled to see it too — 0055's select policy is what decides who that is.
@@ -102,6 +104,10 @@ export default async function ChildTabPage({
       // also absent below; both halves matter, because a request that returns nothing still
       // tells a log that somebody asked.
       can(ctx.role, 'viewCustody') ? listCustodyArrangements(db, id) : Promise.resolve([]),
+      // Unconditional as well, and for the reason 0086's select policy already settles: an
+      // educator hands the child over at the door and may read where they go home to. What
+      // they do not get is the form, which is `canManage` below.
+      listChildAddresses(db, [id]),
     ]);
 
     const ownGuardianId = whanau.find((g) => g.guardian.userId === ctx.userId)?.guardian.id ?? null;
@@ -175,6 +181,47 @@ export default async function ChildTabPage({
               isParent={isParent}
             />
           </div>
+        </div>
+
+        {/*
+          Its own section rather than a card inside the whanau one, because it is a different
+          subject: those are people and this is a place. Directly beside them all the same, since
+          the case 0086 exists for is only obvious next to them — a child living with a
+          grandparent while the first contact is a parent somewhere else.
+
+          `manageEnrolment` rather than the `canManage` used above, matching the capability the
+          action actually requires. The two role lists are identical today, so this is not a live
+          bug being fixed — it is a screen and a server action agreeing by name rather than by
+          coincidence, which is what stops the next change to one list from drawing a form that
+          can only fail.
+        */}
+        <div className="section">
+          <div className="has-help">
+            <h2>Where the child lives</h2>
+            <HelpNote label="Where the child lives">
+              <p>
+                The child&rsquo;s own residential address, which the ECE Funding Handbook requires
+                as part of the enrolment record. It is deliberately separate from the addresses on
+                the contacts above: a child may live with a grandparent while the first person you
+                ring is a parent somewhere else.
+              </p>
+              <p>
+                Five fields rather than one box because the Ministry&rsquo;s enrolment record asks
+                for the street and the town separately. Splitting one line into the two later would
+                mean guessing which part is the suburb.
+              </p>
+              <p>
+                A second household is for a child who lives in two places. Leave it empty
+                otherwise &mdash; an empty one says the same thing as no answer, which is the
+                honest record.
+              </p>
+            </HelpNote>
+          </div>
+          <AddressPanel
+            childId={id}
+            addresses={addresses}
+            canEdit={can(ctx.role, 'manageEnrolment')}
+          />
         </div>
 
         {/*

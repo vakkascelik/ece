@@ -127,6 +127,50 @@ export const ENROLMENT_TYPE_LABELS: Record<EnrolmentType, string> = {
   conditional: 'Conditional',
 };
 
+/**
+ * Where a child lives — the two addresses the ELI schema allows.
+ *
+ * Structured rather than free text, and the reason is the schema rather than tidiness:
+ * `ChildEnrolmentAddress` requires `Address1Line` and `AddressCity` as **separate** elements, so a
+ * single free-text field could not be serialised without splitting a New Zealand address by
+ * guesswork. See `0086`, and note `guardians.address` stays free text because it never goes on the
+ * wire.
+ *
+ * The three optional fields are `string | null` rather than `string | undefined` because the columns
+ * are nullable and a read site should have to acknowledge "not recorded" rather than find the key
+ * missing. What the *wire* does with a missing value is a boundary decision and not this type's
+ * business: those elements are `nillable`, so a serialiser may either omit them or send `xsi:nil`.
+ *
+ * `saveChildAddress` stores null for an optional field left blank, so an empty box and an untouched
+ * one are the same fact. That is a decision rather than an accident — storing `''` would put a
+ * present-but-empty element on a Crown return, which is the same class of defect as the blank
+ * required field the database refuses outright.
+ */
+export const ADDRESS_KINDS = ['primary', 'secondary'] as const;
+export type AddressKind = (typeof ADDRESS_KINDS)[number];
+
+/** What a person sees. `primary` is the one `ChildEnrolment` requires. */
+export const ADDRESS_KIND_LABELS: Record<AddressKind, string> = {
+  primary: 'Home address',
+  secondary: 'Second household',
+};
+
+export interface ChildAddress {
+  id: string;
+  childId: string;
+  kind: AddressKind;
+  /** `Address1Line`. Required by the schema, and a blank one is refused by the database. */
+  address1Line: string;
+  address2Line: string | null;
+  /** `AddressCity`. Required, same as line 1. */
+  addressCity: string;
+  addressCountry: string | null;
+  addressPostCode: string | null;
+}
+
+/** The schema's `String100` bound, enforced in the database and re-checked on the form. */
+export const ADDRESS_FIELD_MAX = 100;
+
 export interface Enrolment {
   id: string;
   childId: string;

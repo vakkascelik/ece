@@ -1107,6 +1107,32 @@ begin
   perform pg_temp.expect(n = 0, 'an educator CANNOT change a child''s address (0086)');
 end $$;
 
+/*
+ * AND NOT BY UPSERT EITHER, which is the statement `saveChildAddress` actually issues.
+ *
+ * The assertion above covers a bare UPDATE. `child_addresses` is written through an upsert on
+ * `(child_id, kind)`, and `INSERT .. ON CONFLICT DO UPDATE` is a different statement under RLS: it
+ * has to satisfy the insert policy's WITH CHECK and, on conflict, the update policy's USING and
+ * WITH CHECK. Nothing here tested that combination, so an educator reaching the table by the one
+ * route the application uses was unasserted.
+ *
+ * Note this is expected to ERROR rather than to match zero rows, unlike the UPDATE above: an
+ * insert refused by a policy raises 42501 instead of quietly matching nothing, which is why the
+ * API's error path and not its zero-row guard is what catches this one.
+ */
+do $$
+declare code text := 'none (the upsert SUCCEEDED)';
+begin
+  begin
+    insert into public.child_addresses (child_id, kind, address1_line, address_city)
+    values ('a1111111-1111-4111-8111-111111111111', 'primary', '1 Educator Way', 'Somewhere Else')
+    on conflict (child_id, kind) do update
+      set address1_line = excluded.address1_line, address_city = excluded.address_city;
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '42501', 'an educator CANNOT upsert over a child''s address, got ' || code);
+end $$;
+
 -- A guardian reads their own child's address and cannot change it: the family supplies the
 -- fact, the service records it.
 set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
@@ -1144,6 +1170,37 @@ begin
 end $$;
 
 set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+
+/*
+ * The owner's upsert replaces in place rather than raising 23505 — the other half of the pair
+ * above, and the reason `0086` chose `unique (child_id, kind)` over an effective-dated chain.
+ * Asserted through the same statement the application issues, because "a plain UPDATE works" and
+ * "the upsert works" are different claims and only the second one is on the path a person uses.
+ */
+do $$
+declare n integer;
+begin
+  insert into public.child_addresses (child_id, kind, address1_line, address_city, address_post_code)
+  values ('a1111111-1111-4111-8111-111111111111', 'primary', '14 Example Road', 'Kingsland', '1021')
+  on conflict (child_id, kind) do update
+    set address1_line   = excluded.address1_line,
+        address_city    = excluded.address_city,
+        address_post_code = excluded.address_post_code,
+        recorded_at     = now();
+  get diagnostics n = row_count;
+  perform pg_temp.expect(n = 1, 'an owner CAN replace an address by upsert, not just insert (0086)');
+end $$;
+
+-- And it replaced rather than accumulated. A unique constraint plus DO UPDATE is the only reason
+-- there is one row here; the count is the assertion that the conflict target is the pair and not
+-- the surrogate id, which would have quietly produced two primary addresses.
+select pg_temp.expect(
+  (select count(*) from public.child_addresses
+    where child_id = 'a1111111-1111-4111-8111-111111111111' and kind = 'primary') = 1
+  and (select address_city from public.child_addresses
+        where child_id = 'a1111111-1111-4111-8111-111111111111' and kind = 'primary') = 'Kingsland',
+  'the upsert REPLACED the primary address rather than adding a second (0086)'
+);
 
 -- ===========================================================================
 -- 0085 — the child booking schedule: the enrolment agreement as a pattern

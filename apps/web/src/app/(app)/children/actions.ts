@@ -29,6 +29,8 @@ import {
   createChild,
   addScheduleBlock as addScheduleBlockRow,
   createEnrolment,
+  saveChildAddress as saveChildAddressRow,
+  deleteChildAddress as deleteChildAddressRow,
   deleteScheduleBlock as deleteScheduleBlockRow,
   endScheduleBlock as endScheduleBlockRow,
   createGuardian,
@@ -47,6 +49,8 @@ import {
   updateGuardianLink,
 } from '@ece/api';
 import {
+  ADDRESS_FIELD_MAX,
+  ADDRESS_KINDS,
   CONSENT_KINDS,
   ENROLMENT_TYPES,
   GENDERS,
@@ -55,6 +59,7 @@ import {
   IMMUNISATION_STATUSES,
   REQUIRED_CONSENTS,
   todayInZone,
+  type AddressKind,
   type ConsentKind,
   type EnrolmentType,
   type Gender,
@@ -1033,5 +1038,100 @@ export async function removeScheduleBlock(_prev: unknown, form: FormData): Promi
     return actionError(e, 'children.removeScheduleBlock');
   }
   revalidatePath(`/children/${childId}/documents`);
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Where the child lives (0086)
+// ---------------------------------------------------------------------------
+
+/*
+  Two actions rather than three, unlike the schedule above. An address is replaced in place — one
+  primary and one secondary per child, `unique (child_id, kind)` — so recording and correcting are
+  the same gesture and `saveChildAddressRow` upserts. There is no "end this address" because no
+  funding figure is computed against an address, which is the whole reason `0086` chose replacement
+  over the effective-dated chain `0085` needed.
+
+  `manageEnrolment` again, not `manageCentre`: §6-1 puts the address *inside* the enrolment record,
+  and `caller_may_enrol` in the migration is narrower still. An educator sees the address rendered
+  and no form.
+
+  THE LENGTH CHECK IS A DELIBERATE SECOND COPY of the database's `String100` CHECK, for the reason
+  `addScheduleBlock` gives about `toTime > fromTime`: a `23514` naming
+  `child_addresses_within_string100` reaching a centre manager is a worse message than a sentence.
+  What is *not* duplicated is the decision — the database still refuses the row if this is ever
+  wrong, and `ADDRESS_FIELD_MAX` is the one constant both this and the form read.
+*/
+
+export async function saveChildAddress(_prev: unknown, form: FormData): Promise<Result> {
+  await requireCapability('manageEnrolment');
+  const db = await serverDb();
+
+  const childId = str(form, 'childId');
+  const kind = oneOf<AddressKind>(str(form, 'kind'), ADDRESS_KINDS);
+  const address1Line = str(form, 'address1Line');
+  const address2Line = str(form, 'address2Line');
+  const addressCity = str(form, 'addressCity');
+  const addressCountry = str(form, 'addressCountry');
+  const addressPostCode = str(form, 'addressPostCode');
+
+  if (!childId) return { error: 'Missing child.' };
+  if (!kind) return { error: 'Choose which address this is.' };
+
+  // The two the ELI schema requires. `str` has already trimmed, so a box holding only spaces
+  // fails here rather than reaching the trim CHECK — which is the same refusal, said better.
+  if (!address1Line) return { error: 'Give the street address.' };
+  if (!addressCity) return { error: 'Give the town or city.' };
+
+  const overLong = (
+    [
+      ['The street address', address1Line],
+      ['The second address line', address2Line],
+      ['The town or city', addressCity],
+      ['The country', addressCountry],
+      ['The postcode', addressPostCode],
+    ] as const
+  ).find(([, value]) => value.length > ADDRESS_FIELD_MAX);
+  if (overLong) {
+    return { error: `${overLong[0]} has to be ${ADDRESS_FIELD_MAX} characters or fewer.` };
+  }
+
+  const { data: auth } = await db.auth.getUser();
+  try {
+    await saveChildAddressRow(
+      db,
+      {
+        childId,
+        kind,
+        address1Line,
+        address2Line,
+        addressCity,
+        addressCountry,
+        addressPostCode,
+      },
+      auth.user?.id ?? null,
+    );
+  } catch (e) {
+    return actionError(e, 'children.saveChildAddress');
+  }
+  revalidatePath(`/children/${childId}/whanau`);
+  return { ok: true };
+}
+
+export async function removeChildAddress(_prev: unknown, form: FormData): Promise<Result> {
+  await requireCapability('manageEnrolment');
+  const db = await serverDb();
+
+  const childId = str(form, 'childId');
+  const kind = oneOf<AddressKind>(str(form, 'kind'), ADDRESS_KINDS);
+  if (!childId) return { error: 'Missing child.' };
+  if (!kind) return { error: 'Missing address.' };
+
+  try {
+    await deleteChildAddressRow(db, childId, kind);
+  } catch (e) {
+    return actionError(e, 'children.removeChildAddress');
+  }
+  revalidatePath(`/children/${childId}/whanau`);
   return { ok: true };
 }

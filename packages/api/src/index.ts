@@ -259,6 +259,11 @@ export * from './census';
 // vocabulary — and separate from `census.ts` because the two tables share a shape and nothing
 // else: one is a staff contract, the other a parent-signed agreement.
 export * from './bookingSchedule';
+
+// Where a child lives (0086). Its own module rather than part of `children.ts` for the reason
+// `bookingSchedule` is: the enrolment vocabulary in there is already large, and this table has
+// a different write predicate and a different identity rule from everything beside it.
+export * from './childAddresses';
 // Definer functions only — a kiosk holds no table grant, so there is nothing here to
 // select from and no query for a later reader to widen.
 export * from './kiosk';

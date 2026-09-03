@@ -7,6 +7,115 @@ itself, and from the wiki pages, which hold the durable *why*. This file is the 
 
 ---
 
+## 2026-09-04 (eighth) — the address becomes reachable, and what an `upsert` is under RLS
+
+`0086` landed schema-only, which left `child_addresses` with no reader or writer — the exact
+condition I had criticised `0085` for one commit earlier. This commit closes it, and the interesting
+part is not the form.
+
+### What shipped
+
+`ChildAddress` and `ADDRESS_KINDS` in `@ece/core`; `packages/api/src/childAddresses.ts` with
+`listChildAddresses`, `saveChildAddress` and `deleteChildAddress`; `saveChildAddress` and
+`removeChildAddress` server actions gated on `manageEnrolment`; and `AddressPanel` on the child
+record's **Whānau** tab.
+
+Not the Documents tab where the enrolment and the booking schedule live. §6-1 puts the address inside
+the enrolment record, so Documents is the defensible answer — but a person looking for this is
+thinking *"where does this child live"*, not *"what does the enrolment say"*, and the guardian
+addresses are already on Whānau. Somebody comparing the two should not have to change tabs, and the
+case `0086` exists for is only obvious next to them: a child living with a grandparent while the
+first contact is a parent somewhere else.
+
+### The finding: an `upsert` is a third statement under RLS
+
+`0086` shipped with fourteen RLS assertions and I described them as thorough. They cover a plain
+INSERT by an owner and a plain UPDATE by an educator and a guardian. **The application issues
+neither.** `saveChildAddress` upserts on `(child_id, kind)`, and `INSERT .. ON CONFLICT DO UPDATE`
+must satisfy the insert policy's `WITH CHECK` *and*, on conflict, the update policy's `USING` and
+`WITH CHECK`. Nothing had exercised that combination, so the one route a person actually takes to
+this table was unasserted while the suite reported eleven passes on it.
+
+Three assertions added, 670 → 673:
+
+- an owner **replaces in place** through the upsert rather than hitting `23505`
+- the replacement leaves **exactly one** primary row, with the new city — mutation-drilled by
+  asserting the pre-upsert value, which fails on its own label
+- an educator's upsert is **refused**
+
+That last one carries a detail worth keeping. It fails with **42501 — an error, not zero rows**,
+unlike the refused UPDATE two assertions above it. So it is the API's `error` branch that catches an
+educator here, and not the zero-row guard that catches every other refusal in the package. I
+expected 42501 and asserted it directly rather than capturing whatever came back; it was right, but
+the honest note is that asserting a guessed sqlstate is a coin toss and the alternative — record
+what happens, then pin it — is the better habit.
+
+### A default that does not fire
+
+`recorded_at timestamptz not null default now()` is correct on the insert and frozen forever
+afterwards, because **a column default does not fire on the UPDATE half of an upsert**. Left alone,
+the column would report when the child's first address was typed in while the address changed
+underneath it — a timestamp that is wrong in the direction that looks plausible. It goes in the
+payload instead. `saveCensusDetails` already did exactly this for `updated_at`, which is why there
+is no trigger: the precedent existed and adding a second mechanism would have been the duplication
+this repo keeps catching.
+
+### Both writers key on the pair, and the reason is not elegance
+
+`saveChildAddress` upserts on `(child_id, kind)` and `deleteChildAddress` deletes on it. Neither
+takes the `id`, and the rule is not "prefer natural keys" — it is that **the two writers have to
+agree**, because the failure when they disagree is quiet: a screen that replaces a row its own delete
+button cannot find, with every save-and-read-back test still green.
+
+Which key to pick follows from the shape. `child_booking_schedule` rows are a **list** — several
+blocks on one weekday — so the `id` is the only thing telling one Tuesday from another. Addresses are
+**named slots**: there cannot be two of a kind, so nothing needs to tell two apart. The e2e assertion
+that earns its place is therefore not that saving works, it is that **removing the second household
+leaves the first one standing** — a delete predicate that dropped `kind` would empty both rows and
+pass everything else on the panel.
+
+### A defect found by writing the assertion, not by running it
+
+Removing the second household left the panel reading "No second household recorded" above a form
+still holding the address that had just been deleted. The inputs are uncontrolled; `revalidatePath`
+re-rendered the server component with an empty `defaultValue` and React ignored it, because
+`defaultValue` seeds an input on mount and never again.
+
+This is the worse of the two possible failures. A stale read-back looks like a bug; a stale **form**
+looks like the delete did not work, which is what somebody would then try again. And nothing here
+would have caught it — the read-back assertion passes, the error assertion passes, the accessibility
+audit passes. I found it by asking what the next assertion should be, and the answer was "the field
+is empty", which it was not.
+
+Fixed with `key={existing?.id ?? 'none'}` on the form: keyed on the id rather than the slot, so
+replacing an address does not remount the inputs under the cursor while deleting one clears them.
+
+### The mistake: a heading that broke the accessibility audit without breaking accessibility
+
+I headed the section `<h2>Where {child.firstName} lives</h2>`, which reads better than the
+alternative. It also matched `getByRole('heading', { name: /Tāne/ })` alongside the record's own
+`<h1>`, so the shared a11y test for the whānau tab failed on a **strict-mode locator violation
+before `auditPage` ran a single accessibility rule**. A red cross that reported nothing at all about
+the page — and had it been a `.first()` instead of a strict locator, it would have reported a green
+one just as uninformatively.
+
+Fixed at both ends rather than one. The heading is now a generic noun phrase, which every other
+section on this record already was — mine was the only one interpolating a name. And the shared
+locator says `level: 1`, which is what it always meant: *the record loaded for the right child*.
+That way the next section heading is free to say whatever reads best without silently disabling an
+audit of four screens.
+
+### And one error that no tool would ever have found
+
+The panel's warning said a guardian's *"address below is not the same fact"*. The guardian section
+renders **above** it. No assertion touches that sentence, no check reads English, and it would have
+shipped as a small piece of nonsense in the one paragraph whose whole job is to explain why two
+similar things are different. Found by reading the file back rather than by running anything, which
+is the only method available for this class of mistake and the reason the read-back is worth doing.
+
+Corrected before the commit, and the full suite re-run afterwards rather than inferring that a
+one-word prose change could not matter — 122/122 both times.
+
 ## 2026-09-04 (seventh) — Phase 2B: the address, and why the schema made it five columns
 
 `0086` adds `child_addresses`, closing the last ELI event blocker in the child data and one of

@@ -828,6 +828,18 @@ skips.
 - **`upsert` without `ignoreDuplicates` needs `UPDATE` privilege.** On an append-only table it
   fails with `42501` before any `CHECK` is evaluated — which can make a test pass for the
   wrong reason.
+- **A column `default` does not fire on the UPDATE half of an `upsert`.** Obvious once said and
+  invisible in review: `recorded_at timestamptz not null default now()` is correct on the insert
+  and frozen forever after, so the column goes on reporting when the row was *first* written while
+  the data it describes changes underneath it. Put the timestamp in the payload.
+  `saveCensusDetails` and `saveChildAddress` both do; neither table has a trigger for it.
+- **An `upsert` is a third statement under RLS, not an insert or an update.** `INSERT .. ON
+  CONFLICT DO UPDATE` must satisfy the insert policy's `WITH CHECK` *and*, on conflict, the update
+  policy's `USING` and `WITH CHECK`. Two consequences. A suite that asserts a plain INSERT and a
+  plain UPDATE separately has **not** asserted the statement the application issues — `0086` had
+  fourteen assertions and none of them covered its only writer until three more were added. And the
+  refusal is a **42501 error, not zero rows**, so it is the API's `error` branch that catches it and
+  not the zero-row guard, which is the opposite of how a refused UPDATE behaves.
 - **A concatenated `select()` string silently loses the row type.** `supabase-js` infers the
   result from the *literal text* of the select, so `'id, name' + ', more'` degrades the return
   to `GenericStringError[]`. The visible symptom is a confusing `TS2352` on the cast that
@@ -918,6 +930,28 @@ lives in `tokens.ts` and a stylesheet wants it, emit it rather than copying it.
 - **`dotenv-cli` wraps the Next scripts.** Next ignores a monorepo root `.env.local`, and the
   failure is delayed — `next build` succeeds and only a real request fails.
 
+### When a unique constraint names the natural key, every writer keys on it
+
+`child_addresses` has a surrogate `id` and `unique (child_id, kind)`. `saveChildAddress` upserts on
+the pair and `deleteChildAddress` deletes on the pair; neither takes the `id`.
+
+The rule is not "prefer natural keys" — it is that **the two writers must agree**, because the
+failure when they disagree is quiet. Keying the upsert on the pair and the delete on the `id` gives
+a screen that replaces a row its own delete button cannot find, and every test that saves and reads
+back still passes.
+
+Which one to pick follows from the shape rather than from taste. Ask whether the rows are a **list**
+or **named slots**:
+
+| | Identity | Why |
+|---|---|---|
+| `child_booking_schedule` (`0085`) | the `id` | rows genuinely are a list — several blocks on one weekday, a morning and an afternoon — and the `id` is the only thing telling one Tuesday from another |
+| `child_addresses` (`0086`) | `(child_id, kind)` | a home address and possibly a second household. There cannot be two of a kind, so nothing needs to tell two apart, and the pair is what a person means when they say "the second household" |
+
+The e2e assertion that matters here is not that a save works: it is that **removing the second
+household leaves the first one standing**. A delete predicate that dropped `kind` would empty both
+rows and pass every other assertion on the panel.
+
 ### Server actions
 
 A form `action` must return `void`, so an action returning `{ error }` needs `useActionState`
@@ -927,6 +961,21 @@ child's name on screen.
 
 Closing a panel on success belongs in a `useEffect`, not the render body: calling the parent's
 `setState` during render is a React error that only shows up in the console.
+
+**An uncontrolled form keyed on nothing keeps a deleted row's values.** `revalidatePath` re-renders
+the server component and the new `defaultValue` is ignored, because `defaultValue` seeds an
+uncontrolled input on mount and never again. The visible result after a delete is a panel reading
+"No second household recorded" **above a form still holding the address that was just removed** —
+the read-back correct, the form a ghost. It is the worse of the two possible failures, because it
+reads as though the delete did not work.
+
+Give the form a `key` tied to the row: `key={existing?.id ?? 'none'}`. Keyed on the **id** and not
+on the slot, so replacing a row's contents leaves the same key and does not remount the inputs
+under somebody's cursor, while deleting the row changes it and clears them.
+
+Nothing catches this on its own. The read-back assertion passes, the error assertion passes, the
+a11y audit passes. The only thing that finds it is asserting the **field** is empty after a delete,
+which is now in `journey.spec.ts` beside the address it removes.
 
 ### The wiki is updated before the commit, not after
 
