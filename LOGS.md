@@ -7,6 +7,70 @@ itself, and from the wiki pages, which hold the durable *why*. This file is the 
 
 ---
 
+## 2026-09-04 (fourth) — Absence funding was not built, and the reason is the point
+
+Phase 2c was next. The previous entry said to read §9-2's worked examples first, because three things
+in 2c depended on them. Those examples are **images**, so the page cannot answer anything — but the
+Handbook's Glossary can, and it answered more than I went looking for.
+
+**A funded child hour is a place-hour, not a child-hour.** Verbatim: *"An occupied child-place that
+is funded for 1 hour"*; services may be funded *"for up to 6 FCHs per child-place per day, to a
+maximum of 30 FCHs per child-place per week"*; and a child-place is *"each place for a child for
+which a service is licensed. Child-places may only be used by 1 child at a time but **may be used by
+more than 1 child during the course of a day**."*
+
+So two children each attending four hours may share one place: eight hours occupied on a place that
+yields six. This product, having just had its caps corrected to 6 and 30, applies them **per child**
+and would claim 4 + 4 = 8. Two hours nobody was entitled to — and completely invisible from inside
+`childFunding`, which receives one child and cannot see the other.
+
+The approximation is exact for an all-day service where each child holds a place all day, and wrong
+for a sessional one where a morning child and an afternoon child share it. Which is precisely the
+distinction `centres.service_model` started recording yesterday.
+
+**It also settled something I had recorded as unresolvable a day earlier.** §9-2 says *"per licensed
+child-place"*, §9-3 says *"per child"*, and I had noted both and applied the per-child reading
+because that was what the code could see. The Glossary is the tie-break; §9-2 was accurate and §9-3
+is loose phrasing.
+
+**And it sharpened yesterday's enrolment types more than I expected.** *Conditional* is *"Enrolments
+of children who are on a waiting list and that are above the service's licensed maximum number of
+child-places"*. It does not mean *provisional* — it means **over capacity**, which is suddenly why
+§6-4 funds those children on attendance only: the service is not licensed for the place they would
+occupy. *Permanent* is *"within the service's licensed maximum … and entitled to attend for the
+enrolled hours"*. Both carry capacity conditions nothing here enforces. And *enrolment record* is
+*"the formal written agreement … that a specific child will attend that service **at specified
+times**"*, which is the clearest corroboration yet that the booking schedule had to be a pattern with
+times rather than a weekday array.
+
+**So I did not build absence funding, and that is the deliverable.**
+
+§6-4 had already told me something I noted and did not act on: *"Funding must not be claimed for both
+an absent permanently enrolled child under an absence rule and for the conditional or casual child
+who fills the absent child's place."* That is a statement about a **place**. The FCH definition says
+the cap is on a **place**. Two rules, read four days apart from different chapters of the same
+document, both saying the unit of funding is not a child.
+
+Implementing §6-5 to §6-7 per child, on a per-child cap that should be per-place, would have stacked
+one wrong unit on another. The result would be a plausible figure that is harder to correct than the
+one it replaced, because the error would be spread across three new rules instead of sitting in one
+constant. **The next step for Phase 2 is moving the calculation from per-child to per-place-per-day,
+not the absence rules.**
+
+**What that restructuring needs, so the next person does not have to rediscover it:**
+`childFunding` takes one child and would need the day's other children; `readFundingPeriod` does not
+fetch `centres.licensed_places` at all; and that column is **nullable**, so for a centre that has not
+stated its licence a per-place cap cannot be computed — the missing-denominator problem `0050`
+documented for the occupancy report, arriving somewhere it changes a funding figure rather than a
+percentage.
+
+**A note on how this went.** Four days of this phase have produced one arithmetic change and six
+register entries. That ratio looks bad and is, I think, right: every entry is a defect found by
+reading the source document against the code, and three of them were things the code asserted
+confidently in a comment. The one arithmetic change I did make — the caps — is the one I could
+source completely, and it has now itself been found to be on the wrong unit. That is an argument for
+reading the whole chapter before touching a money path, not for having touched it faster.
+
 ## 2026-09-04 (third) — Phase 2b: the caps were wrong in both directions
 
 `maxHoursPerWeek` was 20. §9-3 says the subsidy runs to 30, and 20 is the cap on the 20 Hours ECE

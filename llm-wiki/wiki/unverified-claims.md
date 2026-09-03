@@ -2003,6 +2003,46 @@ signal than that shape was.
 which would show the arithmetic directly. Reading those examples is the cheapest route and is the
 next thing to do before `rs7.ts` is written.
 
+### 57. The funding caps are per licensed child-place and this product applies them per child — **OPEN, added 2026-09-04, and it is the second reason the calculation cannot stay per-child**
+
+| | |
+|---|---|
+| **What is asserted** | By `childFunding`: that 6 hours a day and 30 a week is a limit on a **child** |
+| **What the Handbook's Glossary says** | Read 2026-09-04. A funded child hour is *"an **occupied child-place** that is funded for 1 hour"*, and services may be funded *"for up to 6 FCHs **per child-place** per day, to a maximum of 30 FCHs **per child-place** per week"*. A child-place is *"each place for a child for which a service is licensed. Child-places may only be used by 1 child at a time but **may be used by more than 1 child during the course of a day**"* |
+| **The consequence** | Two children each attending four hours may share one child-place — eight hours occupied on a place that can yield six. Per child, this product claims 4 + 4 = **8**. Two hours nobody was entitled to |
+| **Direction** | **Over-statement in aggregate**, and invisible from inside the calculation: `childFunding` receives one child and cannot see the other |
+| **When the approximation is exact** | An all-day service where each child holds a place for the whole day. It is wrong for a **sessional** service, where a morning child and an afternoon child share the place — which is exactly the distinction `centres.service_model` (0083) now records |
+
+**It also settles a discrepancy this repo had recorded as unresolvable.** §9-2 says *"per licensed
+child-place"* and §9-3 says *"per child"*; `funding.ts` noted both and applied the per-child reading
+because that is what it could see. The Glossary is the tie-break and §9-2 was the accurate one.
+
+**Two other Glossary definitions land in the same place, and they are sharper than the words
+suggest.** *Conditional* enrolment is *"Enrolments of children who are on a waiting list and that
+are **above** the service's licensed maximum number of child-places"* — so it does not mean
+*provisional*, it means **over capacity**, which is why §6-4 funds those children on attendance
+only. And *permanent* is *"Enrolments that are **within** the service's licensed maximum number of
+child places and where the child is entitled to attend for the enrolled hours on a regular, ongoing
+basis"*. Nothing here enforces either capacity condition, though `centres.licensed_places` (0050)
+is the denominator both need.
+
+**Why this is not a constant to change.** The calculation has to move from per-child to
+per-place-per-day. `childFunding` takes one child; `readFundingPeriod` does not even fetch
+`licensed_places`; and that column is **nullable**, so for a centre that has not stated its licence
+a per-place cap cannot be computed at all — the same missing-denominator problem `0050` documented
+for occupancy, arriving somewhere it changes a funding figure rather than a percentage.
+
+**AND IT IS THE SECOND INDEPENDENT REASON FOR THE SAME RESTRUCTURING**, which is the part worth
+keeping. §6-4 already said *"Funding must not be claimed for both an absent permanently enrolled
+child under an absence rule and for the conditional or casual child who fills the absent child's
+place."* That is also a statement about a **place** rather than a child. Two rules, read four days
+apart from different chapters, both saying the unit of funding is a place and not a child.
+
+**So absence funding was NOT built on top of this.** Implementing §6-5 to §6-7 per child, over a
+per-child cap that should be per-place, would compound one wrong unit with another and produce a
+figure that is harder to correct than the one it replaced. The next step for Phase 2 is the
+restructuring, not the absence rules.
+
 ## See Also
 
 - [[eli-integration]] — the public schema, the event catalogue, and items 47 and 48

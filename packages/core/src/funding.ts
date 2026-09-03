@@ -236,10 +236,32 @@ export interface FundingCaps {
    * each licensed child-place"* — and §9-3, *"A maximum of 6 hours per day and 30 hours per week
    * of funding can be claimed per child."*
    *
-   * Note the two sections state the unit differently: §9-2 says per licensed child-place, §9-3
-   * says per child. They coincide for a service that is not over-subscribed and they do not
-   * otherwise. This file applies it **per child**, which is what it can see, and the discrepancy
-   * is recorded in [[unverified-claims]] rather than resolved by picking one.
+   * ~~Note the two sections state the unit differently … the discrepancy is recorded rather than
+   * resolved by picking one.~~
+   *
+   * **RESOLVED 2026-09-04 by the Handbook's own Glossary, and §9-2 was the accurate one.** A
+   * funded child hour is *"an **occupied child-place** that is funded for 1 hour"*, and a
+   * child-place is *"each place for a child for which a service is licensed. Child-places may
+   * only be used by 1 child at a time but **may be used by more than 1 child during the course
+   * of a day**."*
+   *
+   * So the cap is **per licensed place, per day** — not per child. §9-3's "per child" is loose
+   * phrasing of the same rule.
+   *
+   * **THIS FILE APPLIES IT PER CHILD, WHICH IS THE WRONG UNIT, AND IT OVER-STATES IN AGGREGATE.**
+   * Two children each attending four hours may share one child-place: eight hours occupied on a
+   * place that can yield six. Per child this file claims 4 + 4 = 8. That is two hours nobody was
+   * entitled to, and it is invisible from inside a per-child calculation because `childFunding`
+   * receives one child and cannot see the other.
+   *
+   * The approximation is exact for an all-day service where each child holds a place for the day,
+   * and wrong for a sessional one where a morning child and an afternoon child share it — which
+   * is precisely the service model `centres.service_model` (0083) now records.
+   *
+   * Not fixed here, because it is not a constant to change: the calculation has to move from
+   * per-child to per-place-per-day, and the denominator (`centres.licensed_places`, 0050) is
+   * nullable and is not even read by `readFundingPeriod`. See unverified-claims item 57, and note
+   * that §6-4's cross-child rule points at the same restructuring.
    */
   maxHoursPerDay: number;
   /**

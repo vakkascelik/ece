@@ -79,9 +79,37 @@ export interface ChildGuardian {
  * Services must not claim for conditional or casual children who book for a session or day
  * and do not attend."*
  *
- * So the product's present behaviour — funded hours from attendance events alone — is
- * **exactly right** for a casual or conditional child and **under-claims** for a permanent
- * one, who may be claimed for absences under §6-5, §6-6 and §6-7.
+ * **AND THE GLOSSARY DEFINITIONS, READ 2026-09-04, ARE MUCH MORE SPECIFIC THAN THE WORDS
+ * SUGGEST.** Worth having here, because two of the three turn on *licensed capacity* rather
+ * than on how regularly a child attends, which is not what "casual" and "conditional" imply
+ * in ordinary use:
+ *
+ *   - **Enrolment record** — *"The formal written agreement between a parent or guardian and a
+ *     service that a specific child will attend that service **at specified times**."* Those
+ *     specified times are `child_booking_schedule` (0085); the definition is the clearest
+ *     corroboration that the agreement needed to be a pattern with times.
+ *   - **Permanent** — *"Enrolments that are **within the service's licensed maximum number of
+ *     child places** and where the child is **entitled to attend for the enrolled hours** on a
+ *     regular, ongoing basis."*
+ *   - **Casual** — *"Enrolments for children who will not be attending a service on a regular,
+ *     ongoing basis."*
+ *   - **Conditional** — *"Enrolments of children who are on a **waiting list** and that are
+ *     **above** the service's licensed maximum number of child-places."*
+ *
+ * So "conditional" does not mean *provisional*: it means **over capacity**. That is why §6-4
+ * funds those children on attendance only — the service is not licensed for the place they
+ * would otherwise occupy. And "permanent" carries a capacity condition too, so a service
+ * cannot have more permanent enrolments than licensed places.
+ *
+ * **Nothing in this product enforces either capacity condition**, and it now holds the
+ * denominator to check them (`centres.licensed_places`, 0050). Recorded as a gap rather than
+ * built, because refusing an enrolment on a figure the centre may not have stated would be the
+ * occupancy report's problem all over again. unverified-claims item 57.
+ *
+ * **Back to §6-4's consequence for this product**, which the block above interrupts rather than
+ * replaces. Funded hours from attendance events alone are **exactly right** for a casual or
+ * conditional child and **under-claim** for a permanent one, who may be claimed for absences
+ * under §6-5, §6-6 and §6-7.
  *
  * NOT AN ELI FIELD. Worth saying because it is the natural place to look and it is not
  * there: `ChildEnrolment` in the schema carries the two entity ids, a primary and optional

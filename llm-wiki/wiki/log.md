@@ -5,6 +5,43 @@ says so.*
 
 ---
 
+2026-09-04 (fourth) — **Absence funding was NOT built, because reading the Glossary first found
+that the caps are on the wrong unit.** New: [[unverified-claims]] item 57. Corrected: `funding.ts`'s
+note that the §9-2/§9-3 unit discrepancy was unresolvable — the Glossary resolves it — and
+`ENROLMENT_TYPES`' doc comment, which now carries the three definitions verbatim.
+
+Phase 2c was next, and the last entry said to read §9-2's worked examples before writing it. They
+turn out to be **images**, so that page cannot settle anything. The Glossary can, and it settled more
+than was asked.
+
+**A funded child hour is a place-hour, not a child-hour.** *"An occupied child-place that is funded
+for 1 hour"*, with the caps *"per child-place per day"* and *"per child-place per week"*; and a
+child-place *"may be used by more than 1 child during the course of a day"*. So two children each
+attending four hours may share one place — eight hours occupied where six are claimable, while this
+product, claiming per child, reports 4 + 4 = 8. Over-statement in aggregate, invisible from inside
+`childFunding`, which receives one child.
+
+It also settles a discrepancy recorded a day earlier as unresolvable: §9-2 said *"per licensed
+child-place"*, §9-3 said *"per child"*, and §9-2 was right.
+
+**And the same reading sharpened `0084`'s three values considerably.** *Conditional* enrolment is
+*"Enrolments of children who are on a waiting list and that are **above** the service's licensed
+maximum number of child-places"* — so it does not mean *provisional*, it means **over capacity**,
+which is why §6-4 funds those children on attendance only. *Permanent* is *"within the service's
+licensed maximum … and entitled to attend for the enrolled hours"*. Both carry capacity conditions
+this product does not enforce, though `centres.licensed_places` is the denominator they need. And an
+*enrolment record* is *"the formal written agreement … that a specific child will attend that service
+**at specified times**"* — the clearest corroboration yet that `0085` needed to be a pattern with
+times.
+
+**Why nothing was implemented.** §6-4 already said *"funding must not be claimed for both an absent
+permanently enrolled child … and for the conditional or casual child who fills the absent child's
+place"* — a statement about a **place**. The FCH definition says the cap is on a **place**. Two rules,
+read four days apart from different chapters, agreeing that the unit of funding is not a child.
+Building §6-5 to §6-7 per child on top of a per-child cap that should be per-place would compound
+one wrong unit with another and produce a figure harder to correct than the one it replaced. The next
+step for Phase 2 is the restructuring, not the absence rules.
+
 2026-09-04 (third) — **Phase 2b: the caps were wrong in both directions, and three assertions had
 encoded the wrong one.** Corrected: [[funding-and-billing]]'s cap-ordering section and its worked
 example. Closed: [[unverified-claims]] item 54, the same day it was opened. New: item 56, the one
