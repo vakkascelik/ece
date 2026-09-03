@@ -2083,6 +2083,49 @@ Applying the cap, which needs the attribution rule; enforcing the two capacity c
 Glossary attaches to *permanent* and *conditional* enrolments; and `centres.licensed_places` being
 **nullable**, so for a centre that has not stated its licence none of this can be computed at all.
 
+### 58. Two of §6-1's required enrolment-record fields are still absent — **OPEN, added 2026-09-04**
+
+`0086` closed the third — the child's residential address — so this records what is left rather than
+what was found.
+
+§6-1 lists what an enrolment record must contain. Measured against the schema on 2026-09-04:
+
+| Required | State |
+|---|---|
+| *"official name, date of birth, and home/residential address, and the child's preferred surname and first name"* | **Done.** `children` had all but the address; `0086` adds it |
+| *"the date the child commenced attendance … and their finish date"* | Already there — `enrolments.start_date` / `end_date` |
+| *"the days and times each child is expected to attend, and details of any later changes to the agreement **signed and dated by at least one parent/guardian**"* | **Half.** `0085` holds the days and times and `2A` made them editable. **The signature on a change does not exist** |
+| *"**attestation by the child's parent/guardian of the hours the child is enrolled at another service** (including none if appropriate)"* | **Absent entirely.** No column, nothing on any form |
+| *"**a dated signature of at least one parent/guardian** to attest to the accuracy of the enrolment record"* | **Absent** |
+| National Student Number | Already there — `children.moe_nsn` |
+
+**Why the other-service hours matter more than they look.** The 6-hour daily and 30-hour weekly caps
+follow the **child**, and a child enrolled at two services can exceed them between the two. That is
+also what §7-7 rests on when it says a child with learning-support needs *"enrolled at 2 services
+for the same hours of attendance cannot be funded for absences at both"*. So this is not an
+administrative field — it is an input to a cap this product currently applies as though each service
+were the only one.
+
+**And it is unenforceable from here, which has to be said.** `enrolments_no_overlap` is scoped by
+`child_id` **across centres**, so this database already refuses a child holding two overlapping
+enrolments *within it*. A second enrolment at another provider is invisible. The attestation is the
+only instrument, which is presumably why the Handbook asks the parent for it rather than expecting
+the service to know.
+
+**A defect this reading found in `0084`.** `enrolments.twenty_hours_attested_by` references
+`auth.users`. The 20 Hours attestation is signed by a **parent or guardian**, and the enrolment
+form's own comment says so — *"An attestation the parent signs"*. A guardian may have no account at
+all, so that column can only ever hold the id of the staff member who ticked the box, recorded as
+though they were the attesting party. The columns are **unwritten** — nothing sets them yet — so this
+is correctable without a data migration, and it should be corrected alongside the §6-1 signature
+rather than separately, since both are the same shape: a dated act by a named guardian.
+
+**To close it:** one migration adding `hours_at_other_service` (nullable, and **null is not zero** —
+§6-1 wants *"including none if appropriate"*, so "attested as none" and "not asked" are different
+states), a guardian-referenced dated signature on the enrolment, the same on a schedule change, and
+the `0084` correction. Then the form fields, and the readiness surface that names which enrolments
+are incomplete.
+
 ## See Also
 
 - [[eli-integration]] — the public schema, the event catalogue, and items 47 and 48

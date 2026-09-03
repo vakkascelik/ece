@@ -5,6 +5,43 @@ says so.*
 
 ---
 
+2026-09-04 (seventh) — **Phase 2B: the child's residential address, and the schema is why it is
+five columns rather than one.** Corrected: [[eli-integration]]'s `ChildEnrolment` row and its
+*What is built* table, which have called the address the blocker since 2026-09-02. New:
+[[unverified-claims]] item 58, for the two §6-1 fields still absent.
+
+`0086` adds `child_addresses`. Required by **two independent sources** — §6-1's enrolment-record
+contents, and `ChildEnrolment`'s required `PrimaryResidentialAddress` — which is what moved it from
+an ELI-only gap to a Handbook compliance one.
+
+**The obvious design was wrong and the XSD says so.** `guardians.address` is a single `text`
+column and copying that shape onto the child would not serialise: `ChildEnrolmentAddress` requires
+`Address1Line` **and** `AddressCity` as separate elements, with optional line 2, country and
+postcode, all `String100`. A free-text address would have to be split at the boundary, and splitting
+a New Zealand address by guesswork puts the suburb in the street field on a return that then
+validates. So it is stored as the interface asks, and the `String100` bounds are enforced in the
+database — a long paste is a sentence on a form rather than a truncation in a serialiser nobody is
+watching.
+
+**A table rather than ten columns on `children`**, because `listChildren` is called from thirteen
+places including the roll and the ratio surfaces, none of which want an address, and ten nullable
+columns to express "up to two of something" is the shape that invites an eleventh.
+
+**Replaced in place, not superseded** — deliberately unlike `0085`. A funding claim is computed
+against the days and times the agreement stated at the time; it is not computed against an address.
+So the history an address needs is the audit log, not an effective-dated chain nobody would query.
+
+**Fourteen assertions, and the two worth the space are not about tenancy.** A required element that
+is *present and blank* — `not null` accepts a single space, which serialises to an empty required
+element and a Crown return saying the child lives at " " — and a value over `String100`. Both would
+be accepted by any check this repo had before today. The blank-address assertion was mutation-drilled
+and fails on its own label.
+
+**And a defect in my own `0084` surfaced from the same reading**: `twenty_hours_attested_by`
+references `auth.users`, but the 20 Hours attestation is signed by a *parent*, who may have no
+account. The columns are unwritten, so it is correctable without a data migration — recorded in item
+58 to be fixed alongside §6-1's signature, since both are the same shape.
+
 2026-09-04 (sixth) — **Phase 2A: the booking schedule is reachable, and a drill found a fourth
 assertion that had encoded the pre-2b defect.** Extended: [[conventions]] (*An extraction that
 changes behaviour is not an extraction*). Corrected: `drill-rowcap.ts`'s funded assertion and its

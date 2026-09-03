@@ -7,6 +7,80 @@ itself, and from the wiki pages, which hold the durable *why*. This file is the 
 
 ---
 
+## 2026-09-04 (seventh) — Phase 2B: the address, and why the schema made it five columns
+
+`0086` adds `child_addresses`, closing the last ELI event blocker in the child data and one of
+§6-1's three missing required fields.
+
+**Two independent sources demanded it**, which is what promoted it from an ELI-only gap: §6-1
+requires an enrolment record to contain *"the child's official name, date of birth, and
+home/residential address"*, and `ChildEnrolment` carries `PrimaryResidentialAddress` as a required
+element. Until today addresses lived only on `guardians.address`, so a child living with a
+grandparent while the primary contact was a parent elsewhere had no recorded address at all.
+
+### The design I was going to write would not have serialised
+
+`guardians.address` is one free-text column, and copying it onto the child was the obvious move. I
+read `ChildEnrolmentAddress` in the XSD first:
+
+    Address1Line     String100   required
+    Address2Line     String100   optional, nillable
+    AddressCity      String100   required
+    AddressCountry   String100   optional, nillable
+    AddressPostCode  String100   optional, nillable
+
+**Two of the five are required and separate.** A free-text address would have to be split into
+street and city at the boundary, and splitting a New Zealand address by guesswork puts the suburb in
+the street field — on a return that then validates perfectly. So the fields are stored as the
+interface asks for them, and the `String100` bounds are enforced in the database rather than at
+serialisation, because a 140-character paste should be refused while somebody is looking at the form.
+
+`guardians.address` is left alone: it is not on the wire, and it is a postal address for a
+newsletter rather than a funding field.
+
+### Three decisions with their reasons
+
+**A table, not ten columns on `children`.** Two addresses × five fields, eight of them nullable, on
+the most-read table in the product — `listChildren` is called from thirteen places including the
+roll and the ratio surfaces, and none of them want an address. Ten nullable columns to express "up
+to two of something" is also the shape that invites an eleventh.
+
+**Replaced in place, not superseded** — deliberately unlike `child_booking_schedule` a commit
+earlier. A funding claim is computed against the days and times the agreement stated at the time. It
+is not computed against an address. So `unique (child_id, kind)` plus an UPDATE, and the history an
+address needs is the audit log, which already records who changed which column and when.
+
+**`caller_may_enrol` reused rather than a new predicate**, even though its name says "enrol" on a
+table about addresses. Its body is exactly the question — owner or manager at the child's own centre
+— and §6-1 puts the address *inside* the enrolment record, so the name is less of a stretch than it
+looks. A second predicate with an identical body would be the duplication this schema already avoids
+by making its predicates genuinely different questions.
+
+### The two assertions worth the space are not about tenancy
+
+Fourteen RLS assertions, and the tenancy ones are routine by now. The two that matter guard the
+**wire**:
+
+- **A required element that is present and blank.** `not null` accepts a single space, which
+  serialises to a present-but-empty required element: valid XML, and a Crown return saying the child
+  lives at `" "`. Refused by a trim check.
+- **A value over `String100`.** Refused here so it cannot be silently truncated later.
+
+Both would have passed every check this repo had before today. The blank-address one was
+mutation-drilled — replacing `'   '` with a real address made it fail on its own label — and the
+diff is 158 insertions with zero deletions.
+
+### Two mistakes, both cheap
+
+**I used a child id that does not exist.** The constraint assertions inserted against
+`a2222222-…`, and the suite failed with `42501` rather than the `23514` I expected — the policy
+refused it before any CHECK could fire, because the fixture's centre-A children are `a1111111` (Ana)
+and `b2222222` (Beau). Worth noting because `42501`-instead-of-`23514` is a *useful* signal: it says
+the write never reached the constraint, which is a different bug from the one being tested.
+
+**And I mispredicted the assertion count for the third time** — said 13, wrote 14, suite says 670.
+The suite has been right every time and the habit of estimating has not.
+
 ## 2026-09-04 (sixth) — Phase 2A: the schedule becomes reachable, and a drill catches what I missed
 
 `child_booking_schedule` was migrated, secured, RLS-tested and left with **zero readers or writers**

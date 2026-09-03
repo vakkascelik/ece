@@ -988,6 +988,164 @@ begin
 end $$;
 
 -- ===========================================================================
+-- 0086 — the child's residential address
+--
+-- Required by §6-1 and by ELI's `ChildEnrolment`, and stored structured because
+-- `ChildEnrolmentAddress` requires Address1Line and AddressCity as separate elements.
+--
+-- The interesting assertions here are not the tenancy ones. They are the CHECK constraints
+-- that stop an unserialisable row existing: a required element that is present but blank,
+-- and a value longer than the schema's String100. Both would validate as far as this
+-- database is concerned and fail — or worse, silently truncate — at the boundary.
+-- ===========================================================================
+
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+
+do $$
+declare n integer;
+begin
+  insert into public.child_addresses (child_id, kind, address1_line, address_city, address_post_code)
+  values ('a1111111-1111-4111-8111-111111111111', 'primary', '12 Example Road', 'Mount Albert', '1025');
+  get diagnostics n = row_count;
+  perform pg_temp.expect(n = 1, 'an owner CAN record a residential address (0086)');
+end $$;
+
+-- A second household is the case `SecondaryResidentialAddress` exists for.
+do $$
+declare n integer;
+begin
+  insert into public.child_addresses (child_id, kind, address1_line, address_city)
+  values ('a1111111-1111-4111-8111-111111111111', 'secondary', '9 Other Street', 'Mount Roskill');
+  get diagnostics n = row_count;
+  perform pg_temp.expect(n = 1, 'a child may have a secondary address as well (0086)');
+end $$;
+
+-- But not two primaries. The schema carries exactly one required primary, so a second is a
+-- data-entry mistake and not an additional household.
+do $$
+declare code text := 'none (the insert SUCCEEDED)';
+begin
+  begin
+    insert into public.child_addresses (child_id, kind, address1_line, address_city)
+    values ('a1111111-1111-4111-8111-111111111111', 'primary', '3 Duplicate Lane', 'Avondale');
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '23505', 'a second PRIMARY address is refused, got ' || code);
+end $$;
+
+-- A third kind is refused rather than stored. The schema allows two.
+do $$
+declare code text := 'none (the insert SUCCEEDED)';
+begin
+  begin
+    insert into public.child_addresses (child_id, kind, address1_line, address_city)
+    values ('a1111111-1111-4111-8111-111111111111', 'holiday', '1 Beach Road', 'Piha');
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '23514', 'an unlisted address kind is refused, got ' || code);
+end $$;
+
+/*
+ * A REQUIRED ELEMENT THAT IS PRESENT AND BLANK — the assertion this table most needs.
+ *
+ * `Address1Line` and `AddressCity` are required in the XSD. `not null` alone accepts a
+ * single space, which serialises to a present-but-empty required element: valid XML, and a
+ * Crown return saying the child lives at " ". Refused by a trim check instead.
+ */
+do $$
+declare code text := 'none (the insert SUCCEEDED)';
+begin
+  begin
+    insert into public.child_addresses (child_id, kind, address1_line, address_city)
+    values ('b2222222-2222-4222-8222-222222222222', 'primary', '   ', 'Mount Albert');
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '23514', 'a blank Address1Line is refused, not stored, got ' || code);
+end $$;
+
+-- And the schema's String100 bound, enforced here so a long paste is a sentence on a form
+-- rather than a truncation in a serialiser nobody is watching.
+do $$
+declare code text := 'none (the insert SUCCEEDED)';
+begin
+  begin
+    insert into public.child_addresses (child_id, kind, address1_line, address_city)
+    values ('b2222222-2222-4222-8222-222222222222', 'primary', repeat('x', 101), 'Mount Albert');
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '23514', 'an address line over the schema''s String100 is refused, got ' || code);
+end $$;
+
+-- The audit row is asserted, not assumed — 0059's failure mode, where three tables carried
+-- triggers that wrote nothing for months because a centre could not be resolved.
+select pg_temp.expect(
+  (select count(*) from public.audit_events
+    where entity = 'child_addresses' and action = 'insert') >= 1,
+  'recording an address leaves an audit row — audit_trigger resolves child_id (0086)'
+);
+
+-- The other centre reads nothing.
+set local request.jwt.claims = '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.child_addresses) = 0,
+  'another centre CANNOT read this centre''s addresses (0086)'
+);
+
+-- An educator reads it — they may need to know where a child goes home to — and cannot
+-- change it, which is `caller_may_enrol` rather than `caller_is_staff_for_child`.
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.child_addresses) > 0,
+  'an educator CAN read a child''s address (0086)'
+);
+do $$
+declare n integer;
+begin
+  update public.child_addresses set address_city = 'Somewhere Else'
+   where child_id = 'a1111111-1111-4111-8111-111111111111' and kind = 'primary';
+  get diagnostics n = row_count;
+  perform pg_temp.expect(n = 0, 'an educator CANNOT change a child''s address (0086)');
+end $$;
+
+-- A guardian reads their own child's address and cannot change it: the family supplies the
+-- fact, the service records it.
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.child_addresses) > 0,
+  'a guardian CAN read their own child''s address (0086)'
+);
+do $$
+declare n integer;
+begin
+  update public.child_addresses set address_city = 'Somewhere Else'
+   where child_id = 'a1111111-1111-4111-8111-111111111111' and kind = 'primary';
+  get diagnostics n = row_count;
+  perform pg_temp.expect(n = 0, 'a guardian CANNOT change the recorded address themselves (0086)');
+end $$;
+
+-- The other family at the same centre reads nothing. The in-centre guardianship boundary.
+set local request.jwt.claims = '{"sub":"44444444-4444-4444-8444-444444444444","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.child_addresses) = 0,
+  'a guardian of a DIFFERENT child at the same centre reads no address (0086)'
+);
+
+-- `anon` is stopped by the GRANT, before any policy runs.
+do $$
+declare code text := 'none';
+begin
+  set local role anon;
+  begin
+    perform 1 from public.child_addresses;
+  exception when others then code := sqlstate;
+  end;
+  set local role authenticated;
+  perform pg_temp.expect(code = '42501', 'anon is refused by the GRANT on child_addresses, got ' || code);
+end $$;
+
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+
+-- ===========================================================================
 -- 0085 — the child booking schedule: the enrolment agreement as a pattern
 --
 -- The table §6-5 and §6-7 need, and the one ELI calls `ChildBookingSchedule`. Keyed on the
