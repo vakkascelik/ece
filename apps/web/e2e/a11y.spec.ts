@@ -519,6 +519,25 @@ test.describe('staff screens', () => {
   });
 
   /*
+    THE ACCOUNT PAGE HAD NO COVERAGE AT ALL, WHICH WAS FOUND THE HARD WAY.
+
+    Added 2026-09-03. Nothing in this suite visited `/account` — a grep for it across every
+    spec returned nothing — so the 118-test green run said nothing about it. That mattered
+    the moment `NextIntlClientProvider` moved out of the root layout and into
+    `(app)/account/layout.tsx`: `useTranslations()` throws at render without a provider
+    above it, and this is the only page in the product that calls it. A change whose whole
+    point was to stop every other page paying for that provider could have broken the one
+    page that needs it, and the suite would have stayed green.
+
+    It is also the page with the locale switcher, so it is the only screen where axe sees
+    the i18n machinery at all.
+  */
+  test('account, the only page with the i18n client runtime', async ({ page }) => {
+    await visit(page, '/account');
+    await auditPage(page, '/account');
+  });
+
+  /*
     Help, twice: collapsed and with a question mark open.
 
     The open state is the one worth auditing. Collapsed, a `<details>` is a button and

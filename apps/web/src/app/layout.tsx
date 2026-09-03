@@ -1,8 +1,9 @@
 import type { Metadata } from 'next';
 import { PRODUCT_NAME } from '@ece/core';
 import type { ReactNode } from 'react';
-import { NextIntlClientProvider } from 'next-intl';
-import { getLocale, getMessages } from 'next-intl/server';
+// `next-intl/server` only. Importing `next-intl` itself here is what put the ICU
+// parser in every page's bundle — see the note above `RootLayout`.
+import { getLocale } from 'next-intl/server';
 import './globals.css';
 
 /*
@@ -57,21 +58,43 @@ export const metadata: Metadata = {
   description: 'Administration for New Zealand early learning services.',
 };
 
+/*
+ * THE PROVIDER USED TO BE HERE, AND IT COST 11.7kB GZIP ON EVERY PAGE.
+ *
+ * `NextIntlClientProvider` is a **client** component, so wrapping the root layout in it
+ * put `use-intl` and the whole `@formatjs` ICU MessageFormat parser into the first-load
+ * bundle for every route — including `/login`, which is the first thing anybody
+ * downloads. Fingerprinted from the chunk itself: `MISSING_MESSAGE`,
+ * `DUPLICATE_PLURAL_ARGUMENT_SELECTOR`, `EXPECT_PLURAL_ARGUMENT_OFFSET_VALUE`,
+ * `selectordinal` — a complete ICU pluralisation parser, shipped to a product whose
+ * only non-English message file is `[mi] `-prefixed English.
+ *
+ * **That was the whole `check:bundle` failure**: 113.0kB against a 106kB budget,
+ * recorded on 2026-08-14 as "pre-existing and unattributed" and still red three weeks
+ * later. Two chunks are React 19 and the App Router runtime at 97.7kB, exactly as the
+ * budget's own note says; this was the rest of it.
+ *
+ * Exactly two client components call `useTranslations`, and both are under `/account`.
+ * So the provider now lives in that route's layout and the ICU parser is in that
+ * route's chunk. `getLocale()` stays here because `<html lang>` needs it and
+ * `next-intl/server` is server-only — it costs nothing on the client.
+ *
+ * `getMessages()` is gone from here too, and that was a second cost this budget does
+ * not measure: it serialised the **entire** message catalogue into the HTML of every
+ * page, so a payload as well as a bundle.
+ *
+ * The rule, not the fix: a provider in a root layout is a decision about every page in
+ * the product. See llm-wiki/wiki/i18n.md.
+ */
 export default async function RootLayout({ children }: { children: ReactNode }) {
-  // `next-intl/server`'s own getLocale()/getMessages() — resolved through
-  // `src/i18n/request.ts`, which is where the cookie is actually read (`@/lib/locale`).
-  // This pair reads the config next-intl has already resolved for the request rather
-  // than reading the cookie a second time.
+  // Server-only, resolved through `src/i18n/request.ts`, which is where the cookie is
+  // actually read (`@/lib/locale`). Reads the config next-intl already resolved for the
+  // request rather than reading the cookie a second time.
   const locale = await getLocale();
-  const messages = await getMessages();
 
   return (
     <html lang={locale === 'mi' ? 'mi-NZ' : 'en-NZ'}>
-      <body>
-        <NextIntlClientProvider locale={locale} messages={messages}>
-          {children}
-        </NextIntlClientProvider>
-      </body>
+      <body>{children}</body>
     </html>
   );
 }

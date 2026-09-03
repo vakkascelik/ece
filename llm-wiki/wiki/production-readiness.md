@@ -37,7 +37,9 @@ the code would have surfaced.
 
 ### What the audit actually covers
 
-19 screens, two roles, a production build, in a real browser:
+21 screens, two roles, a production build, in a real browser. **Nineteen when this table was
+written**; `/census` and `/account` both joined on 2026-09-03 — the second because a grep found
+the suite had never visited it at all:
 
 | | |
 |---|---|
@@ -214,11 +216,21 @@ supposed to be.
 A Lighthouse number measures the machine that ran it. Gzipped bytes are deterministic and
 attributable to a commit, and they are what causes a slow first paint on centre wifi.
 
-| Budget | Measured | Limit |
-|---|---|---|
-| First-load JS | 100.6kB gzip (342kB raw) | 106kB |
-| First-load CSS | 2.0kB | 4kB |
-| Middleware, **on every request** | 89.3kB | 94kB |
+| Budget | Measured 2026-08-04 | Measured 2026-09-03 | Limit |
+|---|---|---|---|
+| First-load JS | 100.6kB gzip (342kB raw) | **101.1kB** (342kB raw) | 106kB |
+| First-load CSS | 2.0kB | 3.7kB | 4kB |
+| Middleware, **on every request** | 89.3kB | 88.0kB | 94kB |
+
+**Those two columns bracket a month in which this budget was red and nobody knew why.** It reached
+**113.0kB** on 2026-08-14, was recorded as *"pre-existing and unattributed"*, and stayed red for
+three weeks — long enough to be the sole reason no CI job in this project had ever passed. The
+7.0kB was `next-intl`'s ICU MessageFormat parser, reaching every page from a client provider in the
+root layout; attributed on 2026-09-03 by fingerprinting the one unaccounted-for chunk and fixed by
+scoping the provider to the single route that uses it. See [[i18n]].
+
+The figure is now within 0.5kB of the August baseline, which is the useful part: the whole
+regression was one import in one file, and the budget said so a month before anybody read it.
 
 The first-load figure agrees with what `next build` prints, which is a useful check that
 the script measures the right files. It is **not a small number**, and almost none of it is

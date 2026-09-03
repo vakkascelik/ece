@@ -5,6 +5,45 @@ says so.*
 
 ---
 
+2026-09-03 (seventh) — **The last red gate was a translation layer nobody uses, and every gate in
+this repo now passes.** Extended: [[i18n]] (*The provider was in the root layout*), which is where
+this belongs. Corrected: [[unverified-claims]] item 41's job table, [[deployment]]'s CI table and
+its *"skipped on every run"* paragraph, [[production-readiness]]'s performance budgets — all three
+asserted a 113.0kB first-load that is now 101.1kB.
+
+`NextIntlClientProvider` is a **client** component and it was in `app/layout.tsx`, the root layout
+for every route. So `use-intl` and the whole `@formatjs` ICU MessageFormat parser were in the
+first-load bundle of every page — **including `/login`, which has no translated string on it** — in
+a product whose only non-English message file is `[mi] `-prefixed English.
+
+**Attributed by fingerprinting, not guessing.** Six first-load chunks; two are React 19 and the App
+Router runtime at 97.7kB, which is exactly the *"~98kB"* the budget's own note predicts; one 11.7kB
+chunk was unaccounted for. Its string literals settle it — `MISSING_MESSAGE`, `selectordinal`,
+`DUPLICATE_PLURAL_ARGUMENT_SELECTOR`, `EXPECT_PLURAL_ARGUMENT_OFFSET_VALUE`.
+
+Fixed by scope rather than removal: two components call `useTranslations` and both are under
+`/account`, so the provider moved to that route's layout. **113.0kB → 101.1kB, within a 106kB
+budget, and within 0.5kB of the 2026-08-04 baseline** — so this was the entire regression.
+`getMessages()` moved with it, which also stopped the whole message catalogue being serialised into
+every page's HTML.
+
+**And the step behind the gate was run before claiming the gate was clear.** `Bundle mobile` —
+`expo export --platform android` — sits immediately after the budget in CI and had therefore never
+executed in the project's life. It exits 0 with a 3.3MB Hermes bundle. *"The blocker is gone"* and
+*"the step behind it works"* are different statements, and a budget fix that merely exposed a broken
+step would have been worse than the budget failing.
+
+**Two lessons, neither about i18n.** A provider in a root layout is a decision about every page in
+the product, and at the call site it looks like three lines of setup. And **an unattributed budget
+failure is worse than a red gate**: the number sat in `unverified-claims` for three weeks as
+*"pre-existing"*, a word that means *not mine to explain*. It was one chunk and one `grep`.
+
+**Recorded honestly rather than as a clean sweep:** three full e2e runs today, and one of them had
+a single intermittent failure — `medication.spec.ts`, *"a second dose … not swallowed as a
+duplicate"*, which passes in isolation and passed in the other two runs. So the suite is green with
+a known intermittent, not reliably green, and the difference is exactly the kind this page exists
+to keep.
+
 2026-09-03 (sixth) — **Searched for the enquiry's answers before sending it, and found four of
 them — including the one the application was said to depend on.** New: [[unverified-claims]] item
 50 and a Key Point. Extended: [[eli-integration]] (*The schema is a message format, not the

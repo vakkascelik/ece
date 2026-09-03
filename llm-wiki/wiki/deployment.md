@@ -474,7 +474,7 @@ Three jobs, three different failures, and only one of them is a defect:
 
 | Job | Fails at | What it means |
 |---|---|---|
-| `typecheck · lint · tests · build` | **Performance budgets** (`npm run check:bundle`) | The real one. First-load JS is 113.0kB against a 106kB limit — the overage recorded on 2026-08-14 as "pre-existing and unattributed". Everything before it passes: typecheck, lint, tokens, doc links, unit tests, `build` |
+| `typecheck · lint · tests · build` | ~~**Performance budgets**~~ **— nothing, as of 2026-09-03** | Fixed. First-load JS was 113.0kB against a 106kB limit; it is now **101.1kB**. The 7.0kB was `next-intl`'s ICU MessageFormat parser, pulled into every page by a client provider in the root layout — see [[i18n]]. `Bundle mobile` behind it was run by hand and exits 0, so **this job should now pass, which no CI job in this project ever has** |
 | `RLS isolation` | **Check credentials are configured** | `SUPABASE_DB_URL` is not in repository secrets, so `test:rls`, migration status, the restore drill and `review:security` are **skipped** and have never executed in CI |
 | `e2e · accessibility` | **Check credentials are configured** | `SUPABASE_SERVICE_ROLE_KEY` is not in repository secrets. The audit seeds its own tenant and cannot run without it |
 
@@ -482,11 +482,17 @@ Three jobs, three different failures, and only one of them is a defect:
 instead of skipping quietly, which is the difference between "this was not checked" and a green
 tick over nothing. The fix is secrets, not a `continue-on-error`.
 
-**The consequence is the part that matters.** `Bundle mobile` — `expo export --platform android`,
-the step that catches a package resolving through TypeScript's path mapping but not through
-Metro's resolver — sits directly after `Performance budgets` and is therefore **skipped on every
-run**. A gate written specifically to catch a monorepo failure mode has never executed, because a
-7kB budget overage stops the job first.
+**The consequence used to be the part that mattered, and it is worth keeping in past tense.**
+`Bundle mobile` — `expo export --platform android`, the step that catches a package resolving
+through TypeScript's path mapping but not through Metro's resolver — sits directly after
+`Performance budgets` and was therefore **skipped on every run**: a gate written specifically to
+catch a monorepo failure mode had never executed, because a 7kB budget overage stopped the job
+first.
+
+**Cleared 2026-09-03.** The budget passes, and the mobile step was run by hand before claiming so —
+exit 0, a 3.3MB Hermes bundle — because "the blocker is gone" and "the step behind it works" are
+two different statements, and a budget fix that merely exposed a broken step would have been a
+worse outcome than the budget failing.
 
 And a CI that has been red for its entire existence carries no signal at all. Nobody looks at a
 red build that is always red, which means the 137th failure is indistinguishable from the first

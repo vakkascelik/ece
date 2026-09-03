@@ -7,6 +7,62 @@ itself, and from the wiki pages, which hold the durable *why*. This file is the 
 
 ---
 
+## 2026-09-03 (fifth) — The enquiry went out, and the last red gate was a translation layer nobody uses
+
+Owner sent the enquiry. Recorded it in `eli-ministry-enquiry.md` as sent, with the five answers
+now outstanding and the note that nothing in this repo may read an unanswered question as a yes.
+
+Then the item I could do alone: **attribute the 7.0kB `check:bundle` overage**, red since
+2026-08-14 and recorded as *"pre-existing and unattributed"* — the sole reason no CI job in this
+project had ever passed.
+
+**It was `next-intl`.** `NextIntlClientProvider` is a client component and it was in
+`app/layout.tsx`, the root layout for every route — so `use-intl` plus the whole `@formatjs` ICU
+MessageFormat parser sat in the first-load bundle of every page, `/login` included, in a product
+whose only non-English message file is `[mi] `-prefixed English.
+
+**Attributed by fingerprinting rather than bisecting.** Six first-load chunks: two are React 19 and
+the App Router runtime at 97.7kB — precisely the *"~98kB"* the budget's own note predicts — leaving
+one 11.7kB chunk unaccounted for. Its string literals name it beyond argument: `MISSING_MESSAGE`,
+`INVALID_MESSAGE`, `selectordinal`, `DUPLICATE_PLURAL_ARGUMENT_SELECTOR`,
+`EXPECT_PLURAL_ARGUMENT_OFFSET_VALUE`, `EXPECT_DATE_TIME_SKELETON`. A complete ICU pluralisation
+and skeleton parser.
+
+**Fixed by scope, not removal.** Exactly two components call `useTranslations` —
+`ChangePasswordForm` and `LocaleSwitcher` — and both are under `/account`, so the provider moved to
+that route's layout. `getLocale()` stays in the root because `<html lang>` needs it and
+`next-intl/server` is server-only. **113.0kB → 101.1kB against a 106kB budget, within 0.5kB of the
+4 August baseline** — so this one import was the entire regression. `getMessages()` moved with it,
+which also stopped the full message catalogue being serialised into every page's HTML, a cost the
+budget does not even measure.
+
+**Then I ran the step hiding behind the gate**, because clearing a blocker is not the same as the
+thing behind it working. `Bundle mobile` (`expo export --platform android`) sits immediately after
+the budget in CI and had therefore never executed in the project's life — the gate written
+specifically to catch a monorepo resolver failure had never once run. Exit 0, 3.3MB Hermes bundle.
+A budget fix that merely exposed a broken step would have been worse than the budget failing.
+
+**So the CI position is now: job 1 should pass, which no job ever has.** Jobs 2 and 3 still fail on
+their credential guards, and that is the owner's decision rather than an engineering one — putting
+a database credential into a public repository's secrets is not mine to make.
+
+**Two lessons, neither of them about i18n.** A provider in a root layout is a decision about every
+page in the product, and at the call site it looks like three lines of setup. And an unattributed
+budget failure is worse than a red gate: the number sat in `unverified-claims` for three weeks
+under the word *"pre-existing"*, which means *not mine to explain*. It was one chunk and one grep.
+Nobody had looked.
+
+**Stated honestly rather than as a clean sweep.** Three full e2e runs today. One had a single
+intermittent failure — `medication.spec.ts`, *"a second dose … not swallowed as a duplicate"* —
+which passes in isolation and passed in the other two runs. The suite is green **with a known
+intermittent**, which is not the same as reliably green, and after this week I would rather write
+the weaker true sentence.
+
+**Where the gates stand:** typecheck, lint, `tokens:check`, `check:docs`, 678 unit tests,
+`test:rls` 634/634, `review:security` 16/16, `drill:restore` 6/6, `build`, `expo export`, and
+**`check:bundle` within budget for the first time since 14 August**. `test:e2e` 118/118 on two of
+three runs.
+
 ## 2026-09-03 (fourth) — Searched for the enquiry's answers before sending it, and the most important question was already answered
 
 Owner's instruction: before sending the enquiry, search online for the answers. Four of the nine

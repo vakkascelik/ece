@@ -1,7 +1,13 @@
 # Draft enquiry to ELI.Queries — before submitting the 2026 tranche application
 
-**Not sent.** Drafted 2026-09-02, **rewritten 2026-09-03 after searching for the answers first.**
-For the owner to send from the mailbox holding the 2026-08-14 and 2026-08-18 correspondence.
+**SENT 2026-09-03**, as a reply-all on Halaholo Mataele's thread. Drafted 2026-09-02, rewritten the
+next day after searching for the answers first, and sent as the five-question short version below.
+
+**Nothing in this repo may read an unanswered question as a yes.** Five answers are now outstanding
+and each has a consequence table at the foot of this page; the two that touch built code are
+question 1 (contracted versus actual contact hours — [[unverified-claims]] item 50) and question 4
+(where the code lists live, which is what keeps six census fields disabled). Record each reply here
+with its date and wording when it arrives, as items 37 and 45 were.
 
 **The form requires an enquiry.** The assessment application form states: *"If you have any
 questions regarding the SMS Development Criteria or process, you must contact the Ministry at
