@@ -7,6 +7,110 @@ itself, and from the wiki pages, which hold the durable *why*. This file is the 
 
 ---
 
+## 2026-09-03 (eighth) — Phase 0: the RS7 figure count was never sourced, and a rounding rule would have biased the return
+
+Owner approved a five-phase plan to close the ELI gaps, funding chain first. Phase 0 is the cheap
+one — no schema, no new behaviour, just stop quoting things nobody checked. It turned up more than
+expected.
+
+**Research first, and it overturned three of my own assumptions.** I had told the owner RS7 was
+spec-blocked. It is not: the specification is public (ECE Funding Handbook ch. 9 and §14-4), and
+`funding.ts:9-12` had recorded since August that the Ministry supplied it directly. I also expected
+`ChildEnrolment` to carry an enrolment-type element — it does not, confirmed against the XSD, so
+permanent/casual/conditional is a **Funding Handbook** concept needed to compute the counts
+correctly and never serialised. And I had planned the booking schedule and RS7 as competing
+priorities; `funding.ts:38-39` already says the schedule and enrolment type are **prerequisites**
+for RS7 being correct, which forced the phase order.
+
+**The count.** Three documents said RS7 wants *"eleven figures"*. A fourth said **thirteen**. No
+document listed eleven items. Against the XSD: **six** per-date counts, **three** advance-month
+counts over four months, **six** declaration fields. The likeliest origin of "eleven" is nine
+counts plus two envelope fields, and that reconstruction is recorded as a reconstruction. This is
+the failure AGENTS.md §5 is about, and it had reached a Crown-facing draft — so it is corrected in
+all four places with the correction stated, not silently amended.
+
+**`Declaration` was missing half its fields** in the wiki: `SubmitterName`, `ContactNumber` and
+`Designation` were never transcribed. They match §14-4's *"name, contact number, designation"*
+exactly, which independently corroborates that the public XSD and the published Handbook describe
+the same return — worth having while item 47 is still open on whether the served schema is
+normative.
+
+**The rounding conflict, which is the finding I would keep if I could keep only one.** `RS7DayCount`
+is `xs:int` bounded 0–9999, and §9-4 rounds to the **nearest** hour. Our `toHours()` floors, always,
+deliberately, so a preparation figure never overstates a claim. Right there, wrong for RS7. **Anyone
+implementing RS7 will reach for `toHours` because it is the obvious helper, every test they write
+will pass, and the resulting bias will be invisible** — the figure will look exactly like a correct
+one. New `unverified-claims` item 52, written before a line of RS7 code exists, and it explicitly
+rules out the tempting compromise of one helper with a `mode` parameter: that moves the choice to
+the call site, where it gets made wrong once, quietly, on a Crown return.
+
+**Two self-contradictions inside the funding code.** `FundingCaps.maxHoursPerDay` still said
+*"Unverified"* while `DEFAULT_CAPS.basis` — the string actually rendered on screen — had said
+*"Confirmed 2026-08-18"* for a fortnight. And `/funding` printed *"The caps have not been verified"*
+immediately followed by that basis string. Both fixed by keeping the true half.
+
+**A second under-claim nobody had named.** `maxHoursPerWeek: 20` caps the 20 Hours ECE *component*;
+the Ministry allows up to **30 hours a week** of subsidy per child, and the difference is "Plus 10",
+which RS7 requests by name and which appears **nowhere in this repository**. So the product discards
+hours 20–30 each week on top of the funded absences, while `exportDisclaimer` named only the
+absences — a manager could reasonably have read that and concluded the figure was complete once
+absences were handled by hand. It now names both. Real money, owed now, independent of the
+application.
+
+**A dead ternary, and the reason it is worth a paragraph.** `summariseFunding` ended with
+`capsBasis: (children[0] ? DEFAULT_CAPS : DEFAULT_CAPS).basis` — identical branches. Nothing was
+wrong on screen, because no caller passes custom caps; but `childFunding` accepts a caps override,
+so the first caller to use it would have printed a false provenance directly beneath a total
+somebody keys into ELI Web. Fixed by giving `summariseFunding` the caps it is describing.
+
+The suite then passed first try, which per our own rule is a reason for suspicion rather than
+comfort: adding a defaulted parameter is behaviourally identical for every existing caller, so 678
+green tests said nothing about the fix. Wrote the regression test, then **mutation-drilled it** —
+baseline green at 42, reintroduced the ternary, and it failed on exactly the named assertion, 1
+failed / 41 passed. Reversed and re-verified. That one assertion is the only thing in the file that
+can speak to this fix.
+
+**Also cleared:** `/census` had never been registered in `roles.spec.ts`'s `NAV`/`NAV_GROUPS` label
+lists. Those assertions are directional — `shown` must be visible, `hidden` must be absent — so an
+omitted label is silently unchecked rather than failing. `'ECE Return'` is now in all four role
+entries.
+
+**Then I transcribed Chapter 6 from source instead of trusting the paraphrase, and found a rule
+neither the wiki nor the code had.** §6-6, *"Three Week Rule: extension for extended non-operation"*.
+`funding.ts` transcribes 6-4, 6-5 and 6-7 while its disclaimer says *"sections 6-4 to 6-7"* — reading
+as coverage of four rules where three had been read. The mechanism is a **suspension, not an
+extension**: a service closed for two weeks or more suspends the Three Week Rule on the child's last
+session before closing and restarts it on the first day they are enrolled to attend after
+re-opening. So a naive three-week window over calendar dates would **expire during the Christmas
+break** and stop funding a child whose entitlement is suspended rather than spent. That makes absence
+spells depend on the centre's operating calendar — the thing `EceServiceClosure` wants and which
+`booking_status = 'closed'` does not provide, being per child-day.
+
+**And §6-7's "reconfirmed" is not a boolean.** The Handbook gives two acceptable forms and both carry
+a signature: the agreement *"signed and dated by the child's parent/guardian, confirming that the
+enrolment agreement remains valid"*, or changed *"to include new days and times"* and also signed. So
+it is a dated act by a named person — the same shape as the 20 Hours attestation gap — and a
+`reconfirmed boolean` would be the wrong schema.
+
+**A correction to something I said an hour earlier.** I reported the cross-child rule — *"funding
+must not be claimed for both an absent permanently enrolled child under an absence rule and for the
+conditional or casual child who fills the absent child's place"* — as a rule nobody here had. Wrong:
+`funding-and-billing.md` already records it. It is `funding.ts`'s header that omits it. What stands
+is the *implementation* consequence, which neither document draws out: every funding figure in this
+product is computed **per child in isolation** — `childFunding` takes one child and cannot see the
+others — and this rule is about two children competing for one place. A per-child implementation of
+absence funding would violate it and **over-claim**, which is the direction `exportDisclaimer`
+currently promises cannot happen.
+
+**One deliberate deviation from the approved plan.** It listed *"`readFundingPeriod` never
+forwarding `caps`"* as a defect to fix. I did not fix it, because it is not one:
+`readFundingPeriod` passes no caps, so `DEFAULT_CAPS` is the truth there, and adding a parameter no
+caller sets is configurability nobody asked for (Karpathy rule 2). The trap was never the missing
+plumbing — it was `summariseFunding` printing a basis it had not been given, and that is closed.
+Recorded here rather than quietly skipped.
+
+---
+
 ## 2026-09-03 (seventh) — The RLS suite owns the database while it runs, and nobody had written that down
 
 Ran `test:rls` after the e2e suite went green and it **failed**: *"ONE notification exists for this

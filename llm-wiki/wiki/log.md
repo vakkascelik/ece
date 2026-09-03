@@ -5,6 +5,50 @@ says so.*
 
 ---
 
+2026-09-03 (tenth) — **Phase 0 of the ELI plan: a figure quoted forward three times without ever
+being sourced, and a rounding rule that would have biased a Crown return.** New:
+[[unverified-claims]] item 52. Corrected: [[funding-and-billing]]'s RS7 paragraph,
+[[unverified-claims]] item 48's RS7 row, [[eli-integration]]'s `Declaration` element list.
+
+**The count was never sourced and every document disagreed.** `funding-and-billing`, the tranche
+doc and item 48 all said RS7 wants *"eleven figures"*; `eli-application-answers` said
+**thirteen**. **No document anywhere listed eleven items.** Measured against the XSD at
+`https://eli.minedu.govt.nz/eli.xsd`, retrieved 2026-09-03: `RS7DayCounts` has **six** fields per
+calendar date, `AdvanceMonthCounts` **three** repeated over four months, and `Declaration` **six** —
+so nine distinct counts and six declaration fields. "Eleven" is most plausibly nine counts plus the
+two envelope fields (`RS7ReturnEntityId`, `PeriodStartDate`), but that is a reconstruction rather
+than a source, and it is recorded as one.
+
+**`Declaration` was transcribed with half its fields missing.** The wiki listed the two attestations
+and the parity code; the schema also carries `SubmitterName`, `ContactNumber` and `Designation` —
+which is exactly what Funding Handbook §14-4 asks for, *"name, contact number, designation"*. That
+agreement between the public XSD and the published Handbook is useful corroboration in its own
+right, given [[eli-integration]] item 47 is open on whether the served schema is normative.
+
+**The finding that matters most is a rounding rule, and it is recorded before any RS7 code exists.**
+`RS7DayCount` is `xs:restriction base="xs:int"` bounded 0–9999, and §9-4 directs rounding to the
+**nearest** hour (68h30m → 69). `toHours()` **floors, always**, deliberately, so a preparation
+figure never overstates a claim. Correct there, wrong for RS7. The obvious implementation reuses
+`toHours`, would pass every test written against it, and the bias would be invisible — the figure
+would look exactly like a correct one. Same shape as ratio tables verified for one service type and
+applied to all of them: right helper, wrong context, no symptom. Item 52 also refuses the tempting
+middle path of one helper with a `mode` flag, which moves the choice to the call site where it gets
+made wrong once, silently, on a return.
+
+**Two contradictions inside `funding.ts` itself.** `FundingCaps.maxHoursPerDay` still carried
+*"**Unverified.**"* while `DEFAULT_CAPS.basis` — the string the product actually renders — has said
+*"Confirmed 2026-08-18"* since August. One had been wrong for a fortnight and it was the comment.
+And `/funding` displayed *"The caps have not been verified"* on the same line that printed that
+basis.
+
+**A second under-claim nobody had named.** `maxHoursPerWeek: 20` is the cap on the 20 Hours ECE
+*component*, not on subsidy funding, where the Ministry allows up to **30 hours a week** per child —
+the difference being "Plus 10", which RS7 asks for by name and which appears **nowhere** in this
+repository. So the product discards the hours between 20 and 30 a week on top of the absent days,
+and `exportDisclaimer` named only the absences. A manager reading the old sentence could reasonably
+have concluded that accounting for absences by hand made the figure complete. It did not.
+`exportDisclaimer` now names both.
+
 2026-09-03 (ninth) — **The RLS suite requires exclusive access to the database and nothing said so,
 and my first two explanations for the failure it produced were both wrong.** Extended:
 [[unverified-claims]] item 41 (the CI serialisation, the leftover-tenant hazard, and an open

@@ -96,12 +96,34 @@ qualification the schema cannot express because the column does not exist.
 to four months ahead, each 0–99. Those are **forward** counts of operating days by service model —
 the model this product does not record.
 
-The `Declaration` carries `RegisteredTeachersSalariesAttestation`,
-`RegisteredTeachersParityAttestation` and a `RegisteredTeachersParityAttestationCode` enumerated
-`NOSTEP`, `STEP1`, `STEP1-6`, `STEP1-11`, `STP1-11P`, `STP1-11F` — pay parity attestation steps.
-Nothing in this product knows what those mean, and **nothing here should guess**: an attestation is
-a legal statement by the service about teacher salaries, and
-[AGENTS.md §4.5](../../AGENTS.md) forbids inventing regulatory content exactly here.
+The `Declaration` carries **six** fields, not three — corrected 2026-09-03 after re-reading the
+schema, because this paragraph listed only the attestations and the three contact fields are
+required too:
+
+| Field | Note |
+|---|---|
+| `RegisteredTeachersSalariesAttestation` | The salaries attestation |
+| `RegisteredTeachersParityAttestation` | The pay-parity attestation |
+| `RegisteredTeachersParityAttestationCode` | Enumerated `NOSTEP`, `STEP1`, `STEP1-6`, `STEP1-11`, `STP1-11P`, `STP1-11F` — pay parity steps |
+| `SubmitterName` | |
+| `ContactNumber` | |
+| `Designation` | |
+
+The last three are exactly what Funding Handbook §14-4 asks for — *"name, contact number,
+designation"* — which is a useful independent corroboration that the public XSD and the published
+Handbook describe the same return.
+
+Nothing in this product knows what the parity steps mean, and **nothing here should guess**: an
+attestation is a legal statement by the service about teacher salaries, and
+[AGENTS.md §4.5](../../AGENTS.md) forbids inventing regulatory content exactly here. The three
+contact fields are the opposite case — they are facts about a person, so they get recorded from
+whoever submits, and are equally not derivable.
+
+**And the day counts are integers.** `RS7DayCount` is `xs:restriction base="xs:int"` with
+`minInclusive="0"` and `maxInclusive="9999"`. That settles a question this page had left open: the
+six per-date figures are whole numbers of funded child hours, not decimals, and §9-4 rounds to the
+**nearest** hour. `toHours()` floors. See [[unverified-claims]] item 52 — this is the first thing
+found that requires RS7 *not* to reuse an existing helper.
 
 ### The period boundaries now have two sources
 

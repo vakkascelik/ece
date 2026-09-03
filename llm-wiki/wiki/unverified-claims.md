@@ -1617,7 +1617,7 @@ functionalities and the four service-model requirements on that page:
 | Absent | Detail |
 |---|---|
 | ~~**Annual ECE census (staff details and qualifications)**~~ **The schema is built — corrected 2026-09-02, hours after this item was written.** `0081` adds `staff_census_details` and `staff_contact_hours`, `census.ts` assembles the return's staffing section and names every gap, with 47 unit tests (24 mutations, all caught) and 24 RLS assertions (5 policy mutations, all caught). ~~**What is still absent is a screen**~~ — **also built, 2026-09-03**: `/census` under `manageCentre`, with the API layer, the roles matrix and an axe audit. **What remains is every code list**, because `0080` ships empty on purpose, so six of the sixteen fields render as disabled selects saying *"No Ministry code list loaded"* and cannot be filled in by anybody. So the criterion is still not met — but the reason is now a missing published list rather than missing software. See [[staff-as-people]] |
-| **RS7 return** | None of the eleven figures the return wants is produced. What exists is funded hours per child over an operator-chosen period |
+| **RS7 return** | None of the return's figures is produced. What exists is funded hours per child over an operator-chosen period. **Count corrected 2026-09-03**: this said "eleven", which was never sourced — the XSD carries **nine distinct counts** (six per-date, three advance-monthly repeated over four months) plus **six declaration fields**. See [[funding-and-billing]] and item 52 |
 | **Waha Rumaki/PITA return** | Nothing. Possibly out of scope — [enquiry](../../docs/eli-ministry-enquiry.md) question 7 |
 | **Home-based services** | Not modelled. Named in `ratios.ts` as an excluded schedule |
 | **Sessional services** | Not modelled. The 2-and-over bands differ (1–8 → 1, 9–30 → 2) |
@@ -1832,6 +1832,30 @@ default nobody chose, and it reads as configurability in a code review. This one
 correctly, plumbed through three modules correctly, and has produced a single hard-coded schedule
 for the life of the product. **Grep for who actually passes it** before believing a design is
 service-type-aware.
+
+### 52. RS7 needs round-to-nearest and every hours figure in this product floors — **OPEN, added 2026-09-03, before any RS7 code was written**
+
+| | |
+|---|---|
+| **What would be asserted** | That the RS7 daily counts can be produced from the same hours arithmetic the funding screen already uses |
+| **Why it cannot** | `toHours(minutes)` (`packages/core/src/hours.ts:195`) **rounds down, always**, and that is deliberate: a preparation figure must never overstate what a service may claim. Funding Handbook §9-4 directs the opposite for the staff hour count — *"Round the total to the nearest hour. For example: 68 hours and 30 minutes would be rounded to 69 hours whereas 68 hours and 29 minutes would be rounded to 68 hours."* |
+| **And the schema agrees the figures are whole** | `RS7DayCount` is `xs:restriction base="xs:int"`, `minInclusive="0"`, `maxInclusive="9999"`. Retrieved from `https://eli.minedu.govt.nz/eli.xsd` on 2026-09-03. So there is no decimal escape hatch: a rounding rule has to be chosen, and the two callers need different ones |
+| **Size of the error** | Up to 30 minutes per figure per day, in the service's favour or against it depending on the minutes. On a staff hour count of ~69 hours that is under 1%; across a four-monthly return it is a systematic bias in one direction, which is the kind auditors notice |
+
+**Why this is recorded before the code exists.** Because the obvious implementation is to reuse
+`toHours`, it would pass every test written against it, and the resulting bias would be invisible —
+the figure would look exactly like a correct one. This is the same shape as the ratio tables being
+verified for one service type and applied to all of them: right helper, wrong context, no symptom.
+
+**What must happen:** RS7 gets its own rounding, `toHours` is left alone, and neither calls the
+other. A shared helper with a `mode` parameter is the tempting middle path and is worse than both —
+it puts the choice at the call site where it will be got wrong once, silently, on a Crown return.
+
+**Not yet checked**, and it belongs to whoever transcribes §9-2 and §9-3: whether the *child* hour
+counts round the same way as the staff hour count. §9-4 states the rule for staff hours
+specifically. Assuming it generalises is exactly the move this page exists to prevent — the
+[[eli-integration]] caveat applies, *"the XSD bounds what a field may contain; only the Handbook
+says what it means"*.
 
 ## See Also
 

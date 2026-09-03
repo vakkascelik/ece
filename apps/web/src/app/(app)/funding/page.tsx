@@ -19,12 +19,18 @@ import { appPath } from '@/lib/origin';
  * RS7 preparation.
  *
  * **This is not a return and it cannot submit one.** Submitting a funding return requires being a
- * Ministry-approved student management system integrated with ELI, and the Ministry is not accepting
- * integration applications — still under review as at 2026-08-18, with no published end date. So
- * this produces figures a manager keys into ELI Web themselves.
+ * Ministry-approved student management system integrated with ELI. So this produces figures a
+ * manager keys into ELI Web themselves.
  *
  * (Corrected 2026-08-18: the "50 services" requirement is a capability, not a customer count. This
  * comment had it the other way round.)
+ *
+ * (Corrected 2026-09-03: this comment said the Ministry "is not accepting integration
+ * applications — still under review as at 2026-08-18". **That is out of date and was the
+ * opposite of the position.** Applications for the 2026 tranche are OPEN and close 5pm Friday
+ * 30 October 2026 — one place, decided on a readiness assessment. See
+ * `docs/eli-integration-2026-tranche.md`. The reason this screen still cannot submit is that we
+ * are not an approved integrated SMS, not that nobody may apply.)
  *
  * Every label says "preparation". None say "return", "submit" or "file". That is not pedantry: a
  * screen that looks like it filed something is a screen after which nobody files anything.
@@ -280,15 +286,18 @@ export default async function FundingPage({
         <ul>
           <li>
             <strong>Nothing has been submitted.</strong> This system cannot submit a funding return.
-            Submission requires Ministry approval as an integrated student management system, which is
-            not open to new applicants.
+            Submission requires Ministry approval as an integrated student management system, and we
+            do not hold it.
           </li>
           <li>
             <strong>Figures come from electronic sign-in records.</strong> A child who attended but
             was never signed in does not appear here at all.
           </li>
           <li>
-            <strong>The caps have not been verified.</strong> {summary.capsBasis}
+            <strong>The caps cover 20 Hours ECE only.</strong> {summary.capsBasis} A service may
+            also claim subsidy funding up to 30 hours a week per child — the difference is
+            &ldquo;Plus 10&rdquo;, and this system does not calculate it, so the total may be lower
+            than what you are entitled to claim.
           </li>
           <li>
             <strong>Check these against your own records before keying them in.</strong> They are a

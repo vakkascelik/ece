@@ -45,6 +45,29 @@ describe('these test the arithmetic, not the policy', () => {
     expect(DEFAULT_CAPS.basis).toMatch(/Ministry/);
     expect(DEFAULT_CAPS.basis).toMatch(/3 or older and under 6/);
   });
+
+  it('reports the basis of the caps it was given, not the default basis', () => {
+    /*
+      The regression test for a bug that never fired, written because it never fired.
+
+      `summariseFunding` used to end with `capsBasis: (children[0] ? DEFAULT_CAPS :
+      DEFAULT_CAPS).basis` — a ternary whose branches are identical. Every existing caller passes
+      no caps, so the output was correct and the whole suite stayed green; `childFunding` however
+      accepts a `caps` override, and the first caller to use it would have got a summary
+      describing DEFAULT_CAPS while the figures underneath were computed from something else.
+
+      `capsBasis` is rendered directly beneath the funded total on `/funding`, which is a figure
+      somebody keys into ELI Web. A false provenance there is worse than no provenance.
+
+      Fixed 2026-09-03 by giving `summariseFunding` the caps it is describing. This assertion is
+      the only thing standing between that and the dead ternary coming back: revert the fix and
+      it fails, which is more than the other 40 tests in this file can say about it.
+    */
+    const custom = { maxHoursPerDay: 4, maxHoursPerWeek: 12, basis: 'A variation on the licence.' };
+    expect(summariseFunding(period, [], undefined, custom).capsBasis).toBe(custom.basis);
+    // And omitting them still describes the default, because that is then the truth.
+    expect(summariseFunding(period, []).capsBasis).toBe(DEFAULT_CAPS.basis);
+  });
 });
 
 describe('the daily cap', () => {

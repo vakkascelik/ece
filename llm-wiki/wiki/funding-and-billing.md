@@ -387,8 +387,34 @@ A figure sourced once well is a figure that decays when its source does; this on
 `RS7DayCounts` wants, for each calendar date, the subsidy-funded under-two and two-and-over counts,
 the 20 Hours funded and 20-Hours-plus-ten counts, and staff hours split into qualified and
 not-qualified. `AdvanceMonthCounts` wants forward monthly counts of all-day, sessional and
-parent-led days. **None of the eleven is produced today**, and two of them need a staff
-qualification column that does not exist. The arithmetic this page describes is not wrong for
+parent-led days. **None of them is produced today**, and two need a staff qualification column
+that does not exist.
+
+> **Corrected 2026-09-03: the count was wrong, and it was never sourced.** This paragraph said
+> *"none of the eleven"*, `unverified-claims` item 48 and the tranche doc said eleven, and
+> `eli-application-answers` said **thirteen**. No document anywhere listed eleven items, so the
+> number was quoted forward without ever being checked — the exact failure
+> [AGENTS.md §5](../../AGENTS.md) is about, on a figure that went into a Crown-facing draft.
+>
+> Measured against the XSD at `https://eli.minedu.govt.nz/eli.xsd`, retrieved 2026-09-03:
+>
+> | Part of `RS7Return` | Fields |
+> |---|---|
+> | `RS7DayCounts`, per calendar date | **6** — `SubsidyFundedChildUnderTwoCount`, `SubsidyFundedChildTwoAndOverCount`, `TwentyHoursFundedChildCount`, `TwentyHoursFundedChildPlusTenCount`, `StaffHourQualifiedCount`, `StaffHourNotQualifiedCount` |
+> | `AdvanceMonthCounts` | **3** — `AllDayDaysCount`, `SessionalDaysCount`, `ParentLedDaysCount` — **repeated for four months, so 12 values** |
+> | `Declaration` | **6** — `RegisteredTeachersSalariesAttestation`, `RegisteredTeachersParityAttestation`, `RegisteredTeachersParityAttestationCode`, `SubmitterName`, `ContactNumber`, `Designation` |
+> | Envelope | `RS7ReturnEntityId`, `PeriodStartDate` |
+>
+> So: **nine distinct counts** (six daily, three advance-monthly) plus **six declaration fields**.
+> "Eleven" is most likely nine counts plus the two envelope fields, but that is a reconstruction,
+> not a source.
+>
+> **And the type matters more than the count.** `RS7DayCount` is
+> `xs:restriction base="xs:int"` with `minInclusive="0"` and `maxInclusive="9999"` — the daily
+> figures are **whole numbers**, and Handbook §9-4 says round to the *nearest* hour (68h30m → 69,
+> 68h29m → 68). `toHours()` in `hours.ts` rounds **down**, always, deliberately against the
+> centre. That is correct for a preparation figure and **wrong for RS7**, so the two must not
+> share a helper. Recorded as [[unverified-claims]] item 52. The arithmetic this page describes is not wrong for
 RS7 — it is the wrong *shape*, and the transposition needs an age band evaluated as at each date,
 which `childFunding` already does correctly for the 20 Hours band.
 
@@ -489,10 +515,35 @@ casual child filling their place.
 returns. And it stops the moment a parent says the child is not coming back — **even mid-window**, or
 the Ministry recovers what was claimed after that point.
 
+**6-6, the extension for extended non-operation — added 2026-09-03, and it was missing from this
+page and from `funding.ts` alike.** Read from the Handbook the same day the plan was written. *"Services
+that do not operate for a continuous period of 2 weeks or more may claim funding for enrolled children
+who are absent before and after the break."* The mechanism is a **suspension, not an extension of the
+count**: the Three Week Rule *"will be suspended on the date of the child's last session before the
+service closes"* and *"will restart from the first date the child is enrolled to attend after the
+centre re-opens."* Named examples are Christmas holidays, end of term, and closure for renovations,
+and the page tells a service to contact the ECE resourcing team if unsure.
+
+This matters twice over. **It is a rule this page claimed to cover and did not** — `funding.ts`
+transcribes 6-4, 6-5 and 6-7, and its disclaimer string nevertheless says *"sections 6-4 to 6-7"*,
+which reads as coverage of four rules where three were read. And **it makes the Three Week Rule
+stateful across closures**: a naive three-week window over calendar dates would expire during the
+Christmas break and stop funding a child whose entitlement is suspended, not spent. So an absence
+spell needs the centre's operating calendar, which is the same thing `EceServiceClosure` wants and
+which `booking_status = 'closed'` does not provide — that status is per child-day, a different
+statement.
+
 **6-7, the Frequent Absence Rule.** A child's attendance must match their enrolment agreement for at
 least half of each calendar month. Flagged in month 1, the agreement reconfirmed in month 2, month 3
 claimable **only if** reconfirmed, month 4 not claimable and the agreement must be changed to match
 reality.
+
+**And "reconfirmed" is not a boolean — transcribed 2026-09-03.** The Handbook gives two acceptable
+forms, and both carry a signature: either *"the enrolment agreement signed and dated by the child's
+parent/guardian, confirming that the enrolment agreement remains valid"*, or *"change the child's
+enrolment agreement to include new days and times"* also signed by the parent/guardian. So a
+reconfirmation is a dated act by a named person, the same shape as the 20 Hours attestation gap —
+and a `reconfirmed boolean` column would be the wrong schema for it.
 
 #### What that means for this product
 

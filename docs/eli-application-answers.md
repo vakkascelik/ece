@@ -1053,12 +1053,31 @@ right shapes for both; neither is built.
 
 **AST50 — the RS7 data-source table.**
 
-`[GAP]` **None of the thirteen parameters is currently produced.** What exists is per-child funded
+`[GAP]` **None of the return's parameters is currently produced.** What exists is per-child funded
 hours over an operator-chosen period, with caps, an age band and completeness reporting. The return
 wants **per-calendar-date counts** — subsidy-funded under two, subsidy-funded two and over, 20
 Hours funded, 20 Hours plus ten, and staff hours split qualified and not qualified — plus forward
 monthly counts of all-day, sessional and parent-led days, and a declaration including the pay
 parity attestation code.
+
+**The count, measured rather than recalled (2026-09-03).** This answer previously said *"thirteen
+parameters"* while three other documents said *"eleven"*; neither was sourced. Against the schema at
+`https://eli.minedu.govt.nz/eli.xsd`, `RS7Return` carries **six per-date counts**, **three
+advance-month counts repeated over four months**, and **six declaration fields**
+(`RegisteredTeachersSalariesAttestation`, `RegisteredTeachersParityAttestation`,
+`RegisteredTeachersParityAttestationCode`, `SubmitterName`, `ContactNumber`, `Designation`), inside
+an envelope of `RS7ReturnEntityId` and `PeriodStartDate`. So **nine distinct counts and six
+declaration fields.** We are stating this correction rather than quietly amending the number,
+because a figure quoted forward three times without being checked is the thing this application is
+being assessed on our ability not to do.
+
+**One further measurement, and it is a defect rather than a gap.** `RS7DayCount` is
+`xs:restriction base="xs:int"` bounded `0`–`9999`: the daily figures are whole numbers, and Funding
+Handbook §9-4 directs rounding to the **nearest** hour (68 hours 30 minutes → 69; 68 hours 29
+minutes → 68). Our existing `toHours()` helper rounds **down**, always and deliberately, so that a
+preparation figure never overstates what a service may claim. That is the right behaviour for the
+current screen and the wrong behaviour for RS7, so the two cannot share a rounding helper. Recorded
+before any RS7 code was written.
 
 Three distinct blockers, worth separating because they are not the same size:
 

@@ -16,14 +16,35 @@
  *
  *   6-4  Funding may be claimed for hours a **permanently enrolled** child did not attend, if the
  *        absence falls under one of the absence rules. For a **casual or conditional** child,
- *        funding is on attendance ONLY, and a booked no-show must not be claimed.
+ *        funding is on attendance ONLY, and a booked no-show must not be claimed. AND — added
+ *        2026-09-03, it was missing here though `funding-and-billing.md` had it — a service may
+ *        **not** claim for both an absent permanent child under an absence rule and the casual or
+ *        conditional child who fills that child's place. That one is not a per-child rule at all:
+ *        it is about two children competing for one place, and `childFunding` below takes a single
+ *        child and cannot see the others. Implementing absence funding per child, which is the
+ *        obvious shape, would breach it and **over-claim** — the direction `exportDisclaimer`
+ *        currently promises is impossible.
  *   6-5  Three Week Rule: claim every enrolled-but-absent session within three weeks of the FIRST
  *        day of absence. Nothing from the fourth week on. Funding resumes when the child returns,
  *        and stops the moment a parent says the child is not coming back — even mid-window, or the
  *        Ministry recovers it.
+ *   6-6  Extension for extended non-operation. **Added 2026-09-03: this rule was never
+ *        transcribed, while the disclaimer string below has always said "sections 6-4 to 6-7" —
+ *        which reads as four rules read where three were.** A service not operating for a
+ *        continuous two weeks or more SUSPENDS the Three Week Rule on the child's last session
+ *        before closing, and restarts it on the first day they are enrolled to attend after
+ *        re-opening. Christmas, end of term and closure for renovations are the Handbook's own
+ *        examples. So the window is not three calendar weeks: a naive date window would expire
+ *        over the Christmas break and stop funding a child whose entitlement is suspended rather
+ *        than spent. Absence spells therefore need the centre's operating calendar, which is what
+ *        `EceServiceClosure` wants and what `booking_status = 'closed'` does not give — that is
+ *        per child-day, a different statement.
  *   6-7  Frequent Absence Rule: attendance must match the enrolment agreement for at least half of
  *        each calendar month. Flagged in month 1, reconfirmed in month 2, month 3 claimable only if
- *        reconfirmed, month 4 not claimable and the agreement must change.
+ *        reconfirmed, month 4 not claimable and the agreement must change. "Reconfirmed" is **not
+ *        a boolean** (transcribed 2026-09-03): either the agreement is signed and dated by the
+ *        parent or guardian confirming it remains valid, or it is changed to new days and times
+ *        and signed. A dated act by a named person, like the 20 Hours attestation.
  *
  * **This file claims none of it, and cannot yet.** Funded hours come from attendance events, so an
  * absent day contributes zero. Two things follow, and the second is why the gap is not a bug here:
@@ -86,8 +107,27 @@ export interface FundingCaps {
   /**
    * Maximum funded hours in one day.
    *
-   * Basis: 20 Hours ECE is commonly described as capped at 6 hours per day and 20 per week.
-   * **Unverified.**
+   * ~~Basis: 20 Hours ECE is commonly described as capped at 6 hours per day and 20 per week.
+   * **Unverified.**~~
+   *
+   * **Corrected 2026-09-03.** That comment contradicted `DEFAULT_CAPS.basis` three lines below,
+   * which has said *"Confirmed 2026-08-18 against the Ministry ELI data collection business
+   * rules"* since August — and `basis` is the string this product renders on screen. One of the
+   * two was wrong for a fortnight and it was this one. The caps **are** confirmed.
+   *
+   * WHAT IS STILL WRONG HERE, and it is not the verification status.
+   *
+   * `maxHoursPerWeek: 20` is the cap on the **20 Hours ECE component**, not on subsidy funding.
+   * The Ministry's rule is a maximum of **6 hours per day and 30 hours per week** of subsidy per
+   * child, of which 20 Hours ECE may be claimed for up to 20 hours a week; **"Plus 10" is the
+   * remaining difference** between the two. So this shape silently discards the hours between 20
+   * and 30 a week, and RS7 asks for the Plus 10 figure by name
+   * (`TwentyHoursFundedChildPlusTenCount`). The word "Plus 10" appears nowhere else in this
+   * repository.
+   *
+   * Fixing it means two components rather than one cap pair, which changes real figures, so it
+   * is Phase 2b of the ELI plan and not a rename. Until then this file **under-claims twice** —
+   * once for absence funding, once for Plus 10 — and `exportDisclaimer` names only the first.
    */
   maxHoursPerDay: number;
   maxHoursPerWeek: number;
@@ -333,6 +373,23 @@ export function summariseFunding(
    * "nobody said", which is honest, and is not the same as "the record covers this".
    */
   recordStart?: AttendanceRecordStart,
+  /**
+   * The caps these figures were computed under, so the summary reports the basis it actually
+   * used rather than the default's.
+   *
+   * Added 2026-09-03 to close a latent trap. This function used to print
+   * `(children[0] ? DEFAULT_CAPS : DEFAULT_CAPS).basis` — a ternary with identical branches,
+   * so a caller that passed custom caps to `childFunding` got a summary describing
+   * `DEFAULT_CAPS` instead. Nothing in production passes custom caps today, so nothing was
+   * ever wrong on screen; the trap is that `capsBasis` is rendered directly under an
+   * official-looking total, and the first caller to use the override `childFunding` already
+   * accepts would have printed a false provenance for a figure somebody keys into ELI Web.
+   *
+   * Not plumbed through `readFundingPeriod`, deliberately: it passes no caps, so the default
+   * is the truth there, and adding a parameter no caller sets would be configurability
+   * nobody asked for.
+   */
+  caps: FundingCaps = DEFAULT_CAPS,
 ): FundingSummary {
   const unresolvedChildCount = children.filter((c) => c.unresolvedDates.length > 0).length;
 
@@ -359,7 +416,7 @@ export function summariseFunding(
     recordStartsOn: recordStart?.startsOn ?? null,
     periodPrecedesRecord,
     verified: FUNDING_RULES_VERIFIED,
-    capsBasis: (children[0] ? DEFAULT_CAPS : DEFAULT_CAPS).basis,
+    capsBasis: caps.basis,
   };
 }
 
@@ -434,9 +491,23 @@ export function exportDisclaimer(summary: FundingSummary): string {
       sentence was becoming the false-caveat problem the ratio banner just went through. What is
       actually missing is absence funding, so the disclaimer names it — a manager can act on "you
       may be able to claim more than this", and cannot act on "something is unverified".
+
+      WIDENED 2026-09-03, because it named one under-claim and there are two.
+
+      `DEFAULT_CAPS.maxHoursPerWeek` is 20, which is the cap on the 20 Hours ECE **component** —
+      not on subsidy funding, where the Ministry allows up to 30 hours a week per child. The
+      difference is "Plus 10", RS7 asks for it by name, and this file has never modelled it. So
+      the hours between 20 and 30 a week are discarded silently, on top of the absent days.
+
+      Naming both matters more than it looks: a manager reading the old sentence could have
+      concluded that once absences were accounted for by hand, the figure was complete. It was
+      not, and nothing on the page said so.
     */
     parts.push(
       'These figures count attended hours only. Under sections 6-4 to 6-7 of the Funding Handbook a service may also claim funding for days a permanently enrolled child was booked but absent, and this system does not calculate that — so the total may be lower than what you are entitled to claim.',
+    );
+    parts.push(
+      'They also cap 20 Hours ECE at 20 hours a week and calculate nothing beyond it. A service may claim subsidy funding for up to 30 hours a week per child, and that remaining entitlement — "Plus 10" — is not computed here either, so the shortfall is larger than the absent days alone.',
     );
   }
   return parts.join(' ');
