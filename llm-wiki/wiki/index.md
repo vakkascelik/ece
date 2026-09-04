@@ -139,6 +139,9 @@ fundable and the closures table cannot say which days those are.
 
 ## Reporting
 
+- [docs/ci-secrets-and-second-project.md](../../docs/ci-secrets-and-second-project.md) — the
+  owner runbook for the two missing repository secrets, and why the second Supabase project has
+  to come first: CI pointed at the current project would write to production on every push
 - [[reporting]] — occupancy and attendance trends, the licence figure this product refused to
   invent a default for, and the Postgres GROUP BY that would have been faster and wrong. Also **why
   the average over "open days" is a proxy that flatters the figure**, why `service_closures` alone

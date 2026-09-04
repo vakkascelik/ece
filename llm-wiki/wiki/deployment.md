@@ -482,6 +482,13 @@ Three jobs, three different failures, and only one of them is a defect:
 instead of skipping quietly, which is the difference between "this was not checked" and a green
 tick over nothing. The fix is secrets, not a `continue-on-error`.
 
+**The procedure is written down as of 2026-09-04** —
+[docs/ci-secrets-and-second-project.md](../../docs/ci-secrets-and-second-project.md), owner-only
+because it handles credentials. It leads with the ordering rather than the clicks: pointing these
+secrets at the current project would make CI a third writer against **production**, and the `e2e`
+job creates a real tenant with real rows on every push. Creating the CI project first closes
+`AST06` and `AST09` as well, instead of buying a green tick by making `AST09` worse.
+
 **The two credentialled jobs are now serialised, and were not before — 2026-09-03.** The table above
 described three jobs and left out the thing that mattered about them: they all ran **in parallel**,
 because `ci.yml` had no `needs:` anywhere. `typecheck · lint · tests · build` is safe there — it
