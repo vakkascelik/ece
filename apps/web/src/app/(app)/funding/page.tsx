@@ -6,6 +6,7 @@ import {
   exportDisclaimer,
   formatCents,
   placeCapExceedances,
+  sixFourOverlaps,
   summariseVariance,
   todayInZone,
   type FundingPeriod,
@@ -229,6 +230,73 @@ export default async function FundingPage({
                 <li key={e.date}>
                   {e.date} — {e.claimedHours.toFixed(2)} claimed against {e.allowedHours.toFixed(2)}{' '}
                   allowed
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      })()}
+
+      {/*
+        §6-4: "Funding must not be claimed for both an absent permanently enrolled child under an
+        absence rule and for the conditional or casual child who fills the absent child's place."
+
+        Separate from the licence block above, and it has to be — a day can breach §6-4 without
+        exceeding the licence at all. One absent permanent child claimed, one conditional child
+        attending, and eight places standing empty: two claims on one place, no aggregate
+        exceedance, and the block above says nothing.
+
+        UNLIKE THE LICENCE BLOCK, THE ATTRIBUTION HERE IS KNOWN. §7-7 says it outright — "another
+        child may attend the absent child's place without claiming funding for that replacement
+        child" — so the hours to drop are the replacement child's. What still stops this reducing
+        the figure is the other half of the same problem: RS7 needs the survivors split by age band
+        and 20 Hours status, and which casual child among several is not something the Handbook
+        decides. So the wording tells the manager what to deduct, which is what a preparation
+        export is for.
+      */}
+      {(() => {
+        const overlaps = sixFourOverlaps({
+          children: summary.children,
+          licensedPlaces: ctx.centre.licensedPlaces,
+        });
+        if (overlaps.length === 0) return null;
+
+        const total = overlaps.reduce((sum, o) => sum + o.overlapHours, 0);
+
+        return (
+          <div
+            className="card"
+            style={{
+              background: 'var(--breach-soft)',
+              borderColor: 'var(--breach-border)',
+            }}
+          >
+            <p style={{ marginTop: 0 }} role="status">
+              <strong>
+                {overlaps.length === 1
+                  ? 'One day claims one place twice'
+                  : `${overlaps.length} days claim a place twice`}
+              </strong>
+            </p>
+            <p>
+              Section 6-4 of the Funding Handbook does not allow a claim for both an absent
+              permanently enrolled child and the casual or conditional child who filled that
+              child&rsquo;s place. On the days below this preparation claims both, so{' '}
+              <strong>{total.toFixed(2)} hours</strong> should come off before you key the figures
+              into ELI Web. Section 7-7 says which side goes: the replacement child&rsquo;s hours
+              are the ones not claimed.
+            </p>
+            <ul style={{ marginBottom: 0 }}>
+              {overlaps.map((o) => (
+                <li key={o.date}>
+                  {o.date} — {o.overlapHours.toFixed(2)} hours claimed twice (
+                  {o.claimedAbsenceHours.toFixed(2)} absence, {o.replacementHours.toFixed(2)}{' '}
+                  attended)
+                  {o.basis === 'conditional-enrolment'
+                    ? ' — a conditional enrolment, which the Glossary defines as above your licensed places'
+                    : o.basis === 'capacity-unknown'
+                      ? ' — your licensed places are not recorded, so this day could not be ruled out'
+                      : ' — the day was at or over your licensed places'}
                 </li>
               ))}
             </ul>

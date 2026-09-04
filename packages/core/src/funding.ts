@@ -217,15 +217,16 @@ export const FUNDING_RULES = {
    * more, §7-7's twelve-week window, §6-5's stop on notice, and §6-7's monthly frequent-absence
    * check with its three triggers and its four-month timeline.
    *
-   * **Not implemented: §6-4's cross-child rule.** A service may not claim for both an absent
-   * permanent child and the casual child filling their place. `childFunding` sees one child at a
-   * time, so that comparison has nowhere to happen — it needs a day-level pass across children,
-   * and §7-7 states the same rule a second time ("another child may attend the absent child's
-   * place without claiming funding for that replacement child"), so it is not a marginal reading.
+   * **§6-4's cross-child rule is DETECTED but not DEDUCTED** — `sixFourOverlaps` names the days a
+   * place is claimed twice, the hours, and which side §7-7 says goes ("another child may attend
+   * the absent child's place without claiming funding for that replacement child"). It changes no
+   * figure, because a trim propagates into RS7's age-band and 20 Hours splits and because which
+   * casual child among several loses their hours is not something the Handbook decides.
    *
-   * This stays `false` until that lands. It is the only remaining absence rule, and a flag that
-   * went true with a known over-claim in it would be the exact failure this structure exists to
-   * prevent.
+   * **So this stays `false`, and the reason is now precise:** the figures this file produces can
+   * still claim one place twice, and the correction is a sentence on a screen rather than
+   * arithmetic. A flag that went true while `fundedHours` contained a known double-claim would be
+   * the exact failure this structure exists to prevent.
    */
   absence: {
     verified: false,
@@ -487,6 +488,31 @@ export interface ChildFunding {
    */
   absenceHours: number;
 
+  /**
+   * The enrolment type this figure was computed for, echoed back.
+   *
+   * Needed because §6-4 distinguishes **casual** from **conditional**, and `hoursBasis` collapses
+   * both into `attendance`. The Glossary makes that distinction load-bearing: a conditional
+   * enrolment is *"above the service's licensed maximum number of child-places"*, so a conditional
+   * child who attends is by definition occupying a place they do not hold, and a casual child may
+   * not be.
+   */
+  enrolmentType: EnrolmentType | null;
+
+  /**
+   * Claimed absence hours by date — the absence half of `dailyCappedByDate`.
+   *
+   * Added for §6-4's cross-child pass, which has to ask "was an absence claimed on this day"
+   * about a specific date rather than about the period. `absenceHours` is the period total and
+   * cannot answer it.
+   *
+   * Uncapped, deliberately: these are the hours the agreement says, before the daily cap trims
+   * them, because §6-4 is about whether a place was claimed twice and not about how much of it
+   * survives the cap. A caller comparing this against `dailyCappedByDate` will find days where
+   * this is larger, and that is correct.
+   */
+  absenceHoursByDate: Record<string, number>;
+
   /** Enrolled sessions the absence rules refused, each with the reason. */
   unclaimableAbsences: UnclaimableAbsence[];
 
@@ -715,6 +741,7 @@ export function childFunding(input: {
   let sourceDays: { date: string; minutes: number }[];
   let absenceMinutes = 0;
   const unclaimableAbsences: UnclaimableAbsence[] = [];
+  const absenceHoursByDate: Record<string, number> = {};
   let frequentAbsence: FrequentAbsenceMonth[] = [];
   let attendedOutsideAgreement: string[] = [];
 
@@ -774,6 +801,7 @@ export function childFunding(input: {
       } else if (row.claimable && !monthRefusedBy.has(row.date.slice(0, 7))) {
         sourceDays.push({ date: row.date, minutes: row.minutes });
         absenceMinutes += row.minutes;
+        absenceHoursByDate[row.date] = toHours(row.minutes);
       } else if (row.claimable) {
         // Inside §6-5's window, and refused by §6-7 anyway. The reason names the month rule, not
         // the window, because a service told "past the three-week window" about a day that is
@@ -896,6 +924,8 @@ export function childFunding(input: {
       reason: it is what the absence rules permitted, not what the caps then paid for.
     */
     absenceHours: Math.floor(toHours(absenceMinutes) * 100) / 100,
+    enrolmentType: input.enrolmentType ?? null,
+    absenceHoursByDate,
     unclaimableAbsences,
     frequentAbsence,
     attendedOutsideAgreement,
@@ -1199,6 +1229,154 @@ export function placeCapExceedances(input: {
     // exceedance of 0.0000001 hours and put a warning on a screen for it.
     const claimedHours = Math.floor(claimed * 100) / 100;
     if (claimedHours > allowedHours) out.push({ date, claimedHours, allowedHours });
+  }
+  return out;
+}
+
+
+/**
+ * One day on which §6-4 forbids part of what this product has computed.
+ *
+ * §6-4: *"Funding must not be claimed for both an absent permanently enrolled child under an
+ * absence rule and for the conditional or casual child who fills the absent child's place."*
+ */
+export interface SixFourOverlap {
+  date: string;
+  /** Claimed absence hours for permanently enrolled children on this date. */
+  claimedAbsenceHours: number;
+  /** Hours claimed for casual and conditional children, who are funded on attendance. */
+  replacementHours: number;
+  /**
+   * The hours §6-4 forbids claiming twice — the smaller of the two figures above. **Reported,
+   * never deducted**; see the function's note.
+   */
+  overlapHours: number;
+  /**
+   * Why this day is caught.
+   *
+   * `conditional-enrolment` needs no capacity arithmetic: the Glossary defines a conditional
+   * enrolment as one *"above the service's licensed maximum number of child-places"*, so a
+   * conditional child who attends is occupying a place they do not hold.
+   *
+   * `at-or-over-capacity` is the casual case, where "fills the absent child's place" only has
+   * content if the places are otherwise full.
+   *
+   * `capacity-unknown` is `centres.licensed_places` being null. Reported rather than skipped: a
+   * missing denominator must not be able to silence a rule about over-claiming.
+   */
+  basis: 'conditional-enrolment' | 'at-or-over-capacity' | 'capacity-unknown';
+}
+
+/**
+ * §6-4's cross-child rule — the one absence rule `childFunding` cannot see.
+ *
+ * Every other figure in this file is computed per child. This one is about **two children
+ * competing for one place**, so it takes the whole period's results and works by date.
+ *
+ * WHY IT REPORTS AND DOES NOT DEDUCT, WHICH IS NOT THE SAME REASON AS THE PLACE CAP'S
+ *
+ * `placeCapExceedances` reports without adjusting because the attribution rule is unknown —
+ * *whose* hours go, when a day exceeds `6 × places`, is [[unverified-claims]] item 57 and nothing
+ * read so far answers it.
+ *
+ * **Here the attribution IS known**, and it narrows item 57. §7-7 says it in as many words:
+ * *"Another child may attend the absent child's place without claiming funding for that
+ * replacement child."* So for the part of an excess that involves a claimed absence, the
+ * replacement child's hours are the ones not claimed. That is a quotation, not a reading.
+ *
+ * What still blocks deducting is the other half of item 57's warning: RS7 needs the surviving
+ * hours split by age band and 20 Hours status, so a trim applied here propagates into a Crown
+ * return, and choosing *which* casual child among several is a judgement the Handbook does not
+ * make. So the day, the amount and the basis are named — which is enough for the manager keying
+ * a figure into ELI Web, and is what a "preparation export" is for — and `fundedHours` is left
+ * alone.
+ *
+ * NOT SYMMETRICAL WITH THE PLACE CAP, and deliberately. A day can be caught here without
+ * exceeding `6 × licensed places` at all: one absent permanent child claimed, one conditional
+ * child attending, and eight empty places. Two claims on one place, no aggregate exceedance.
+ */
+export function sixFourOverlaps(input: {
+  children: ChildFunding[];
+  /** From `centres.licensed_places`. Null means the licence is not stated. */
+  licensedPlaces: number | null;
+}): SixFourOverlap[] {
+  const absenceByDate = new Map<string, number>();
+  const replacementByDate = new Map<string, number>();
+  const conditionalDates = new Set<string>();
+  const headcountByDate = new Map<string, number>();
+
+  for (const child of input.children) {
+    for (const [date, hours] of Object.entries(child.absenceHoursByDate)) {
+      absenceByDate.set(date, (absenceByDate.get(date) ?? 0) + hours);
+    }
+    /*
+      A child funded on attendance whose type is casual or conditional is §6-4's replacement
+      candidate. `attendance-no-agreement` and `attendance-type-not-stated` are excluded: the
+      first is a permanent child, and the second is a child nobody has classified — treating an
+      unclassified child as a replacement would refuse hours on a guess about their enrolment.
+    */
+    const replacement =
+      child.enrolmentType === 'casual' || child.enrolmentType === 'conditional';
+
+    for (const [date, hours] of Object.entries(child.dailyCappedByDate)) {
+      /*
+        PRESENT, not claimed — and the difference is the whole capacity test.
+
+        On the agreement basis `dailyCappedByDate` includes days the child was absent and the
+        absence was claimed. Counting those as heads would say a day was at capacity when a place
+        was in fact standing empty, and then report a §6-4 overlap on a day where the casual child
+        had a place of their own to sit in. So an absent day is not a head.
+
+        Known undercount, and it errs towards reporting rather than towards silence: a permanent
+        child who attends a day their agreement does not cover appears in
+        `attendedOutsideAgreement`, not here, so they are not counted as present. That surface
+        reports those days separately.
+      */
+      if (child.absenceHoursByDate[date] === undefined) {
+        headcountByDate.set(date, (headcountByDate.get(date) ?? 0) + 1);
+      }
+      if (!replacement) continue;
+      replacementByDate.set(date, (replacementByDate.get(date) ?? 0) + hours);
+      if (child.enrolmentType === 'conditional') conditionalDates.add(date);
+    }
+  }
+
+  const out: SixFourOverlap[] = [];
+  for (const [date, claimedAbsenceHours] of [...absenceByDate].sort(([a], [b]) =>
+    a.localeCompare(b),
+  )) {
+    /*
+      No `claimedAbsenceHours <= 0` test, and its absence is deliberate. This loop walks
+      `absenceByDate`, which only has a key where an absence was claimed, and `blockMinutes`
+      cannot return 0 — so a zero entry is unreachable. A first draft guarded it anyway and the
+      mutation drill could not kill the branch, which is how it was found. The same dead branch
+      was found the same way in `enrolledSessions`.
+    */
+    const replacementHours = replacementByDate.get(date) ?? 0;
+    if (replacementHours <= 0) continue;
+
+    let basis: SixFourOverlap['basis'];
+    if (conditionalDates.has(date)) {
+      basis = 'conditional-enrolment';
+    } else if (input.licensedPlaces === null) {
+      basis = 'capacity-unknown';
+    } else if ((headcountByDate.get(date) ?? 0) >= input.licensedPlaces) {
+      basis = 'at-or-over-capacity';
+    } else {
+      /*
+        A casual child attending a day with places to spare is not filling anybody's place, so
+        §6-4 does not bite. This is the branch that keeps the report from crying wolf on every
+        day a casual child happens to attend — and it is the reason `licensedPlaces` is read at
+        all.
+      */
+      continue;
+    }
+
+    // Floored like every other total here, so a floating-point tail cannot report an overlap of
+    // 0.0000001 hours.
+    const overlapHours =
+      Math.floor(Math.min(claimedAbsenceHours, replacementHours) * 100) / 100;
+    out.push({ date, claimedAbsenceHours, replacementHours, overlapHours, basis });
   }
   return out;
 }

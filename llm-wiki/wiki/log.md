@@ -5,6 +5,38 @@ says so.*
 
 ---
 
+2026-09-04 (twenty-eighth) — **§6-4's cross-child rule, the last absence rule, and the one where
+not implementing it over-claims.** New [[funding-and-billing]] section; [[unverified-claims]] item
+57's attribution question narrowed by a quotation that was two chapters away.
+
+`sixFourOverlaps({ children, licensedPlaces })`, rendered on `/funding`. Every other figure in
+`funding.ts` is computed for one child at a time, so this is the one absence rule a per-child
+implementation is structurally unable to check: *"Funding must not be claimed for both an absent
+permanently enrolled child under an absence rule and for the conditional or casual child who fills
+the absent child's place."*
+
+**Why this one got built rather than deferred.** The place cap and §6-7's closure extension can sit
+unapplied because their error runs towards under-claiming. §6-4's runs the other way — it claims a
+place twice — and that asymmetry is the whole argument.
+
+**It is not the place cap.** One absent permanent child claimed, one conditional child attending,
+eight empty places: two claims on one place and no aggregate exceedance at all.
+
+**Item 57's attribution question is answered for this case.** §7-7: *"Another child may attend the
+absent child's place without claiming funding for that replacement child."* A quotation, not a
+reading. What still blocks deducting is the other half of the same warning — a trim propagates into
+RS7's age-band and 20 Hours splits, and which casual child among several is not something the
+Handbook decides. So the day, the amount and the basis are named and `fundedHours` is untouched.
+
+**Conditional ≠ casual**, and the Glossary is why: a conditional enrolment is *"above the service's
+licensed maximum number of child-places"*, so a conditional child who attends is in a place they do
+not hold and needs no capacity arithmetic. A casual child only displaces when the day's **present**
+children reached the licence.
+
+Eight mutations, eight caught — after the drill found the absent child being counted as a head (the
+existing test used ten places, where miscounting one changes nothing) and a dead `<= 0` guard, the
+second such branch found this way.
+
 2026-09-04 (twenty-seventh) — **§6-7 implemented: the Frequent Absence Rule, three triggers and the
 four-month timeline.** New sections in [[funding-and-billing]], register item 62, item 61 narrowed
 to a single edge, and two corrections.

@@ -926,6 +926,77 @@ emergency closure is claimable on *"actual booked hours"*, but that is a differe
 absence — its own eligibility, no window to run — so those days are excluded here too rather than
 misclassified as absences. Item 60 carries what remains.
 
+### §6-4's cross-child rule — detected, attributed, and still not deducted
+
+**2026-09-04.** `sixFourOverlaps({ children, licensedPlaces })`, rendered on `/funding` beside the
+licence block. Eight mutations, eight caught — after the drill found one unasserted case and one
+clause that turned out to be dead.
+
+*"Funding must not be claimed for both an absent permanently enrolled child under an absence rule
+and for the conditional or casual child who fills the absent child's place."* Every other figure in
+`funding.ts` is computed for one child at a time, so this is the one absence rule a per-child
+implementation is **structurally** unable to check.
+
+#### It is not the place cap, and the difference is not cosmetic
+
+A day can breach §6-4 without exceeding `6 × licensed places` at all: one absent permanent child
+claimed, one conditional child attending, eight places standing empty. Two claims on one place, no
+aggregate exceedance, and `placeCapExceedances` says nothing. So they are two checks and two blocks
+on the screen.
+
+#### The direction of the error is the opposite of §6-7's closure clause, which is why this got built
+
+| Rule | Not implementing it | So |
+|---|---|---|
+| §6-7's *"may be extended"* across a long closure | claims **fewer** months | reported, not applied — item 62 |
+| §6-4's cross-child rule | claims a place **twice** | had to be detected, and it now is |
+
+The place cap and §6-7's extension can sit unapplied indefinitely because the error runs towards
+under-claiming. §6-4 runs the other way. That asymmetry is the whole argument for doing this now
+rather than after RS7.
+
+#### And the attribution is known here, which narrows item 57
+
+`placeCapExceedances` reports without adjusting because *whose* hours go is unknown —
+[[unverified-claims]] item 57, and nothing read had answered it.
+
+**§7-7 answers it for the absence case, in as many words:** *"Another child may attend the absent
+child's place without claiming funding for that replacement child."* The replacement child's hours
+are the ones not claimed. That is a quotation, not a reading, and the screen says so.
+
+What still blocks deducting is the other half of item 57's warning, not the attribution: RS7 needs
+the surviving hours split by age band and 20 Hours status, so a trim propagates into a Crown return,
+and choosing *which* casual child among several is a judgement the Handbook does not make. So the
+day, the amount and the basis are named, the wording tells the manager what to take off before
+keying into ELI Web, and `fundedHours` is untouched.
+
+#### Conditional and casual are not the same case, and the Glossary is why
+
+| Basis | When | Source |
+|---|---|---|
+| `conditional-enrolment` | a conditional child attended a day an absence was claimed | the Glossary: a conditional enrolment is *"above the service's licensed maximum number of child-places"*, so that child is in a place they do not hold — **no capacity arithmetic needed** |
+| `at-or-over-capacity` | a casual child attended and the day's **present** children reached the licence | "fills the absent child's place" only has content when the places are otherwise full |
+| `capacity-unknown` | `centres.licensed_places` is null | reported, not skipped — a missing denominator must not be able to silence a rule about over-claiming |
+
+That last row is the opposite treatment from `placeCapExceedances`, which returns `null` for the
+whole question. There the arithmetic is impossible; here the day is suspect and can be named.
+
+**A child of unstated enrolment type is not a replacement.** §6-4 names casual and conditional
+children. Refusing hours because nobody has classified a child would be a guess about their
+enrolment, and `hoursBasis` already reports that gap.
+
+#### Two things the mutation drill found
+
+- **The absent child must not count as a head.** `dailyCappedByDate` includes days a child was
+  absent and the absence was claimed. Counting those as present says a day was at capacity when a
+  place was standing open, and reports an overlap on a day where the casual child had a place of
+  their own. The existing capacity test used ten places, where miscounting one head changes
+  nothing — so the mutation survived until a two-place case was added.
+- **A dead guard.** The first draft tested `claimedAbsenceHours <= 0`, and the drill could not kill
+  it: the loop walks a map keyed only by dates that *have* a claimed absence, and `blockMinutes`
+  cannot return zero. Removed. The same dead branch was found the same way in `enrolledSessions`,
+  which is now two for two on "a branch no test can kill is a branch nothing can reach".
+
 ### §6-7 implemented — three triggers, four months, and what it refuses
 
 **2026-09-04.** `assessFrequentAbsence` in `packages/core/src/absence.ts`, wired into

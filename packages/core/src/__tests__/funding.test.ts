@@ -7,6 +7,7 @@ import {
   FUNDING_RULES_VERIFIED,
   ministryFundingPeriods,
   placeCapExceedances,
+  sixFourOverlaps,
   summariseFunding,
   summariseVariance,
   type FundingPeriod,
@@ -1312,5 +1313,173 @@ describe('childFunding — §6-7 gates a month of absences, not the month', () =
     const r = childFunding({ ...args, agreement: null });
     expect(r.hoursBasis).toBe('attendance-no-agreement');
     expect(r.frequentAbsence).toEqual([]);
+  });
+});
+
+describe('sixFourOverlaps — §6-4, the rule childFunding cannot see', () => {
+  /*
+    §6-4: *"Funding must not be claimed for both an absent permanently enrolled child under an
+    absence rule and for the conditional or casual child who fills the absent child's place."*
+
+    Two children, one place, and every other figure in `funding.ts` is computed for one child at a
+    time — so this is the one rule a per-child implementation is structurally unable to check.
+
+    The fixtures build `ChildFunding` results through `childFunding` itself rather than by hand.
+    A hand-built result would let a field drift from what the function actually produces, and
+    `absenceHoursByDate` is new enough that the drift would be invisible.
+  */
+  const NZ_TZ = 'Pacific/Auckland';
+  const monWed = [
+    { weekday: 1, fromTime: '09:00', toTime: '15:00', effectiveFrom: '2026-01-01', effectiveTo: null },
+  ];
+  const week: FundingPeriod = { label: 'One week', from: '2026-08-03', to: '2026-08-09' };
+
+  /** A permanent child enrolled Monday, absent, with the absence claimable under §6-5. */
+  const absentPermanent = (childId: string) =>
+    childFunding({
+      childId,
+      events: [],
+      timeZone: NZ_TZ,
+      period: week,
+      twentyHoursEce: false,
+      enrolmentType: 'permanent',
+      agreement: {
+        sessions: enrolledSessions({
+          blocks: monWed,
+          from: week.from,
+          to: week.to,
+          attendedDates: new Set<string>(),
+          closures: [],
+        }),
+        closures: [],
+        isSessionalService: false,
+      },
+    });
+
+  /** A child funded on attendance, present on the Monday for six hours. */
+  const attendingChild = (childId: string, enrolmentType: 'casual' | 'conditional' | null) =>
+    childFunding({
+      childId,
+      events: [ev('in', '2026-08-03T09:00:00+12:00'), ev('out', '2026-08-03T15:00:00+12:00')],
+      timeZone: NZ_TZ,
+      period: week,
+      twentyHoursEce: false,
+      enrolmentType,
+    });
+
+  it('catches a conditional child on a day an absence was claimed, with no capacity arithmetic', () => {
+    // The Glossary defines a conditional enrolment as one "above the service's licensed maximum
+    // number of child-places", so a conditional child who attends is in a place they do not hold.
+    // Ten places and two children: no aggregate exceedance anywhere, and §6-4 still bites.
+    const rows = sixFourOverlaps({
+      children: [absentPermanent('perm'), attendingChild('cond', 'conditional')],
+      licensedPlaces: 10,
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toEqual({
+      date: '2026-08-03',
+      claimedAbsenceHours: 6,
+      replacementHours: 6,
+      overlapHours: 6,
+      basis: 'conditional-enrolment',
+    });
+  });
+
+  it('leaves a casual child alone when the day had places to spare', () => {
+    // A casual child attending a half-empty room is not filling anybody's place. Without this
+    // branch the report would fire on every day a casual child attends, which is most of them.
+    const rows = sixFourOverlaps({
+      children: [absentPermanent('perm'), attendingChild('cas', 'casual')],
+      licensedPlaces: 10,
+    });
+    expect(rows).toEqual([]);
+  });
+
+  it('catches a casual child when the day was at capacity', () => {
+    // One place. The absent child is not a head — a place stood empty only if somebody was in it,
+    // and they were not — so the single casual child fills the licence on their own.
+    const rows = sixFourOverlaps({
+      children: [absentPermanent('perm'), attendingChild('cas', 'casual')],
+      licensedPlaces: 1,
+    });
+    expect(rows.map((r) => r.basis)).toEqual(['at-or-over-capacity']);
+  });
+
+  it('does not count the absent child as filling a place', () => {
+    /*
+      TWO PLACES, one absent permanent child and one casual child present. The room is half
+      empty, so the casual child is not filling anybody's place and §6-4 does not bite.
+
+      Counting the claimed-absent child as a head would make it two children in two places, read
+      as "at capacity", and report an overlap on a day where a place was standing open. The
+      mutation drill found this unasserted — the other capacity test uses ten places, where
+      miscounting one head changes nothing.
+    */
+    const rows = sixFourOverlaps({
+      children: [absentPermanent('perm'), attendingChild('cas', 'casual')],
+      licensedPlaces: 2,
+    });
+    expect(rows).toEqual([]);
+  });
+
+  it('reports rather than skips when the licence is not stated', () => {
+    // A missing denominator must not be able to silence a rule about over-claiming. This is the
+    // opposite treatment from `placeCapExceedances`, which returns null for the whole question —
+    // there the arithmetic is impossible; here the day is suspect and can be named.
+    const rows = sixFourOverlaps({
+      children: [absentPermanent('perm'), attendingChild('cas', 'casual')],
+      licensedPlaces: null,
+    });
+    expect(rows.map((r) => r.basis)).toEqual(['capacity-unknown']);
+  });
+
+  it('does not treat a child of unstated type as a replacement', () => {
+    // §6-4 names casual and conditional children. Refusing hours because nobody has classified a
+    // child would be a guess about their enrolment, and `hoursBasis` already reports the gap.
+    const rows = sixFourOverlaps({
+      children: [absentPermanent('perm'), attendingChild('who', null)],
+      licensedPlaces: 1,
+    });
+    expect(rows).toEqual([]);
+  });
+
+  it('says nothing on a day with no claimed absence', () => {
+    const rows = sixFourOverlaps({
+      children: [attendingChild('cas', 'casual'), attendingChild('cond', 'conditional')],
+      licensedPlaces: 1,
+    });
+    expect(rows).toEqual([]);
+  });
+
+  it('reports the smaller of the two figures, because that is what is claimed twice', () => {
+    // The absent child's agreement is six hours; the conditional child attended two. Only two
+    // hours are claimed for one place twice over — reporting six would overstate the correction.
+    const shortDay = childFunding({
+      childId: 'cond',
+      events: [ev('in', '2026-08-03T09:00:00+12:00'), ev('out', '2026-08-03T11:00:00+12:00')],
+      timeZone: NZ_TZ,
+      period: week,
+      twentyHoursEce: false,
+      enrolmentType: 'conditional',
+    });
+    const rows = sixFourOverlaps({
+      children: [absentPermanent('perm'), shortDay],
+      licensedPlaces: 10,
+    });
+    expect(rows[0]?.claimedAbsenceHours).toBe(6);
+    expect(rows[0]?.replacementHours).toBe(2);
+    expect(rows[0]?.overlapHours).toBe(2);
+  });
+
+  it('changes no figure, which is the decision and not an omission', () => {
+    // The attribution is known — §7-7: "another child may attend the absent child's place without
+    // claiming funding for that replacement child" — but a trim here propagates into RS7's age-band
+    // and 20 Hours splits, and choosing which casual child among several is not something the
+    // Handbook does. So the amount is named and `fundedHours` is untouched.
+    const perm = absentPermanent('perm');
+    const cond = attendingChild('cond', 'conditional');
+    sixFourOverlaps({ children: [perm, cond], licensedPlaces: 10 });
+    expect(perm.fundedHours).toBe(6);
+    expect(cond.fundedHours).toBe(6);
   });
 });

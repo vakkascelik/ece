@@ -2131,11 +2131,32 @@ reported on `/funding`, with six tests and a mutation drill on the three-state c
   uncomfortable invariant and the honest one — a single plausible `fundedByDate` would have hidden
   it.
 
+#### The attribution question is narrower than this item has been saying — 2026-09-04
+
+*"Whose hours are not claimable"* is answered by the Handbook for one case, and it was sitting two
+chapters away the whole time. §7-7: *"Another child may attend the absent child's place **without
+claiming funding for that replacement child**."*
+
+So where an excess involves a claimed absence and a casual or conditional child attending, the
+replacement child's hours are the ones not claimed. That is a quotation and not a reading, and
+`sixFourOverlaps` now detects those days and names the amount — see [[funding-and-billing]].
+
+**What that leaves genuinely open** is the general case: a day over `6 × licensed places` with no
+claimed absence in it, which is two present children sharing a place, and there §7-7 has nothing to
+say. That is still the enquiry question, and it is now a narrower one.
+
+**And the second blocker is not attribution at all.** Even with the rule known, a trim applied in
+`funding.ts` propagates into RS7's age-band and 20 Hours splits, and choosing which casual child
+among several loses their hours is a judgement the Handbook does not make. Naming the day and the
+amount is what a preparation export is for.
+
 #### What is still open
 
-Applying the cap, which needs the attribution rule; enforcing the two capacity conditions the
-Glossary attaches to *permanent* and *conditional* enrolments; and `centres.licensed_places` being
-**nullable**, so for a centre that has not stated its licence none of this can be computed at all.
+Applying the cap in the general case, which needs the attribution rule for a day with no claimed
+absence; enforcing the two capacity conditions the Glossary attaches to *permanent* and
+*conditional* enrolments; and `centres.licensed_places` being **nullable**, so for a centre that has
+not stated its licence the capacity half cannot be computed at all — which is why `sixFourOverlaps`
+reports a `capacity-unknown` day rather than skipping it.
 
 ### 58. §6-1's enrolment record — **CLOSED 2026-09-04**
 

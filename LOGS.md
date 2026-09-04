@@ -7,6 +7,103 @@ itself, and from the wiki pages, which hold the durable *why*. This file is the 
 
 ---
 
+## 2026-09-04 (twenty-eighth) — §6-4, and the rule where doing nothing is the over-claim
+
+### The asymmetry that decided this
+
+Three things are now known-and-unapplied in this product: the place cap (item 57), §6-7's closure
+extension (item 62), and §6-4's cross-child rule. The first two can wait indefinitely. The third
+could not, and the reason is one line:
+
+| Rule | Leaving it unapplied | |
+|---|---|---|
+| place cap | claims **more** hours than 6 × places allows | over-claim, but no attribution rule exists |
+| §6-7's *"may be extended"* | claims **fewer** months | safe direction |
+| §6-4's cross-child rule | claims one place **twice** | over-claim, and the attribution *is* stated |
+
+`sixFourOverlaps({ children, licensedPlaces })` in `funding.ts`, rendered on `/funding` in its own
+block beside the licence one.
+
+### It is not the place cap, and I nearly built it as if it were
+
+The first design was "§6-4 is the absence-shaped subset of a place-cap exceedance". That is wrong,
+and the counterexample is small: one absent permanent child with a claimed absence, one conditional
+child attending, eight places standing empty. Two claims on one place. Total claimed hours nowhere
+near `6 × places`. `placeCapExceedances` reports nothing, and §6-4 is breached in plain words.
+
+So they are two checks. The test that pins it uses ten licensed places precisely so no capacity
+arithmetic can be doing the work.
+
+### The attribution was two chapters away
+
+Item 57 has said for days that applying the place cap needs an attribution rule — *whose* hours go —
+and that *"nothing read so far supplies"* it. §7-7 supplies it for the absence case, in as many
+words:
+
+> Another child may attend the absent child's place **without claiming funding for that replacement
+> child.**
+
+That is a quotation, not a reading. The replacement child's hours are the ones not claimed, and the
+screen now says so, which means the manager keying figures into ELI Web knows both the amount and
+which side of it to take off.
+
+**What still blocks actually deducting is not the attribution.** It is the rest of item 57's
+warning: RS7 needs the surviving hours split by age band and 20 Hours status, so a trim in
+`funding.ts` propagates into a Crown return; and choosing which casual child among several loses
+their hours is a judgement the Handbook does not make. Naming the day and the amount is what a
+preparation export is for. Item 57 updated to say the question is now narrower rather than open.
+
+### Conditional and casual are different cases, from the Glossary
+
+- **Conditional** enrolments are *"above the service's licensed maximum number of child-places"*. A
+  conditional child who attends is therefore in a place they do not hold — no capacity arithmetic
+  required, and the check fires on any day an absence was claimed.
+- **Casual** children may be inside capacity, so "fills the absent child's place" only has content
+  when the day's present children reached the licence.
+- **`capacity-unknown`** where `centres.licensed_places` is null: reported, not skipped. A missing
+  denominator must not be able to silence a rule about over-claiming — which is the **opposite**
+  treatment from `placeCapExceedances`, where the arithmetic is genuinely impossible and the answer
+  is `null` for the whole question. Two three-state contracts, resolved in opposite directions for
+  stated reasons.
+- **Unstated enrolment type is not a replacement.** §6-4 names casual and conditional children;
+  refusing hours because nobody classified a child would be a guess about their enrolment, and
+  `hoursBasis` already reports that gap.
+
+### The mutation drill, again earning its cost
+
+Eight mutations. Six caught first pass, and both survivors were mine:
+
+**1. The absent child was being counted as present.** `dailyCappedByDate` includes days a child was
+absent and the absence was claimed, so the capacity test counted a child who was not in the room.
+A day with two places, one absent claimed child and one casual child present read as "at capacity"
+and reported an overlap on a day where a place was standing open. The fix was already in the code —
+what was missing was a test that could see it, because the existing capacity case uses ten places
+where miscounting one head changes nothing.
+
+**2. A dead guard.** The draft tested `claimedAbsenceHours <= 0` and the drill could not kill it:
+the loop walks a map keyed only by dates that *have* a claimed absence, and `blockMinutes` cannot
+return zero. Removed. `enrolledSessions` records finding exactly this, the same way, and its comment
+says so — two for two on **a branch no test can kill is a branch nothing can reach**.
+
+### Verification
+
+- 85 funding tests, 652 in core, all suites green; `test:rls` 748/748; `review:security` 16/16;
+  tokens, docs, bundle, build.
+- **49 e2e a11y assertions pass**, including the funding preparation page, which is the one that
+  matters for a new block on a rendered surface — a heading added carelessly to a page broke that
+  spec once before any rule ran.
+- Ran playwright directly first and got a harness failure for missing env. `npm run test:e2e` loads
+  `.env.local`; a bare `npx playwright test` does not. The fix is
+  `node --env-file-if-exists=.env.local ./node_modules/@playwright/test/cli.js test -c
+  apps/web/playwright.config.ts <spec>`, which is how to run one spec without the whole suite.
+
+### The absence rules, now
+
+§6-5, §6-6, §6-7 and §7-7 are implemented and mutation-tested. §6-4 is detected, attributed and
+reported. **`FUNDING_RULES.absence` stays `false`**, and its comment now says why in one precise
+sentence rather than "NOT IMPLEMENTED": the figures can still claim one place twice, and the
+correction is a sentence on a screen rather than arithmetic.
+
 ## 2026-09-04 (twenty-seventh) — §6-7, and a mutation drill that found the tests rather than the code
 
 ### What landed
