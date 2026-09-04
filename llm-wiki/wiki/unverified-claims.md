@@ -2167,6 +2167,29 @@ guardian picker on both panels; and the **Record incomplete** flag that names th
 unit tests, thirteen RLS assertions on the migration, and an e2e test that links a guardian and
 completes a record end to end.
 
+### 59. The occupancy average cannot tell a closed day from an empty one — **OPEN, added 2026-09-04**
+
+`averageOverOpenDays` (`packages/core/src/occupancy.ts`) filters with `d.children > 0`. It is a
+proxy for "the service was open", and it is the only one that existed until `0088`.
+
+**The direction of the error is the awkward one.** A centre that opened on a snow day and had nobody
+turn up is averaged as though it had been shut — so the day is dropped from the denominator and the
+average is **flattered**. A figure that is too high is the one that gets quoted.
+
+Three consumers, all of them through the same function: the occupancy report's `averageChildren`,
+and both of `attendanceTrend.ts`'s summaries (weekly and per-weekday).
+
+**`0088` makes it fixable and does not fix it.** `service_closures` now records which days the
+service did not operate, so the proxy has an alternative. It was left alone in that commit
+deliberately: changing this average changes a number somebody may already have put in a board paper,
+and it needs its own commit, its own assertions, and a sentence on the screen saying what the
+average is now over. The migration landing is not the fix, and this entry exists so the two are not
+confused.
+
+**To close it:** read closures alongside attendance in the occupancy and trend paths, filter on
+"not closed" rather than "somebody attended", keep `null` meaning "no data" distinct from `0`
+meaning "nobody came", and say on the screen which days were excluded and why.
+
 ## See Also
 
 - [[eli-integration]] — the public schema, the event catalogue, and items 47 and 48

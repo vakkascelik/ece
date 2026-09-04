@@ -5,6 +5,36 @@ says so.*
 
 ---
 
+2026-09-04 (eleventh) — **`0088`: when the service was closed, and a proxy that flatters the
+occupancy figure.** New: [[unverified-claims]] item 59, and a §6-6 section in
+[[funding-and-billing]]. Corrected: [[eli-integration]]'s `EceServiceClosure` rows, which have said
+"Nothing" since 2026-09-02; [[reporting]]'s open-days section, which said a closed day and an empty
+one look identical — true until today and now a choice rather than a limitation.
+
+`service_closures` is a period with a start, an optional end and a reason code. **Built before the
+absence rules because four things need it**: §6-6 suspends the Three Week Rule while a service is
+closed for two weeks or more; RS7's `AdvanceMonthCounts` needs forward operating days; ELI's
+`EceServiceClosure` maps here; and `averageOverOpenDays` decides a day was open by `d.children > 0`.
+
+**That fourth one is a live defect rather than a missing feature.** The proxy cannot tell a closed
+day from an open day nobody attended, and the error runs the wrong way — a centre that opened on a
+snow day with nobody turning up is dropped from the denominator, which **flatters** the average.
+`0088` makes it fixable and deliberately does not fix it: changing that average changes a number
+somebody may already have quoted, and it needs its own commit. Item 59 holds it open.
+
+**Not `booking_status = 'closed'`**, which stays as it is. That says *this child had no place on
+this day*; the new table says *the service did not operate*, and deriving either from the other
+makes a child-level record answer a service-level question.
+
+**`ends_on` is nullable** — a flood on Tuesday with no known reopening — and the cost is named:
+`EceServiceClosure` requires a `ClosureEndDate`, so an open closure cannot be serialised. **The
+reason code ships unresolvable**, `text` with the `LookupCode` bound and no foreign key, exactly as
+`0081` treated the census codes, because `code_sets` reserves a `closure_reason` domain that is
+still empty.
+
+Sixteen assertions, 686 → 702, and the inclusive range bound was mutation-drilled: moving the second
+closure onto the first one's end date makes it fail, which is what proves `[]` rather than `[)`.
+
 2026-09-04 (tenth) — **§6-1's enrolment record becomes completable, and item 58 closes.** New: a
 field-by-field map in [[funding-and-billing]], and a [[conventions]] entry on fields writable only
 at creation time. Closed: [[unverified-claims]] item 58, opened and shut the same day in four

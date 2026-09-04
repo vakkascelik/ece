@@ -1203,6 +1203,205 @@ select pg_temp.expect(
 );
 
 -- ===========================================================================
+-- 0088 — service closures
+--
+-- Fixed literal dates throughout, not `current_date`. A closure is judged by the centre's
+-- calendar and the suite runs in UTC, and an assertion built on "today" is only true for half
+-- the day — which cost an e2e run on 2026-09-04 and is now a convention. Nothing here needs
+-- to be relative, so nothing here is.
+-- ===========================================================================
+
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+
+do $$
+declare n integer;
+begin
+  insert into public.service_closures (centre_id, starts_on, ends_on, reason_note)
+  values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '2026-01-05', '2026-01-09', 'Summer close-down');
+  get diagnostics n = row_count;
+  perform pg_temp.expect(n = 1, 'an owner CAN record a period the service was closed (0088)');
+end $$;
+
+-- An overlapping period is a data-entry mistake with arithmetic consequences: §6-6 counts
+-- consecutive closed days, and a period counted twice extends a suspension that should have
+-- ended. One day of overlap is enough to catch it.
+do $$
+declare code text := 'none (the insert SUCCEEDED)';
+begin
+  begin
+    insert into public.service_closures (centre_id, starts_on, ends_on)
+    values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '2026-01-09', '2026-01-12');
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '23P01', 'an OVERLAPPING closure is refused, got ' || code);
+end $$;
+
+-- And the day after is not an overlap. `[]` is inclusive at both ends, so this is the
+-- assertion that the range bound is right rather than off by one in the safe-looking
+-- direction: with `[)` this insert would pass and the overlap above would too.
+do $$
+declare n integer;
+begin
+  insert into public.service_closures (centre_id, starts_on, ends_on, reason_note)
+  values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '2026-01-10', '2026-01-12', 'Extra day');
+  get diagnostics n = row_count;
+  perform pg_temp.expect(n = 1, 'a closure starting the day after another is accepted (0088)');
+end $$;
+
+/*
+ * A CLOSURE WITH NO STATED END. A flood on Tuesday and nobody knows for how long. Recording
+ * it as a one-day closure would be false and refusing it until the end is known loses the
+ * fact, so null is "not yet known" — the same three-state treatment `enrolments.end_date`
+ * gets. Placed far enough forward that its infinite tail cannot collide with anything above.
+ */
+do $$
+declare n integer;
+begin
+  insert into public.service_closures (centre_id, starts_on, ends_on, reason_note)
+  values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '2031-06-01', null, 'Flood, reopening unknown');
+  get diagnostics n = row_count;
+  perform pg_temp.expect(n = 1, 'a closure with NO stated end is recorded, not refused (0088)');
+end $$;
+
+-- And it covers every later date, which is what a null end MEANS. The same infinity semantics
+-- 0085 relies on, asserted here because a null that quietly meant "one day" would let a second
+-- closure be filed inside an ongoing one.
+do $$
+declare code text := 'none (the insert SUCCEEDED)';
+begin
+  begin
+    insert into public.service_closures (centre_id, starts_on, ends_on)
+    values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '2031-09-01', '2031-09-05');
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '23P01',
+    'an open-ended closure covers every later date, so a later one collides, got ' || code);
+end $$;
+
+-- Backwards dates are a typo, and a negative closure would subtract days from a suspension.
+do $$
+declare code text := 'none (the insert SUCCEEDED)';
+begin
+  begin
+    insert into public.service_closures (centre_id, starts_on, ends_on)
+    values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '2026-03-10', '2026-03-01');
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '23514', 'a closure ending before it starts is refused, got ' || code);
+end $$;
+
+/*
+ * THE TWO THAT GUARD THE WIRE, and they are the reason this table has CHECK constraints at
+ * all. `ClosureReasonCode` is a LookupCode: a value over the bound would be truncated by a
+ * serialiser nobody is watching, and one that is present but blank serialises to an empty
+ * attribute on a Crown return. Both are refused here instead.
+ */
+do $$
+declare code text := 'none (the insert SUCCEEDED)';
+begin
+  begin
+    insert into public.service_closures (centre_id, starts_on, ends_on, reason_code)
+    values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '2026-04-01', '2026-04-02', repeat('x', 11));
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '23514',
+    'a reason code over the schema''s LookupCode bound is refused, got ' || code);
+end $$;
+
+do $$
+declare code text := 'none (the insert SUCCEEDED)';
+begin
+  begin
+    insert into public.service_closures (centre_id, starts_on, ends_on, reason_code)
+    values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '2026-04-01', '2026-04-02', '   ');
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '23514', 'a blank reason code is refused, not stored, got ' || code);
+end $$;
+
+-- An UNRESOLVABLE code is accepted, and that is the point: `code_sets` reserves a
+-- `closure_reason` domain and ships it EMPTY, because the Ministry has not published the
+-- list. A foreign key here would make the column unwritable until it does. The gap belongs on
+-- a readiness report, not in a rejected write.
+do $$
+declare n integer;
+begin
+  insert into public.service_closures (centre_id, starts_on, ends_on, reason_code)
+  values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '2026-04-01', '2026-04-02', 'HOLIDAY');
+  get diagnostics n = row_count;
+  perform pg_temp.expect(n = 1,
+    'a reason code with no published list behind it is STORED, not refused (0088)');
+end $$;
+
+select pg_temp.expect(
+  (select count(*) from public.audit_events
+    where entity = 'service_closures' and action = 'insert') >= 1,
+  'recording a closure leaves an audit row — audit_trigger resolves centre_id (0088)'
+);
+
+-- The other centre reads nothing.
+set local request.jwt.claims = '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.service_closures) = 0,
+  'another centre CANNOT read this centre''s closures (0088)'
+);
+
+/*
+ * A PARENT CAN READ THEM, and this is the widening worth asserting rather than the
+ * restriction. A family needs to know the centre is shut next Thursday; that is the single
+ * most operationally useful thing on this table, and hiding it behind a staff role would be
+ * perverse. The select policy is `caller_centre_ids()` — every member — where almost
+ * everything else on the child side keys on guardianship.
+ */
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.service_closures) > 0,
+  'a PARENT can see when the service is closed (0088)'
+);
+
+-- And cannot record one. A closure changes funded days.
+do $$
+declare code text := 'none (the insert SUCCEEDED)';
+begin
+  begin
+    insert into public.service_closures (centre_id, starts_on, ends_on)
+    values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '2026-07-01', '2026-07-02');
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '42501', 'a parent CANNOT record a closure, got ' || code);
+end $$;
+
+-- An educator reads them and cannot change them — same split as the address table.
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.service_closures) > 0,
+  'an educator CAN see when the service is closed (0088)'
+);
+do $$
+declare n integer;
+begin
+  update public.service_closures set reason_note = 'Rewritten by an educator'
+   where centre_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  get diagnostics n = row_count;
+  perform pg_temp.expect(n = 0, 'an educator CANNOT change a closure (0088)');
+end $$;
+
+-- `anon` is stopped by the GRANT, before any policy runs.
+do $$
+declare code text := 'none';
+begin
+  set local role anon;
+  begin
+    perform 1 from public.service_closures;
+  exception when others then code := sqlstate;
+  end;
+  set local role authenticated;
+  perform pg_temp.expect(code = '42501', 'anon is refused by the GRANT on service_closures, got ' || code);
+end $$;
+
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+
+-- ===========================================================================
 -- 0087 — the rest of §6-1: the other-service hours, and the dated parent signature
 --
 -- The assertions that matter here are NOT about policies. Every column added by 0087 sits

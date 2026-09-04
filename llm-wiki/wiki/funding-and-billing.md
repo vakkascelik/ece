@@ -658,6 +658,34 @@ like it filed something is a screen after which nobody files anything. `exportDi
 the wording from the summary, so it cannot say "complete" when it is not, and lives in `@ece/core`
 so a future emailed version says the same thing.
 
+### §6-6 has its calendar now — `service_closures` (`0088`)
+
+§6-6 suspends the Three Week Rule while a service is closed for two weeks or more. It was never
+transcribed while the disclaimer claimed to cover *"§6-4 to 6-7"*, and it could not have been
+implemented anyway: **nothing recorded which days the service did not operate.**
+
+`0088` is that record — a period with a start, an optional end and a reason code, shaped by the
+`EceServiceClosure` event because the XSD had already specified it. Four consumers, which is why it
+came before the absence rules themselves: §6-6, RS7's `AdvanceMonthCounts`, the ELI event, and
+`averageOverOpenDays`, which infers a closed day from nobody attending and therefore cannot tell one
+from an open day nobody came to ([[unverified-claims]] item 59).
+
+**It is not `bookings.booking_status = 'closed'`**, which already existed and stays as it is. That
+value says *this child had no place on this day*; the new table says *the service did not operate*.
+A service can be open while one child's booking is closed, and deriving either from the other makes
+a child-level record answer a service-level question.
+
+**`ends_on` is nullable** — a flood on Tuesday with no known reopening is a real closure, and
+recording it as a one-day one would be false. The cost is named rather than hidden:
+`EceServiceClosure` requires a `ClosureEndDate`, so an open closure cannot be serialised, and that
+is a gap for the sender to report rather than a date for the table to invent.
+
+**The reason ships unresolvable.** `ClosureReasonCode` is a `LookupCode` with no published list;
+`0080` reserved a `closure_reason` domain in `code_sets` and left it empty. So the column is `text`
+with the `LookupCode` length bound and **no foreign key** — the same treatment `0081` gave the
+census codes, because a foreign key would make the column unwritable until the Ministry publishes a
+list, and an unresolvable code belongs on a readiness report rather than in a rejected write.
+
 ### The enrolment record — what §6-1 requires, and where each part lives
 
 Complete as at 2026-09-04, and this table is the map. §6-1 is the rule; everything under it is

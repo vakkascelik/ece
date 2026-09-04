@@ -87,6 +87,19 @@ alongside so a reader knows what the average is over. The screen states it in wo
 are different statements and only one of them is alarming. The page says the stronger thing — a day
 nobody signed in looks identical here to a day the centre was closed.
 
+### That last sentence stopped being unavoidable on 2026-09-04
+
+`averageOverOpenDays` decides a day was open by `d.children > 0`. It is a **proxy**, and it cannot
+tell a closed day from an open day nobody attended. The direction of the error is the awkward one:
+a centre that opened on a snow day and had nobody turn up is averaged as though it had been shut,
+which **flatters** the occupancy figure.
+
+`0088` adds `service_closures`, so the distinction is now recordable — the calendar exists and the
+proxy has an alternative. **The fix is deliberately not applied in the same commit.** Changing this
+average changes a number somebody may already have quoted in a board paper, and it belongs in a
+commit of its own with its own assertions and its own note on the screen. [[unverified-claims]] item
+59 holds it open so it is not mistaken for done.
+
 ---
 
 ## `readAttendanceByDay`, and why it counts in TypeScript

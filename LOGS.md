@@ -7,6 +7,75 @@ itself, and from the wiki pages, which hold the durable *why*. This file is the 
 
 ---
 
+## 2026-09-04 (eleventh) — `0088`, and a proxy that flatters the occupancy figure
+
+The operating calendar. Built before the absence rules it enables, because it turned out four
+separate things were waiting on it and three of them are already written.
+
+### Why this one came first
+
+Most tables here serve one screen. This one is a prerequisite for:
+
+1. **§6-6**, which suspends the Three Week Rule while a service is closed for two weeks or more —
+   never transcribed, while the funding disclaimer claimed to cover "§6-4 to 6-7".
+2. **RS7's `AdvanceMonthCounts`**, forward operating days by service model.
+3. **ELI's `EceServiceClosure`**, which has mapped to nothing since the schema was first read.
+4. **`averageOverOpenDays`**, which decides a day was open by `d.children > 0`.
+
+### The fourth one is a defect, not a gap
+
+`d.children > 0` is a proxy for "the service was open" and it cannot tell a closed day from an open
+day nobody attended. The direction matters: a centre that opened on a snow day and had nobody turn
+up is dropped from the denominator, so the average is **flattered**. A figure that is too high is
+the one that gets quoted in a board paper.
+
+Three consumers go through that one function — the occupancy report's average, and both of
+`attendanceTrend.ts`'s summaries.
+
+**`0088` makes it fixable and does not fix it**, which is a decision rather than an omission.
+Changing that average changes a number somebody may already have quoted, so it needs its own commit,
+its own assertions and a sentence on the screen saying what the average is now over. Item 59 holds
+it open so the migration landing is not mistaken for the fix. [[reporting]]'s own section said "a
+day nobody signed in looks identical here to a day the centre was closed" — that was true until
+today, and it is now a choice rather than a limitation, so the page says so.
+
+### Three shape decisions
+
+**A period, not a day, and not `booking_status`.** The XSD had already specified the shape: start,
+end, reason. `bookings.booking_status = 'closed'` stays exactly as it is and is a different
+statement — *this child had no place on this day* versus *the service did not operate*. A service
+can be open while one child's booking is closed, and deriving either from the other would make a
+child-level record answer a service-level question.
+
+**`ends_on` is nullable.** A flood on Tuesday and nobody knows for how long. Recording that as a
+one-day closure would be false; refusing it until the end is known loses the fact. So null is "not
+yet known", the same three-state treatment `enrolments.end_date` gets. The cost is real and named:
+`EceServiceClosure` carries a `ClosureEndDate`, so an open closure cannot be serialised — a gap for
+the sender to report, not a date for this table to invent.
+
+**The reason code ships unresolvable.** `ClosureReasonCode` is a `LookupCode` the schema leaves
+unenumerated, and the Ministry has not said where the lists are published. `0080` reserved a
+`closure_reason` domain and left it empty. So: `text`, with the `LookupCode` length bound, and **no
+foreign key to `codes`** — the same call `0081` made for the census, because a foreign key would
+make the column unwritable until a list exists, and an unresolvable code belongs on a readiness
+report rather than in a rejected write.
+
+### Sixteen assertions, and the one worth drilling
+
+686 → 702. The tenancy ones are routine by now. The two that earn their place:
+
+- **The inclusive range bound.** A closure from Monday to Friday includes Friday, so `[]` rather
+  than the `[)` the enrolment ranges use — an enrolment's successor may start the day its
+  predecessor ends, but two closures cannot share a day. Mutation-drilled by moving the second
+  closure onto the first one's end date, which makes it fail.
+- **A parent can read them.** The widening is the thing worth asserting, not the restriction: a
+  family needs to know the centre is shut next Thursday, and hiding that behind a staff role would
+  be perverse. Almost everything else on the child side keys on guardianship; this keys on
+  membership.
+
+And the dates in every assertion are **fixed literals**, not `current_date` — the lesson from this
+morning's e2e failure, applied the same day it was learned.
+
 ## 2026-09-04 (tenth) — §6-1 becomes completable, and item 58 closes the day it opened
 
 `0087` landed schema-only. This makes it writable, which is a different claim.
