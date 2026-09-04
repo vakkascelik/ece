@@ -7,6 +7,96 @@ itself, and from the wiki pages, which hold the durable *why*. This file is the 
 
 ---
 
+## 2026-09-04 (tenth) — §6-1 becomes completable, and item 58 closes the day it opened
+
+`0087` landed schema-only. This makes it writable, which is a different claim.
+
+### What shipped
+
+Five fields on `Enrolment` in `@ece/core` plus `enrolmentRecordGaps()`; the reader and both writers
+in `packages/api/src/children.ts`; the schedule signature in `bookingSchedule.ts`;
+`completeEnrolmentRecord` beside `fileEnrolment`; a guardian picker and the §6-1 fields on both
+panels; a **Record incomplete** flag naming what is missing.
+
+### The trap: reachable at creation time is not reachable
+
+Wiring the fields into `fileEnrolment` would have looked finished. It would also have left every
+enrolment already on file **permanently incomplete**, because re-filing an enrolment is not
+something a service can do — `enrolments_no_overlap` refuses it, correctly, since two overlapping
+enrolments double-count funded hours.
+
+So a new required field on a long-lived row needs two writers, and the second is the one that makes
+the rule satisfiable. The completion form is offered on **every** row rather than only on incomplete
+ones: a signature recorded against the wrong parent has to be correctable, and a control that
+disappears on success makes the one thing this panel writes the one thing it cannot fix.
+
+### `Number('')` is zero, and that is the whole three-state problem
+
+§6-1 wants the other-service hours *"including none if appropriate"*, so **null and 0 are different
+answers** — nobody asked, versus the parent attested none. An empty form field converts to `0` and a
+null column converts to `0`, so both the server action and the row mapper test emptiness *before*
+converting. Mutating `enrolmentRecordGaps` from `=== null` to a falsy check fails two unit tests,
+which is the check that the distinction is actually load-bearing rather than merely written down.
+
+### The picker is a picker because Postgres made it one
+
+`signed_by` is a `guardians` reference, and `0087`'s trigger requires a **current guardian of that
+child**. A free-text name could not satisfy that; a picker listing every guardian at the centre would
+offer choices the database refuses. `listGuardiansOfChild` already filters revoked links — the same
+condition the trigger applies — so the list is exactly what will be accepted.
+
+**Nothing preselects a guardian**, and that is deliberate rather than lazy. A signature is a claim
+that a named person signed something. A picker defaulting to the first guardian manufactures that
+claim from a page load, which is the same failure as a date entered to clear a warning.
+
+**And with no whānau linked, the panel says so** rather than showing an empty dropdown: there is
+nobody who *could* sign, and an empty control reads as a broken control rather than as the missing
+prerequisite it is. That is the state every existing child is in, so the e2e asserts it first.
+
+### What is deliberately not enforced
+
+Signatures are optional on the way in, on both panels. Refusing to store a change to the days and
+times until somebody has signed would mean either losing the change or backdating a signature. So
+unsigned blocks are stored and flagged, and every block written before `0087` carries that flag
+permanently — a signature nobody gave is not backfillable, and a flag that can never clear is a
+truthful record rather than a defect.
+
+### The run found a defect in a test, not in the code
+
+The `0085` schedule test ends a block and asserts it is **not in force**. It filled the last day
+with `new Date().toISOString().slice(0, 10)` — a **UTC** date — while the panel decides in force
+against the **centre's** date, which is NZ. Those agree only from NZ noon onward; before noon UTC is
+still yesterday.
+
+So in the morning the block ended *yesterday* and the assertion held. In the afternoon it ends
+*today*, and `coversDate` is inclusive of `effectiveTo`, so the block is still current and the
+assertion is false. **It passed at NZ 10:50 and failed at 12:29 on the same day**, with nothing
+between the two runs but an unrelated column added to that table.
+
+I spent the first few minutes assuming my own change had broken it, which is the natural reading and
+was wrong. What settled it was the page snapshot: the row read `2026-09-04 to 2026-09-04 ✓ current`,
+which is *correct* behaviour for a block ending today — so the assertion was the thing that was
+wrong, and had been since it was written.
+
+Fixed by moving the dates away from the boundary rather than by weakening the assertion: a block
+running from a week ago until two days ago is not in force today in any timezone. Third time this
+UTC-versus-centre boundary has cost something here — `enrolChild` once refused a baby born that
+morning as "in the future", and `test:rls` failed at 00:13 because `now() - interval '1 hour'` was
+yesterday — so it is now a convention rather than three separate war stories.
+
+### And one that was mine
+
+My own §6-1 test failed on its last assertion: after recording the signature, the record was still
+incomplete. Correctly. I had filed the enrolment without an enrolment type and without any days, and
+both are §6-1 requirements — so `enrolmentRecordGaps` was reporting two things the test had never
+supplied. The gap function working exactly as intended, catching the test rather than the code.
+
+### Not built
+
+A centre-wide readiness list. Gaps are named on each child's record; a manager wanting to know which
+of eighty children have incomplete records has no screen. That is reporting rather than compliance,
+and it is written down so it is not mistaken for done.
+
 ## 2026-09-04 (ninth) — `0087`, and a foreign key that could not say what it meant
 
 The last two things §6-1 requires an enrolment record to contain, plus a correction to my own `0084`

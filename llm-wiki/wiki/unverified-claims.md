@@ -47,6 +47,13 @@ Nothing here is a bug. They are known gaps with known closures.
   teaching children"***. If it is actual, the source is recorded staff attendance, not the roster
   agreement — and a service without per-person staff sign-in cannot answer it at all. **A schema
   tells you what a field may contain, not what it means.**
+- **The enrolment record now meets §6-1 in full — item 58, opened and CLOSED 2026-09-04.** Reading
+  §6-1 against the schema found three of its required contents missing: the child's residential
+  address, an attestation of the hours enrolled at another service, and a dated parent signature.
+  Four commits closed it — `0086`, `0087` and the two that made them writable. **The last one was
+  the one that mattered**: writing the fields on the file-an-enrolment form alone would have left
+  every enrolment already on file permanently incomplete, since re-filing is refused by the overlap
+  constraint. What is *not* built is a centre-wide readiness list; gaps are named per child.
 - ~~**Thirty-four writes cannot tell a refusal from a success**~~ — **item 49, CLOSED the day it
   was opened: 50 guarded, 4 deliberately not.** The triage question turned out to be answerable
   from the query itself: `.eq('id', …)` alone means one named row, so zero rows is a wrong id or a
@@ -2083,17 +2090,26 @@ Applying the cap, which needs the attribution rule; enforcing the two capacity c
 Glossary attaches to *permanent* and *conditional* enrolments; and `centres.licensed_places` being
 **nullable**, so for a centre that has not stated its licence none of this can be computed at all.
 
-### 58. §6-1's enrolment record — the schema is complete, the screens are not — **OPEN, added 2026-09-04, narrowed the same day**
+### 58. §6-1's enrolment record — **CLOSED 2026-09-04**
 
-**Narrowed twice in one day and the register should say so rather than read as though it was always
-this.** As first written, three of §6-1's required contents were absent. `0086` added the residential
-address and the commit after made it reachable; `0087` added the last two — the other-service hours
-and the dated parent signature — **as schema only**.
+**Opened and closed the same day, in four commits, and the register should say so rather than read
+as though it was always this.** As first written, three of §6-1's required contents were absent.
+`0086` added the residential address and the commit after made it reachable; `0087` added the last
+two — the other-service hours and the dated parent signature — and the commit after **that** made
+them writable.
 
-So what remains is no longer a gap in the record but a gap in the product: **nothing writes the
-`0087` columns.** No core type, no API function, no form field. An enrolment record that a service
-cannot actually complete is not a complete enrolment record, which is why this stays OPEN rather
-than closing on the migration.
+**Why it did not close on the migration.** `0087` landed schema-only, and a column nothing writes
+satisfies no rule. The specific trap was narrower than that: writing the fields on
+`fileEnrolment` alone would have made them reachable **only at creation time**, leaving every
+enrolment already on file permanently incomplete — re-filing is not something a service can do,
+because the overlap constraint correctly refuses it. So `completeEnrolmentRecord` exists, and the
+panel offers it on every row rather than only on incomplete ones, since a signature recorded against
+the wrong parent has to be correctable.
+
+**What is not built, named so it is not mistaken for done:** a centre-wide readiness list. Gaps are
+named on each child's record; a manager wanting to know which of eighty children have incomplete
+records has no screen. That is a reporting feature rather than a compliance gap. See
+[[funding-and-billing]] for the field-by-field map.
 
 **Two interpretations `0087` had to make, neither of them quotations:**
 
@@ -2145,9 +2161,11 @@ correction, and a trigger requiring a signatory to be a current guardian of that
 defect above is **closed**: both columns were counted empty against the live database before the
 reference was changed, so no data migration was needed.
 
-**To close item 58 itself:** the core types, the API writers, the form fields — including a guardian
-picker, since the signatory is now a `guardians` reference rather than free text — and the readiness
-surface that names which enrolments are incomplete.
+**Closed by:** `enrolmentRecordGaps()` and five fields on `Enrolment` in `@ece/core`; the reader and
+both writers in `packages/api/src/children.ts`; `completeEnrolmentRecord` beside `fileEnrolment`; the
+guardian picker on both panels; and the **Record incomplete** flag that names the missing parts. Five
+unit tests, thirteen RLS assertions on the migration, and an e2e test that links a guardian and
+completes a record end to end.
 
 ## See Also
 

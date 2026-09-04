@@ -5,6 +5,46 @@ says so.*
 
 ---
 
+2026-09-04 (tenth) — **§6-1's enrolment record becomes completable, and item 58 closes.** New: a
+field-by-field map in [[funding-and-billing]], and a [[conventions]] entry on fields writable only
+at creation time. Closed: [[unverified-claims]] item 58, opened and shut the same day in four
+commits.
+
+`0087`'s columns get a type, a reader, two writers and a form. `enrolmentRecordGaps()` in `@ece/core`
+answers "what is missing" for one enrolment and the panel renders it as a **Record incomplete** flag
+naming the parts — labels rather than a percentage, because every §6-1 item is required and four
+missing fields is not "80% complete".
+
+**The piece that mattered was not the form.** Writing the fields on `fileEnrolment` alone would have
+made them reachable **only at creation time**, leaving every enrolment already on file permanently
+incomplete — re-filing is impossible, and correctly so, because the overlap constraint refuses it.
+Hence `completeEnrolmentRecord`, offered on every row rather than only incomplete ones, since a
+signature against the wrong parent has to be correctable.
+
+**`Number('')` is `0`**, which would turn "nobody has asked" into "the parent attested none" — the
+one distinction §6-1's *"including none if appropriate"* exists to preserve. Emptiness is tested
+before conversion in the action and in the row mapper both; mutating either to a falsy check fails
+two unit tests.
+
+**The signatory is a picker because the database made it one.** `signed_by` is a `guardians`
+reference with a trigger requiring a current guardian of that child, and `listGuardiansOfChild`
+already filters revoked links — the same condition — so the picker offers exactly the people Postgres
+accepts. Nothing preselects a guardian.
+
+**Signatures are never required on the way in**, on either panel. Refusing to store a change until
+somebody has signed would mean losing the change or backdating a signature. Unsigned schedule blocks
+carry a flag, permanently for anything written before `0087`.
+
+**And the e2e run found a defect in a test rather than in the code.** The `0085` schedule
+assertion ended a block "today" and expected it to be **not in force** — but `new Date()` is a UTC
+date and the panel judges against the centre's NZ date, which agree only from NZ noon onward.
+Before noon the block ended yesterday and the assertion held; after noon it ends today, and
+`coversDate` is inclusive, so the block is still current. It passed at 10:50 and failed at 12:29
+with no relevant code change. Third time this boundary has cost something; now a
+[[conventions]] entry of its own.
+
+Not built, and named rather than implied: a centre-wide readiness list.
+
 2026-09-04 (ninth) — **`0087`: the last two §6-1 fields, and a foreign key that could not say
 what it meant.** Corrected: [[unverified-claims]] item 58, narrowed twice in one day and now saying
 so; the `0084` defect it recorded is closed. New: a [[conventions]] entry on a migration falsifying

@@ -121,8 +121,14 @@ const toLink = (r: LinkRow): ChildGuardian => ({
   revokedAt: r.revoked_at,
 });
 
+/*
+  One string literal however long it gets. `supabase-js` infers the row type from the LITERAL
+  TEXT of the select, so splitting this across a concatenation degrades the result to
+  `GenericStringError[]` and every field access downstream typechecks against nothing.
+  `registers.ts` and `compliance.ts` carry the same note.
+*/
 const ENROLMENT_COLUMNS =
-  'id, child_id, centre_id, start_date, end_date, funded_hours_per_week, twenty_hours_ece, enrolment_type, days, notes';
+  'id, child_id, centre_id, start_date, end_date, funded_hours_per_week, twenty_hours_ece, enrolment_type, days, notes, twenty_hours_attested_on, twenty_hours_attested_by, hours_at_other_service_per_week, signed_on, signed_by';
 
 interface EnrolmentRow {
   id: string;
@@ -135,6 +141,11 @@ interface EnrolmentRow {
   enrolment_type: EnrolmentType | null;
   days: number[] | null;
   notes: string | null;
+  twenty_hours_attested_on: string | null;
+  twenty_hours_attested_by: string | null;
+  hours_at_other_service_per_week: number | string | null;
+  signed_on: string | null;
+  signed_by: string | null;
 }
 
 const toEnrolment = (r: EnrolmentRow): Enrolment => ({
@@ -150,6 +161,18 @@ const toEnrolment = (r: EnrolmentRow): Enrolment => ({
   enrolmentType: r.enrolment_type,
   days: r.days ?? [],
   notes: r.notes,
+  twentyHoursAttestedOn: r.twenty_hours_attested_on,
+  twentyHoursAttestedBy: r.twenty_hours_attested_by,
+  /*
+    `Number(null)` is 0, which would turn "nobody has asked" into "the parent attested none" —
+    the one distinction §6-1 asks for, lost in a type coercion. So the null is checked before
+    the conversion rather than after. `funded_hours_per_week` above needs no such guard: it is
+    `not null default 0` in the schema.
+  */
+  hoursAtOtherServicePerWeek:
+    r.hours_at_other_service_per_week === null ? null : Number(r.hours_at_other_service_per_week),
+  signedOn: r.signed_on,
+  signedBy: r.signed_by,
 });
 
 const HEALTH_COLUMNS = 'id, child_id, kind, name, severity, response_plan, resolved_at';
@@ -572,6 +595,36 @@ export interface EnrolmentInput {
   enrolmentType?: EnrolmentType | null;
   days?: number[];
   notes?: string | null;
+
+  /*
+    The rest of §6-1, all optional-with-null-meaning-something. `undefined` leaves the column
+    alone, `null` is the centre saying it has not recorded one, and for the other-service hours
+    `0` is a third answer again — the parent attested none. Nothing here defaults.
+  */
+  twentyHoursAttestedOn?: string | null;
+  twentyHoursAttestedBy?: string | null;
+  hoursAtOtherServicePerWeek?: number | null;
+  signedOn?: string | null;
+  signedBy?: string | null;
+}
+
+/**
+ * Turns `0087`'s signatory trigger into a sentence, or returns null if this is some other error.
+ *
+ * The trigger raises `23514` — deliberately, because it IS a check violation and callers should
+ * not need a second branch — but that means the code alone cannot distinguish "this person is
+ * not a guardian of this child" from "the hours figure is out of range". So the message is
+ * matched rather than the code, and matching is done on the trigger's own wording.
+ *
+ * Fragile in exactly one direction, and that is the acceptable one: if the trigger's message
+ * ever changes, this returns null and the caller shows the raw Postgres text — worse, but not
+ * wrong. The alternative, a bespoke sqlstate, would have made every existing `23514` handler
+ * in the product incomplete.
+ */
+function signatoryMessage(error: { code?: string; message: string }): string | null {
+  if (error.code !== '23514') return null;
+  if (!error.message.includes('is not a current guardian of this child')) return null;
+  return 'That person is not a current guardian of this child, so cannot be recorded as signing.';
 }
 
 export async function createEnrolment(
@@ -590,6 +643,17 @@ export async function createEnrolment(
     enrolment_type: input.enrolmentType ?? null,
     days: input.days ?? [],
     notes: input.notes?.trim() || null,
+    /*
+      Written on create as well as on update, because a service filing an enrolment with the
+      parent in the room should not have to come back to a second screen to record that they
+      signed it. Every one of these defaults to null, which is "not recorded" and is what an
+      incomplete record honestly looks like.
+    */
+    twenty_hours_attested_on: input.twentyHoursAttestedOn ?? null,
+    twenty_hours_attested_by: input.twentyHoursAttestedBy ?? null,
+    hours_at_other_service_per_week: input.hoursAtOtherServicePerWeek ?? null,
+    signed_on: input.signedOn ?? null,
+    signed_by: input.signedBy ?? null,
   });
   // 23P01 is the exclusion violation from `enrolments_no_overlap`. Translated
   // because "conflicting key value violates exclusion constraint" is not a
@@ -600,7 +664,7 @@ export async function createEnrolment(
         'That overlaps an existing enrolment for this child. End the current one first — two overlapping enrolments double-count funded hours.',
       );
     }
-    throw new Error(`createEnrolment: ${error.message}`);
+    throw new Error(`createEnrolment: ${signatoryMessage(error) ?? error.message}`);
   }
 }
 
@@ -617,6 +681,17 @@ export async function updateEnrolment(
   if (patch.enrolmentType !== undefined) row.enrolment_type = patch.enrolmentType;
   if (patch.days !== undefined) row.days = patch.days;
   if (patch.notes !== undefined) row.notes = patch.notes?.trim() || null;
+  if (patch.twentyHoursAttestedOn !== undefined) {
+    row.twenty_hours_attested_on = patch.twentyHoursAttestedOn;
+  }
+  if (patch.twentyHoursAttestedBy !== undefined) {
+    row.twenty_hours_attested_by = patch.twentyHoursAttestedBy;
+  }
+  if (patch.hoursAtOtherServicePerWeek !== undefined) {
+    row.hours_at_other_service_per_week = patch.hoursAtOtherServicePerWeek;
+  }
+  if (patch.signedOn !== undefined) row.signed_on = patch.signedOn;
+  if (patch.signedBy !== undefined) row.signed_by = patch.signedBy;
   if (Object.keys(row).length === 0) return;
 
   const { data, error } = await db
@@ -628,7 +703,7 @@ export async function updateEnrolment(
     if (error.code === '23P01') {
       throw new Error('That would overlap another enrolment for this child.');
     }
-    throw new Error(`updateEnrolment: ${error.message}`);
+    throw new Error(`updateEnrolment: ${signatoryMessage(error) ?? error.message}`);
   }
   // Zero-row check (item 49). Added by hand rather than with the others: this is the one
   // writer in the sweep with a multi-line error handler — it translates `23P01` into a

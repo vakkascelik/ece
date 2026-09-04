@@ -930,6 +930,53 @@ lives in `tokens.ts` and a stylesheet wants it, emit it rather than copying it.
 - **`dotenv-cli` wraps the Next scripts.** Next ignores a monorepo root `.env.local`, and the
   failure is delayed — `next build` succeeds and only a real request fails.
 
+### An e2e assertion built on `new Date()` is only true for half the day
+
+`new Date().toISOString()` is a **UTC** date. Everything this product decides about a calendar day
+— whether a booking block is in force, whether an enrolment is current, what "today" means on a
+roll — is decided against the **centre's** date, which is NZ. The two agree only from NZ noon
+onward; before noon UTC is still yesterday.
+
+So a test that fills a date field with `new Date().toISOString().slice(0, 10)` and then asserts
+something about "today" is asserting a different thing in the morning than in the afternoon. The
+`0085` schedule test ended a block "today" and asserted it was **not in force** — true every
+morning, because the block actually ended yesterday in NZ; false every afternoon, because
+`coversDate` is inclusive of `effectiveTo` and a block ending today covers today. It passed at NZ
+10:50 and failed at 12:29 on the same day, with no code change between the two runs beyond an
+unrelated column.
+
+**The fix is distance from the boundary, not a weakened assertion.** A block that ran from a week
+ago until two days ago is not in force today in any timezone this product runs in:
+
+```ts
+const isoDaysAgo = (n: number) => new Date(Date.now() - n * 86_400_000).toISOString().slice(0, 10);
+```
+
+Filling "today" is still fine where today is only a *value being stored* — a start date, a signature
+date. It is unsafe wherever the assertion afterwards depends on which side of a boundary that date
+falls.
+
+Third time this boundary has cost something: `enrolChild` once rejected a baby born that morning as
+being "in the future"; `test:rls` failed at 00:13 because `now() - interval '1 hour'` was yesterday;
+now this. The pattern is always the same — UTC on one side, the centre's zone on the other.
+
+### A field writable only at creation time leaves every existing row permanently incomplete
+
+`0087` added the last of §6-1's required enrolment fields. Wiring them into `fileEnrolment` alone
+would have looked finished and satisfied nothing: every enrolment already on file predates the
+columns, and **re-filing an enrolment is not a thing a service can do** — `enrolments_no_overlap`
+refuses it, correctly, because two overlapping enrolments double-count funded hours.
+
+So a new required field on a long-lived row needs two writers, and the second one is the one that
+makes the rule satisfiable. `completeEnrolmentRecord` is offered on **every** row rather than only
+on incomplete ones, because a signature recorded against the wrong parent has to be correctable —
+a control that disappears on success makes the one thing a panel writes the one thing it cannot fix.
+
+The same shape applies to the `Number('')` trap beside it. An empty form field converts to `0`, so
+any three-state numeric field — where null, zero and a figure are three different answers — has to
+test emptiness **before** conversion, in the action and in the row mapper both. `Number(null)` is
+also `0`, which is the mapper's version of the same bug.
+
 ### A migration can falsify an assertion's premise, and the good case is that it fails
 
 `0087` re-pointed `enrolments.twenty_hours_attested_by` from `auth.users` to `guardians`. An

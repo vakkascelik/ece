@@ -289,6 +289,52 @@ export async function unlinkGuardian(_prev: unknown, form: FormData): Promise<Re
 // Enrolment
 // ---------------------------------------------------------------------------
 
+/*
+  §6-1's record fields, shared by `fileEnrolment` and `completeEnrolmentRecord` because both
+  write the same five columns and a second copy of the parsing would be a second place for the
+  three-state rule to go wrong.
+
+  THE THREE STATES, since two of these fields have them and neither is obvious from a form:
+
+    ''      the box was left empty        -> null, "not recorded"
+    '0'     the parent attested none      -> 0, an answer
+    '12.5'  the parent stated a figure    -> 12.5
+
+  `Number('')` is 0, which would turn an empty box into "attested as none" — the exact
+  collapse §6-1's "including none if appropriate" exists to prevent. So emptiness is tested
+  before the conversion, never after.
+*/
+function otherServiceHours(form: FormData): number | null | { error: string } {
+  const raw = str(form, 'hoursAtOtherServicePerWeek');
+  if (raw === '') return null;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 0 || n > 50) {
+    return { error: 'Hours at another service must be between 0 and 50, or left blank.' };
+  }
+  return n;
+}
+
+/**
+ * A date and a guardian, or neither. The database refuses half a pair with a CHECK; this
+ * returns a sentence instead, because `23514` naming `enrolments_signature_complete` is not
+ * something to show a centre manager.
+ */
+function signaturePair(
+  form: FormData,
+  dateField: string,
+  byField: string,
+  what: string,
+): { on: string | null; by: string | null } | { error: string } {
+  const on = str(form, dateField);
+  const by = str(form, byField);
+  if (!on && !by) return { on: null, by: null };
+  if (!on || !by) {
+    return { error: `Give both a date and a name for ${what}, or leave both blank.` };
+  }
+  if (!ISO_DATE.test(on)) return { error: `That is not a date for ${what}.` };
+  return { on, by };
+}
+
 export async function fileEnrolment(_prev: unknown, form: FormData): Promise<Result> {
   const ctx = await requireCapability('manageEnrolment');
   const db = await serverDb();
@@ -322,6 +368,20 @@ export async function fileEnrolment(_prev: unknown, form: FormData): Promise<Res
     .map((d) => Number(d.toString()))
     .filter((d) => d >= 1 && d <= 7);
 
+  const otherHours = otherServiceHours(form);
+  if (otherHours !== null && typeof otherHours === 'object') return otherHours;
+
+  const signature = signaturePair(form, 'signedOn', 'signedBy', 'the parent signature');
+  if ('error' in signature) return signature;
+
+  const attestation = signaturePair(
+    form,
+    'twentyHoursAttestedOn',
+    'twentyHoursAttestedBy',
+    'the 20 Hours attestation',
+  );
+  if ('error' in attestation) return attestation;
+
   try {
     await createEnrolment(db, {
       childId,
@@ -333,6 +393,11 @@ export async function fileEnrolment(_prev: unknown, form: FormData): Promise<Res
       enrolmentType,
       days,
       notes: str(form, 'notes') || null,
+      hoursAtOtherServicePerWeek: otherHours,
+      signedOn: signature.on,
+      signedBy: signature.by,
+      twentyHoursAttestedOn: attestation.on,
+      twentyHoursAttestedBy: attestation.by,
     });
   } catch (e) {
     // createEnrolment already translates the overlap constraint into a sentence a
@@ -969,6 +1034,59 @@ export async function verifyWeekPortal(input: {
 
 const TIME = /^\d{2}:\d{2}(:\d{2})?$/;
 
+/*
+  Completing an enrolment record that already exists.
+
+  WITHOUT THIS THE COLUMNS ARE REACHABLE AND USELESS, which is the difference between a
+  migration landing and a rule being satisfiable. `fileEnrolment` can write the §6-1 fields
+  from now on; every enrolment already on file predates them and would stay permanently
+  incomplete, because re-filing an enrolment is not a thing a service can do — the overlap
+  constraint refuses it, correctly.
+
+  `manageEnrolment`, matching `fileEnrolment` and the `caller_may_enrol` predicate the
+  database checks independently.
+*/
+export async function completeEnrolmentRecord(_prev: unknown, form: FormData): Promise<Result> {
+  await requireCapability('manageEnrolment');
+  const db = await serverDb();
+
+  const childId = str(form, 'childId');
+  const enrolmentId = str(form, 'enrolmentId');
+  if (!childId) return { error: 'Missing child.' };
+  if (!enrolmentId) return { error: 'Missing enrolment.' };
+
+  const otherHours = otherServiceHours(form);
+  if (otherHours !== null && typeof otherHours === 'object') return otherHours;
+
+  const signature = signaturePair(form, 'signedOn', 'signedBy', 'the parent signature');
+  if ('error' in signature) return signature;
+
+  const attestation = signaturePair(
+    form,
+    'twentyHoursAttestedOn',
+    'twentyHoursAttestedBy',
+    'the 20 Hours attestation',
+  );
+  if ('error' in attestation) return attestation;
+
+  try {
+    await updateEnrolment(db, enrolmentId, {
+      hoursAtOtherServicePerWeek: otherHours,
+      signedOn: signature.on,
+      signedBy: signature.by,
+      twentyHoursAttestedOn: attestation.on,
+      twentyHoursAttestedBy: attestation.by,
+    });
+  } catch (e) {
+    // `updateEnrolment` already turns 0087's signatory trigger into a sentence about the
+    // person not being a guardian of this child, so this passes it through.
+    return actionError(e, 'children.completeEnrolmentRecord');
+  }
+
+  revalidatePath(`/children/${childId}/documents`);
+  return { ok: true };
+}
+
 export async function addScheduleBlock(_prev: unknown, form: FormData): Promise<Result> {
   await requireCapability('manageEnrolment');
   const db = await serverDb();
@@ -989,11 +1107,22 @@ export async function addScheduleBlock(_prev: unknown, form: FormData): Promise<
   if (toTime <= fromTime) return { error: 'The end time has to be after the start time.' };
   if (!ISO_DATE.test(effectiveFrom)) return { error: 'Give the date this pattern starts from.' };
 
+  /*
+    §6-1 asks for changes to the agreement to be "signed and dated by at least one
+    parent/guardian". Optional here rather than required, and that is a deliberate reading:
+    the Handbook requires the signature on the RECORD, and refusing to store a change until
+    somebody has signed it would mean a service either loses the change or backdates a
+    signature. Recording the change with the gap visible is the honest option; the panel says
+    which blocks are unsigned.
+  */
+  const agreed = signaturePair(form, 'signedOn', 'signedBy', 'the parent signature');
+  if ('error' in agreed) return agreed;
+
   const { data: auth } = await db.auth.getUser();
   try {
     await addScheduleBlockRow(
       db,
-      { childId, weekday, fromTime, toTime, effectiveFrom },
+      { childId, weekday, fromTime, toTime, effectiveFrom, signedOn: agreed.on, signedBy: agreed.by },
       auth.user?.id ?? null,
     );
   } catch (e) {

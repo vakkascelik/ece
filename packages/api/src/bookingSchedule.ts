@@ -30,7 +30,7 @@ import { fetchAll } from './paging';
 import type { Db } from './index';
 
 const SCHEDULE_COLUMNS =
-  'id, child_id, weekday, from_time, to_time, effective_from, effective_to, created_at';
+  'id, child_id, weekday, from_time, to_time, effective_from, effective_to, created_at, signed_on, signed_by';
 
 interface ScheduleRow {
   id: string;
@@ -41,12 +41,25 @@ interface ScheduleRow {
   effective_from: string;
   effective_to: string | null;
   created_at: string;
+  signed_on: string | null;
+  signed_by: string | null;
 }
 
 /** A block with its id, which the screen needs in order to end or remove one. */
 export interface BookingScheduleRow extends WeekdayBlock {
   id: string;
   childId: string;
+  /**
+   * Who agreed this block of days and times, and when (`0087`). §6-1 asks for *"details of any
+   * later changes to the agreement signed and dated by at least one parent/guardian"*, and this
+   * is that signature — a different act on a different date from the one on the enrolment
+   * record, which is why it lives on the block rather than on the enrolment.
+   *
+   * Null on every block written before `0087`, and there is no backfilling it: a signature
+   * nobody gave cannot be invented, so the screen shows the gap instead.
+   */
+  signedOn: string | null;
+  signedBy: string | null;
 }
 
 const toBlock = (r: ScheduleRow): BookingScheduleRow => ({
@@ -57,6 +70,8 @@ const toBlock = (r: ScheduleRow): BookingScheduleRow => ({
   toTime: r.to_time,
   effectiveFrom: r.effective_from,
   effectiveTo: r.effective_to,
+  signedOn: r.signed_on,
+  signedBy: r.signed_by,
 });
 
 /**
@@ -97,6 +112,9 @@ export interface BookingScheduleInput {
   toTime: string;
   effectiveFrom: string;
   effectiveTo?: string | null;
+  /** Both or neither — a CHECK refuses half a signature, the same shape as `0084`'s pair. */
+  signedOn?: string | null;
+  signedBy?: string | null;
 }
 
 /**
@@ -124,6 +142,8 @@ export async function addScheduleBlock(
       effective_from: input.effectiveFrom,
       effective_to: input.effectiveTo ?? null,
       created_by: createdBy,
+      signed_on: input.signedOn ?? null,
+      signed_by: input.signedBy ?? null,
     })
     .select('id');
   if (error) {
@@ -131,6 +151,20 @@ export async function addScheduleBlock(
       throw new Error(
         'addScheduleBlock: these times overlap an existing block on that weekday. ' +
           'End the existing block first — an open-ended agreement covers every later date.',
+      );
+    }
+    /*
+      `0087`'s trigger raises 23514 with its own wording. Matched on the message rather than the
+      code because the code is shared with the CHECK constraints on this table — the same
+      reasoning `children.ts` gives for `signatoryMessage`, and the same acceptable failure
+      direction: if the wording changes this falls through to the raw text.
+    */
+    if (
+      error.code === '23514' &&
+      error.message.includes('is not a current guardian of this child')
+    ) {
+      throw new Error(
+        'addScheduleBlock: that person is not a current guardian of this child, so cannot be recorded as agreeing the change.',
       );
     }
     throw new Error(`addScheduleBlock: ${error.message}`);

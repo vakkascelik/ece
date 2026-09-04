@@ -361,6 +361,26 @@ test('an enrolment is filed as permanent, and the record says so', async ({ page
     matching is substring by default, and that is exactly the kind of near-miss that makes a test
     pass against the wrong control.
   */
+  /*
+    DATES RELATIVE TO TODAY, AND NOT TODAY ITSELF — this test failed on 2026-09-04 for a reason
+    that had nothing to do with the code under test.
+
+    `new Date().toISOString()` is a UTC date. The panel decides whether a block is in force
+    against the CENTRE'S date, which is NZ. Those two are the same date only from NZ noon
+    onward; before noon, UTC is still yesterday. So filling the last day with "today" gave a
+    block that ended yesterday in the morning — not in force, assertion passes — and one that
+    ends today in the afternoon, which IS still in force, because `coversDate` is inclusive of
+    `effectiveTo` and a block ending today covers today.
+
+    The test therefore passed every morning and failed every afternoon, and had been doing so
+    since it was written. It went green on the run before this one at NZ 10:50 and red at 12:29.
+
+    Fixed by using dates far enough from the boundary that a one-day zone difference cannot
+    change the answer, rather than by weakening the assertion: a block that ran from a week ago
+    until two days ago is not in force today in any timezone this product runs in.
+  */
+  const isoDaysAgo = (n: number) => new Date(Date.now() - n * 86_400_000).toISOString().slice(0, 10);
+
   const schedule = page.locator('div.section').filter({ hasText: 'Days and times' });
 
   // Nothing recorded yet, and the empty state says what the enrolment holds instead rather than
@@ -370,7 +390,7 @@ test('an enrolment is filed as permanent, and the record says so', async ({ page
   await schedule.getByLabel('Day').selectOption('2');
   await schedule.getByLabel('From', { exact: true }).fill('08:00');
   await schedule.getByLabel('To', { exact: true }).fill('15:00');
-  await schedule.getByLabel('Applies from').fill(new Date().toISOString().slice(0, 10));
+  await schedule.getByLabel('Applies from').fill(isoDaysAgo(7));
   await schedule.getByRole('button', { name: 'Add' }).click();
 
   // Before any reload. A refused write and a write that did not persist look identical after one,
@@ -388,10 +408,115 @@ test('an enrolment is filed as permanent, and the record says so', async ({ page
     when attendance stops matching it, and the earlier period has to stay answerable because a
     funding claim was calculated against it. Ending the block is the first half.
   */
-  await schedule.getByLabel(/Last day for/).fill(new Date().toISOString().slice(0, 10));
+  await schedule.getByLabel(/Last day for/).fill(isoDaysAgo(2));
   await schedule.getByRole('button', { name: 'End' }).click();
   await expect(schedule.locator('.error')).toHaveCount(0);
   await expect(schedule.getByText('not in force')).toBeVisible();
+});
+
+/**
+ * §6-1's enrolment record, completed — `0087`.
+ *
+ * The migration landed with no reader or writer, the same as `0085` and `0086` before it, and
+ * this is the assertion that the whole path works: guardian → picker → server action →
+ * `caller_may_enrol` → `assert_signatories_are_guardians` → the paired CHECK → read back.
+ *
+ * IT NEEDS A GUARDIAN, which is why this test does more setup than the others. The signatory is
+ * a `guardians` reference and a trigger requires a current guardian of that child, so a child
+ * with no whānau linked has nobody who *could* sign — the panel says so rather than showing an
+ * empty dropdown, and that state is asserted first because it is the state every existing child
+ * is in.
+ */
+test('an enrolment record is completed against §6-1, and the gaps are named until it is', async ({
+  page,
+}) => {
+  const t = tenant();
+
+  await visit(page, '/children/new');
+  await page.getByLabel('First name').fill('Mere');
+  await page.getByLabel('Last name').fill(`Recorded-${t.tag}`);
+  await page
+    .getByLabel('Date of birth')
+    .fill(new Date(Date.now() - 2 * 365 * 86_400_000).toISOString().slice(0, 10));
+  await page.getByRole('button', { name: 'Enrol' }).click();
+  await expect(page.getByRole('heading', { name: /Mere/ })).toBeVisible();
+
+  // ---- file an enrolment, with nobody able to sign it yet -------------------
+  const nav = page.getByRole('navigation', { name: /record/i });
+  await nav.getByRole('link', { name: 'Documents' }).click();
+  await page.getByRole('button', { name: 'File an enrolment' }).click();
+  await page.getByLabel('First day').fill(new Date().toISOString().slice(0, 10));
+  await page.getByLabel('Funded hours a week').fill('20');
+  /*
+    The type and the days are filled here because they are ALSO §6-1 requirements, and the
+    first version of this test left them out — so the record stayed incomplete after the
+    signature was recorded and the final assertion failed against correct behaviour.
+
+    Worth keeping rather than quietly fixing: it is the gap function working. Two of the four
+    things it reported missing were things this test had never supplied, which is exactly what
+    a completeness check is for.
+  */
+  await page.getByLabel('Enrolment type').selectOption('permanent');
+  await page.getByRole('checkbox', { name: 'Tue' }).check();
+  await page.getByRole('button', { name: 'File enrolment' }).click();
+  await expect(page.locator('.error')).toHaveCount(0);
+
+  /*
+    The record is incomplete and the panel says which parts are missing. This is the assertion
+    that `enrolmentRecordGaps` is wired to the screen at all — a gap function nothing renders is
+    a unit test with extra steps.
+  */
+  const enrolment = page.locator('div.section').filter({ hasText: 'Enrolment' }).first();
+  await expect(enrolment.locator('span.flag').filter({ hasText: 'Record incomplete' })).toBeVisible();
+
+  await enrolment.getByRole('button', { name: 'Complete' }).click();
+  await expect(enrolment.getByText(/the hours at another service/)).toBeVisible();
+  await expect(enrolment.getByText(/a dated parent signature/)).toBeVisible();
+
+  /*
+    And with no whānau linked there is nobody who could sign. Named rather than shown as an
+    empty picker, because an empty dropdown reads as a broken control rather than as the
+    missing prerequisite it is.
+  */
+  await expect(enrolment.getByText(/No whānau are linked to this child yet/)).toBeVisible();
+
+  // ---- link a guardian -----------------------------------------------------
+  await nav.getByRole('link', { name: 'Whānau' }).click();
+  await page.getByRole('button', { name: 'Add someone' }).click();
+  await page.getByLabel('Name').fill('Hine Recorded');
+  await page.getByLabel('Relationship').fill('mother');
+  await page.getByRole('button', { name: 'Add', exact: true }).click();
+  await expect(page.getByText('Hine Recorded')).toBeVisible();
+
+  // ---- now the record can be completed -------------------------------------
+  await nav.getByRole('link', { name: 'Documents' }).click();
+  const enrolment2 = page.locator('div.section').filter({ hasText: 'Enrolment' }).first();
+  await enrolment2.getByRole('button', { name: 'Complete' }).click();
+
+  /*
+    ZERO IS THE ANSWER BEING TESTED, not a placeholder. §6-1 wants the other-service hours
+    "including none if appropriate", so 0 and blank are different answers — and `Number('')` is
+    0, which is exactly how they get collapsed. If the action ever treats an empty box as zero,
+    the gap below stops being reported and this test still passes; what catches that is the
+    unit test in `children.test.ts`, and what catches the reverse — 0 being treated as absent —
+    is the assertion that the incomplete flag goes away.
+  */
+  await enrolment2.getByLabel('Hours a week at another service').fill('0');
+  await enrolment2
+    .getByLabel('Enrolment record signed on')
+    .fill(new Date().toISOString().slice(0, 10));
+  await enrolment2.getByLabel('Signed by').selectOption({ label: 'Hine Recorded' });
+  await enrolment2.getByRole('button', { name: 'Save' }).click();
+
+  // Before any reload: a refusal and a write that did not persist look identical afterwards.
+  await expect(page.locator('.error')).toHaveCount(0);
+
+  /*
+    The gap flag is gone, which is the read-back. It went through the trigger to get here: the
+    guardian id came from a picker built from this child's own whānau, which is the only list
+    `assert_signatories_are_guardians` accepts.
+  */
+  await expect(page.locator('span.flag').filter({ hasText: 'Record incomplete' })).toHaveCount(0);
 });
 
 /**

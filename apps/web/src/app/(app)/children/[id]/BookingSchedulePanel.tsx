@@ -12,6 +12,12 @@ import {
 /** A block as the API returns it — `WeekdayBlock` plus the id the editor needs. */
 interface Block extends WeekdayBlock {
   id: string;
+  /**
+   * Who agreed this block and when (`0087`). Null on every block written before that
+   * migration, and there is no backfilling a signature nobody gave — the panel shows the gap.
+   */
+  signedOn: string | null;
+  signedBy: string | null;
 }
 
 /**
@@ -47,7 +53,15 @@ export function BookingSchedulePanel({
   canEdit,
   today,
   enrolmentDays,
+  guardians,
 }: {
+  /**
+   * This child's guardians, for the signatory picker. §6-1 asks for changes to the agreement
+   * to be *"signed and dated by at least one parent/guardian"*, and `0087` stores that as a
+   * `guardians` reference — so this is a picker rather than a name box, and the list is the
+   * child's own because the trigger refuses anybody else.
+   */
+  guardians: { id: string; name: string }[];
   childId: string;
   blocks: Block[];
   canEdit: boolean;
@@ -141,6 +155,22 @@ export function BookingSchedulePanel({
                     ) : (
                       <span className="flag flag-quiet">not in force</span>
                     )}
+                    {/*
+                      §6-1 wants a change to the agreement "signed and dated by at least one
+                      parent/guardian". Shown as a gap rather than enforced on the way in:
+                      refusing to record a change until somebody has signed would mean either
+                      losing the change or backdating a signature, and the second is worse.
+
+                      Every block written before 0087 is unsigned and cannot be otherwise —
+                      a signature nobody gave is not backfillable — so this is a standing
+                      truthful gap rather than a defect to clear.
+                    */}
+                    {b.signedOn === null && (
+                      <>
+                        {' '}
+                        <span className="flag flag-warn">unsigned</span>
+                      </>
+                    )}
                   </td>
                   {canEdit && (
                     <td>
@@ -226,6 +256,30 @@ export function BookingSchedulePanel({
               Add
             </button>
           </div>
+          {guardians.length > 0 && (
+            <div className="row">
+              <div>
+                <label htmlFor="sched-signed-on">Agreed with whānau on</label>
+                <input className="narrow" id="sched-signed-on" name="signedOn" type="date" />
+              </div>
+              <div>
+                <label htmlFor="sched-signed-by">Agreed by</label>
+                {/*
+                  No preselection. A signature is a claim that a named person agreed something,
+                  and a picker defaulting to the first guardian would manufacture that claim
+                  from a page load.
+                */}
+                <select id="sched-signed-by" name="signedBy" defaultValue="">
+                  <option value="">Not recorded</option>
+                  {guardians.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
           <p className="sub">
             More than one block on a day is allowed &mdash; a morning and an afternoon session are
             two blocks. To change an existing day, end the current block first and then add the new

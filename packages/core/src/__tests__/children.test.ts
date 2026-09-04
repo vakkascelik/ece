@@ -7,6 +7,7 @@ import {
   initials,
   formatAge,
   formatDays,
+  enrolmentRecordGaps,
   isEnrolmentCurrent,
   isGranted,
   isMedicationCurrent,
@@ -314,6 +315,14 @@ describe('enrolment', () => {
     enrolmentType: null,
     days: [1, 2, 3],
     notes: null,
+    // Same reasoning as `enrolmentType` above, applied to the five columns 0084 and 0087
+    // added: a real row starts with none of them recorded. A fixture that pre-filled a
+    // signature would make `enrolmentRecordGaps` pass on data no parent has signed.
+    twentyHoursAttestedOn: null,
+    twentyHoursAttestedBy: null,
+    hoursAtOtherServicePerWeek: null,
+    signedOn: null,
+    signedBy: null,
     ...over,
   });
 
@@ -331,6 +340,89 @@ describe('enrolment', () => {
   it('formats days in weekday order regardless of input order', () => {
     expect(formatDays([3, 1, 5])).toBe('Mon, Wed, Fri');
     expect(formatDays([])).toBe('No days set');
+  });
+
+  /*
+    §6-1's required contents, as a list of what is missing.
+
+    The fixture starts with everything unrecorded, which is what a real row looks like the
+    moment it is filed — so the first assertion is that a brand-new enrolment is INCOMPLETE.
+    A gap function that reported a fresh row as complete would be worse than none, because it
+    would put a tick beside a record that does not meet the rule.
+  */
+  describe('enrolmentRecordGaps', () => {
+    it('reports a freshly filed enrolment as incomplete, and names every missing part', () => {
+      const gaps = enrolmentRecordGaps(e({}));
+      expect(gaps).toContain('the enrolment type');
+      expect(gaps).toContain('the hours at another service');
+      expect(gaps).toContain('a dated parent signature');
+      // The fixture claims 20 Hours, so the attestation is required for it.
+      expect(gaps).toContain('the 20 Hours attestation');
+      // `days` is [1,2,3] in the fixture, so that one is NOT a gap — which is the assertion
+      // that this function is reading the row rather than returning a constant list.
+      expect(gaps).not.toContain('the days attending');
+    });
+
+    it('is empty only when every required part is recorded', () => {
+      expect(
+        enrolmentRecordGaps(
+          e({
+            enrolmentType: 'permanent',
+            hoursAtOtherServicePerWeek: 0,
+            signedOn: '2026-03-01',
+            signedBy: 'g1',
+            twentyHoursAttestedOn: '2026-03-01',
+            twentyHoursAttestedBy: 'g1',
+          }),
+        ),
+      ).toEqual([]);
+    });
+
+    /*
+      THE THREE-STATE ASSERTION, and the reason this function is tested at all.
+
+      Zero hours at another service is an ANSWER — §6-1 wants the figure "including none if
+      appropriate" — and null is the absence of one. Anything that treats the figure as
+      falsy collapses them, and the collapse is invisible: the record looks complete when
+      nobody has asked, or incomplete when the parent has said none.
+    */
+    it('treats zero hours at another service as recorded and null as missing', () => {
+      expect(enrolmentRecordGaps(e({ hoursAtOtherServicePerWeek: 0 }))).not.toContain(
+        'the hours at another service',
+      );
+      expect(enrolmentRecordGaps(e({ hoursAtOtherServicePerWeek: null }))).toContain(
+        'the hours at another service',
+      );
+      // And a real figure, so the test is not only about the boundary.
+      expect(enrolmentRecordGaps(e({ hoursAtOtherServicePerWeek: 12.5 }))).not.toContain(
+        'the hours at another service',
+      );
+    });
+
+    /*
+      The 20 Hours attestation is required only where the service is claiming it. A centre
+      that is not has nothing to attest, and listing a gap it cannot close is what teaches
+      people to ignore a readiness list.
+    */
+    it('asks for the 20 Hours attestation only when 20 Hours is being claimed', () => {
+      expect(enrolmentRecordGaps(e({ twentyHoursEce: false }))).not.toContain(
+        'the 20 Hours attestation',
+      );
+      expect(enrolmentRecordGaps(e({ twentyHoursEce: true }))).toContain(
+        'the 20 Hours attestation',
+      );
+    });
+
+    /*
+      The address is required by §6-1 and is deliberately NOT reported here, because it lives
+      on `child_addresses` keyed to the child rather than to the enrolment. Asserted so that
+      the omission stays a decision: somebody adding it to this function would be making a
+      claim about a row this function cannot see.
+    */
+    it('does not claim to answer for the residential address, which is not on this row', () => {
+      expect(enrolmentRecordGaps(e({}))).not.toContain('the residential address');
+      expect(enrolmentRecordGaps(e({})).join(' ')).not.toContain('address');
+    });
   });
 });
 

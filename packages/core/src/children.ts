@@ -190,6 +190,85 @@ export interface Enrolment {
   /** ISO weekdays, 1 = Monday. */
   days: number[];
   notes: string | null;
+
+  /*
+    THE REST OF WHAT FUNDING HANDBOOK §6-1 REQUIRES AN ENROLMENT RECORD TO CONTAIN.
+
+    All five arrived as columns before they arrived here: `0084` added the 20 Hours attestation
+    pair, `0087` the other-service hours and the record signature, and neither commit had a
+    reader. That is why every one of them is `| null` rather than optional — "not recorded" is a
+    state a screen has to render and a readiness check has to count, and an absent key cannot
+    be counted.
+  */
+
+  /**
+   * The date the 20 Hours ECE attestation was made, and which guardian made it (`0084`,
+   * reference corrected by `0087`). Paired by a CHECK: a date with nobody against it is
+   * refused, because in an audit it reads as though somebody attested and the name was lost.
+   *
+   * `twentyHoursAttestedBy` is a `guardians.id`, **not** a user id. The attestation is signed
+   * by a parent, who may have no account at all.
+   */
+  twentyHoursAttestedOn: string | null;
+  twentyHoursAttestedBy: string | null;
+
+  /**
+   * Hours per week the child is enrolled at ANOTHER service, attested by a parent (`0087`).
+   *
+   * **Null is not zero.** §6-1 wants the figure *"including none if appropriate"*, so
+   * "attested as none" and "nobody has asked" are different answers and only one of them is a
+   * complete record.
+   *
+   * It matters beyond the paperwork: the 6-hour daily and 30-hour weekly caps follow the
+   * CHILD, so a child at two services can exceed them between the two, and this product
+   * applies both caps as though each service were the only one. It is also unenforceable from
+   * here — an enrolment at another provider is invisible to this database — which is why the
+   * Handbook asks the parent rather than the service.
+   */
+  hoursAtOtherServicePerWeek: number | null;
+
+  /**
+   * The dated signature §6-1 item 5 asks for: *"a dated signature of at least one
+   * parent/guardian to attest to the accuracy of the enrolment record"*. The record as a
+   * whole, which is why the other-service hours above have no signature of their own.
+   *
+   * `signedBy` is a `guardians.id`, and a trigger requires it to be a current guardian of that
+   * child — a foreign key alone would accept another centre's parent.
+   */
+  signedOn: string | null;
+  signedBy: string | null;
+}
+
+/**
+ * Which of §6-1's required contents this enrolment record is still missing.
+ *
+ * Returns labels rather than booleans because the only useful thing to do with the answer is
+ * show it to somebody: an enrolment that cannot be completed is not a complete enrolment, and
+ * "incomplete" without saying which part is not actionable.
+ *
+ * DELIBERATELY NOT A PERCENTAGE OR A SCORE. Every item here is required, so four missing
+ * fields is not "80% complete" — it is a record that does not meet §6-1. An empty array is the
+ * only passing state.
+ *
+ * THE ADDRESS IS NOT CHECKED HERE even though §6-1 requires it, and that is not an oversight:
+ * it lives on `child_addresses` keyed to the child rather than to the enrolment, so a caller
+ * holding only an enrolment row cannot answer for it. `AddressPanel` reports it where it lives.
+ */
+export function enrolmentRecordGaps(e: Enrolment): string[] {
+  const gaps: string[] = [];
+  if (e.enrolmentType === null) gaps.push('the enrolment type');
+  if (e.days.length === 0) gaps.push('the days attending');
+  if (e.hoursAtOtherServicePerWeek === null) gaps.push('the hours at another service');
+  if (e.signedOn === null) gaps.push('a dated parent signature');
+  /*
+    Only when the service is actually claiming it. A centre not claiming 20 Hours has nothing
+    to attest, and reporting a missing attestation there would be a gap the service cannot
+    close — which is exactly what teaches people to ignore a readiness list.
+  */
+  if (e.twentyHoursEce && e.twentyHoursAttestedOn === null) {
+    gaps.push('the 20 Hours attestation');
+  }
+  return gaps;
 }
 
 // ---------------------------------------------------------------------------

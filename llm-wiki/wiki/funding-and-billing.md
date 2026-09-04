@@ -658,6 +658,54 @@ like it filed something is a screen after which nobody files anything. `exportDi
 the wording from the summary, so it cannot say "complete" when it is not, and lives in `@ece/core`
 so a future emailed version says the same thing.
 
+### The enrolment record — what §6-1 requires, and where each part lives
+
+Complete as at 2026-09-04, and this table is the map. §6-1 is the rule; everything under it is
+required, which is why the product reports **which parts are missing** rather than a completeness
+percentage. Four missing fields is not "80% complete" — it is a record that does not meet the rule.
+
+| §6-1 requires | Where it lives | Reachable from |
+|---|---|---|
+| official name, date of birth, preferred names | `children` (`0004`) | the child's Details |
+| **home/residential address** | `child_addresses` (`0086`) | `AddressPanel`, Whānau tab |
+| the date attendance commenced, and the finish date | `enrolments.start_date` / `end_date` (`0004`) | `EnrolmentPanel` |
+| the days and times expected, and later changes | `child_booking_schedule` (`0085`) | `BookingSchedulePanel` |
+| a signature on **each change** to the agreement | `child_booking_schedule.signed_on` / `signed_by` (`0087`) | the same panel's add form |
+| **hours enrolled at another service** | `enrolments.hours_at_other_service_per_week` (`0087`) | `EnrolmentPanel`, both forms |
+| **a dated parent signature on the record** | `enrolments.signed_on` / `signed_by` (`0087`) | `EnrolmentPanel`, both forms |
+| National Student Number | `children.moe_nsn` (`0004`) | the child's Details |
+
+`enrolmentRecordGaps()` in `@ece/core` answers "what is missing" for one enrolment, and the panel
+renders it as a **Record incomplete** flag. It deliberately does **not** answer for the address:
+that lives on `child_addresses` keyed to the child, so an enrolment row cannot speak for it, and a
+test asserts the omission so it stays a decision.
+
+**Three things about this that were decisions, not defaults.**
+
+**Null is not zero for the other-service hours.** §6-1 wants the figure *"including none if
+appropriate"*, so "the parent attested none" and "nobody has asked" are different answers.
+`Number('')` is `0`, which is precisely how the two get collapsed by accident, so emptiness is
+tested before conversion in both the API mapper and the server action. Two unit tests fail if that
+becomes a falsy check.
+
+**The signatory is a picker, because the database made it one.** `signed_by` is a `guardians`
+reference and `assert_signatories_are_guardians` (`0087`) requires a **current guardian of that
+child** — a foreign key alone would accept another centre's parent. `listGuardiansOfChild` already
+filters revoked links, which is the same condition the trigger applies, so the picker offers exactly
+the people Postgres will accept. Nothing preselects a guardian: a signature is a claim that a named
+person signed something, and a default would manufacture it from a page load.
+
+**Signatures are never required on the way in.** Not on filing an enrolment, not on changing the
+days and times. Refusing to store a change until somebody has signed would mean either losing the
+change or backdating a signature, and the second is worse than an honest gap. Unsigned blocks carry
+an `unsigned` flag, and every block written before `0087` carries it permanently — a signature
+nobody gave is not backfillable.
+
+**What is not built:** a centre-wide readiness list. The gaps are named on each child's record, so a
+manager checking one child sees them; a manager wanting to know which of eighty children have
+incomplete records has no screen. That is a reporting feature rather than a compliance gap, and it
+is named here so it is not mistaken for done.
+
 ### Rejected: Stripe, for now
 
 The plan said "invoicing with Stripe". The invoice is built and the collection is not, for three

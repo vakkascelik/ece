@@ -491,6 +491,17 @@ export default async function ChildTabPage({
   const ownGuardianId = whanau.find((g) => g.guardian.userId === ctx.userId)?.guardian.id ?? null;
   const currentEnrolment = enrolments.find((e) => isEnrolmentCurrent(e, today));
 
+  /*
+    The signatory pickers on the two panels below. §6-1 wants a dated signature from "at least
+    one parent/guardian", and 0087 stores it as a `guardians` reference with a trigger
+    requiring a CURRENT guardian of this child.
+
+    `listGuardiansOfChild` already filters revoked links, which is the same condition the
+    trigger applies — so this list offers exactly the people the database will accept, and a
+    picker cannot present a choice that is then refused.
+  */
+  const signatories = whanau.map((g) => ({ id: g.guardian.id, name: g.guardian.fullName }));
+
   return (
     <>
       <div className="section">
@@ -536,6 +547,7 @@ export default async function ChildTabPage({
           </HelpNote>
         </div>
         <EnrolmentPanel
+          guardians={signatories}
           childId={id}
           enrolments={enrolments}
           canEdit={can(ctx.role, 'manageEnrolment')}
@@ -571,6 +583,7 @@ export default async function ChildTabPage({
           two rows, and the open one is not necessarily the first.
         */}
         <BookingSchedulePanel
+          guardians={signatories}
           childId={id}
           blocks={schedule}
           canEdit={can(ctx.role, 'manageEnrolment')}
