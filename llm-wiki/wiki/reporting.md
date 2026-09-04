@@ -94,11 +94,19 @@ tell a closed day from an open day nobody attended. The direction of the error i
 a centre that opened on a snow day and had nobody turn up is averaged as though it had been shut,
 which **flatters** the occupancy figure.
 
-`0088` adds `service_closures`, so the distinction is now recordable — the calendar exists and the
-proxy has an alternative. **The fix is deliberately not applied in the same commit.** Changing this
-average changes a number somebody may already have quoted in a board paper, and it belongs in a
-commit of its own with its own assertions and its own note on the screen. [[unverified-claims]] item
-59 holds it open so it is not mistaken for done.
+`0088` adds `service_closures`, so *closed* is now recordable. **Corrected 2026-09-04, having said
+otherwise here for one commit:** that is not enough to fix this, and the fix as originally planned
+would have made the figure worse.
+
+`readAttendanceByDay` returns a row for **every day in the window**, zeros included, and this page
+asks for thirty consecutive calendar days. So filtering on "not closed" instead of "somebody
+attended" would admit eight or nine weekend zeros — no service records its weekends as closures —
+and drop a 30-child average to about 21 while calling it a correction.
+
+What is actually missing is **which weekdays the service operates**. The only principled source is
+`child_booking_schedule` (`0085`), and it ships empty, so the fix has to fall back to today's proxy
+and say which basis it used. It is also wanted by RS7's advance-month counts, so it is a funding
+primitive rather than a reporting nicety. [[unverified-claims]] item 59 carries the corrected plan.
 
 ---
 

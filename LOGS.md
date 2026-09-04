@@ -7,6 +7,64 @@ itself, and from the wiki pages, which hold the durable *why*. This file is the 
 
 ---
 
+## 2026-09-04 (thirteenth) — the fix I planned would have made the number worse
+
+No code. The work was reading the function I was about to change.
+
+### What I was about to do
+
+Item 59, written by me two commits earlier, said the fix was to *"read closures alongside attendance
+in the occupancy and trend paths, filter on 'not closed' rather than 'somebody attended'"*. It reads
+as obviously right. `service_closures` exists now; a closed day is knowable; stop guessing.
+
+### Why it is wrong
+
+`readAttendanceByDay` ends with `days.map(...)` over the window the **caller** supplies. It returns
+one row per day in that window with `children: 0` for days nobody attended — not one row per day
+that had events. And `reports/page.tsx` supplies *thirty consecutive calendar days*.
+
+So the `days` array handed to `averageOverOpenDays` already contains every Saturday and Sunday as a
+zero. The `children > 0` filter has been doing three jobs at once: excluding closed days, excluding
+weekends, and excluding open-but-empty days. Only the third is wrong.
+
+Replace it with "not closed" and eight or nine weekend zeros enter the denominator, because no
+service is ever going to record its weekends in a closures table. On a 65-place centre averaging 30
+children across 21 weekdays, nine zeros take the average to about 21 — **a 30% drop, shipped under
+the word "correction"**.
+
+That is worse than the defect it replaces, and it is the kind of change nothing would have caught:
+the number would still look plausible, the tests assert the mechanism rather than the magnitude, and
+the person who noticed would be a manager wondering why occupancy fell off a cliff in a release with
+no capacity change.
+
+### What the fix actually needs
+
+The set of weekdays the service operates. Nothing records it. The candidates:
+
+- **`service_closures`** — explicit closures only. Weekends are not closures, they are non-operating
+  days, and conflating them would mean asking every service to enter 104 rows a year.
+- **`centres.service_model`** (`0083`) — `all_day` / `sessional` / `parent_led`. Says nothing about
+  which weekdays.
+- **`child_booking_schedule.weekday`** (`0085`) — the union of weekdays any child is enrolled to
+  attend, on the date in question. **This is the operating pattern by definition**, and it is the
+  right source. It also ships empty, so it cannot be relied on yet.
+- **Attendance history** — circular. It is the thing being measured.
+
+So the fix is three-state, like everything else here: use the calendar where the schedule exists,
+fall back to the current proxy where it does not, and **say on the screen which basis produced the
+figure**. A number computed one way must not silently look like a number computed the other.
+
+### The part that changes the priority
+
+RS7's `AdvanceMonthCounts` needs *forward operating days by service model*. That is the same
+primitive, for a Crown return rather than a board paper. So "which days does this service operate"
+is a funding concept with two consumers, and building it inside `occupancy.ts` for the average alone
+would be building it twice — once cheaply and wrongly, once properly for RS7.
+
+Item 59 now says all of this, and [[reporting]]'s paragraph from one commit ago — which said the
+calendar gave the proxy an alternative — is corrected rather than quietly edited. It was too
+optimistic by exactly the weekend.
+
 ## 2026-09-04 (twelfth) — the operating calendar becomes reachable
 
 `0088` shipped schema-only this morning. This gives it a reader, three writers and a screen.

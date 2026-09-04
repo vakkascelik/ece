@@ -2186,9 +2186,41 @@ and it needs its own commit, its own assertions, and a sentence on the screen sa
 average is now over. The migration landing is not the fix, and this entry exists so the two are not
 confused.
 
-**To close it:** read closures alongside attendance in the occupancy and trend paths, filter on
-"not closed" rather than "somebody attended", keep `null` meaning "no data" distinct from `0`
-meaning "nobody came", and say on the screen which days were excluded and why.
+**THE CLOSURE PLAN ABOVE WAS WRONG, AND IT IS CORRECTED HERE RATHER THAN EDITED AWAY — 2026-09-04.**
+
+As first written this entry said: *"filter on 'not closed' rather than 'somebody attended'"*. That
+would have made the figure **considerably worse**, and reading `readAttendanceByDay` before
+implementing it is what caught it.
+
+`readAttendanceByDay` returns **one row per day in the window**, `children: 0` included — it is
+`days.map(...)` over the window the caller supplies, not a row per day that had events. And the
+occupancy page supplies *thirty consecutive calendar days*. So a 30-day window contains **eight or
+nine weekend days with zero attendance**, and no service is going to record its weekends in
+`service_closures`.
+
+Filtering on "not closed" would therefore admit every Saturday and Sunday as a zero. On a 65-place
+service averaging 30 children across 21 weekdays, adding nine zeros takes the average to about 21 —
+a 30% drop, presented as a correction.
+
+**What the fix actually needs is the set of weekdays the service operates**, and `service_closures`
+does not carry it. The only principled source in this schema is `child_booking_schedule.weekday`
+(`0085`) — the union of weekdays any child is enrolled to attend on the date in question, which is
+the service's operating pattern by definition. That table **ships empty**, so the fix has to be
+three-state like everything else here:
+
+| Operating weekdays known | Then |
+|---|---|
+| Yes, from the booking schedule | count a day if it is not closed **and** falls on an operating weekday. A day the service was open and nobody came is a real zero and belongs in the denominator |
+| No, schedule still empty | fall back to today's `children > 0` proxy **and say so on the screen**, because a figure computed one way must not silently look like a figure computed the other |
+
+**This is not only a reporting concern, which is the other thing the reading changed.** RS7's
+`AdvanceMonthCounts` needs *forward operating days by service model* — the same concept, for a Crown
+return. So "which days does this service operate" is a funding primitive that two separate
+consumers want, and building it for the occupancy average alone would be building it twice.
+
+**To close it:** derive operating weekdays from the booking schedule, combine with
+`service_closures`, keep `null` (no data) distinct from `0` (nobody came), state the basis on the
+screen, and share the derivation with Phase 3C rather than writing it twice.
 
 ## See Also
 

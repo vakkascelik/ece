@@ -5,6 +5,30 @@ says so.*
 
 ---
 
+2026-09-04 (thirteenth) — **The fix I planned for the occupancy average would have made it
+worse.** Corrected: [[unverified-claims]] item 59, whose stated closure was wrong, and
+[[reporting]]'s paragraph from one commit earlier that said the calendar gave the proxy an
+alternative. No code in this entry — the correction *is* the work.
+
+Item 59 said to *"filter on 'not closed' rather than 'somebody attended'"*. Reading
+`readAttendanceByDay` before implementing it is what caught the problem: it returns **one row per
+day in the window**, zeros included, and the occupancy page asks for thirty consecutive calendar
+days. A 30-day window therefore holds **eight or nine weekend zeros**, and no service will record
+its weekends in `service_closures`.
+
+So that filter would have taken a 30-child average across 21 weekdays down to about 21 — a 30% drop
+shipped as a correction.
+
+**What the fix needs is the set of weekdays the service operates**, which no table carries. The one
+principled source is `child_booking_schedule.weekday` (`0085`) — the union of weekdays any child is
+enrolled to attend is the operating pattern by definition — and it ships empty, so the fix must be
+three-state: use the calendar where the schedule exists, fall back to the proxy where it does not,
+and **say on the screen which basis produced the number**.
+
+**And it is not a reporting concern.** RS7's `AdvanceMonthCounts` wants *forward operating days by
+service model* — the same primitive, for a Crown return. Building it for the occupancy average alone
+would be building it twice, so item 59 now points at Phase 3C.
+
 2026-09-04 (twelfth) — **The operating calendar becomes reachable.** New: `isClosedOn` and
 `closureOn` in `@ece/core`, an API module, and a *Closed days* card on `/settings`; a
 [[conventions]] entry on closing an add form on success but not on failure. Updated:
