@@ -5,6 +5,27 @@ says so.*
 
 ---
 
+2026-09-04 (eighteenth) — **`enrolledSessions`: the classifier gets an input something can
+produce.** New: a [[conventions]] entry on what a surviving mutation actually means, and a paragraph
+in [[funding-and-billing]] on the bridge and on why §7-5 is still unbuilt.
+
+`enrolledSessions` walks a date range, matches each date's ISO weekday against the booking-schedule
+blocks in force, and sums their minutes — §9-2 asks for *"the daily number of hours of enrolment"*,
+so a morning and an afternoon block are one session of both. **A closed day produces no session**,
+because §6-5 claims sessions a child was *"enrolled to attend, but was absent from"* and on a day the
+service did not operate there was nothing to be absent from.
+
+**Two tests exist because of a mutation, not because of a plan.** Asking what would break if the ISO
+weekday conversion were dropped turned up *nothing* — every other assertion used Tuesday or Thursday,
+where `getUTCDay()` and the ISO weekday agree. Sunday is the only case that can catch it, and there
+was no Sunday test. Now there is.
+
+**And one mutation could not be killed at all**, which turned out to mean the code was dead rather
+than untested: `blockMinutes` cannot return 0, so `|| minutes === 0` was unreachable. Deleted. Now a
+convention — a surviving mutation asks *what input reaches this* before it asks for a test.
+
+Nine mutations, eight caught and one deleted. 27 tests on the module, 604 in core.
+
 2026-09-04 (seventeenth) — **Phase 2F, first slice: the absence classifier.** New:
 `packages/core/src/absence.ts` and a section in [[funding-and-billing]] on what it is and what it
 deliberately is not; a [[conventions]] entry on mutation drills, earned by one that left the code

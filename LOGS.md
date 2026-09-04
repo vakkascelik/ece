@@ -7,6 +7,63 @@ itself, and from the wiki pages, which hold the durable *why*. This file is the 
 
 ---
 
+## 2026-09-04 (eighteenth) — the classifier gets an input, and a mutation finds dead code
+
+`classifyAbsences` shipped in the previous commit taking `EnrolledSession[]`, which nothing could
+produce. This is that bridge.
+
+### `enrolledSessions`
+
+Walks a date range, matches each date's ISO weekday against the `child_booking_schedule` blocks in
+force via `blocksOn`, and sums their minutes with `blockMinutes`. One session per day with both
+blocks included, because §9-2 asks for *"the daily number of hours of enrolment"* rather than per
+booking.
+
+**A closed day produces no session at all.** §6-5 claims sessions a child was *"enrolled to attend,
+but was absent from"*; on a day the service did not operate there was nothing to be absent from, the
+child was not expected, and the agreement was not in force. Leaving those days in would spend a
+three-week window on days nobody could have attended, which is precisely what §6-6 exists to
+prevent — the same rule reached from the other end.
+
+**So §7-5's claimable emergency closure is still unbuilt**, and that is a boundary rather than an
+omission. An approved emergency closure *is* claimable, on *"actual booked hours for the day(s) of
+emergency closure"* — but it is not an absence: it has its own eligibility (`claimed_as_emergency`
+plus an ERO letter) and no window to run. Classifying it as an absence would put it through the wrong
+rule, so those days are excluded here and item 60 keeps the remainder.
+
+### Two tests exist because of a mutation rather than a plan
+
+I asked what would break if the ISO weekday conversion — `dow === 0 ? 7 : dow` — were dropped. The
+answer was **nothing**. Every assertion in the file used Tuesday or Thursday, where `getUTCDay()` and
+the ISO weekday happen to agree, so the conversion was load-bearing and untested. Sunday is the only
+day that can catch it. There is now a Sunday block in the tests, and the mutation dies on it.
+
+That is the drill working as intended: not confirming what I already believed, but pointing at the
+assertion I had not thought to write.
+
+### And one mutation could not be killed, which meant something different
+
+`if (minutes === null || minutes === 0) continue;` — removing the second half broke nothing.
+
+The instinct is to write a test for the uncovered branch. The right move was to ask whether the
+branch is **reachable**: `blockMinutes` returns `any ? total : null` and only sets `any` when
+`to > from`, so `total` is always positive and 0 is impossible. It was defensive-looking code that
+could never fire, and a test for it would have asserted something the callee already guaranteed.
+
+Deleted, with the reasoning in the comment so the next reader does not re-add it. Now a convention: a
+surviving mutation asks *what input reaches this* before it asks for a test. If the answer is none,
+delete it; if it is an input nobody wrote down, that is the test.
+
+### What is next, and why it is not this commit
+
+The §9-2 hours source — a permanently enrolled child's funded hours coming from the agreement rather
+than the turnstile. That is the change that **moves a published figure**, and it has a hazard worth
+naming before it is written: `child_booking_schedule` ships **empty**, so a naive switch would report
+zero funded hours for every existing child. It needs the same three-state treatment item 59 taught —
+agreement where one exists, attendance where it does not, and the basis stated on screen — plus a
+look at `readFundingPeriod`, whose caller filters out children with no attendance events and would
+therefore drop a child whose claim is entirely agreement-based.
+
 ## 2026-09-04 (seventeenth) — the absence classifier, and a drill that broke the code it tested
 
 Phase 2F, first slice. Everything the absence rules need has been on disk since `0092`; this is the

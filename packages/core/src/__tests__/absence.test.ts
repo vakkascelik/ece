@@ -3,6 +3,7 @@ import {
   claimableAbsentMinutes,
   classifyAbsences,
   EXEMPT_WINDOW_DAYS,
+  enrolledSessions,
   suspendsTheWindow,
   THREE_WEEK_RULE_DAYS,
   type EnrolledSession,
@@ -248,6 +249,169 @@ describe('classifyAbsences — §7-7, the twelve-week window', () => {
   it('exposes both windows as constants, so a caller cannot invent its own', () => {
     expect(THREE_WEEK_RULE_DAYS).toBe(21);
     expect(EXEMPT_WINDOW_DAYS).toBe(84);
+  });
+});
+
+describe('enrolledSessions — the bridge from the agreement', () => {
+  // A Tuesday/Thursday child, 9:00 to 15:00, in force from the start of 2026.
+  const tueThu = [
+    { weekday: 2, fromTime: '09:00', toTime: '15:00', effectiveFrom: '2026-01-01', effectiveTo: null },
+    { weekday: 4, fromTime: '09:00', toTime: '15:00', effectiveFrom: '2026-01-01', effectiveTo: null },
+  ];
+
+  it('produces one session per enrolled weekday in the range, with the agreement minutes', () => {
+    // 2026-03-02 is a Monday, so the week yields Tuesday the 3rd and Thursday the 5th.
+    const rows = enrolledSessions({
+      blocks: tueThu,
+      from: '2026-03-02',
+      to: '2026-03-08',
+      attendedDates: new Set<string>(),
+      closures: [],
+    });
+    expect(rows.map((r) => r.date)).toEqual(['2026-03-03', '2026-03-05']);
+    expect(rows.every((r) => r.minutes === 360)).toBe(true);
+    expect(rows.every((r) => r.attended === false)).toBe(true);
+  });
+
+  it('marks a session attended when the child was there', () => {
+    const rows = enrolledSessions({
+      blocks: tueThu,
+      from: '2026-03-02',
+      to: '2026-03-08',
+      attendedDates: new Set(['2026-03-03']),
+      closures: [],
+    });
+    expect(rows.map((r) => r.attended)).toEqual([true, false]);
+  });
+
+  /*
+    A CLOSED DAY IS NOT A SESSION. §6-5 claims sessions a child was "enrolled to attend, but was
+    absent from", and on a day the service did not operate there was nothing to be absent from.
+
+    This is also the assertion that stops a closure spending a three-week window on days nobody
+    could have attended — the exact thing §6-6 exists to prevent, arrived at from the other end.
+  */
+  it('produces no session on a day the service was closed', () => {
+    const rows = enrolledSessions({
+      blocks: tueThu,
+      from: '2026-03-02',
+      to: '2026-03-08',
+      attendedDates: new Set<string>(),
+      closures: [closure({ startsOn: '2026-03-03', endsOn: '2026-03-03', reasonNote: 'Snow' })],
+    });
+    expect(rows.map((r) => r.date)).toEqual(['2026-03-05']);
+  });
+
+  it('sums a morning and an afternoon block into one session, because §9-2 asks per day', () => {
+    const split = [
+      { weekday: 2, fromTime: '08:00', toTime: '11:00', effectiveFrom: '2026-01-01', effectiveTo: null },
+      { weekday: 2, fromTime: '13:00', toTime: '15:00', effectiveFrom: '2026-01-01', effectiveTo: null },
+    ];
+    const rows = enrolledSessions({
+      blocks: split,
+      from: '2026-03-02',
+      to: '2026-03-08',
+      attendedDates: new Set<string>(),
+      closures: [],
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.minutes).toBe(300);
+  });
+
+  /*
+    Superseded blocks are filtered by `blocksOn`, which is the one written-down copy of the
+    effective-window rule. Asserted here because the alternative — filtering in this function —
+    would be a second copy that disagrees with the first the moment either changes.
+  */
+  it('uses only the block in force on each date', () => {
+    const changed = [
+      { weekday: 2, fromTime: '09:00', toTime: '15:00', effectiveFrom: '2026-01-01', effectiveTo: '2026-03-03' },
+      { weekday: 2, fromTime: '09:00', toTime: '12:00', effectiveFrom: '2026-03-04', effectiveTo: null },
+    ];
+    const rows = enrolledSessions({
+      blocks: changed,
+      from: '2026-03-03',
+      to: '2026-03-10',
+      attendedDates: new Set<string>(),
+      closures: [],
+    });
+    expect(rows.map((r) => [r.date, r.minutes])).toEqual([
+      ['2026-03-03', 360],
+      ['2026-03-10', 180],
+    ]);
+  });
+
+  it('produces nothing at all when the child has no agreement, which is the state today', () => {
+    // `child_booking_schedule` ships empty, so this is every existing child. The caller must
+    // treat "no sessions" as "the agreement is unknown" rather than as "no enrolled hours".
+    expect(
+      enrolledSessions({
+        blocks: [],
+        from: '2026-03-02',
+        to: '2026-03-31',
+        attendedDates: new Set(['2026-03-03']),
+        closures: [],
+      }),
+    ).toEqual([]);
+  });
+
+  /*
+    SUNDAY IS WEEKDAY 7, NOT 0, and this is the only test that can catch the conversion.
+
+    `child_booking_schedule.weekday` is an ISO weekday where Monday is 1 and Sunday is 7;
+    `Date.getUTCDay()` returns 0 for Sunday. Every other assertion in this file uses Tuesday or
+    Thursday, where the raw value and the ISO value happen to agree — so without a Sunday case a
+    missing conversion would go unnoticed until a service open at the weekend used it.
+
+    Found by asking what a mutation of that line would break, and discovering the answer was
+    nothing.
+  */
+  it('matches a Sunday block, where getUTCDay and the ISO weekday disagree', () => {
+    const sunday = [
+      { weekday: 7, fromTime: '09:00', toTime: '12:00', effectiveFrom: '2026-01-01', effectiveTo: null },
+    ];
+    // 2026-03-08 is a Sunday.
+    const rows = enrolledSessions({
+      blocks: sunday,
+      from: '2026-03-02',
+      to: '2026-03-08',
+      attendedDates: new Set<string>(),
+      closures: [],
+    });
+    expect(rows.map((r) => r.date)).toEqual(['2026-03-08']);
+    expect(rows[0]?.minutes).toBe(180);
+  });
+
+  it('skips a block whose times will not parse, rather than calling it a zero-hour session', () => {
+    // An inverted block: `blockMinutes` returns null, and a session of no hours would be an
+    // absence a service could be told about for a day the agreement never described.
+    const broken = [
+      { weekday: 2, fromTime: '15:00', toTime: '09:00', effectiveFrom: '2026-01-01', effectiveTo: null },
+    ];
+    expect(
+      enrolledSessions({
+        blocks: broken,
+        from: '2026-03-02',
+        to: '2026-03-08',
+        attendedDates: new Set<string>(),
+        closures: [],
+      }),
+    ).toEqual([]);
+  });
+
+  it('drives the classifier end to end from an agreement', () => {
+    // Four Tuesdays absent: days 0, 7, 14 and 21 of one spell, so the fourth is refused.
+    const sessions = enrolledSessions({
+      blocks: [tueThu[0]!],
+      from: '2026-03-03',
+      to: '2026-03-24',
+      attendedDates: new Set<string>(),
+      closures: [],
+    });
+    expect(sessions).toHaveLength(4);
+    const rows = classifyAbsences({ sessions, closures: [] });
+    expect(rows.map((r) => r.claimable)).toEqual([true, true, true, false]);
+    expect(claimableAbsentMinutes(rows)).toBe(3 * 360);
   });
 });
 

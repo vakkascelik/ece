@@ -705,6 +705,22 @@ spell reset, demoting notice below the window, testing the exemption per session
 spell start, and lowering the two-week threshold to one day. Each one makes the suite red on the
 assertion that names it.
 
+**`enrolledSessions` is the bridge from `child_booking_schedule` to the classifier**, added the same
+day. Without it the classifier took an input nothing could produce, which is how a pure function ends
+up with no callers for reasons nobody wrote down. It walks a date range, matches each date's ISO
+weekday against the blocks in force, and sums their minutes — because §9-2 asks for *"the daily
+number of hours of enrolment"*, so a morning and an afternoon block are one session of both.
+
+**A closed day produces no session.** §6-5 claims sessions a child was *"enrolled to attend, but was
+absent from"*, and on a day the service did not operate there was nothing to be absent from. Leaving
+those days in would spend a three-week window on days nobody could have attended — the same thing
+§6-6 exists to prevent, arrived at from the other end.
+
+**§7-5's claimable emergency closure is therefore still unbuilt**, and deliberately so: an approved
+emergency closure is claimable on *"actual booked hours"*, but that is a different mechanism from an
+absence — its own eligibility, no window to run — so those days are excluded here too rather than
+misclassified as absences. Item 60 carries what remains.
+
 ### §6-7, transcribed — the Frequent Absence Rule
 
 Read from [6-7 The Frequent Absence

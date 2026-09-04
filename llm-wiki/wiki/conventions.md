@@ -997,6 +997,26 @@ any three-state numeric field — where null, zero and a figure are three differ
 test emptiness **before** conversion, in the action and in the row mapper both. `Number(null)` is
 also `0`, which is the mapper's version of the same bug.
 
+### A mutation nothing can kill means dead code, not a missing test
+
+The drill on `absence.ts` reported 8 of 9. The survivor was `if (minutes === null || minutes === 0)`:
+removing the second half broke nothing.
+
+The instinct is to write a test for the uncovered branch. The right move was to check whether the
+branch is **reachable**, and it was not — `blockMinutes` returns `any ? total : null` and only sets
+`any` when `to > from`, so `total` is always positive and 0 is impossible. The condition was
+defensive-looking code that could never fire, and a test for it would have asserted something the
+callee already guaranteed.
+
+So a surviving mutation asks a question before it asks for a test: **what input reaches this?** If
+the answer is none, delete it. If the answer is one nobody wrote down, that is the test.
+
+The same drill produced the other half of this lesson. Asking what would break if
+`dow === 0 ? 7 : dow` were dropped also gave "nothing" — but there the branch was reachable and
+simply untested, because every assertion used Tuesday or Thursday, where `getUTCDay()` and the ISO
+weekday agree. Sunday is the only day that can catch it. One survivor meant delete; the other meant
+write the test.
+
 ### A mutation drill must restore in a `finally`, and must not parse the runner's output
 
 Both halves cost something on 2026-09-04, in the same script.

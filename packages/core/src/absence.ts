@@ -51,6 +51,7 @@
  */
 
 import { isClosedOn, type ServiceClosure } from './closures';
+import { blockMinutes, blocksOn, type WeekdayBlock } from './weekdayBlock';
 // `shiftLocalDate` lives in `children.ts` beside the other date helpers rather than in a
 // module of its own. Imported from there rather than reimplemented: it already handles the
 // month and year boundaries this loop walks over.
@@ -226,6 +227,79 @@ function windowDaysUsed(
     cursor = shiftLocalDate(cursor, 1);
   }
   return used;
+}
+
+/**
+ * The sessions the agreement says a child was expected to attend, across a period.
+ *
+ * THE BRIDGE FROM `child_booking_schedule` TO THE CLASSIFIER. Without it the classifier takes
+ * an input nothing can produce, which is how a pure function ends up with no callers for
+ * reasons nobody wrote down.
+ *
+ * A CLOSED DAY PRODUCES NO SESSION. §6-5 claims sessions a child was *"enrolled to attend, but
+ * was absent from"*, and on a day the service did not operate there was no session to be absent
+ * from — the child was not expected and the agreement was not in force. Leaving those days in
+ * would spend a three-week window on days nobody could have attended, which is the opposite of
+ * what §6-6 exists to prevent.
+ *
+ * WHAT THAT DELIBERATELY LEAVES OUT: §7-5's claimable emergency closure. An approved emergency
+ * closure IS claimable — *"actual booked hours for the day(s) of emergency closure"* — but that
+ * is a different mechanism from an absence, with its own eligibility (`claimed_as_emergency`
+ * and an ERO letter, `0091`) and no window to run. It is not an absence and must not be
+ * classified as one, so those days are excluded here too and the §7-5 path is still unbuilt.
+ * `unverified-claims` item 60 carries what remains of it.
+ *
+ * MINUTES COME FROM THE BLOCKS IN FORCE ON THAT DATE, summed. A child with a morning and an
+ * afternoon block on one Tuesday has one session of both, because the funding question is
+ * hours per day and §9-2 asks for *"the daily number of hours of enrolment"*.
+ */
+export function enrolledSessions(input: {
+  /** The child's booking-schedule blocks, superseded ones included — `blocksOn` filters. */
+  blocks: readonly WeekdayBlock[];
+  /** Inclusive ISO date range, normally a funding period. */
+  from: string;
+  to: string;
+  /** Dates the child attended at all. Any attendance ends a spell, per §6-5. */
+  attendedDates: ReadonlySet<string>;
+  /** Every closure for the centre. Days covered by one produce no session. */
+  closures: readonly ServiceClosure[];
+}): EnrolledSession[] {
+  const out: EnrolledSession[] = [];
+  const blocks = [...input.blocks];
+
+  for (let date = input.from; date <= input.to; date = shiftLocalDate(date, 1)) {
+    if (isClosedOn(input.closures, date)) continue;
+
+    /*
+      ISO weekday from the date, matching `child_booking_schedule.weekday` where 1 is Monday.
+      `getUTCDay()` is 0 for Sunday, so Sunday becomes 7 — the same conversion `census.ts`
+      makes at the ELI boundary, and the reason both are written down rather than inlined.
+    */
+    const dow = new Date(`${date}T00:00:00Z`).getUTCDay();
+    const isoWeekday = dow === 0 ? 7 : dow;
+
+    const today = blocksOn(blocks, date).filter((b) => b.weekday === isoWeekday);
+    if (today.length === 0) continue;
+
+    /*
+      Null means every block on that day had unparseable or inverted times. Skipped rather than
+      counted as zero: a session of no hours would be an absence a service could be told about
+      for a day the agreement never described, and the real fault is the block, which the
+      schedule panel shows.
+
+      NULL IS THE ONLY FALSY CASE, and this is checked rather than assumed. `blockMinutes`
+      returns `any ? total : null` and only sets `any` when `to > from`, so it cannot return 0 —
+      a first draft here also tested `minutes === 0` and the mutation drill could not kill that
+      branch, because nothing could reach it. Dead code found by asking what test would fail if
+      it were removed, and answering "none".
+    */
+    const minutes = blockMinutes(today);
+    if (minutes === null) continue;
+
+    out.push({ date, minutes, attended: input.attendedDates.has(date) });
+  }
+
+  return out;
 }
 
 /**
