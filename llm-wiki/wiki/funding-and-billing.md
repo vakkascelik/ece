@@ -658,6 +658,67 @@ like it filed something is a screen after which nobody files anything. `exportDi
 the wording from the summary, so it cannot say "complete" when it is not, and lives in `@ece/core`
 so a future emailed version says the same thing.
 
+### §7-7, transcribed — absence-rule exemptions, and the twelve-week rule
+
+Read from [7-7 Absence rule
+exemptions](https://www.education.govt.nz/education-professionals/early-learning/funding-and-financials/chapter-7-special-circumstances/7-7-absence-rule-exemptions)
+on **2026-09-04**. Until then this page had a one-line summary of it in the enquiry draft, which
+was not enough to design a table from — the section turned out to carry four things the summary
+did not.
+
+**The criteria.** A child qualifies if **either**:
+
+1. they have an **ongoing learning support need**, supported by any one of
+   - an Individual Development Plan from the Ministry's Learning Support team or an accredited
+     early childhood special education provider, *"issued within previous 6 months"*, **or**
+   - a completed **EC13** form, **or**
+   - Child Disability Allowance documentation;
+2. they have a **short-term illness or condition**, supported by *"an EC13 form specifying the
+   exemption period"*.
+
+**Not eligible**, and the section says so explicitly: *"Children without learning support needs or
+health problems but who have parents or siblings with a learning support need/disability or health
+problems are not eligible for an exemption from the absence rules."*
+
+**What it does to §6-5.** *"Services may claim funding for all the sessions/days a child was
+enrolled to attend, but was absent from, within a 12-week period. The 12-week period begins on the
+first day of absence. No funding may be claimed for any continuous absences from the 13th week
+onwards."* Same anchor as the Three Week Rule — the first day of the spell — and a different length.
+So the window is a **parameter**, not a constant.
+
+**It is not an approval.** *"Services must complete an EC12 form (and EC13 where applicable) with
+supporting documentation, retained by the service and provided to the Ministry or Resourcing
+Auditors upon request."* No application goes to the Ministry and no decision comes back, which is
+why `absence_exemptions` (`0089`) has no status column and no `approved_at` — those would be four
+lies at once. `ec12_completed_on` is the date the *service* completed its own form.
+
+**Two limits beyond the window**, both of which land on this product:
+
+- *"Exemptions apply only to specific enrolment agreements."* So the table keys on
+  `enrolments.id`, not on a child — a child who leaves and returns has two agreements, and an
+  exemption against the first must not carry to the second.
+- *"Children enrolled at two services cannot receive funding for absences at both."* Unenforceable
+  from here for the same reason as `hours_at_other_service_per_week` (`0087`): the second service is
+  invisible to this database.
+
+**And one that changes the day-level calculation.** *"Another child may attend the absent child's
+place without claiming funding for that replacement child."* That is the same shape as §6-4's rule
+against claiming for both an absent permanent child and the casual child filling their place — so
+2F's day-level pass has two sources for it, not one.
+
+**The six-month IDP recency is stored and not enforced.** `evidence_dated_on` is required for an
+IDP so the condition is answerable, and no CHECK refuses an older one. A time-relative CHECK is what
+`0078` had to undo, and *"within previous 6 months"* does not say previous to **what** — the
+application, the claim, or the absence. There is an RLS assertion pinning that a two-year-old IDP is
+**stored**, because the obvious future "improvement" is to add the constraint.
+
+**Who can see an exemption: owner and manager only.** Narrower than `health_conditions`, which an
+educator reads because they respond to an allergy at the door. An exemption is a purely financial
+instrument and the row discloses that a child has an ongoing learning support need or a health
+problem. A parent cannot see their own child's either — a real trade-off, since they supplied the
+EC13, and the narrow default is the honest one when the balance is unclear. Both are asserted, so
+widening either is a decision rather than a drift.
+
 ### §6-6 has its calendar now — `service_closures` (`0088`)
 
 §6-6 suspends the Three Week Rule while a service is closed for two weeks or more. It was never

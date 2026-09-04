@@ -1203,6 +1203,250 @@ select pg_temp.expect(
 );
 
 -- ===========================================================================
+-- 0089 — absence-rule exemptions (§7-7), and 0090's audit attribution
+--
+-- Two things are under test here and they are worth separating. The CHECK constraints are a
+-- transcription of §7-7's criteria — a short-term illness may only be evidenced by an EC13
+-- and must carry an end date, an IDP must carry its issue date — and getting one wrong would
+-- let a service record an exemption the Handbook does not allow, which is a funding claim
+-- nobody could defend.
+--
+-- The other is the AUDIT ROW. `absence_exemptions` keys on `enrolment_id`, which was not in
+-- `audit_trigger()`'s resolution list until 0090. Without that branch every write here would
+-- have succeeded and left no audit trail at all — the 0059 defect, which the class assertion
+-- further down this file caught the same day 0089 was written.
+--
+-- Fixed literal dates, not `current_date`: this suite runs in UTC and the product judges in
+-- the centre's zone.
+-- ===========================================================================
+
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+
+-- Ana's enrolment, by lookup rather than by a hardcoded id: the fixture inserts it without
+-- one, and an assertion built on a uuid that does not exist fails with 42501 where it meant
+-- to test a constraint. That substitution cost a run on 0086.
+do $$
+declare v_enrolment uuid; n integer;
+begin
+  select id into v_enrolment from public.enrolments
+   where child_id = 'a1111111-1111-4111-8111-111111111111' limit 1;
+  perform pg_temp.expect(v_enrolment is not null, 'the fixture has an enrolment to exempt (0089)');
+
+  insert into public.absence_exemptions
+    (enrolment_id, basis, evidence, ec12_completed_on, exempt_from, exempt_to, notes)
+  values (v_enrolment, 'short_term_illness', 'ec13', '2026-02-01', '2026-02-01', '2026-03-15',
+          'Chickenpox, EC13 period stated');
+  get diagnostics n = row_count;
+  perform pg_temp.expect(n = 1, 'an owner CAN record a §7-7 exemption (0089)');
+end $$;
+
+/*
+ * THE AUDIT ROW, WHICH IS THE ASSERTION 0090 EXISTS FOR.
+ *
+ * `enrolment_id` was not in `audit_trigger()`'s list, so before 0090 this insert left no
+ * trace. Attribution is asserted as well as existence: the row has to land against THIS
+ * centre, which is what the join through `enrolments` provides and what a wrong branch would
+ * get wrong silently.
+ */
+select pg_temp.expect(
+  (select count(*) from public.audit_events
+    where entity = 'absence_exemptions'
+      and action = 'insert'
+      and centre_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') >= 1,
+  'recording an exemption leaves an audit row attributed to the right centre (0090)'
+);
+
+-- §7-7: a short-term illness is evidenced by an EC13 and nothing else. A Child Disability
+-- Allowance letter does not evidence a fortnight of chickenpox.
+do $$
+declare v_enrolment uuid; code text := 'none (the insert SUCCEEDED)';
+begin
+  select id into v_enrolment from public.enrolments
+   where child_id = 'a1111111-1111-4111-8111-111111111111' limit 1;
+  begin
+    insert into public.absence_exemptions
+      (enrolment_id, basis, evidence, ec12_completed_on, exempt_from, exempt_to)
+    values (v_enrolment, 'short_term_illness', 'child_disability_allowance',
+            '2026-05-01', '2026-05-01', '2026-05-30');
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '23514',
+    'a short-term illness cannot be evidenced by a disability allowance, got ' || code);
+end $$;
+
+-- And it must be bounded, because the EC13 "specifies the exemption period".
+do $$
+declare v_enrolment uuid; code text := 'none (the insert SUCCEEDED)';
+begin
+  select id into v_enrolment from public.enrolments
+   where child_id = 'a1111111-1111-4111-8111-111111111111' limit 1;
+  begin
+    insert into public.absence_exemptions
+      (enrolment_id, basis, evidence, ec12_completed_on, exempt_from)
+    values (v_enrolment, 'short_term_illness', 'ec13', '2026-05-01', '2026-05-01');
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '23514',
+    'a short-term illness exemption with no end date is refused, got ' || code);
+end $$;
+
+-- An IDP with no issue date makes §7-7's "issued within previous 6 months" unanswerable.
+do $$
+declare v_enrolment uuid; code text := 'none (the insert SUCCEEDED)';
+begin
+  select id into v_enrolment from public.enrolments
+   where child_id = 'a1111111-1111-4111-8111-111111111111' limit 1;
+  begin
+    insert into public.absence_exemptions
+      (enrolment_id, basis, evidence, ec12_completed_on, exempt_from)
+    values (v_enrolment, 'ongoing_learning_support', 'idp', '2026-06-01', '2026-06-01');
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '23514', 'an IDP with no issue date is refused, got ' || code);
+end $$;
+
+/*
+ * AN OLD IDP IS ACCEPTED, and that is the assertion for a constraint deliberately NOT written.
+ *
+ * §7-7 wants an IDP "issued within previous 6 months". No CHECK enforces it: a time-relative
+ * one would make this table unrestorable (0078), and "previous" does not say previous to what
+ * — the application, the claim, or the absence. So a two-year-old IDP is STORED and whether it
+ * satisfies §7-7 is a question for the readiness surface. This pins that decision, because the
+ * obvious future "improvement" is to add the CHECK.
+ */
+do $$
+declare v_enrolment uuid; n integer;
+begin
+  select id into v_enrolment from public.enrolments
+   where child_id = 'a1111111-1111-4111-8111-111111111111' limit 1;
+  insert into public.absence_exemptions
+    (enrolment_id, basis, evidence, evidence_dated_on, ec12_completed_on, exempt_from, notes)
+  values (v_enrolment, 'ongoing_learning_support', 'idp', '2024-01-01', '2026-06-01',
+          '2026-06-01', 'IDP two years old - reportable, not refusable');
+  get diagnostics n = row_count;
+  perform pg_temp.expect(n = 1,
+    'an IDP older than six months is STORED, not refused - 0078''s lesson (0089)');
+end $$;
+
+-- An ongoing need may be open-ended, which is what distinguishes it from a short-term
+-- illness. Note the row above is already open-ended from 2026-06-01, so a later one collides:
+-- the same infinity semantics as 0085 and 0088.
+do $$
+declare v_enrolment uuid; code text := 'none (the insert SUCCEEDED)';
+begin
+  select id into v_enrolment from public.enrolments
+   where child_id = 'a1111111-1111-4111-8111-111111111111' limit 1;
+  begin
+    insert into public.absence_exemptions
+      (enrolment_id, basis, evidence, ec12_completed_on, exempt_from, exempt_to)
+    values (v_enrolment, 'ongoing_learning_support', 'ec13', '2026-09-01', '2026-09-01',
+            '2026-09-30');
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '23P01',
+    'an open-ended exemption covers every later date, so a later one collides, got ' || code);
+end $$;
+
+-- And an overlap with the bounded February one is refused too.
+do $$
+declare v_enrolment uuid; code text := 'none (the insert SUCCEEDED)';
+begin
+  select id into v_enrolment from public.enrolments
+   where child_id = 'a1111111-1111-4111-8111-111111111111' limit 1;
+  begin
+    insert into public.absence_exemptions
+      (enrolment_id, basis, evidence, ec12_completed_on, exempt_from, exempt_to)
+    values (v_enrolment, 'short_term_illness', 'ec13', '2026-03-01', '2026-03-15', '2026-03-20');
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '23P01',
+    'two exemptions cannot cover the same day of one agreement, got ' || code);
+end $$;
+
+/*
+ * WHO CANNOT SEE IT, and this is the narrow choice being pinned rather than a tenancy check.
+ *
+ * An educator reads `health_conditions`, because they have to respond to an allergy at the
+ * door. An absence-rule exemption is a purely financial instrument and the row discloses that
+ * a child has an ongoing learning support need or a health problem — so the audience is owner
+ * and manager, and this assertion is what stops that being widened without a decision.
+ */
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.absence_exemptions) = 0,
+  'an educator reads NO exemption - narrower than health conditions, on purpose (0089)'
+);
+
+-- Nor the child's own parent, which is a real trade-off rather than an oversight: they
+-- supplied the EC13, so they know, and a self-service view of it is a disclosure surface
+-- nobody asked for. Recorded here so the next reader knows it was weighed.
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.absence_exemptions) = 0,
+  'a PARENT does not read their own child''s exemption either (0089)'
+);
+
+-- The other centre reads nothing, and cannot write one against this centre's enrolment.
+set local request.jwt.claims = '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.absence_exemptions) = 0,
+  'another centre CANNOT read this centre''s exemptions (0089)'
+);
+do $$
+declare v_enrolment uuid := 'e1111111-1111-4111-8111-111111111111'; code text := 'none';
+begin
+  -- The id is fabricated on purpose: centre B's owner cannot SELECT centre A's enrolments, so
+  -- this is what an attempt from outside actually looks like. `caller_may_exempt` finds no
+  -- matching enrolment either way and the insert is refused.
+  begin
+    insert into public.absence_exemptions
+      (enrolment_id, basis, evidence, ec12_completed_on, exempt_from, exempt_to)
+    values (v_enrolment, 'short_term_illness', 'ec13', '2026-02-01', '2026-02-01', '2026-02-28');
+  exception when others then code := sqlstate;
+  end;
+  -- 42501, measured rather than guessed: the insert policy refuses it before the foreign key
+  -- is consulted, so this pins the POLICY rather than accepting whichever of two codes turns
+  -- up. A disjunction here would have passed even if the only thing stopping a cross-tenant
+  -- write were referential integrity.
+  perform pg_temp.expect(code = '42501',
+    'another centre CANNOT record an exemption against this centre''s enrolment, got ' || code);
+end $$;
+
+-- `anon` is stopped by the GRANT, before any policy runs.
+do $$
+declare code text := 'none';
+begin
+  set local role anon;
+  begin
+    perform 1 from public.absence_exemptions;
+  exception when others then code := sqlstate;
+  end;
+  set local role authenticated;
+  perform pg_temp.expect(code = '42501',
+    'anon is refused by the GRANT on absence_exemptions, got ' || code);
+end $$;
+
+-- And the definer predicate is callable by a signed-in caller but answers only about their own
+-- centres. Asserted because a predicate granted to `anon` would be a tenancy oracle.
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+do $$
+declare code text := 'none';
+begin
+  set local role anon;
+  begin
+    perform public.caller_may_exempt('00000000-0000-4000-8000-000000000000');
+  exception when others then code := sqlstate;
+  end;
+  set local role authenticated;
+  perform pg_temp.expect(code = '42501', 'anon cannot call caller_may_exempt, got ' || code);
+end $$;
+
+-- Leave the table as it was found: these rows are the fixture's only exemptions and later
+-- assertions count enrolments rather than exemptions, but the exclusion constraint is per
+-- enrolment and a leftover open-ended row would collide with anything added after this.
+delete from public.absence_exemptions;
+
+-- ===========================================================================
 -- 0088 — service closures
 --
 -- Fixed literal dates throughout, not `current_date`. A closure is judged by the centre's
@@ -9767,6 +10011,12 @@ begin
           and a.attnum > 0
           and not a.attisdropped
           and a.attname in ('centre_id', 'child_id', 'invoice_id', 'guardian_id',
+                            -- 0090: `absence_exemptions` hangs off an enrolment agreement,
+                            -- because §7-7 scopes an exemption to one. Added in the same
+                            -- commit as the branch in `audit_trigger()`, and this assertion
+                            -- is what reported `CANNOT: absence_exemptions` the day 0089
+                            -- created the table without it.
+                            'enrolment_id',
                             'staff_member_id', 'post_id',
                             -- 0068: the checklist chain. `checklist_template_versions`
                             -- hangs off a template, `checklist_items` off a version,

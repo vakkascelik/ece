@@ -7,6 +7,90 @@ itself, and from the wiki pages, which hold the durable *why*. This file is the 
 
 ---
 
+## 2026-09-04 (fourteenth) — §7-7 read properly, and two defects found by reading
+
+Phase 2D. The plan had a one-line summary of §7-7 from an enquiry draft. Designing a table from it
+would have been the "read the source, never a summary" mistake, so I read the section.
+
+### What the summary had missed
+
+Four things, each of which changed the schema:
+
+- **Four evidence types across two bases**, not one form. An ongoing learning support need may be
+  evidenced by an IDP *"issued within previous 6 months"*, a completed EC13, **or** Child Disability
+  Allowance documentation. A short-term illness may be evidenced only by *"an EC13 form specifying
+  the exemption period"*.
+- **A "not eligible" clause.** A child whose *parent or sibling* has a learning support need or
+  health problem does not qualify. Worth having in the column comment, because it is the reading
+  somebody would otherwise make.
+- **"Exemptions apply only to specific enrolment agreements."** So the table keys on
+  `enrolments.id`, not on a child. A child who leaves and comes back has two agreements and an
+  exemption against the first must not carry to the second — which a child-scoped table would have
+  done silently.
+- **"Another child may attend the absent child's place without claiming funding for that replacement
+  child."** The same shape as §6-4's cross-child rule, so 2F's day-level pass has two sources for it.
+
+Two CHECKs are straight transcriptions: short-term illness implies EC13, and implies an end date.
+One is deliberately absent — the six-month IDP recency — because a time-relative CHECK is what
+`0078` had to undo, and *"previous 6 months"* does not say previous to what: the application, the
+claim, or the absence. So an old IDP is stored and reported rather than refused, and there is an
+assertion pinning that, because the obvious future "improvement" is to add the constraint.
+
+### `0089` shipped a table whose audit trigger wrote nothing
+
+`absence_exemptions` keys on `enrolment_id`. `audit_trigger()` resolves a centre from a fixed list of
+column names and `enrolment_id` was not on it. Its fallback is deliberate — *"Better to let the
+operation stand than to fail it"* — so the writes would have succeeded and the audit rows would
+simply not exist. **That is the `0059` defect**, where three tables carried triggers that wrote
+nothing for months.
+
+The class assertion added by `0059` caught it the same day, reporting `CANNOT: absence_exemptions`.
+`review:security` did **not**, and should not be expected to: it asks whether every consequential
+table *carries* the trigger, which is a different question from whether the trigger can attribute a
+tenant.
+
+**And `0085`'s own header had written the warning down**: *"`audit_trigger()` can only resolve a
+centre from a fixed column set … `enrolment_id` is not in it, so keying on the enrolment would need a
+new branch in that function AND a new entry in the attributability class assertion, in this
+migration."* Two commits later I keyed a table on the enrolment without checking that note. The
+guard caught what the reading should have — which is the argument for the guard, not against the
+reading.
+
+### `0090`'s first draft was worse than the bug it fixed
+
+I reconstructed `audit_trigger()` from a `grep` of its branch list. It compiled. A `diff` against
+`0070`'s definition showed three differences that had nothing to do with the branch I meant to add:
+
+- the changed-column detail came out as `{columns: {...}}` instead of `{changed: [...]}` — a silent
+  change to the audit format for **every audited table in the product**;
+- `entity_id` lost its `coalesce(id, guardian_id, post_id)`, which is the one thing standing between
+  `post_strands` and an audit row saying "a strand changed at this centre" without saying on which
+  post;
+- the `invoice_lines` fall-through was dropped.
+
+None of those would have failed a test. The audit trail would have kept working and started
+recording something subtly different, which is the worst available outcome for an audit trail.
+
+Rewritten by copying `0070`'s body verbatim and inserting one branch, with the diff checked to be
+exactly that. Now a convention: a shared function gets copied, never retyped, and the diff is the
+proof.
+
+### Reading §7-5 two links away found something about a table I shipped an hour ago
+
+§7-5 Emergency closure sat next to §7-7 in the same chapter. An **approved** emergency closure is
+**fundable**: *"funding may be claimed for the hours that children have a permanent enrolment …
+using actual booked hours for the day(s) of emergency closure"*. It requires ERO approval, and
+*"ERO will provide a letter to confirm approval/not approval"* — so approval is three-state, since
+*"not approval"* is an outcome the letter carries.
+
+`service_closures` (`0088`) has an unresolvable reason code and a free-text note. Neither can answer
+"is this a fundable emergency closure with ERO approval?", and a term break and a snow day are both
+closed days with only one of them claimable. Item 60, open, with the shape of the fix.
+
+The exact opposite process from §7-7, two pages apart in the same chapter: one needs no approval at
+all, the other needs a letter. That is the argument for reading whole chapters rather than the
+section you came for.
+
 ## 2026-09-04 (thirteenth) — the fix I planned would have made the number worse
 
 No code. The work was reading the function I was about to change.

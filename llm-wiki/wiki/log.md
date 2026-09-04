@@ -5,6 +5,42 @@ says so.*
 
 ---
 
+2026-09-04 (fourteenth) — **§7-7 read properly and built: `0089` absence exemptions, plus
+`0090` because `0089` shipped a silent audit trigger.** New: a verbatim §7-7 transcription in
+[[funding-and-billing]], [[unverified-claims]] item 60 for a §7-5 finding that makes `0088`
+incomplete, and a [[conventions]] entry on never retyping a shared function.
+
+**§7-7 carried four things the one-line summary did not.** Two qualifying bases with four evidence
+types between them; a *"not eligible"* clause excluding a child whose **parent or sibling** has the
+need; *"exemptions apply only to specific enrolment agreements"*, which is why `0089` keys on
+`enrolments.id` and not on a child; and *"another child may attend the absent child's place without
+claiming funding for that replacement child"*, which gives 2F a second source for §6-4's cross-child
+rule. The window is twelve weeks from the first day of absence, nothing from the 13th.
+
+**Two CHECKs are transcriptions**: a short-term illness may only be evidenced by an EC13, and must
+carry an end date because the form *"specifies the exemption period"*. **One is deliberately
+absent** — the IDP's six-month recency — because a time-relative CHECK is what `0078` had to undo and
+*"previous 6 months"* does not say previous to what. An assertion pins that an old IDP is **stored**.
+
+**`0089` created a table with a silent audit trigger, and the guard built after `0059` caught it the
+same day.** `absence_exemptions` keys on `enrolment_id`, which was not in `audit_trigger()`'s
+resolution list, so every write would have succeeded and left no audit row. `test:rls` reported
+`CANNOT: absence_exemptions`; `review:security` did not, and should not — it asks whether the trigger
+exists, not whether it can attribute. **`0085`'s header had already written the warning down** and I
+did not read it before keying `0089` on the enrolment.
+
+**And `0090`'s first draft was worse than the bug it fixed** — see the new [[conventions]] entry.
+Reconstructing the function from a grep changed the audit detail format for every table and dropped
+`entity_id` for `post_strands`. Caught by diffing against `0070` rather than trusting it.
+
+**Reading §7-5 two links away found item 60**: an approved emergency closure is **fundable** —
+*"funding may be claimed … using actual booked hours for the day(s) of emergency closure"* — and
+needs ERO approval in writing. `service_closures` cannot distinguish a fundable snow day from a term
+break, and must before §6-6 or RS7 use it.
+
+Fifteen assertions, 702 → 717, attribution mutation-drilled. One guessed sqlstate disjunction
+replaced with the measured code.
+
 2026-09-04 (thirteenth) — **The fix I planned for the occupancy average would have made it
 worse.** Corrected: [[unverified-claims]] item 59, whose stated closure was wrong, and
 [[reporting]]'s paragraph from one commit earlier that said the calendar gave the proxy an

@@ -2222,6 +2222,45 @@ consumers want, and building it for the occupancy average alone would be buildin
 `service_closures`, keep `null` (no data) distinct from `0` (nobody came), state the basis on the
 screen, and share the derivation with Phase 3C rather than writing it twice.
 
+### 60. An approved emergency closure is FUNDABLE, and `0088` cannot tell one from a term break — **OPEN, added 2026-09-04**
+
+Found by reading [§7-5 Emergency
+closure](https://www.education.govt.nz/education-professionals/early-learning/funding-and-financials/chapter-7-special-circumstances/7-5-emergency-closure)
+immediately after §7-7, because it sat two links away and was obviously relevant to a closures table
+shipped an hour earlier.
+
+**§7-5 in its own words.** An emergency closure is *"when circumstances beyond the control of
+individual services cause temporary closures. Closures are normally for 1 or 2 days only."*
+Qualifying: *"extreme weather conditions"*, *"interruptions to essential services"*,
+*"non-controllable health and safety issues"*, *"civil defence emergencies"*. **Not** qualifying:
+*"lack of staff (except when this is due to a non-controllable health and safety issue)"*,
+*"person responsible is absent"*, *"funerals in the community"*, *"A&P show"*.
+
+**It needs ERO approval, and it comes back in writing.** *"Contact ERO at the first available
+opportunity"* and *"ERO will provide a letter to confirm approval/not approval"*. That is the exact
+opposite of §7-7, which needs no approval at all — two sections two pages apart with opposite
+processes, which is precisely why reading both mattered.
+
+**And with approval the closed days are claimable.** *"Funding may be claimed for the hours that
+children have a permanent enrolment subject to the funding maximums of the ECE Subsidy and 20 Hours
+ECE"*, using *"actual booked hours for the day(s) of emergency closure"*.
+
+**So `service_closures` is incomplete in a way that matters.** It has `reason_code` — an
+unresolvable `LookupCode` — and `reason_note`, free text. Neither can answer *"is this a fundable
+emergency closure with ERO approval?"*, and that question has to be answerable before §6-6 or RS7
+can use the table: a term break and a snow day are both closed days and only one of them is
+claimable.
+
+**An RS7 detail worth capturing now**: §7-5 says the paper RS7 uses an *"EC" code in the Staff Hour
+Count column* for emergency closure days. That belongs to Phase 3D and is recorded here so it is not
+rediscovered.
+
+**To close it:** a follow-up migration on `service_closures` recording whether the closure is
+claimed as an emergency closure, whether ERO approval was sought and what came back — approval is a
+three-state answer, not a boolean, because *"not approval"* is a real outcome the letter carries —
+and the date of the letter. Then the funded-hours path may treat those days as claimable and no
+others.
+
 ## See Also
 
 - [[eli-integration]] — the public schema, the event catalogue, and items 47 and 48

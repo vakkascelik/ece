@@ -997,6 +997,26 @@ any three-state numeric field — where null, zero and a figure are three differ
 test emptiness **before** conversion, in the action and in the row mapper both. `Number(null)` is
 also `0`, which is the mapper's version of the same bug.
 
+### Re-create a shared function by copying its current definition, never by retyping it
+
+`0090` had to add one branch to `audit_trigger()`. The first draft reconstructed the function from a
+`grep` of its branch list — it looked complete, it compiled, and a `diff` against `0070`'s
+definition showed **three** differences that had nothing to do with the intended change:
+
+- the changed-column detail came out as `{columns: {...}}` instead of `{changed: [...]}`, which
+  would have silently altered the audit format for **every audited table in the product**;
+- `entity_id` lost its `coalesce(id, guardian_id, post_id)` — the one thing standing between
+  `post_strands` and an audit row that says "a strand changed at this centre" without saying on
+  which post;
+- the `invoice_lines` fall-through was dropped.
+
+None of those would have failed a test. The audit trail would have kept working and started
+recording something subtly different.
+
+So: read the migration that last defined it, copy the body verbatim, insert the change, and **diff
+the two** before applying. The diff should be exactly what you meant to add. That is cheap, and it
+is the only step that catches a reconstruction that merely looks right.
+
 ### A migration can falsify an assertion's premise, and the good case is that it fails
 
 `0087` re-pointed `enrolments.twenty_hours_attested_by` from `auth.users` to `guardians`. An
