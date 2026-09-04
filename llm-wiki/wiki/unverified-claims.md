@@ -1973,11 +1973,22 @@ as Plus 10.
 
 ### 55. Funded hours are derived from attendance, and for a permanently enrolled child the Handbook starts from enrolment — **OPEN, added 2026-09-04, wired the same day**
 
-> **The claim that this product's funding error only ever runs LOW is now conditional, and that is
-> the sharpest consequence of this item.** It held while attendance was the only source. The
-> agreement basis breaks it in one place — §6-5's notice rule, with no column to record notice — and
-> `exportDisclaimer` says so out loud whenever the agreement basis was used. Anywhere else that
-> repeats the unconditional promise, including item 6, should be read against this.
+> **The claim that this product's funding error only ever runs LOW went conditional and is now
+> restored — 2026-09-04, both within a few hours.**
+>
+> It held while attendance was the only source. The agreement basis broke it in one place: §6-5
+> stops absence funding from the date a family gives notice, and **nothing recorded notice**, so the
+> window ran its full length. For a few hours the honest position was a disclaimer telling the
+> service to go and check.
+>
+> **`0093` closes it.** `enrolments.notice_given_on` and `notice_given_by`, wired through
+> `readFundingPeriod` into `classifyAbsences`, which has refused sessions from the notice date since
+> the day it was written and had nothing to refuse them with.
+>
+> **The promise is qualified rather than fully restored, and the qualification is real:** a service
+> that never records notice still gets the full window. What changed is that recording it works. Same
+> shape as §9-2 — the capability is the fix, the data is the service's. `exportDisclaimer`'s caution
+> stays for that reason.
 
 | | |
 |---|---|

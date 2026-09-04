@@ -1203,6 +1203,138 @@ select pg_temp.expect(
 );
 
 -- ===========================================================================
+-- 0093 — the notice date, and the one over-claim it closes
+--
+-- The assertion that matters here is the LAST one: notice and the end date are two facts, and
+-- a schema that let one stand in for the other would either stop a claim early or keep
+-- claiming after the Ministry says to stop. Everything above it is the paired-completeness and
+-- signatory machinery, which is by now routine.
+-- ===========================================================================
+
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+
+do $$
+declare n integer;
+begin
+  update public.enrolments
+     set notice_given_on = current_date,
+         notice_given_by = 'd1111111-1111-4111-8111-111111111111'
+   where child_id = 'a1111111-1111-4111-8111-111111111111';
+  get diagnostics n = row_count;
+  perform pg_temp.expect(n = 1, 'a guardian of the child CAN give notice (0093)');
+end $$;
+
+-- Half a notice is refused: a date with nobody attached says a claim was stopped without
+-- saying who asked for it to be.
+do $$
+declare code text := 'none (the update SUCCEEDED)';
+begin
+  begin
+    update public.enrolments set notice_given_on = current_date, notice_given_by = null
+     where child_id = 'a1111111-1111-4111-8111-111111111111';
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '23514', 'a notice date with nobody attached is refused, got ' || code);
+end $$;
+
+/*
+ * THE SIGNATORY TRIGGER, ON A THIRD COLUMN.
+ *
+ * 0087's trigger is generic over the column via TG_ARGV, and 0093 recreated the trigger with
+ * `notice_given_by` added to its argument list. This is what proves the third argument is
+ * actually wired — without it the column would accept any guardian in the database, including
+ * another centre's, which is what a bare foreign key permits.
+ */
+do $$
+declare code text := 'none (the update SUCCEEDED)';
+begin
+  begin
+    update public.enrolments
+       set notice_given_on = current_date,
+           notice_given_by = 'd2222222-2222-4222-8222-222222222222'
+     where child_id = 'a1111111-1111-4111-8111-111111111111';
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '23514',
+    'ANOTHER FAMILY''S guardian cannot give notice for this child, got ' || code);
+end $$;
+
+-- Notice cannot predate the enrolment it ends. A stored-date comparison rather than a
+-- time-relative CHECK, so a restore cannot fail on a row that is merely old — 0078.
+do $$
+declare code text := 'none (the update SUCCEEDED)';
+begin
+  begin
+    update public.enrolments
+       set notice_given_on = '2020-01-01',
+           notice_given_by = 'd1111111-1111-4111-8111-111111111111'
+     where child_id = 'a1111111-1111-4111-8111-111111111111';
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '23514',
+    'notice before the enrolment started is refused, got ' || code);
+end $$;
+
+/*
+ * NOTICE AND THE END DATE ARE TWO FACTS, AND THIS IS THE ASSERTION THE COLUMN EXISTS FOR.
+ *
+ * A family says in March that the child is leaving at Easter. The notice date is in March, the
+ * end date is in April, and between them the enrolment is still CURRENT while no absence may be
+ * claimed. A schema that derived one from the other would either stop the claim in April — a
+ * month of absences the Ministry says are not claimable — or treat the March notice as an
+ * ending and cut the enrolment short.
+ *
+ * Both are set here and read back independently, because "they can both be set" is a weaker
+ * claim than "they hold different values and neither moved the other".
+ */
+do $$
+declare v_notice date; v_end date; v_start date;
+begin
+  update public.enrolments
+     set notice_given_on = '2026-03-10',
+         notice_given_by = 'd1111111-1111-4111-8111-111111111111',
+         end_date = '2026-04-17'
+   where child_id = 'a1111111-1111-4111-8111-111111111111';
+
+  select notice_given_on, end_date, start_date into v_notice, v_end, v_start
+    from public.enrolments where child_id = 'a1111111-1111-4111-8111-111111111111';
+
+  perform pg_temp.expect(
+    v_notice = '2026-03-10' and v_end = '2026-04-17' and v_notice < v_end,
+    'notice and the end date are independent, and notice comes first (0093)'
+  );
+end $$;
+
+-- An educator cannot record notice: it stops a funding claim, so it is owner-or-manager like
+-- everything else on this row.
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+do $$
+declare n integer;
+begin
+  update public.enrolments set notice_given_on = null, notice_given_by = null
+   where child_id = 'a1111111-1111-4111-8111-111111111111';
+  get diagnostics n = row_count;
+  perform pg_temp.expect(n = 0, 'an educator CANNOT record or clear notice (0093)');
+end $$;
+
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+
+-- Cleared, and clearing must WORK: a notice entered against the wrong child has to be
+-- removable, or a family that changes its mind loses funding nobody can restore.
+do $$
+declare n integer; v_notice date;
+begin
+  update public.enrolments
+     set notice_given_on = null, notice_given_by = null, end_date = null
+   where child_id = 'a1111111-1111-4111-8111-111111111111';
+  get diagnostics n = row_count;
+  select notice_given_on into v_notice from public.enrolments
+   where child_id = 'a1111111-1111-4111-8111-111111111111';
+  perform pg_temp.expect(n = 1 and v_notice is null,
+    'notice can be withdrawn, because a family may change its mind (0093)');
+end $$;
+
+-- ===========================================================================
 -- 0092 — the §6-7 reconfirmation
 --
 -- The assertion worth reading first is the REPEATED one. Every other dated table built this

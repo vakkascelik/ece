@@ -864,6 +864,49 @@ describe('§9-2: which source produced the funded hours', () => {
     expect(r.fundedHours).toBe(12);
   });
 
+  /*
+    §6-5 NOTICE, THROUGH `childFunding` RATHER THAN ONLY THROUGH THE CLASSIFIER.
+
+    `classifyAbsences` has had an assertion for notice since it was written. What had no
+    assertion was the whole path: an agreement, an absence inside the window, and a notice date
+    that must beat the window anyway. That is the over-claim 0093 closes, and this is the test
+    that says it is closed rather than merely possible to close.
+
+    Two calls with the same inputs and only the notice differing, because the number alone
+    proves nothing — 12 hours could be right for a dozen reasons. The DIFFERENCE between them is
+    the rule.
+  */
+  it('stops claiming absences from the notice date, beating the three-week window', () => {
+    const args = {
+      childId: 'c',
+      // Attended Monday the 3rd; Wednesday the 5th is enrolled and absent, well inside the
+      // window, so it is claimable unless something else stops it.
+      events: fullDay(3),
+      timeZone: NZ,
+      period,
+      twentyHoursEce: false,
+      enrolmentType: 'permanent',
+    } as const;
+    const sessions = oneWeek(['2026-08-03']);
+
+    const noNotice = childFunding({ ...args, agreement: { sessions, closures: [] } });
+    const withNotice = childFunding({
+      ...args,
+      agreement: { sessions, closures: [], noticeGivenOn: '2026-08-04' },
+    });
+
+    // Monday attended plus Wednesday's claimable absence.
+    expect(noNotice.fundedHours).toBe(12);
+    expect(noNotice.absenceHours).toBe(6);
+
+    // Notice on the 4th: the Monday stands, the Wednesday does not.
+    expect(withNotice.fundedHours).toBe(6);
+    expect(withNotice.absenceHours).toBe(0);
+    expect(withNotice.unclaimableAbsences.map((u) => u.reason)).toEqual([
+      'the family gave notice the child would not return',
+    ]);
+  });
+
   it('claims an absence inside the three-week window, and says how much came from absences', () => {
     const r = childFunding({
       childId: 'c',

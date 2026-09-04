@@ -658,6 +658,45 @@ like it filed something is a screen after which nobody files anything. `exportDi
 the wording from the summary, so it cannot say "complete" when it is not, and lives in `@ece/core`
 so a future emailed version says the same thing.
 
+### §6-5's notice date — the one over-claim, and closing it
+
+**`0093`, 2026-09-04.** Every other gap recorded in this repo makes a funding figure too **low**.
+This one made it too **high**, and it was the only one.
+
+§6-5 stops the Three Week Rule the moment a parent gives notice that the child will not return —
+*"even if the three week period has not ended"* — and the Ministry recovers anything claimed after
+that point. `classifyAbsences` has taken a `noticeGivenOn` argument since the day it was written,
+with an assertion proving a session **inside** the window is refused once notice is given. Nothing
+could supply it.
+
+**`enrolments.end_date` is not this, and the difference is the whole point.** Notice comes first: a
+family says in March that the child is leaving at Easter, so the notice date is in March and the end
+date is in April — and *between them the enrolment is still current while no absence may be
+claimed*. The end date may also be absent entirely while notice has been given, which is the
+ordinary case and precisely the one §6-5 is written for. Deriving either from the other is wrong in
+both directions, and there is an assertion that reads both back independently rather than merely
+proving both can be set.
+
+**A guardian reference, for a weaker reason than §6-1's signatures, honestly stated.** There, a
+signature attributed to the wrong family is a false record *supporting* a claim. Here, getting the
+person wrong *stops* a claim that could have been made — it errs low, which is the safe direction.
+It is a reference anyway, because "the family gave notice" with nobody's name against it is weaker
+evidence than everything else on the row, and because `assert_signatories_are_guardians` cost three
+characters to extend to a third column. That generic-over-`TG_ARGV` decision from `0087` has now
+paid for itself twice.
+
+**Notice is deliberately NOT a §6-1 gap.** `enrolmentRecordGaps` does not report it. Most children
+have not been given notice, so listing it as missing would put a gap on every complete record —
+the fastest way to teach somebody that the list is noise. It is a §6-5 event, not a record field.
+
+**Withdrawing it has to work**, and there is an assertion for that too: a family may change its
+mind, and a notice nobody can clear would cost a centre funding nothing could restore.
+
+**What it does not do:** remove the over-claim on its own. A service that never records notice still
+gets the full window — the same honest limit as §9-2 with an empty agreement. The capability is the
+fix; the data is the service's. `exportDisclaimer`'s caution stays until there is something to
+record.
+
 ### 2G — the disclaimer describes the period, and admits the one over-claim
 
 **2026-09-04.** The disclaimer's absence sentence was **replaced, not deleted**, for the third

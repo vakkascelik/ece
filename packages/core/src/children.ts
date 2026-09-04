@@ -237,6 +237,25 @@ export interface Enrolment {
    */
   signedOn: string | null;
   signedBy: string | null;
+
+  /**
+   * The date a family gave notice that the child will not be returning, and which guardian gave
+   * it (`0093`).
+   *
+   * §6-5 stops absence funding from this date — *"even if the three week period has not
+   * ended"* — and the Ministry recovers anything claimed after it. `classifyAbsences` takes it
+   * and refuses every session from that date on.
+   *
+   * **NOT `endDate`.** Notice comes first: a family says in March that the child is leaving at
+   * Easter, so the notice date is in March and the end date is in April, and between them the
+   * enrolment is still current while no absence may be claimed. The end date may also be absent
+   * entirely while notice has been given, which is the ordinary case and precisely the one §6-5
+   * is written for.
+   *
+   * This is the only field in this product whose absence made a funding figure too **high**.
+   */
+  noticeGivenOn: string | null;
+  noticeGivenBy: string | null;
 }
 
 /**
@@ -260,6 +279,12 @@ export function enrolmentRecordGaps(e: Enrolment): string[] {
   if (e.days.length === 0) gaps.push('the days attending');
   if (e.hoursAtOtherServicePerWeek === null) gaps.push('the hours at another service');
   if (e.signedOn === null) gaps.push('a dated parent signature');
+  /*
+    NOTICE IS DELIBERATELY NOT A GAP. Most children have not been given notice, and listing it
+    as missing would report a gap on every complete record — the fastest way to teach somebody
+    that this list is noise. §6-1 does not ask for it either; it is a §6-5 event, not a record
+    field, and it belongs on this row only because that is where the enrolment lives.
+  */
   /*
     Only when the service is actually claiming it. A centre not claiming 20 Hours has nothing
     to attest, and reporting a missing attestation there would be a gap the service cannot

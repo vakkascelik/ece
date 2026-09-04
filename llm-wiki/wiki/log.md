@@ -5,6 +5,34 @@ says so.*
 
 ---
 
+2026-09-04 (twenty-fourth) — **`0093`: the notice date, which closes the one over-claim in this
+product.** Narrowed: [[unverified-claims]] item 55, where the "error only ever runs low" promise went
+conditional a few hours ago and is now restored with a stated qualification. New: a
+[[funding-and-billing]] section, and a [[conventions]] entry on mutating by restoring a saved copy.
+
+Every other gap recorded here makes a figure too **low**. §6-5 stops absence funding from the date a
+family gives notice — *"even if the three week period has not ended"* — and nothing recorded notice,
+so the window ran its full length. `classifyAbsences` had taken the argument since the day it was
+written and had nothing to supply it.
+
+**`end_date` is not this.** Notice comes first: March notice, Easter departure, and between them the
+enrolment is current while no absence may be claimed. The end date may be absent entirely while
+notice has been given. An assertion reads both back independently rather than merely proving both
+can be set.
+
+**The `TG_ARGV` decision from `0087` paid for itself twice** — `notice_given_by` joined the signatory
+trigger's argument list for three characters, and there is an assertion proving the third argument is
+actually wired rather than accepting any guardian in the database.
+
+**Notice is deliberately not a §6-1 gap**: most children have not been given notice, and reporting it
+as missing would put a gap on every complete record. **Withdrawing it works**, with its own assertion,
+because a family may change its mind.
+
+Seven assertions, 741 → 748, the tenancy one mutation-drilled. Eleven mutations on the funding path,
+eleven caught. And the drill itself taught something: an ad-hoc mutation on the RLS suite was undone
+by reverse string replacement, its anchor turned out to match twice, and only a count assertion made
+that visible — now a convention.
+
 2026-09-04 (twenty-third) — **The sweep finished its work and would not exit, and that is what
 "hung" the e2e suite for an hour.** Fixed in `scripts/sweep-audit-tenants.ts`. Corrected:
 [[deployment]], where the auth-rate-limit hypothesis from `5d4e696` is now disproved outright.

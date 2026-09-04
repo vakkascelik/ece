@@ -141,6 +141,49 @@ function RecordFields({
         actually signed &mdash; a date entered to clear a warning is a record of something that
         did not happen.
       </p>
+
+      {/*
+        §6-5 NOTICE, AND IT IS NOT ONE OF THE FIELDS ABOVE.
+
+        Everything above is a §6-1 record field: something the enrolment record must contain.
+        This is an event that STOPS funding from its date, and the Handbook applies it "even if
+        the three week period has not ended". Separated by a rule and its own heading, because
+        somebody skimming a column of date-and-guardian pairs would otherwise read it as a
+        third signature.
+
+        Only offered on an existing enrolment, never on the form that files one: an enrolment
+        filed with notice already given is not a case that happens, and the field would invite
+        confusion with the last day.
+      */}
+      {enrolment && (
+        <div style={{ borderTop: '1px solid var(--line)', marginTop: '1rem', paddingTop: '1rem' }}>
+          <h4 style={{ margin: '0 0 0.5rem' }}>Leaving</h4>
+          <div className="row">
+            <div>
+              <label htmlFor={`${idPrefix}-notice-on`}>Notice given on</label>
+              <input
+                className="narrow"
+                id={`${idPrefix}-notice-on`}
+                name="noticeGivenOn"
+                type="date"
+                defaultValue={enrolment.noticeGivenOn ?? ''}
+              />
+            </div>
+            <SignatoryPicker
+              id={`${idPrefix}-notice-by`}
+              name="noticeGivenBy"
+              guardians={guardians}
+              defaultValue={enrolment.noticeGivenBy ?? ''}
+              label="Told to us by"
+            />
+          </div>
+          <p className="sub">
+            The date a family told you the child is not coming back. <strong>Not the last day</strong>
+            &mdash; notice usually comes first, and the funding rules stop from the date you were
+            told, not from the date they leave. Clear both fields if a family changes its mind.
+          </p>
+        </div>
+      )}
     </>
   );
 }

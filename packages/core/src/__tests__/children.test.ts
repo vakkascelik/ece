@@ -323,6 +323,8 @@ describe('enrolment', () => {
     hoursAtOtherServicePerWeek: null,
     signedOn: null,
     signedBy: null,
+    noticeGivenOn: null,
+    noticeGivenBy: null,
     ...over,
   });
 

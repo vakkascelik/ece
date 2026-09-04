@@ -727,6 +727,12 @@ interface EnrolmentRow {
   enrolment_type: EnrolmentType | null;
   start_date: string;
   end_date: string | null;
+  /*
+    §6-5 stops absence funding from this date, "even if the three week period has not ended".
+    NOT `end_date` — notice comes first and the end date may be later or absent entirely, and
+    between the two the enrolment is current while no absence may be claimed. 0093.
+  */
+  notice_given_on: string | null;
 }
 
 /*
@@ -825,7 +831,7 @@ export async function readFundingPeriod(
     fetchAll<EnrolmentRow>('readFundingPeriod (enrolments)', (from, to) =>
       db
         .from('enrolments')
-        .select('id, child_id, twenty_hours_ece, enrolment_type, start_date, end_date')
+        .select('id, child_id, twenty_hours_ece, enrolment_type, start_date, end_date, notice_given_on')
         .eq('centre_id', input.centreId)
         /*
           Same reason as `children` above: paging needs a total order.
@@ -1030,17 +1036,16 @@ export async function readFundingPeriod(
                 */
                 isExemptOn: (date) => rows.some((e) => coversDate(e.exempt_from, e.exempt_to, date)),
                 /*
-                  §6-5 stops a claim when a parent gives notice the child will not return, "even
-                  if the three week period has not ended". NOTHING IN THIS SCHEMA RECORDS NOTICE
-                  — `enrolments.end_date` is not it, because notice comes first and the end date
-                  may be later or absent. So this is left undefined and the window runs to its
-                  full length, which OVER-claims for a child whose family has given notice.
+                  §6-5 stops a claim from the date a family gives notice, "even if the three week
+                  period has not ended". SUPPLIED AS OF 0093 — this passed `null` until then,
+                  which over-claimed for any child whose family had given notice, and was the
+                  only over-claim this product knowingly contained.
 
-                  The only over-claim this product knowingly contains, and it is here rather than
-                  hidden: see `unverified-claims`. It is a missing column, not a missing
-                  calculation.
+                  Still `null` for every enrolment nobody has recorded notice on, which is all of
+                  them today. The difference is that recording it now works, rather than the
+                  disclaimer asking a person to remember.
                 */
-                noticeGivenOn: null,
+                noticeGivenOn: enrolment?.notice_given_on ?? null,
               },
       });
     })

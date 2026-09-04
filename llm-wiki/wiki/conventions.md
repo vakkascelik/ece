@@ -1016,6 +1016,24 @@ any three-state numeric field — where null, zero and a figure are three differ
 test emptiness **before** conversion, in the action and in the row mapper both. `Number(null)` is
 also `0`, which is the mapper's version of the same bug.
 
+### Mutate by restoring a saved copy, never by reversing the edit
+
+An ad-hoc mutation on `rls_isolation.sql` was applied by string replacement and undone the same way.
+The undo asserted its anchor appeared exactly once, found **two**, and refused — which is the only
+reason the mistake was visible. The value it was restoring, a guardian uuid, now appeared both in
+the assertion being mutated *and* in a neighbouring one.
+
+Had the undo used a bare `replace()`, the suite would have kept a silently weakened assertion and
+gone green. That is a worse outcome than any bug the mutation was hunting.
+
+**So: read the whole file first, and restore from that copy.** The drill scripts for `absence.ts` and
+`funding.ts` already do exactly this — save, mutate, run, write the original back, then assert the
+file matches what was read. Ad-hoc one-off mutations should follow the same shape rather than a
+narrower one, because a one-off is precisely when nobody has thought about anchor uniqueness.
+
+Third self-inflicted tooling problem in one session, and they share a shape: a tool told the truth
+about a world I had already changed. The stale build, the finished-but-unexited sweep, and this.
+
 ### A mutation nothing can kill means dead code, not a missing test
 
 The drill on `absence.ts` reported 8 of 9. The survivor was `if (minutes === null || minutes === 0)`:

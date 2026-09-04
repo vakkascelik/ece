@@ -128,7 +128,7 @@ const toLink = (r: LinkRow): ChildGuardian => ({
   `registers.ts` and `compliance.ts` carry the same note.
 */
 const ENROLMENT_COLUMNS =
-  'id, child_id, centre_id, start_date, end_date, funded_hours_per_week, twenty_hours_ece, enrolment_type, days, notes, twenty_hours_attested_on, twenty_hours_attested_by, hours_at_other_service_per_week, signed_on, signed_by';
+  'id, child_id, centre_id, start_date, end_date, funded_hours_per_week, twenty_hours_ece, enrolment_type, days, notes, twenty_hours_attested_on, twenty_hours_attested_by, hours_at_other_service_per_week, signed_on, signed_by, notice_given_on, notice_given_by';
 
 interface EnrolmentRow {
   id: string;
@@ -146,6 +146,8 @@ interface EnrolmentRow {
   hours_at_other_service_per_week: number | string | null;
   signed_on: string | null;
   signed_by: string | null;
+  notice_given_on: string | null;
+  notice_given_by: string | null;
 }
 
 const toEnrolment = (r: EnrolmentRow): Enrolment => ({
@@ -173,6 +175,8 @@ const toEnrolment = (r: EnrolmentRow): Enrolment => ({
     r.hours_at_other_service_per_week === null ? null : Number(r.hours_at_other_service_per_week),
   signedOn: r.signed_on,
   signedBy: r.signed_by,
+  noticeGivenOn: r.notice_given_on,
+  noticeGivenBy: r.notice_given_by,
 });
 
 const HEALTH_COLUMNS = 'id, child_id, kind, name, severity, response_plan, resolved_at';
@@ -606,6 +610,16 @@ export interface EnrolmentInput {
   hoursAtOtherServicePerWeek?: number | null;
   signedOn?: string | null;
   signedBy?: string | null;
+
+  /**
+   * §6-5 notice (`0093`). Both or neither — a CHECK refuses half a notice.
+   *
+   * Not written by `createEnrolment`: an enrolment filed with notice already given is not a
+   * case that happens, and offering the field there would invite somebody to confuse it with
+   * the end date. It is set afterwards, when the conversation happens.
+   */
+  noticeGivenOn?: string | null;
+  noticeGivenBy?: string | null;
 }
 
 /**
@@ -692,6 +706,8 @@ export async function updateEnrolment(
   }
   if (patch.signedOn !== undefined) row.signed_on = patch.signedOn;
   if (patch.signedBy !== undefined) row.signed_by = patch.signedBy;
+  if (patch.noticeGivenOn !== undefined) row.notice_given_on = patch.noticeGivenOn;
+  if (patch.noticeGivenBy !== undefined) row.notice_given_by = patch.noticeGivenBy;
   if (Object.keys(row).length === 0) return;
 
   const { data, error } = await db

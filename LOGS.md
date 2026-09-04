@@ -7,6 +7,79 @@ itself, and from the wiki pages, which hold the durable *why*. This file is the 
 
 ---
 
+## 2026-09-04 (twenty-fourth) — the notice date, and the one over-claim closes
+
+Chosen ahead of §6-7's detection deliberately: removing a wrong number beats adding a new report.
+
+### Why this one was different from every other gap here
+
+Every other missing piece in this schema makes a funding figure too **low**, and this repo has said
+so for weeks — item 6, the ratio banner, the funding disclaimer. §6-5 breaks that promise in exactly
+one place: it stops absence funding the moment a family gives notice that the child will not return,
+*"even if the three week period has not ended"*, and the Ministry recovers anything claimed after.
+
+`classifyAbsences` has taken a `noticeGivenOn` argument since the hour it was written, with an
+assertion proving a session **inside** the window is refused once notice is given. **Nothing could
+supply it.** `readFundingPeriod` passed `null`, so the window ran full length, and the disclaimer
+asked a human to remember. That was the honest thing to do and it was not a fix.
+
+### `end_date` is not this, and it is the crux
+
+Notice comes **first**. A family says in March that the child is leaving at Easter: the notice date
+is in March, the end date is in April, and *between them the enrolment is still current while no
+absence may be claimed*. The end date can also be absent entirely while notice has been given —
+a family that says "she is not coming back" without settling a last day is the ordinary case, and
+precisely the one §6-5 is written for.
+
+So deriving either from the other is wrong in both directions: one way stops the claim a month late,
+the other cuts the enrolment short. The assertion reads both values back independently, because
+"they can both be set" is a weaker claim than "they hold different values and neither moved the
+other".
+
+### Two decisions worth the space
+
+**A guardian reference, for a weaker reason than §6-1's signatures, and I have said so rather than
+implying parity.** There, a signature attributed to the wrong family is a false record *supporting* a
+claim. Here, getting the person wrong *stops* a claim that could have been made — it errs low, the
+safe direction. It is a reference anyway because "the family gave notice" with no name against it is
+weaker evidence than everything else on that row, and because
+`assert_signatories_are_guardians` cost three characters to extend. That generic-over-`TG_ARGV`
+decision from `0087` has now paid for itself twice, and there is an assertion proving the third
+argument is wired rather than silently accepting any guardian in the database.
+
+**Notice is deliberately not a §6-1 gap.** `enrolmentRecordGaps` does not report it. Most children
+have not been given notice, so listing it as missing would put a warning on every otherwise complete
+record — the fastest way to teach somebody the list is noise. It is a §6-5 event, not a record field,
+and it lives on the enrolment only because that is where the enrolment lives.
+
+### And withdrawing it works
+
+A family may change its mind. A notice nobody could clear would cost a centre funding nothing could
+restore, so clearing is asserted alongside setting.
+
+### What it does not do
+
+Remove the over-claim on its own. A service that never records notice still gets the full window —
+the same honest limit as §9-2 with an empty agreement, and saying otherwise would repeat the mistake
+of calling §9-2 fixed while `child_booking_schedule` was empty. The capability is the fix; the data
+is the service's, and the disclaimer's caution stays for exactly that reason.
+
+### The drill taught something too
+
+An ad-hoc mutation on `rls_isolation.sql` was applied by string replacement and undone the same way.
+The undo asserted its anchor appeared once, found **two**, and refused — which is the only reason I
+saw it. The guardian uuid I was restoring appeared in the assertion being mutated *and* in a
+neighbouring one, so a bare `replace()` would have left the suite carrying a silently weakened
+assertion and reporting green.
+
+Worse than any bug the mutation was hunting. The proper drill scripts already save the whole file and
+write it back; ad-hoc mutations must do the same, because a one-off is exactly when nobody has
+thought about anchor uniqueness. Now a convention.
+
+**Third self-inflicted tooling problem this session, and they share a shape:** the stale build, the
+finished-but-unexited sweep, and this. Each time a tool told me the truth about a world I had already
+changed underneath it.
+
 ## 2026-09-04 (twenty-third) — the sweep that would not exit, and an hour spent on the wrong suspect
 
 No product code. A one-line-shaped defect in a script, and a diagnosis I got wrong twice before

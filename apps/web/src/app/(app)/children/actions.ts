@@ -1069,6 +1069,21 @@ export async function completeEnrolmentRecord(_prev: unknown, form: FormData): P
   );
   if ('error' in attestation) return attestation;
 
+  /*
+    §6-5 notice, on the same form but not the same kind of thing.
+
+    The two above are §6-1 record fields — facts the enrolment record must contain. This is an
+    EVENT that stops absence funding from its date, and the Handbook is explicit that it applies
+    "even if the three week period has not ended". It shares `signaturePair` because the shape is
+    identical: a date and a named guardian, both or neither.
+
+    Clearing it has to work as well as setting it, which the pair already handles by returning
+    two nulls for two empty fields — a family that changes its mind must not lose funding
+    nobody can restore.
+  */
+  const notice = signaturePair(form, 'noticeGivenOn', 'noticeGivenBy', 'the notice');
+  if ('error' in notice) return notice;
+
   try {
     await updateEnrolment(db, enrolmentId, {
       hoursAtOtherServicePerWeek: otherHours,
@@ -1076,10 +1091,13 @@ export async function completeEnrolmentRecord(_prev: unknown, form: FormData): P
       signedBy: signature.by,
       twentyHoursAttestedOn: attestation.on,
       twentyHoursAttestedBy: attestation.by,
+      noticeGivenOn: notice.on,
+      noticeGivenBy: notice.by,
     });
   } catch (e) {
     // `updateEnrolment` already turns 0087's signatory trigger into a sentence about the
-    // person not being a guardian of this child, so this passes it through.
+    // person not being a guardian of this child, so this passes it through — and 0093 added
+    // `notice_given_by` to that same trigger's argument list.
     return actionError(e, 'children.completeEnrolmentRecord');
   }
 
