@@ -1054,6 +1054,13 @@ records — records funding is claimed from.
 The ambiguity was load-bearing by accident. Drop one of those centres, or rename either, and the
 pattern resolves cleanly to whichever survives.
 
+**A correction to how this was first written up.** I said it would have written invented attendance
+into a live centre's records. Measured the next day: `little-pearls-mt-albert` and
+`little-pearls-mt-roskill` hold **zero children**. The script seeds events for the `Demo-Seed`
+children it finds in the centre it resolved, so had the pattern matched the live tenant it would
+have found none and stopped. The hazard in the *shape* is exactly as described and the convention
+stands; the specific consequence I named was not reachable on this database.
+
 **Any script that writes, and selects its target by pattern, is one row away from writing to the
 wrong tenant.** Select by exact slug — a constant the seed script controls — and let it fail loudly
 when that row is absent. The failure message should name the fixture to create, not a different

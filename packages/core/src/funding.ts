@@ -134,7 +134,12 @@
  * believe a return was filed because a screen looked finished.
  */
 
-import { classifyAbsences, type EnrolledSession } from './absence';
+import {
+  assessFrequentAbsence,
+  classifyAbsences,
+  type EnrolledSession,
+  type FrequentAbsenceMonth,
+} from './absence';
 import { ageInMonths, type EnrolmentType } from './children';
 import type { ServiceClosure } from './closures';
 import { attendedHours, toHours, type HoursEvent } from './hours';
@@ -188,18 +193,44 @@ export const FUNDING_RULES = {
       'Handbook §9-2 ("to a maximum of 30 FCHs per child-place per week") and §9-3 ("The remainder (up to 30 hours) may be claimed as Plus 10 ECE hours"). Read 2026-09-04 and implemented the same day: the subsidy caps at 6/day and 30/week for EVERY child, and an attested child\'s week splits into twentyHoursHours (up to 20) and plusTenHours (the rest).',
   },
   /**
-   * **NOT IMPLEMENTED, and it is the source of the numbers rather than an adjustment to them.**
+   * **IMPLEMENTED WHERE THE INPUT EXISTS, and still false. Both halves matter.**
+   *
+   * §9-2 step 1 now drives a permanently enrolled child's figure from the agreement, when a
+   * `child_booking_schedule` exists for them. Where none does, the figure still starts from
+   * attendance and under-claims — and `hoursBasis` says which of the four situations produced
+   * every number, because two of them look identical in the digits.
+   *
+   * Why it stays `false`: the flag answers "is this rule implemented", and the honest answer for
+   * a service that has recorded no days and times is still no. Flipping it would put a
+   * green tick on a screen for centres whose figures are known to be too low.
    */
   hoursSource: {
     verified: false,
     source:
-      'Handbook §9-2, read 2026-09-04: for a permanently enrolled child, "List the daily number of hours of ENROLMENT"; for a casual or conditional child, "list the number of hours each of these children ATTENDED". This file derives everything from attendance, which is right for the second and the wrong starting point for the first.',
+      'Handbook §9-2, read 2026-09-04: for a permanently enrolled child, "List the daily number of hours of ENROLMENT"; for a casual or conditional child, "list the number of hours each of these children ATTENDED". Implemented 2026-09-04 for a permanent child with a recorded booking schedule; a permanent child without one still yields the attendance figure, reported as hoursBasis "attendance-no-agreement".',
   },
-  /** **NOT IMPLEMENTED.** §§6-4 to 6-7, and §6-4 is not a per-child rule at all. */
+  /**
+   * **PARTLY IMPLEMENTED**, and false for one thing only — which is why the source string names
+   * it rather than leaving a reader to assume none of it works.
+   *
+   * Implemented: §6-5's three-week window, §6-6's suspension across a closure of two weeks or
+   * more, §7-7's twelve-week window, §6-5's stop on notice, and §6-7's monthly frequent-absence
+   * check with its three triggers and its four-month timeline.
+   *
+   * **Not implemented: §6-4's cross-child rule.** A service may not claim for both an absent
+   * permanent child and the casual child filling their place. `childFunding` sees one child at a
+   * time, so that comparison has nowhere to happen — it needs a day-level pass across children,
+   * and §7-7 states the same rule a second time ("another child may attend the absent child's
+   * place without claiming funding for that replacement child"), so it is not a marginal reading.
+   *
+   * This stays `false` until that lands. It is the only remaining absence rule, and a flag that
+   * went true with a known over-claim in it would be the exact failure this structure exists to
+   * prevent.
+   */
   absence: {
     verified: false,
     source:
-      'Handbook §6-4 to §6-7, read 2026-09-03/04. §9-2 confirms they are not optional for the return: services "must take into account the Three Week Rule and Frequent Absence Rule when completing your RS7 Return".',
+      'Handbook §6-4 to §6-7, read 2026-09-03/04, and §6-8\'s worked examples read 2026-09-04. §9-2 confirms they are not optional for the return: services "must take into account the Three Week Rule and Frequent Absence Rule when completing your RS7 Return". §6-5, §6-6, §6-7 and §7-7 are implemented and mutation-tested; §6-4\'s rule against claiming for both an absent permanent child and the casual child filling their place is NOT, because it cannot be answered per child.',
   },
   /** **NOT IMPLEMENTED**, and only half-read: one worked example, not the rule behind it. */
   sessionalRounding: {
@@ -460,6 +491,17 @@ export interface ChildFunding {
   unclaimableAbsences: UnclaimableAbsence[];
 
   /**
+   * §6-7 month by month — the Frequent Absence Rule's verdict on each calendar month the period
+   * touches, with the triggers that fired and anything that could not be assessed.
+   *
+   * Returned even where every month is claimable, because "no month triggered" and "§6-7 was
+   * never applied" are different statements and a caller cannot tell them apart from
+   * `unclaimableAbsences` alone. Empty only on an attendance basis, where §6-7 has no agreement
+   * to compare attendance against.
+   */
+  frequentAbsence: FrequentAbsenceMonth[];
+
+  /**
    * Days the child attended that the agreement does not cover.
    *
    * REPORTED AND NEVER CLAIMED. §9-2 step 1 says to list the hours of *enrolment*, so extra
@@ -561,7 +603,14 @@ export interface AttendanceRecordStart {
   startsOn: string | null;
 }
 
-/** ISO week key, so the weekly cap can be applied to the right seven days. */
+/**
+ * ISO week key, so the weekly cap can be applied to the right seven days.
+ *
+ * Buckets the same seven days as `mondayOf` in `weekdayBlock.ts`, which is where the shared
+ * weekday arithmetic now lives, but returns `2026-W36` rather than the Monday. Left as it is on
+ * purpose: the weekly cap is built on this shape and re-bucketing a cap is not a side errand.
+ * **Do not write a fifth copy** — if you need the Monday, import it from there.
+ */
 function isoWeekKey(date: string): string {
   const [y, m, d] = date.split('-').map(Number);
   const t = new Date(Date.UTC(y!, m! - 1, d!));
@@ -617,6 +666,17 @@ export function childFunding(input: {
     closures: readonly ServiceClosure[];
     isExemptOn?: (date: string) => boolean;
     noticeGivenOn?: string | null;
+    /**
+     * `centres.service_model === 'sessional'` (0083). §6-7's third trigger *"excludes sessional
+     * services"*, and null — not recorded — makes that trigger unassessable rather than absent.
+     */
+    isSessionalService?: boolean | null;
+    /**
+     * Dates from `enrolment_reconfirmations` (0092) **for this enrolment**. What unlocks a
+     * third-month claim, and 0092 keys on the enrolment precisely so a reconfirmation of an
+     * earlier agreement cannot unlock a later one.
+     */
+    reconfirmedOn?: readonly string[];
   } | null;
 }): ChildFunding {
   const caps = input.caps ?? DEFAULT_CAPS;
@@ -655,6 +715,7 @@ export function childFunding(input: {
   let sourceDays: { date: string; minutes: number }[];
   let absenceMinutes = 0;
   const unclaimableAbsences: UnclaimableAbsence[] = [];
+  let frequentAbsence: FrequentAbsenceMonth[] = [];
   let attendedOutsideAgreement: string[] = [];
 
   if (useAgreement) {
@@ -666,14 +727,62 @@ export function childFunding(input: {
       isExemptOn: agreement.isExemptOn,
       noticeGivenOn: agreement.noticeGivenOn,
     });
+
+    /*
+      §6-7 ON TOP OF §6-5, AND IT REFUSES A MONTH RATHER THAN A SESSION.
+
+      Two rules over the same sessions, and they are not redundant: §6-5 asks how long this spell
+      has run, §6-7 asks whether the agreement still describes this child. Every absence in a
+      month can sit comfortably inside its three-week window and still be a pattern the Handbook
+      refuses by the third month.
+
+      **It refuses ABSENCES, not the month.** §6-7's sentences are about *"funding for absences
+      in the third month"* and, for the fourth, that they *"must not be claimed"*. Hours the
+      child actually attended are not in scope, so a refused month still funds every day the
+      child was there. Reading it as a blanket month refusal would withhold funding for
+      attendance nobody disputes.
+
+      The attended minutes come from the same `attendedHours()` days this function already
+      computed, so §6-7's third trigger is answerable without the caller assembling it twice —
+      and an incomplete day arrives as `null`, which the assessment reports as a gap rather than
+      counting as a shortfall.
+    */
+    const attendedMinutesByDate = new Map(
+      inPeriod.map((day) => [day.date, day.complete ? day.minutes : null]),
+    );
+    frequentAbsence = assessFrequentAbsence({
+      sessions: agreement.sessions.map((session) => ({
+        ...session,
+        attendedMinutes: session.attended
+          ? (attendedMinutesByDate.get(session.date) ?? null)
+          : 0,
+      })),
+      closures: agreement.closures,
+      isSessionalService: agreement.isSessionalService ?? null,
+      reconfirmedOn: agreement.reconfirmedOn,
+    });
+    const monthRefusedBy = new Map<string, string>();
+    for (const month of frequentAbsence) {
+      if (!month.claimable && month.reason !== null) monthRefusedBy.set(month.month, month.reason);
+    }
+
     for (const row of rows) {
       if (!row.absent) {
         // Present, so the enrolled hours stand — not the attended hours. §9-2 asks for the
         // hours of enrolment, and a child collected an hour early was still enrolled for it.
         sourceDays.push({ date: row.date, minutes: row.minutes });
-      } else if (row.claimable) {
+      } else if (row.claimable && !monthRefusedBy.has(row.date.slice(0, 7))) {
         sourceDays.push({ date: row.date, minutes: row.minutes });
         absenceMinutes += row.minutes;
+      } else if (row.claimable) {
+        // Inside §6-5's window, and refused by §6-7 anyway. The reason names the month rule, not
+        // the window, because a service told "past the three-week window" about a day that is
+        // three days into a spell would go looking for the wrong mistake.
+        unclaimableAbsences.push({
+          date: row.date,
+          hours: toHours(row.minutes),
+          reason: monthRefusedBy.get(row.date.slice(0, 7)) as string,
+        });
       } else {
         unclaimableAbsences.push({
           date: row.date,
@@ -788,6 +897,7 @@ export function childFunding(input: {
     */
     absenceHours: Math.floor(toHours(absenceMinutes) * 100) / 100,
     unclaimableAbsences,
+    frequentAbsence,
     attendedOutsideAgreement,
   };
 }

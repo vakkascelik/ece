@@ -16,6 +16,7 @@
 import type { DayAttendance } from './occupancy';
 import { averageOverOpenDays } from './occupancy';
 import { shiftLocalDate } from './children';
+import { isoWeekdayOf, mondayOf } from './weekdayBlock';
 
 export interface WeekAttendance {
   /** Monday, `YYYY-MM-DD`. */
@@ -25,27 +26,6 @@ export interface WeekAttendance {
   daysWithAttendance: number;
   /** Mean children per day across the days that had any. Null when the week had none. */
   averageChildren: number | null;
-}
-
-/**
- * The ISO weekday of an already-resolved local date, Monday = 1 .. Sunday = 7.
- *
- * `getUTCDay()`, not `.toISOString().slice(0, 10)` — the latter is the pattern
- * `localDates.test.ts` scans for and refuses a second exemption on. This never asks what
- * day it is; `date` was already resolved by a caller holding the centre's timezone, and
- * `Date.UTC` on its components cancels the offset the same way `shiftLocalDate` does.
- */
-function isoWeekday(date: string): number {
-  const [y, m, d] = date.split('-').map(Number);
-  if (!y || !m || !d) throw new Error(`Not an ISO date: ${date}`);
-  const utcDay = new Date(Date.UTC(y, m - 1, d)).getUTCDay(); // 0 = Sunday .. 6 = Saturday
-  return utcDay === 0 ? 7 : utcDay;
-}
-
-/** The Monday of the week `date` falls in. */
-function mondayOf(date: string): string {
-  const weekday = isoWeekday(date); // 1 = Monday .. 7 = Sunday
-  return shiftLocalDate(date, -(weekday - 1));
 }
 
 /**
@@ -92,7 +72,7 @@ export interface WeekdayAttendance {
 export function summariseWeekdayPattern(days: readonly DayAttendance[]): WeekdayAttendance[] {
   const byWeekday = new Map<number, DayAttendance[]>();
   for (const day of days) {
-    const weekday = isoWeekday(day.date);
+    const weekday = isoWeekdayOf(day.date);
     const bucket = byWeekday.get(weekday);
     if (bucket) bucket.push(day);
     else byWeekday.set(weekday, [day]);

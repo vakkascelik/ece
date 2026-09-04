@@ -48,6 +48,37 @@ a signature it may not need, and whether a month is claimable. Recorded as
 [[unverified-claims]] item 61; until answered this product will apply the narrower reading — which
 under-claims — and say on screen which reading produced the figure.
 
+**SHARPENED 2026-09-04, after implementing it.** Writing the rule narrowed the question to almost
+nothing, and the remaining sliver is what should actually be asked. A month where attendance
+returned to normal does not fail §6-7's 50% test, so it ends the run and its absences are claimable
+with no reconfirmation — the two readings agree on all three of §6-8's examples. They differ only
+where a month returns to normal *overall* while still failing one of the three triggers. So the
+question to send is:
+
+> Where a child's attendance returns to normal in the third month but still fails one of the three
+> trigger situations — for example, attending all enrolled days except more than half of one
+> weekday's sessions — does that count as "attendance returning to normal" for the purposes of
+> claiming that month's absences, or is a reconfirmation still required?
+
+### A fourth question, added 2026-09-04
+
+**§6-7 says the rule "may be extended" across two or more weeks of non-operation. Extended by
+whom, and by how much?**
+
+The clause is *"periods of two or more weeks of non-operation (holidays, renovations, etc.)"* — the
+same wording as §6-6, where the effect on the Three Week Rule is explicit: the window stops
+spending. §6-7 counts calendar months, and three things are unstated:
+
+- whether the service applies the extension itself (as with a §7-7 exemption) or asks the Ministry
+  (as with a §7-5 emergency closure);
+- by how much a month that was half closed extends the count;
+- and, since extending pushes months 3 and 4 later, this is the one absence question where the
+  ambiguity favours the claimant.
+
+Because of that last point this product **reports** the closure and does not apply the extension,
+so a service with a three-week closure inside a frequent-absence pattern currently claims less than
+it may be entitled to. [[unverified-claims]] item 62.
+
 ### Suggested subject
 
 `ELI integration — two calculation questions before we submit (Little Pearls Educare)`

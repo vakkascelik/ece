@@ -2359,9 +2359,53 @@ the reconfirmation and nothing computes month-3 claimability yet, so nothing is 
 2F lands, the narrow reading applies — under-claiming — **and the surface says which reading it
 used**, because a figure computed one way must not silently look like a figure computed the other.
 
-**To close it:** ask. This belongs in the next Ministry enquiry beside the Plus 10 question, and it
-is a sharper question than that one because both sources are the Ministry's own and they are two
-pages apart.
+**NARROWED 2026-09-04 by writing the code, and the narrowing is worth recording.**
+
+Implementing the narrow reading made the disagreement mostly disappear, which was not the expected
+result. §6-8's extra route is *"attendance returns to normal"* — but a month where attendance
+returned to normal **does not trigger §6-7 at all**, so it ends the run, and its own absences are
+claimable under the 50% test with no reconfirmation needed. The two readings therefore agree on
+every one of §6-8's three worked examples.
+
+Where they can still part company is one edge: a month that returns to normal *overall* while
+failing a single trigger — absent three of four Fridays, say, while attending everything else. The
+narrow reading refuses that month's absences without a reconfirmation; the permissive one might
+allow them. The product under-claims there, and says which reading it used.
+
+**To close it:** ask, but ask the sharper question. Not "which reading is right" — "does a month
+that fails one of the three triggers count as attendance returning to normal for the purposes of a
+third-month claim?" That is answerable in a sentence and it is the only case the two sources
+actually decide differently.
+
+### 62. §6-7's closure extension is reported and deliberately not applied — **OPEN, added 2026-09-04**
+
+§6-7: the rule *"may be extended"* across *"periods of two or more weeks of non-operation
+(holidays, renovations, etc.)"* — the same clause as §6-6, which suspends the Three Week Rule.
+
+**What is unverified is not whether the clause exists but what it does.** Three things are unstated:
+
+- **By whom.** "May be extended" does not say whether a service applies it, or whether the Ministry
+  does on request. §7-7's exemptions are the pattern of a rule a service applies with its own
+  paperwork; §7-5's emergency closures are the pattern of one where a letter comes back. This
+  clause reads like neither.
+- **By how much.** §6-6 is specific for the Three Week Rule: the window stops spending while the
+  service is closed. §6-7 counts calendar months, and a closure that eats half of September does
+  not obviously make September not a month.
+- **In which direction it may be applied.** Extending pushes months 3 and 4 later, so **more**
+  months become claimable.
+
+That last point decides the behaviour. Applying an extension on an inference would raise a Crown
+claim; not applying it lowers one. So `assessFrequentAbsence` keeps counting the run through a
+closure of two weeks or more and **reports the closure as a gap on that month**, naming the clause
+and saying the extension was not applied. Same posture as the place cap (item 57): reported, never
+applied, and visible on the surface rather than buried in a comment.
+
+**How this product behaves today:** the run counts every month, so a service with a three-week
+Christmas closure inside a frequent-absence pattern reaches month 4 sooner than it might be
+entitled to and claims less. The gap text tells them why.
+
+**To close it:** the third question for the Ministry enquiry, and it is cheap to ask alongside the
+item 61 question because both are about the same rule.
 
 ## See Also
 

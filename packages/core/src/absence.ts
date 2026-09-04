@@ -51,7 +51,13 @@
  */
 
 import { isClosedOn, type ServiceClosure } from './closures';
-import { blockMinutes, blocksOn, type WeekdayBlock } from './weekdayBlock';
+import {
+  blockMinutes,
+  blocksOn,
+  isoWeekdayOf,
+  mondayOf,
+  type WeekdayBlock,
+} from './weekdayBlock';
 // `shiftLocalDate` lives in `children.ts` beside the other date helpers rather than in a
 // module of its own. Imported from there rather than reimplemented: it already handles the
 // month and year boundaries this loop walks over.
@@ -65,6 +71,21 @@ export interface EnrolledSession {
   minutes: number;
   /** Whether the child attended at all that day. Any attendance ends a spell. */
   attended: boolean;
+  /**
+   * Minutes actually attended, for §6-7's third trigger — *"attends fewer hours than enrolled
+   * daily"*. Optional, and **three-state on purpose**:
+   *
+   *   - a number: the day's attendance record is complete and this is what it says
+   *   - `null`: the child attended and the record is broken (a missing sign-out), so the day
+   *     cannot be compared. `assessFrequentAbsence` counts it as a named gap, never as a match
+   *     and never as a shortfall
+   *   - `undefined`: the caller did not supply attended hours at all, so the whole trigger is
+   *     reported as unevaluated rather than silently answered "no"
+   *
+   * `attendedHours()` in `hours.ts` already produces exactly this: `days[].minutes` with a
+   * `complete` flag, so the caller passes `complete ? minutes : null`.
+   */
+  attendedMinutes?: number | null;
 }
 
 export const THREE_WEEK_RULE_DAYS = 21;
@@ -270,15 +291,10 @@ export function enrolledSessions(input: {
   for (let date = input.from; date <= input.to; date = shiftLocalDate(date, 1)) {
     if (isClosedOn(input.closures, date)) continue;
 
-    /*
-      ISO weekday from the date, matching `child_booking_schedule.weekday` where 1 is Monday.
-      `getUTCDay()` is 0 for Sunday, so Sunday becomes 7 — the same conversion `census.ts`
-      makes at the ELI boundary, and the reason both are written down rather than inlined.
-    */
-    const dow = new Date(`${date}T00:00:00Z`).getUTCDay();
-    const isoWeekday = dow === 0 ? 7 : dow;
-
-    const today = blocksOn(blocks, date).filter((b) => b.weekday === isoWeekday);
+    // Matching `child_booking_schedule.weekday`, where 1 is Monday. This was an inline
+    // conversion until the shared helper was extracted on 2026-09-04 — see `mondayOf`'s note in
+    // `weekdayBlock.ts` for the four copies that prompted it.
+    const today = blocksOn(blocks, date).filter((b) => b.weekday === isoWeekdayOf(date));
     if (today.length === 0) continue;
 
     /*
@@ -311,4 +327,321 @@ export function enrolledSessions(input: {
  */
 export function claimableAbsentMinutes(rows: readonly AbsenceClassification[]): number {
   return rows.reduce((sum, r) => (r.absent && r.claimable ? sum + r.minutes : sum), 0);
+}
+
+// ---------------------------------------------------------------------------
+// §6-7, the Frequent Absence Rule
+// ---------------------------------------------------------------------------
+
+/**
+ * One of §6-7's three trigger situations, with the counts that made it fire.
+ *
+ * The counts are carried rather than recomputed by the screen, because "absent 3 of 4 Fridays" is
+ * the sentence a service needs and rebuilding it from a boolean would mean a second copy of this
+ * arithmetic in a component.
+ */
+export type FrequentAbsenceTrigger =
+  /** *"Absent on the same enrolled day(s) for more than half of those days in a calendar month."* */
+  | { kind: 'same-enrolled-day'; isoWeekday: number; enrolled: number; absent: number }
+  /** *"Attends fewer days per week than enrolled, in more than half the weeks in a month."* */
+  | { kind: 'fewer-days-per-week'; weeks: number; weeksShort: number }
+  /** *"Attends fewer hours than enrolled daily, on more than half of enrolled days in a month."* */
+  | { kind: 'fewer-hours-per-day'; enrolledDays: number; daysShort: number };
+
+/** One calendar month of one enrolment, assessed against §6-7. */
+export interface FrequentAbsenceMonth {
+  /** `YYYY-MM`, in the centre's zone — the sessions already carry local dates. */
+  month: string;
+  /** Enrolled sessions in the month. Zero means the month could not be assessed at all. */
+  enrolledDays: number;
+  attendedDays: number;
+  triggers: readonly FrequentAbsenceTrigger[];
+  triggered: boolean;
+  /**
+   * Position in the current run of triggered months, 1-based; 0 when this month did not trigger.
+   * This is the number §6-7's timeline is written against — month 3 needs a reconfirmation,
+   * month 4 must not be claimed.
+   */
+  monthOfRun: number;
+  claimable: boolean;
+  /** Why not, in the Handbook's terms, or null when claimable. */
+  reason: string | null;
+  /**
+   * What could not be evaluated, named. Same contract as `census.ts`: a missing input produces a
+   * sentence saying which input is missing, never a default that reads like an answer.
+   */
+  gaps: readonly string[];
+}
+
+/** `YYYY-MM` + 1. */
+function nextMonth(month: string): string {
+  const [y, m] = month.split('-').map(Number);
+  if (!y || !m || m > 12) throw new Error(`Not an ISO month: ${month}`);
+  return m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`;
+}
+
+/** The last day of `YYYY-MM`, without a table of month lengths. */
+function lastDayOf(month: string): string {
+  return shiftLocalDate(`${nextMonth(month)}-01`, -1);
+}
+
+/** Does any part of `month` fall inside the closure? */
+function overlapsMonth(closure: ServiceClosure, month: string): boolean {
+  const first = `${month}-01`;
+  const last = lastDayOf(month);
+  return closure.startsOn <= last && (closure.endsOn === null || closure.endsOn >= first);
+}
+
+/**
+ * §6-7: *"A child's attendance must match their enrolment agreement for at least half (i.e. 50
+ * per cent or more) of each calendar month."*
+ *
+ * Returns one row per calendar month from the first month with an enrolled session to the last,
+ * **including months with none** — a month absent from the output would be indistinguishable
+ * from a month nobody assessed.
+ *
+ * WHY THIS IS SEPARATE FROM `classifyAbsences`
+ *
+ * They answer different questions on different units. §6-5 asks *how long has this spell run*,
+ * and its answer is per session. §6-7 asks *does the agreement still describe this child*, and
+ * its answer is per calendar month, then per run of months. Folding the second into the first
+ * would make a per-session function return a month's verdict, and the two rules can disagree:
+ * every absence in a month can sit inside its three-week window and still be a pattern.
+ *
+ * WHAT A §7-7 EXEMPTION DOES **NOT** DO HERE
+ *
+ * Nothing, and that is from the source rather than from caution. §7-7 changes one thing — §6-5's
+ * window, from three weeks to twelve — and its text is about *"continuous absences"*. It says
+ * nothing about the Frequent Absence Rule, and a pattern of half-attended months is not a
+ * continuous absence. So `isExemptOn` is deliberately not a parameter of this function; if the
+ * Ministry's answer is that an exemption also suspends §6-7, that is a change with a quotation
+ * behind it, not a default.
+ *
+ * THE MONTH-3 READING, AND WHY THE TWO SOURCES MAY NOT ACTUALLY DISAGREE
+ *
+ * §6-7's prose allows a month-3 claim only where the agreement *"has been reconfirmed"*. §6-8's
+ * three worked examples add *"OR attendance returns to normal"* — recorded as
+ * [[unverified-claims]] item 61, which this code takes the narrow side of.
+ *
+ * But notice what this implementation does with the permissive route anyway: a month where
+ * attendance returned to normal does not trigger, so it **ends the run**, and its own absences
+ * are claimable under the 50% test with no reconfirmation needed. The two readings therefore
+ * converge on every one of §6-8's examples. They can still part company on a month that returns
+ * to normal overall while failing one trigger — absent three of four Fridays, say — and there the
+ * narrow reading applies and under-claims. Item 61 stays open for that edge, and this is the
+ * sharper question to put to the Ministry than the one recorded there.
+ */
+export function assessFrequentAbsence(input: {
+  sessions: readonly EnrolledSession[];
+  closures: readonly ServiceClosure[];
+  /**
+   * §6-7's third trigger *"excludes sessional services"*, so this decides whether it runs at all.
+   * `null` means `centres.service_model` is not recorded, and the trigger is then reported as
+   * unevaluated rather than skipped quietly.
+   *
+   * A boolean rather than the `ServiceModel` union because that union lives in `index.ts`, which
+   * re-exports this module — importing it here would close a cycle. The mapping is one comparison
+   * at the caller, which already holds the centre row.
+   */
+  isSessionalService: boolean | null;
+  /**
+   * Dates of `enrolment_reconfirmations` for **this enrolment** (0092 keys on the enrolment for
+   * exactly this reason: a reconfirmation of a previous agreement must not unlock a month-3 claim
+   * against a later one).
+   */
+  reconfirmedOn?: readonly string[];
+}): FrequentAbsenceMonth[] {
+  const byMonth = new Map<string, EnrolledSession[]>();
+  for (const session of input.sessions) {
+    const month = session.date.slice(0, 7);
+    const list = byMonth.get(month);
+    if (list) list.push(session);
+    else byMonth.set(month, [session]);
+  }
+  if (byMonth.size === 0) return [];
+
+  const months = [...byMonth.keys()].sort();
+  const first = months[0] as string;
+  const last = months[months.length - 1] as string;
+  const suspending = input.closures.filter(suspendsTheWindow);
+  const reconfirmations = input.reconfirmedOn ?? [];
+
+  const out: FrequentAbsenceMonth[] = [];
+  let runStart: string | null = null;
+  let runLength = 0;
+
+  for (let month = first; month <= last; month = nextMonth(month)) {
+    const sessions = byMonth.get(month) ?? [];
+    const gaps: string[] = [];
+
+    if (sessions.length === 0) {
+      /*
+        No enrolled sessions at all: a month of closure, or one before the agreement started.
+        It neither triggers nor resets, and the run carries across it **without advancing** —
+        which is the neutral choice of the three available and the only one that is not an
+        assertion about a month nobody can assess.
+      */
+      out.push({
+        month,
+        enrolledDays: 0,
+        attendedDays: 0,
+        triggers: [],
+        triggered: false,
+        monthOfRun: 0,
+        claimable: true,
+        reason: null,
+        gaps: ['no enrolled sessions in this month, so §6-7 could not be assessed'],
+      });
+      continue;
+    }
+
+    const triggers: FrequentAbsenceTrigger[] = [];
+
+    // Trigger 1 — the same enrolled weekday, more than half of them missed.
+    const byWeekday = new Map<number, { enrolled: number; absent: number }>();
+    for (const session of sessions) {
+      const weekday = isoWeekdayOf(session.date);
+      const seen = byWeekday.get(weekday) ?? { enrolled: 0, absent: 0 };
+      seen.enrolled += 1;
+      if (!session.attended) seen.absent += 1;
+      byWeekday.set(weekday, seen);
+    }
+    for (const [weekday, seen] of [...byWeekday].sort((a, b) => a[0] - b[0])) {
+      // `* 2 >` rather than `> / 2`: "more than half" of an odd count in integers, and no float.
+      if (seen.absent * 2 > seen.enrolled) {
+        triggers.push({
+          kind: 'same-enrolled-day',
+          isoWeekday: weekday,
+          enrolled: seen.enrolled,
+          absent: seen.absent,
+        });
+      }
+    }
+
+    // Trigger 2 — fewer days per week than enrolled, in more than half the weeks.
+    const byWeek = new Map<string, { enrolled: number; attended: number }>();
+    for (const session of sessions) {
+      const key = mondayOf(session.date);
+      const seen = byWeek.get(key) ?? { enrolled: 0, attended: 0 };
+      seen.enrolled += 1;
+      if (session.attended) seen.attended += 1;
+      byWeek.set(key, seen);
+    }
+    let weeksShort = 0;
+    for (const week of byWeek.values()) if (week.attended < week.enrolled) weeksShort += 1;
+    if (weeksShort * 2 > byWeek.size) {
+      triggers.push({ kind: 'fewer-days-per-week', weeks: byWeek.size, weeksShort });
+    }
+
+    // Trigger 3 — fewer hours than enrolled, on more than half of enrolled days. Sessional
+    // services are excluded by the Handbook, in those words.
+    if (input.isSessionalService === null) {
+      gaps.push(
+        "the service model is not recorded, so §6-7's third trigger — fewer hours than enrolled — was not assessed. The Handbook excludes sessional services from it, so the answer depends on which this is",
+      );
+    } else if (input.isSessionalService === false) {
+      let daysShort = 0;
+      let unknown = 0;
+      for (const session of sessions) {
+        /*
+          An absent day is zero hours attended, which is literally fewer than enrolled, so it
+          counts here as well as under trigger 1. That overlap is deliberate: the triggers are
+          three routes to the same conclusion, not a partition, and excluding absences from the
+          hours test would let a month of half-days-and-half-absences fail neither.
+        */
+        const actual = session.attended ? session.attendedMinutes ?? null : 0;
+        if (actual === null) {
+          unknown += 1;
+          continue;
+        }
+        if (actual < session.minutes) daysShort += 1;
+      }
+      if (unknown === sessions.length) {
+        gaps.push(
+          "attended hours were not supplied, so §6-7's third trigger — fewer hours than enrolled — was not assessed",
+        );
+      } else if (unknown > 0) {
+        gaps.push(
+          `${unknown} of ${sessions.length} enrolled days have no complete attendance record, so the hours comparison skipped them`,
+        );
+      }
+      if (daysShort * 2 > sessions.length) {
+        triggers.push({ kind: 'fewer-hours-per-day', enrolledDays: sessions.length, daysShort });
+      }
+    }
+
+    const triggered = triggers.length > 0;
+
+    if (!triggered) {
+      runStart = null;
+      runLength = 0;
+    } else {
+      if (runStart === null) runStart = month;
+      runLength += 1;
+
+      /*
+        §6-7: the rule *"may be extended"* across *"periods of two or more weeks of non-operation
+        (holidays, renovations, etc.)"* — the same clause as §6-6.
+
+        **This product does not apply that extension**, and says so here rather than deciding
+        quietly. "May" is permissive and does not say by whom or on what terms, and applying it
+        would push month 3 and month 4 later, making MORE months claimable on an inference. The
+        direction these figures never get wrong is the other one. So the closure is reported and
+        the run keeps counting — the same shape as the place cap, which `placeCapExceedances`
+        reports and deliberately does not apply.
+      */
+      if (suspending.some((closure) => overlapsMonth(closure, month))) {
+        gaps.push(
+          'a closure of two weeks or more falls in this month. §6-7 says the rule "may be extended" across such a period; this product does not apply that extension, so the month still counts towards the run',
+        );
+      }
+    }
+
+    let claimable: boolean;
+    let reason: string | null;
+
+    if (!triggered) {
+      claimable = true;
+      reason = null;
+    } else if (runLength <= 2) {
+      // Month 1: note it and claim. Month 2: re-check, reconfirm if it continues, and claim.
+      claimable = true;
+      reason = null;
+    } else if (runLength === 3) {
+      /*
+        *"Funding for absences in the third month must only be claimed if the child's enrolment
+        agreement has been reconfirmed."*
+
+        The window for that reconfirmation is the run itself: from the first day of the month the
+        pattern started to the last day of this one. A reconfirmation predating the pattern
+        reconfirms an agreement nobody had yet questioned, and one dated after the month it
+        unlocks would be a claim made before its own condition existed.
+      */
+      const from = `${runStart as string}-01`;
+      const to = lastDayOf(month);
+      const reconfirmed = reconfirmations.some((date) => date >= from && date <= to);
+      claimable = reconfirmed;
+      reason = reconfirmed
+        ? null
+        : 'the third month of a frequent-absence pattern, and no reconfirmation of the enrolment agreement is recorded for it';
+    } else {
+      claimable = false;
+      reason =
+        'the fourth month or later of a frequent-absence pattern — §6-7 says these absences must not be claimed and the enrolment agreement must be changed to match the attendance';
+    }
+
+    out.push({
+      month,
+      enrolledDays: sessions.length,
+      attendedDays: sessions.filter((session) => session.attended).length,
+      triggers,
+      triggered,
+      monthOfRun: triggered ? runLength : 0,
+      claimable,
+      reason,
+      gaps,
+    });
+  }
+
+  return out;
 }

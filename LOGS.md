@@ -7,6 +7,113 @@ itself, and from the wiki pages, which hold the durable *why*. This file is the 
 
 ---
 
+## 2026-09-04 (twenty-seventh) — §6-7, and a mutation drill that found the tests rather than the code
+
+### What landed
+
+`assessFrequentAbsence` — §6-7's Frequent Absence Rule, in `packages/core/src/absence.ts`, wired
+through `childFunding` and `readFundingPeriod`. Three trigger situations, a four-month timeline, and
+one deliberate refusal to implement something.
+
+**§6-7 refuses absences, not months.** Its sentences are about *"funding for absences in the third
+month"* and, for the fourth, that they *"must not be claimed"*. Hours a child actually attended are
+not in scope. The test fixture pins the difference at 60 funded hours versus 48, because reading it
+as a month-wide refusal would withhold funding for two days a child was demonstrably present.
+
+**The fixture is built where §6-5 and §6-7 disagree**, which is the only interesting place to build
+it. A child attends the first Friday of each month and misses the rest. Attending resets the spell,
+so every remaining Friday sits inside a fresh three-week window and §6-5 allows the lot; §6-7
+refuses October's and November's. A product with only the window over-claims two whole months, and
+no test of the window alone would ever notice.
+
+### The mutation drill found the tests, not the code
+
+Eleven mutations, each a plausible mistake rather than a random edit. Nine caught first pass; the
+two survivors were both **missing boundary tests**:
+
+- trigger 2 at exactly half the weeks short
+- trigger 3 at exactly half the days short of hours
+
+§6-7 requires attendance to match for *"at least half (i.e. 50 per cent or more)"*, so **exactly
+half is a match**. `>` could have become `>=` in either of those two and the whole suite would have
+stayed green — refusing a month the Handbook accepts, and by month four withholding hours the
+service is entitled to. Trigger 1's boundary was asserted from the start, which is what made the
+absence of the other two invisible: the pattern *looked* covered.
+
+Eleven of eleven after adding them.
+
+### What I did not implement, and why that is the finding
+
+§6-7 says the rule *"may be extended"* across *"periods of two or more weeks of non-operation"* —
+the same clause as §6-6. Three things are unstated: by whom, by how much, and — the one that
+decides it — **in which direction**. Extending pushes months 3 and 4 later, so more months become
+claimable. This is the one absence question where the ambiguity favours the claimant.
+
+So the closure is reported as a gap on that month, naming the clause and saying the extension was
+not applied, and the run keeps counting. Register item 62, and the fourth question for the Ministry.
+Same posture as the place cap: reported, never applied.
+
+### Item 61 got narrower by being implemented
+
+§6-7's prose allows a month-3 claim only on a reconfirmation; §6-8's examples add *"OR attendance
+returns to normal"*. I took the narrow side — and then noticed the implementation reaches the
+permissive answer anyway. **A month where attendance returned to normal does not trigger §6-7 at
+all**, so it ends the run and its absences are claimable with no reconfirmation. The two readings
+agree on all three of §6-8's worked examples.
+
+They differ on exactly one case: a month that returns to normal overall while still failing one
+trigger — absent three of four Fridays while attending everything else. That is now the question in
+the enquiry draft, and it is answerable in a sentence, where "which of your two sources is right"
+is not.
+
+### Three things measured rather than assumed
+
+- **`centres.service_model` is null on all five centres.** Trigger 3 *"excludes sessional
+  services"*, so it needs that field; it now reports a named gap per month instead of a quiet
+  "no trigger". The settings screen already writes the field, so this is a data gap, not a missing
+  feature.
+- **`reconcile:funding` does not exercise this code at all.** 16/16 still passes, and it passes
+  because the drill's children have no booking schedule, so the agreement basis never engages. The
+  new rule is verified by unit tests and mutation drills against a live-schema-shaped fixture, not
+  by the live reconciliation. Saying "16/16" about this commit would be true and misleading.
+- **A leftover `rowcap-rowcapn7n4ft` centre with one child** is still in the project from an earlier
+  drill run, which claims to drop its centre. Noted, not touched.
+
+### One `mondayOf` where there were four
+
+`attendanceTrend.ts` and `verificationChase.ts` each held a private `mondayOf` — byte-different,
+behaviourally identical, one validating and one casting. `funding.ts` holds `isoWeekKey`, which
+buckets the same seven days into `2026-W36`. `absence.ts` had an inline weekday conversion. §6-7
+needed a fourth.
+
+Extracted `isoWeekdayOf` and `mondayOf` into `weekdayBlock.ts`, whose own header sets the precedent
+— it was extracted on its second consumer and says why it waited for one. `isoWeekKey` stays where
+it is: the weekly funding cap is built on its shape and re-bucketing a cap is not a side errand of
+adding an absence rule. It now carries a pointer so a fifth copy does not get written beside it.
+
+The one design property this broke is worth naming: `weekdayBlock.ts` declared itself
+dependency-free, and `mondayOf` needs `shiftLocalDate` from `children.ts`. The alternative was a
+second copy of local-date shifting inside the module in order to avoid importing the first, which is
+the exact failure the extraction exists to end. The header now records the trade.
+
+### Corrections
+
+**`vitest run` does not typecheck.** The new funding tests were green while the file failed
+`tsc --noEmit` — a `period` literal missing `label`. Green tests are not a typechecked file, and the
+gate order in AGENTS §5 has typecheck first for a reason.
+
+**Yesterday's `LIKE`-pattern write-up overstated the consequence.** I said it could have written
+invented attendance into a live centre's records. Both `little-pearls-*` tenants hold zero children,
+measured; the script seeds only for the `Demo-Seed` children in the centre it resolves, so it would
+have found none and stopped. The hazard shape and the fix are unchanged.
+
+**Two `funding-and-billing` passages said the absence rules "are not modelled at all"**, one of them
+in the ELI-conditions table. That is now one rule — §6-4's cross-child comparison — not a chapter.
+Corrected in place, and the `absence` verification flag's doc comment rewritten from "NOT
+IMPLEMENTED" to what is and is not implemented. **The flag stays `false`**, because §6-4 is a real
+over-claim risk and a green tick with a known over-claim behind it is what that structure exists to
+prevent.
+
 ## 2026-09-04 (twenty-sixth) — a queue that stalls, and a diagnosis I got wrong first
 
 ### What I said, and what was true

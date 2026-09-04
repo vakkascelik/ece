@@ -22,7 +22,7 @@
  * that also did delivery pacing would be two schedulers disagreeing.
  */
 
-import { shiftLocalDate } from './children';
+import { mondayOf } from './weekdayBlock';
 import type { VerificationStatus } from './attendanceVerification';
 
 export interface ChaseCandidate {
@@ -52,14 +52,6 @@ export interface PlannedNotice {
 }
 
 export const MAX_NOTICES_PER_PERIOD = 3;
-
-/** The Monday of the week containing `date` — the calendar bucket the one-per-week rule uses. */
-function mondayOf(date: string): string {
-  const [y, m, d] = date.split('-').map(Number);
-  const dow = new Date(Date.UTC(y as number, (m as number) - 1, d as number)).getUTCDay();
-  // getUTCDay: Sunday 0. Distance back to Monday: Sunday is 6 days past its week's Monday.
-  return shiftLocalDate(date, -(dow === 0 ? 6 : dow - 1));
-}
 
 /**
  * Decide this run's notices. `today` is the centre's day, resolved by the caller.

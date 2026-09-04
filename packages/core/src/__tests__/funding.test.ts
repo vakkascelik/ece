@@ -1182,3 +1182,135 @@ describe('the disclaimer describes this period, not the product in general', () 
     expect(text).not.toContain('caution in the other direction');
   });
 });
+
+describe('childFunding — §6-7 gates a month of absences, not the month', () => {
+  /*
+    A child enrolled on Fridays only, 09:00–15:00, who attends the first Friday of each month and
+    misses the rest. Every month therefore fails §6-7's 50% test, and the run reaches month four.
+
+    THE POINT OF THE FIXTURE. §6-5 leaves most of these absences claimable — attending the first
+    Friday resets the spell, so each month's remaining Fridays sit inside a fresh three-week
+    window. Without §6-7 every one of them would be funded. That is what makes this a test of the
+    monthly rule rather than of the window: the two rules disagree here, and §6-7 is the stricter.
+
+    DST is written into the offsets rather than computed. NZDT begins on 27 September 2026, so
+    August and early September are +12:00 and October and November are +13:00 — a mistake here
+    would move a session across a date boundary and silently change which month it falls in.
+  */
+  const fridayBlocks = [
+    { weekday: 5, fromTime: '09:00', toTime: '15:00', effectiveFrom: '2026-01-01', effectiveTo: null },
+  ];
+  const ATTENDED = ['2026-08-07', '2026-09-04', '2026-10-02', '2026-11-06'];
+  const OFFSET: Record<string, string> = {
+    '2026-08-07': '+12:00',
+    '2026-09-04': '+12:00',
+    '2026-10-02': '+13:00',
+    '2026-11-06': '+13:00',
+  };
+
+  const period: FundingPeriod = {
+    label: 'Aug to Nov 2026',
+    from: '2026-08-01',
+    to: '2026-11-30',
+  };
+  const sessions = enrolledSessions({
+    blocks: fridayBlocks,
+    from: period.from,
+    to: period.to,
+    attendedDates: new Set(ATTENDED),
+    closures: [],
+  });
+  const events: HoursEvent[] = ATTENDED.flatMap((date) => [
+    ev('in', `${date}T09:00:00${OFFSET[date]}`),
+    ev('out', `${date}T15:00:00${OFFSET[date]}`),
+  ]);
+
+  const args = {
+    childId: 'c',
+    events,
+    timeZone: NZ,
+    period,
+    twentyHoursEce: false,
+    enrolmentType: 'permanent' as const,
+  };
+
+  it('counts the run and refuses months three and four', () => {
+    const r = childFunding({
+      ...args,
+      agreement: { sessions, closures: [], isSessionalService: false },
+    });
+
+    expect(r.frequentAbsence.map((m) => m.month)).toEqual([
+      '2026-08',
+      '2026-09',
+      '2026-10',
+      '2026-11',
+    ]);
+    expect(r.frequentAbsence.map((m) => m.monthOfRun)).toEqual([1, 2, 3, 4]);
+    expect(r.frequentAbsence.map((m) => m.claimable)).toEqual([true, true, false, false]);
+  });
+
+  it('funds the attended day of a refused month, because §6-7 refuses absences only', () => {
+    const r = childFunding({
+      ...args,
+      agreement: { sessions, closures: [], isSessionalService: false },
+    });
+
+    /*
+      Seventeen enrolled Fridays. Funded: August's four and September's four (one attended plus
+      three absences §6-5 allows), then only the attended Friday of October and of November.
+
+      24 + 24 + 6 + 6 = 60. Reading a blanket month refusal into §6-7 would give 48 and withhold
+      funding for two days the child was demonstrably there.
+    */
+    expect(r.fundedHours).toBe(60);
+    expect(r.absenceHours).toBe(36);
+  });
+
+  it('names the month rule rather than the window on the absences it refuses', () => {
+    const r = childFunding({
+      ...args,
+      agreement: { sessions, closures: [], isSessionalService: false },
+    });
+
+    const byDate = new Map(r.unclaimableAbsences.map((a) => [a.date, a.reason]));
+    // October 9, 16 and 23 are three days, ten days and seventeen days into a spell that began
+    // on the 9th — comfortably inside §6-5's window, and refused anyway.
+    expect(byDate.get('2026-10-09')).toContain('third month');
+    expect(byDate.get('2026-10-23')).toContain('third month');
+    expect(byDate.get('2026-11-13')).toContain('must be changed');
+    // October 30 is day 21 of that spell, so the WINDOW refused it first. A service told "third
+    // month" about this day would go looking for a reconfirmation it does not need.
+    expect(byDate.get('2026-10-30')).toContain('three-week window');
+  });
+
+  it('a reconfirmation during the run buys month three back, and not month four', () => {
+    const r = childFunding({
+      ...args,
+      agreement: {
+        sessions,
+        closures: [],
+        isSessionalService: false,
+        reconfirmedOn: ['2026-10-05'],
+      },
+    });
+
+    // October's three refused absences return: 60 + 18 = 78. November's do not.
+    expect(r.fundedHours).toBe(78);
+    expect(r.frequentAbsence.map((m) => m.claimable)).toEqual([true, true, true, false]);
+    expect(r.unclaimableAbsences.map((a) => a.date)).toEqual([
+      '2026-10-30',
+      '2026-11-13',
+      '2026-11-20',
+      '2026-11-27',
+    ]);
+  });
+
+  it('reports §6-7 as unassessed on an attendance basis rather than as clean', () => {
+    // No agreement, so there is nothing to compare attendance against. An empty array here means
+    // "not applied", and the `hoursBasis` field is what says so — the two are read together.
+    const r = childFunding({ ...args, agreement: null });
+    expect(r.hoursBasis).toBe('attendance-no-agreement');
+    expect(r.frequentAbsence).toEqual([]);
+  });
+});

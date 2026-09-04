@@ -772,6 +772,13 @@ interface ExemptionRow {
   exempt_to: string | null;
 }
 
+interface ReconfirmationRow {
+  enrolment_id: string;
+  confirmed_on: string;
+  /** `affirmed` or `revised` (0092). Selected but not filtered on - see the read. */
+  outcome: string;
+}
+
 export async function readFundingPeriod(
   db: Db,
   input: {
@@ -796,7 +803,8 @@ export async function readFundingPeriod(
    * Under-reporting the money and fabricating broken records at the same time, silently, in
    * the one calculation whose whole design principle is that nothing is estimated.
    */
-  const [children, events, enrolments, schedule, closures, exemptions] = await Promise.all([
+  const [children, events, enrolments, schedule, closures, exemptions, reconfirmations] =
+    await Promise.all([
     /*
       Ordered, for the reason spelled out on `attendance_events` below — which is the whole
       point: that lesson was learned, written down, and applied to one of the three reads in
@@ -894,6 +902,31 @@ export async function readFundingPeriod(
         .order('id')
         .range(from, to),
     ),
+    /*
+      §6-7 reconfirmations, which unlock a third month of a frequent-absence pattern.
+
+      **Both outcomes count.** `0092` stores `affirmed` and `revised`, and §6-7's definition of a
+      reconfirmation is *"signed, dated confirmation from parents/guardians either affirming the
+      agreement remains valid or documenting revised attendance days/times"* — so the outcome is
+      not selected on. It matters for a screen, and not for whether month three may be claimed.
+
+      Not filtered to the period, for the same reason as the closures above: a pattern that began
+      before this period was reconfirmed before it too, and filtering would refuse a month the
+      service has the paperwork for.
+
+      Readable here only because the caller is an owner or manager — `0092` reuses
+      `caller_may_exempt`, the same predicate as `0089`, so the note on the exemptions read
+      applies unchanged.
+    */
+    fetchAll<ReconfirmationRow>('readFundingPeriod (reconfirmations)', (from, to) =>
+      db
+        .from('enrolment_reconfirmations')
+        .select('enrolment_id, confirmed_on, outcome, enrolments!inner(centre_id)')
+        .eq('enrolments.centre_id', input.centreId)
+        .order('enrolment_id')
+        .order('confirmed_on')
+        .range(from, to),
+    ),
   ]);
 
   /*
@@ -916,6 +949,22 @@ export async function readFundingPeriod(
     .limit(1)
     .maybeSingle();
   if (firstError) throw new Error(`readFundingPeriod (record start): ${firstError.message}`);
+
+  /*
+    The service model, for §6-7's third trigger — one row by primary key, so nothing to page.
+
+    Selected as its own read rather than threaded through `input`, because every caller of this
+    function already passes a `centreId` and adding a required field would make three call sites
+    fetch the same row. `maybeSingle()` rather than `single()`: a centre the caller cannot see
+    returns no row rather than an error, and the trigger then reports itself unassessed, which is
+    the honest answer to "we could not read the service model".
+  */
+  const { data: centre, error: centreError } = await db
+    .from('centres')
+    .select('service_model')
+    .eq('id', input.centreId)
+    .maybeSingle();
+  if (centreError) throw new Error(`readFundingPeriod (service model): ${centreError.message}`);
 
   const byChild = new Map<string, HoursEvent[]>();
   for (const r of events) {
@@ -973,6 +1022,13 @@ export async function readFundingPeriod(
     reasonCode: c.reason_code,
     reasonNote: c.reason_note,
   }));
+
+  const reconfirmedByEnrolment = new Map<string, string[]>();
+  for (const r of reconfirmations) {
+    const list = reconfirmedByEnrolment.get(r.enrolment_id);
+    if (list) list.push(r.confirmed_on);
+    else reconfirmedByEnrolment.set(r.enrolment_id, [r.confirmed_on]);
+  }
 
   const exemptionsByEnrolment = new Map<string, ExemptionRow[]>();
   for (const r of exemptions) {
@@ -1046,6 +1102,19 @@ export async function readFundingPeriod(
                   disclaimer asking a person to remember.
                 */
                 noticeGivenOn: enrolment?.notice_given_on ?? null,
+                /*
+                  §6-7's third trigger — fewer hours than enrolled — *"excludes sessional
+                  services"*. `null` where nobody has recorded `centres.service_model`, which
+                  makes that trigger report itself unassessed instead of quietly answering no.
+                */
+                isSessionalService:
+                  centre?.service_model == null ? null : centre.service_model === 'sessional',
+                /*
+                  Keyed on the enrolment, not the child. `0092` is deliberately shaped that way:
+                  a reconfirmation of a previous agreement must not unlock a month-3 claim
+                  against a later one.
+                */
+                reconfirmedOn: enrolment ? reconfirmedByEnrolment.get(enrolment.id) : undefined,
               },
       });
     })

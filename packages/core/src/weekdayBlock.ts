@@ -26,6 +26,54 @@
  * and only the Funding Handbook distinguishes them.
  */
 
+/**
+ * The ISO weekday of an already-resolved local date, Monday = 1 .. Sunday = 7.
+ *
+ * `Date.UTC` on the components, never `new Date(string)` and never
+ * `.toISOString().slice(0, 10)` — the latter is the pattern `localDates.test.ts` scans for and
+ * refuses a second exemption on. This never asks what day it is: `date` was resolved by a caller
+ * holding the centre's timezone, and `Date.UTC` on its parts cancels the offset the same way
+ * `shiftLocalDate` does.
+ *
+ * Throws on a malformed date rather than returning a plausible number. Two of the copies this
+ * replaces validated and one cast, and a silent `NaN` weekday puts a session on the wrong day of
+ * an agreement.
+ */
+export function isoWeekdayOf(date: string): number {
+  const [y, m, d] = date.split('-').map(Number);
+  if (!y || !m || !d) throw new Error(`Not an ISO date: ${date}`);
+  const utcDay = new Date(Date.UTC(y, m - 1, d)).getUTCDay(); // 0 = Sunday .. 6 = Saturday
+  return utcDay === 0 ? 7 : utcDay;
+}
+
+import { shiftLocalDate } from './children';
+
+/**
+ * The Monday of the week `date` falls in — the calendar bucket every weekly rule here uses.
+ *
+ * FOUR COPIES OF THIS EXISTED BEFORE 2026-09-04. Two identical private `mondayOf`s in
+ * `attendanceTrend.ts` and `verificationChase.ts`, `isoWeekKey` in `funding.ts` bucketing the
+ * same seven days into a different string, and an inline weekday conversion in `absence.ts`.
+ * §6-7's monthly check needed a fourth, which is one more than this repo tolerates: two
+ * hand-maintained copies of the design tokens had already diverged silently, and a divergence
+ * here moves a funding figure rather than a shade of grey.
+ *
+ * `funding.ts`'s `isoWeekKey` is deliberately left where it is. It returns `2026-W36` rather than
+ * a Monday, the weekly cap is built on that shape, and changing the bucketing of a cap is not a
+ * side errand of adding an absence rule. It now carries a pointer here so a fifth copy is not
+ * written next to it.
+ *
+ * THE IMPORT THIS MODULE SAID IT WOULD NOT HAVE. The header above states that this file knows
+ * nothing about children, and `shiftLocalDate` lives in `children.ts` — beside the other date
+ * helpers rather than in a module of its own. The alternative was a second copy of local-date
+ * shifting inside this file in order to avoid importing the first, which is the exact failure
+ * this extraction exists to end. So: a date helper is imported, and the module still knows
+ * nothing about children.
+ */
+export function mondayOf(date: string): string {
+  return shiftLocalDate(date, -(isoWeekdayOf(date) - 1));
+}
+
 /** ISO weekday, 1 = Monday. Matches `enrolments.days` and both tables' `weekday` columns. */
 export interface WeekdayBlock {
   weekday: number;

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  assessFrequentAbsence,
   claimableAbsentMinutes,
   classifyAbsences,
   EXEMPT_WINDOW_DAYS,
@@ -429,5 +430,324 @@ describe('claimableAbsentMinutes', () => {
       noticeGivenOn: '2026-03-01',
     });
     expect(claimableAbsentMinutes(rows)).toBe(0);
+  });
+});
+
+/*
+  §6-7, THE FREQUENT ABSENCE RULE.
+
+  The fixtures are built from the Handbook where the Handbook is specific and constructed where
+  it is not, and the difference is marked on each one. §6-8's worked examples are quoted for
+  their *structure* — which trigger, which months claimable — because the register (item 61)
+  records their conclusions verbatim; the day-by-day attendance underneath them is mine, and a
+  test that pretended otherwise would be asserting the Handbook says something it may not.
+*/
+
+/** Every occurrence of one ISO weekday in a month. `attendedOn` lists the ones attended. */
+function weekdayIn(
+  month: string,
+  isoWeekday: number,
+  attendedOn: readonly string[] = [],
+  minutes = 360,
+): EnrolledSession[] {
+  const out: EnrolledSession[] = [];
+  for (let day = 1; day <= 31; day += 1) {
+    const date = `${month}-${String(day).padStart(2, '0')}`;
+    const t = new Date(`${date}T00:00:00Z`);
+    // Rolls over into the next month for a short one, which is how the loop ends.
+    if (t.getUTCMonth() + 1 !== Number(month.slice(5, 7))) break;
+    const dow = t.getUTCDay() === 0 ? 7 : t.getUTCDay();
+    if (dow !== isoWeekday) continue;
+    out.push({ date, minutes, attended: attendedOn.includes(date) });
+  }
+  return out;
+}
+
+describe('assessFrequentAbsence — §6-7, trigger 1: the same enrolled day', () => {
+  it('triggers on more than half the Fridays of a month, and not on exactly half', () => {
+    // August 2026 has four Fridays: 7, 14, 21, 28.
+    const fridays = weekdayIn('2026-08', 5);
+    expect(fridays).toHaveLength(4);
+
+    const half = assessFrequentAbsence({
+      sessions: weekdayIn('2026-08', 5, ['2026-08-07', '2026-08-14']),
+      closures: [],
+      isSessionalService: false,
+    });
+    // Two of four missed is exactly half, and §6-7 requires attendance to match for "50 per
+    // cent or more" — so half is a match, not a trigger. The off-by-one that would break this
+    // is `>=` in place of `>`, and nothing else in the suite would notice.
+    expect(half[0]?.triggers.filter((t) => t.kind === 'same-enrolled-day')).toEqual([]);
+
+    const short = assessFrequentAbsence({
+      sessions: weekdayIn('2026-08', 5, ['2026-08-07']),
+      closures: [],
+      isSessionalService: false,
+    });
+    expect(short[0]?.triggers).toContainEqual({
+      kind: 'same-enrolled-day',
+      isoWeekday: 5,
+      enrolled: 4,
+      absent: 3,
+    });
+  });
+
+  it('counts each enrolled weekday separately, so a bad Friday is not diluted by good Mondays', () => {
+    /*
+      The reason trigger 1 exists at all, and the reason it cannot be replaced by a monthly
+      total: this child attends 8 of 12 sessions — comfortably over half — while missing three
+      of four Fridays. A month-level percentage would call that a match.
+    */
+    const sessions = [
+      ...weekdayIn('2026-08', 1, ['2026-08-03', '2026-08-10', '2026-08-17', '2026-08-24', '2026-08-31']),
+      ...weekdayIn('2026-08', 5, ['2026-08-07']),
+    ];
+    const [august] = assessFrequentAbsence({ sessions, closures: [], isSessionalService: false });
+    expect(august?.attendedDays).toBe(6);
+    expect(august?.enrolledDays).toBe(9);
+    expect(august?.triggers).toContainEqual({
+      kind: 'same-enrolled-day',
+      isoWeekday: 5,
+      enrolled: 4,
+      absent: 3,
+    });
+  });
+});
+
+describe('assessFrequentAbsence — §6-7, trigger 3: fewer hours than enrolled', () => {
+  const shortDays = (month: string) =>
+    weekdayIn(month, 1).map((session) => ({
+      ...session,
+      attended: true,
+      attendedMinutes: 180, // enrolled for 360
+    }));
+
+  it('triggers when a child attends but for half the enrolled hours', () => {
+    const [row] = assessFrequentAbsence({
+      sessions: shortDays('2026-08'),
+      closures: [],
+      isSessionalService: false,
+    });
+    expect(row?.triggers).toContainEqual({
+      kind: 'fewer-hours-per-day',
+      enrolledDays: 5,
+      daysShort: 5,
+    });
+    // Full attendance on every enrolled day, so neither of the other two triggers fires. This is
+    // the case that only trigger 3 can see.
+    expect(row?.triggers).toHaveLength(1);
+  });
+
+  it('does not run at all for a sessional service, because the Handbook excludes it', () => {
+    const [row] = assessFrequentAbsence({
+      sessions: shortDays('2026-08'),
+      closures: [],
+      isSessionalService: true,
+    });
+    expect(row?.triggers).toEqual([]);
+    expect(row?.triggered).toBe(false);
+    // Excluded, not unassessable: no gap either, because the Handbook answered this one.
+    expect(row?.gaps).toEqual([]);
+  });
+
+  it('reports a gap rather than a verdict when the service model is unknown', () => {
+    const [row] = assessFrequentAbsence({
+      sessions: shortDays('2026-08'),
+      closures: [],
+      isSessionalService: null,
+    });
+    expect(row?.triggers).toEqual([]);
+    expect(row?.gaps.join(' ')).toContain('service model is not recorded');
+  });
+
+  it('reports a gap rather than a shortfall for a day whose attendance record is broken', () => {
+    // `null` attendedMinutes is a missing sign-out. Counting it as zero would invent a shortfall
+    // out of a paperwork failure and make a month unclaimable on the strength of it.
+    const sessions = weekdayIn('2026-08', 1).map((session) => ({
+      ...session,
+      attended: true,
+      attendedMinutes: null,
+    }));
+    const [row] = assessFrequentAbsence({ sessions, closures: [], isSessionalService: false });
+    expect(row?.triggers).toEqual([]);
+    expect(row?.gaps.join(' ')).toContain('attended hours were not supplied');
+  });
+
+  it('counts an absent day as zero hours, so the triggers overlap on purpose', () => {
+    const sessions = weekdayIn('2026-08', 1, ['2026-08-03']).map((session) => ({
+      ...session,
+      attendedMinutes: session.attended ? 360 : null,
+    }));
+    const [row] = assessFrequentAbsence({ sessions, closures: [], isSessionalService: false });
+    // Four of five absent: trigger 1 and trigger 3 both fire, and the `null` on an absent day is
+    // ignored because the day needs no attendance record to be known as zero.
+    expect(row?.triggers.map((t) => t.kind).sort()).toEqual([
+      'fewer-days-per-week',
+      'fewer-hours-per-day',
+      'same-enrolled-day',
+    ]);
+    expect(row?.gaps).toEqual([]);
+  });
+});
+
+describe('assessFrequentAbsence — §6-7, the "more than half" boundary', () => {
+  /*
+    THE MUTATION DRILL FOUND BOTH OF THESE MISSING. Trigger 1's boundary was asserted and the
+    other two were not, so `>` could become `>=` in either of them and the whole suite stayed
+    green. §6-7 requires attendance to match for *"at least half (i.e. 50 per cent or more)"*,
+    which makes exactly half a MATCH — the inclusive version would trigger on a month the
+    Handbook accepts, and by month four refuse hours the service is entitled to claim.
+  */
+
+  it('does not trigger on exactly half the weeks being short — trigger 2', () => {
+    // Four ISO weeks, Monday and Friday enrolled in each. Two weeks lose one day; two are full.
+    const sessions: EnrolledSession[] = [
+      { date: '2026-08-03', minutes: 360, attended: false }, // week 1, short
+      { date: '2026-08-07', minutes: 360, attended: true },
+      { date: '2026-08-10', minutes: 360, attended: true }, // week 2, short
+      { date: '2026-08-14', minutes: 360, attended: false },
+      { date: '2026-08-17', minutes: 360, attended: true }, // week 3, full
+      { date: '2026-08-21', minutes: 360, attended: true },
+      { date: '2026-08-24', minutes: 360, attended: true }, // week 4, full
+      { date: '2026-08-28', minutes: 360, attended: true },
+    ];
+    const [row] = assessFrequentAbsence({ sessions, closures: [], isSessionalService: false });
+    // One absence on each of two weekdays out of four occurrences, so trigger 1 stays quiet too.
+    expect(row?.triggered).toBe(false);
+    expect(row?.enrolledDays).toBe(8);
+    expect(row?.attendedDays).toBe(6);
+  });
+
+  it('does not trigger on exactly half the days being short of hours — trigger 3', () => {
+    // Four Mondays in September 2026, all attended, two of them for half the enrolled hours.
+    const sessions: EnrolledSession[] = [
+      { date: '2026-09-07', minutes: 360, attended: true, attendedMinutes: 180 },
+      { date: '2026-09-14', minutes: 360, attended: true, attendedMinutes: 180 },
+      { date: '2026-09-21', minutes: 360, attended: true, attendedMinutes: 360 },
+      { date: '2026-09-28', minutes: 360, attended: true, attendedMinutes: 360 },
+    ];
+    const [row] = assessFrequentAbsence({ sessions, closures: [], isSessionalService: false });
+    expect(row?.triggered).toBe(false);
+    // And one more short day tips it, which is what makes the assertion above a boundary rather
+    // than a coincidence.
+    const tipped = assessFrequentAbsence({
+      sessions: [...sessions.slice(0, 3), { ...sessions[3] as EnrolledSession, attendedMinutes: 180 }],
+      closures: [],
+      isSessionalService: false,
+    });
+    expect(tipped[0]?.triggers).toContainEqual({
+      kind: 'fewer-hours-per-day',
+      enrolledDays: 4,
+      daysShort: 3,
+    });
+  });
+});
+
+describe('assessFrequentAbsence — §6-7, the four-month timeline', () => {
+  /** A month where three of four Fridays are missed — §6-8 example 1's trigger. */
+  const badFridays = (month: string, attendedOn: readonly string[]) =>
+    weekdayIn(month, 5, attendedOn);
+
+  const run = () => [
+    ...badFridays('2026-08', ['2026-08-07']),
+    ...badFridays('2026-09', ['2026-09-04']),
+    ...badFridays('2026-10', ['2026-10-02']),
+    ...badFridays('2026-11', ['2026-11-06']),
+  ];
+
+  it('claims months one and two, and refuses month three without a reconfirmation', () => {
+    const months = assessFrequentAbsence({
+      sessions: run(),
+      closures: [],
+      isSessionalService: false,
+    });
+    expect(months.map((m) => m.month)).toEqual(['2026-08', '2026-09', '2026-10', '2026-11']);
+    expect(months.map((m) => m.monthOfRun)).toEqual([1, 2, 3, 4]);
+    expect(months.map((m) => m.claimable)).toEqual([true, true, false, false]);
+    expect(months[2]?.reason).toContain('third month');
+    expect(months[3]?.reason).toContain('must be changed');
+  });
+
+  it('claims month three when the agreement was reconfirmed during the run', () => {
+    const months = assessFrequentAbsence({
+      sessions: run(),
+      closures: [],
+      isSessionalService: false,
+      reconfirmedOn: ['2026-09-15'],
+    });
+    expect(months[2]?.claimable).toBe(true);
+    expect(months[2]?.reason).toBeNull();
+    // Month four is not rescued by it. §6-7 says the agreement must CHANGE, and a reconfirmation
+    // that affirms the existing agreement is the opposite of that.
+    expect(months[3]?.claimable).toBe(false);
+  });
+
+  it('ignores a reconfirmation that predates the pattern', () => {
+    // Reconfirming in July an agreement nobody had questioned yet cannot unlock October.
+    const months = assessFrequentAbsence({
+      sessions: run(),
+      closures: [],
+      isSessionalService: false,
+      reconfirmedOn: ['2026-07-20'],
+    });
+    expect(months[2]?.claimable).toBe(false);
+  });
+
+  it('ignores a reconfirmation dated after the month it would unlock', () => {
+    const months = assessFrequentAbsence({
+      sessions: run(),
+      closures: [],
+      isSessionalService: false,
+      reconfirmedOn: ['2026-11-02'],
+    });
+    expect(months[2]?.claimable).toBe(false);
+  });
+
+  it('resets the run when attendance returns to normal, which is §6-8s other route', () => {
+    /*
+      Item 61: §6-7's prose allows month 3 only on a reconfirmation, while §6-8's examples add
+      "OR attendance returns to normal". This asserts the convergence the implementation notes
+      claim — a normal month does not trigger, so it ENDS the run, and the month after it starts
+      at 1 rather than needing a signature.
+    */
+    const sessions = [
+      ...badFridays('2026-08', ['2026-08-07']),
+      ...badFridays('2026-09', ['2026-09-04']),
+      ...weekdayIn('2026-10', 5, ['2026-10-02', '2026-10-09', '2026-10-16', '2026-10-23', '2026-10-30']),
+      ...badFridays('2026-11', ['2026-11-06']),
+    ];
+    const months = assessFrequentAbsence({ sessions, closures: [], isSessionalService: false });
+    expect(months.map((m) => m.monthOfRun)).toEqual([1, 2, 0, 1]);
+    expect(months.every((m) => m.claimable)).toBe(true);
+  });
+
+  it('carries the run across a month with no enrolled sessions without advancing it', () => {
+    const sessions = [
+      ...badFridays('2026-08', ['2026-08-07']),
+      ...badFridays('2026-10', ['2026-10-02']),
+    ];
+    const months = assessFrequentAbsence({ sessions, closures: [], isSessionalService: false });
+    expect(months.map((m) => m.month)).toEqual(['2026-08', '2026-09', '2026-10']);
+    expect(months.map((m) => m.monthOfRun)).toEqual([1, 0, 2]);
+    expect(months[1]?.gaps.join(' ')).toContain('no enrolled sessions');
+  });
+
+  it('reports a long closure without applying the extension §6-7 permits', () => {
+    const months = assessFrequentAbsence({
+      sessions: run(),
+      closures: [closure({ startsOn: '2026-09-14', endsOn: '2026-09-30', reasonNote: 'Renovations' })],
+      isSessionalService: false,
+    });
+    // Still month 2 of the run, and October is still month 3. The gap is where the extension is
+    // disclosed — the alternative would make more months claimable on an inference.
+    expect(months[1]?.monthOfRun).toBe(2);
+    expect(months[1]?.gaps.join(' ')).toContain('does not apply that extension');
+    expect(months[2]?.claimable).toBe(false);
+  });
+
+  it('returns nothing for an enrolment with no sessions at all', () => {
+    expect(assessFrequentAbsence({ sessions: [], closures: [], isSessionalService: false })).toEqual(
+      [],
+    );
   });
 });

@@ -5,6 +5,40 @@ says so.*
 
 ---
 
+2026-09-04 (twenty-seventh) — **§6-7 implemented: the Frequent Absence Rule, three triggers and the
+four-month timeline.** New sections in [[funding-and-billing]], register item 62, item 61 narrowed
+to a single edge, and two corrections.
+
+`assessFrequentAbsence` in `absence.ts`, wired through `childFunding` into `readFundingPeriod`.
+**It refuses absences, not months** — §6-7's sentences are about *"funding for absences in the third
+month"*, so a refused month still funds every day the child attended. 60 funded hours in the test
+fixture where a blanket month refusal would give 48.
+
+The fixture is built where §6-5 and §6-7 disagree: attending the first Friday of each month resets
+the spell, so the window allows every remaining Friday and §6-7 refuses October's and November's. A
+product with only the window over-claims two months.
+
+**Eleven mutations, eleven caught — after the drill found two real gaps.** Trigger 1's "more than
+half" boundary was asserted and triggers 2 and 3 had no boundary test, so `>` could have become
+`>=` in either with a green suite. Exactly half is a **match** under §6-7's *"50 per cent or more"*.
+
+**Deliberately not applied:** §6-7's *"may be extended"* clause for closures of two weeks or more.
+It would push months 3 and 4 later and make more months claimable on an inference, so the closure is
+reported as a gap and the run keeps counting — item 62, and the fourth Ministry question.
+
+**Trigger 3 needs `centres.service_model`, which is null on all five centres here** — measured. It
+reports a named gap per month rather than a quiet no, and the settings screen already writes the
+field.
+
+**One `mondayOf` where there were four.** Two identical private copies plus `isoWeekKey` plus an
+inline conversion; extracted into `weekdayBlock.ts`, with `isoWeekKey` left alone and
+pointed at it.
+
+**Corrections:** the claim that `reconcile:funding`'s `LIKE` bug could have written into a live
+tenant's records — both `little-pearls-*` centres hold zero children, so it would have stopped; and
+two `funding-and-billing` passages saying the absence rules "are not modelled at all", which is now
+one rule (§6-4's cross-child comparison) rather than a chapter.
+
 2026-09-04 (twenty-sixth) — **three of the classifier's six rules were unreachable, and my first
 diagnosis of why was wrong.** Corrected in [[offline-outbox]], with two new [[conventions]]
 entries.

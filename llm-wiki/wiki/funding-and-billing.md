@@ -319,7 +319,7 @@ on work that is tracked here as open:
 
 | Condition | Where this product stands |
 |---|---|
-| Enables compliance with **all** Chapter 6 record-keeping requirements | Not yet. The absence rules of §6-4 to §6-7 are not modelled at all — no permanent/casual enrolment type, no three-week window, no frequent-absence check. See [[unverified-claims]] item 6 |
+| Enables compliance with **all** Chapter 6 record-keeping requirements | Not yet, and the gap is now one rule rather than a chapter. `0084` holds the enrolment type, §6-5's window, §6-6's suspension, §7-7's twelve weeks and §6-7's monthly check are implemented and mutation-tested. **§6-4's cross-child rule is not** — a service may not claim for both an absent permanent child and the casual child filling their place, and `childFunding` sees one child at a time. See [[unverified-claims]] item 6 |
 | Electronic attendance records meet **§6-3** | Built across `0061`–`0065`, against twelve criteria a tool extracted from a web page rather than a person reading them. Item 36 |
 | **Available for audit** and retained to Ministry requirements | The seven-year window is sourced; what it is measured *from* is not (item 3). And the restore drill is currently **red** — a CHECK constraint means a backup of the operational core older than fourteen days will not load (item 44). A record you cannot restore is not a record available for audit |
 | Submitted through **ELI Web** or another approved method | Nothing here submits anything, deliberately. This is the condition the product was already designed around |
@@ -467,10 +467,13 @@ which `childFunding` already does correctly for the 20 Hours band.
 `ChildAttendance` carries an `IsAbsent` boolean. So the interface does not have a separate absence
 collection — an absent booked day is an attendance event that says so. This product already records
 which enrolled days a child was expected and did not come (`bookings` with the `absent` status and
-its reason). What is still missing is the *entitlement* logic — the permanent/casual distinction,
-the three-week window, the frequent-absence check — not the observation. `FUNDING_RULES_VERIFIED`
-stays `false` and item 6 stays open, but the gap is narrower than this page has been describing it:
-the data is there and the rules are not.
+its reason).
+
+**As of 2026-09-04 the entitlement logic exists too**, and this paragraph used to say it did not:
+the permanent/casual distinction (`0084`), the three-week window and its suspension (§6-5, §6-6),
+§7-7's twelve weeks, and §6-7's monthly frequent-absence check with its four-month timeline.
+`FUNDING_RULES_VERIFIED` stays `false` and item 6 stays open for **one** remaining rule — §6-4's
+cross-child comparison — and for the two rounding questions, not for the absence rules as a body.
 
 **And the caution from the section above applies with more force now, not less.** Applying is not
 approval. Nothing in this product or its documentation may imply the Ministry has approved,
@@ -693,9 +696,13 @@ hiding the serious one:
   surfaced at all.
 - **Aimed at the real tenant.** The old error message says so in as many words. **This script seeds
   attendance events** — `ECE_ALLOW_DEMO_SEED=yes` exists to make the caller confirm exactly that —
-  so had the pattern ever resolved to one row, it would have written invented attendance into a live
-  centre's records, from which funding is claimed. **The ambiguity was the only thing preventing
-  it.**
+  and the ambiguity was the only thing stopping it resolving to a live slug.
+
+  **Corrected 2026-09-04:** the first write-up said it would have written invented attendance into a
+  live centre's records. Both `little-pearls-*` tenants hold **zero children**, measured, and the
+  script seeds only for `Demo-Seed` children in the centre it resolves — so it would have found none
+  and stopped. The shape of the hazard is unchanged and so is the fix; the consequence named was not
+  reachable here.
 
 Now an exact match on `demo-mt-albert`, with `maybeSingle()` and an error that says to run
 `seed:demo` rather than `onboard`. Measured before changing it: the three `Demo-Seed` children the
@@ -918,6 +925,75 @@ those days in would spend a three-week window on days nobody could have attended
 emergency closure is claimable on *"actual booked hours"*, but that is a different mechanism from an
 absence — its own eligibility, no window to run — so those days are excluded here too rather than
 misclassified as absences. Item 60 carries what remains.
+
+### §6-7 implemented — three triggers, four months, and what it refuses
+
+**2026-09-04.** `assessFrequentAbsence` in `packages/core/src/absence.ts`, wired into
+`childFunding` and read by `readFundingPeriod`. Eleven mutations, all eleven caught, and two of
+them were test gaps this drill found rather than confirmed.
+
+**It refuses absences, not months.** §6-7's sentences are about *"funding for absences in the third
+month"* and, for the fourth, that they *"must not be claimed"*. Hours a child actually attended are
+not in scope, so a refused month still funds every day the child was there. The alternative reading
+— a month-wide refusal — would withhold funding for attendance nobody disputes, and it is the
+mistake the fixture in `funding.test.ts` is built to catch: 60 funded hours where a blanket refusal
+would give 48.
+
+**§6-5 and §6-7 disagree here, and that is the point of running both.** In the test fixture a child
+attends the first Friday of each month and misses the rest. Attending resets the spell, so every
+remaining Friday sits inside a fresh three-week window and §6-5 allows the lot. §6-7 refuses
+October's and November's. A product with only the window would over-claim two months.
+
+| Trigger | Fires when | Input |
+|---|---|---|
+| same enrolled day | more than half of one weekday's sessions in the month were missed | the agreement's weekdays |
+| fewer days per week | more than half the weeks in the month were short a day | `mondayOf`, week buckets |
+| fewer hours per day | more than half the enrolled days were short of hours | attended minutes, and **not sessional** |
+
+**"More than half", strictly.** §6-7 requires attendance to match for *"at least half (i.e. 50 per
+cent or more)"*, so exactly half is a **match**. Implemented as `absent * 2 > enrolled` — integers,
+no float, and the inclusive version would refuse a month the Handbook accepts. Trigger 1's boundary
+was asserted from the start; **triggers 2 and 3 had no boundary test at all** and the mutation drill
+is what found that.
+
+**Trigger 3 needs a fact nobody has recorded.** It *"excludes sessional services"*, so it reads
+`centres.service_model` (`0083`) — which is `null` on every centre in this project today. That
+yields a named gap per month rather than a quiet "no trigger", and the fix is a person setting the
+field on the settings screen, which already writes it. Measured, not assumed: five centres, five
+nulls.
+
+**The absent day counts as zero hours**, so triggers 1 and 3 overlap deliberately. The triggers are
+three routes to one conclusion rather than a partition, and excluding absences from the hours test
+would let a month of half-days-and-half-absences fail neither.
+
+**An incomplete attendance record is a gap, never a shortfall.** A day with a missing sign-out
+arrives as `null` attended minutes. Counting it as zero would invent a shortfall out of a paperwork
+failure and make a month unclaimable on the strength of it.
+
+**What is deliberately NOT applied: the closure extension.** §6-7 says the rule *"may be extended"*
+across *"periods of two or more weeks of non-operation"*. "May" does not say by whom or on what
+terms, and applying it would push months 3 and 4 later — making **more** months claimable on an
+inference. So a long closure inside a triggered run is reported as a gap and the run keeps counting.
+Same posture as the place cap: reported, never applied. [[unverified-claims]] item 62.
+
+**Month 3's reconfirmation window is the run itself** — from the first day of the month the pattern
+started to the last day of the month being assessed. A reconfirmation predating the pattern
+reconfirms an agreement nobody had questioned; one dated after the month would be a claim made
+before its own condition existed. Both `affirmed` and `revised` outcomes count, because §6-7's
+definition names both.
+
+**A §7-7 exemption does nothing here, and that is from the source.** §7-7 changes §6-5's window and
+its text is about *"continuous absences"*. A pattern of half-attended months is not a continuous
+absence, so `isExemptOn` is not a parameter of this function at all.
+
+#### One `mondayOf`, after four copies
+
+`attendanceTrend.ts` and `verificationChase.ts` each held a private `mondayOf`, `funding.ts` holds
+`isoWeekKey` bucketing the same seven days into a different string, and `absence.ts` had an inline
+weekday conversion. §6-7 needed a fourth. Extracted into `weekdayBlock.ts` — whose own header sets
+the precedent, having been extracted on its second consumer — and the two identical copies now call
+it. `isoWeekKey` stays where it is with a pointer: the weekly cap is built on its shape, and
+re-bucketing a cap is not a side errand of adding an absence rule.
 
 ### §6-7, transcribed — the Frequent Absence Rule
 
