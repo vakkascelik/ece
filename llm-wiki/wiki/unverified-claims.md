@@ -1985,6 +1985,22 @@ The product had no record of enrolment hours at all until `child_booking_schedul
 have started from the agreement even if somebody had read §9-2. Now it can — but the table is empty,
 so nothing changes until a screen fills it.
 
+**NARROWED 2026-09-04: `childFunding` can now do it, and no caller asks it to.** The function takes
+an optional `agreement` and returns a `hoursBasis` with four values — two correct by the Handbook and
+two that under-claim:
+
+| Basis | Meaning |
+|---|---|
+| `agreement` | §9-2 step 1. Permanent child with booking-schedule blocks: the agreement is the source and the absence rules decide how much survives. **The only basis that can claim an absence** |
+| `attendance` | §9-2 step 2, and **correct rather than a fallback** — for a casual or conditional child attendance *is* the rule |
+| `attendance-no-agreement` | Permanent, but no blocks. Under-claims. **Every existing child is here** |
+| `attendance-type-not-stated` | `enrolment_type` is null. Under-claims deliberately, because assuming permanent would over-claim |
+
+**What remains for this item** is the wiring, and it has a hazard already measured:
+`readFundingPeriod` filters out children with no attendance events, so a permanent child whose claim
+is entirely absence-based would be dropped from the period before the agreement was consulted. That
+filter has to change in the same commit as the wiring, or the fix arrives invisible.
+
 **The sentence in [[funding-and-billing]] is not wrong so much as half-right**, and it is corrected
 there rather than deleted, because the reasoning behind it is sound: a claim for hours nobody
 observed *is* the hazard, and the Handbook's answer is that for a permanently enrolled child the

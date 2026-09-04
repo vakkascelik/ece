@@ -134,7 +134,9 @@
  * believe a return was filed because a screen looked finished.
  */
 
-import { ageInMonths } from './children';
+import { classifyAbsences, type EnrolledSession } from './absence';
+import { ageInMonths, type EnrolmentType } from './children';
+import type { ServiceClosure } from './closures';
 import { attendedHours, toHours, type HoursEvent } from './hours';
 
 /**
@@ -326,6 +328,47 @@ export interface FundingPeriod {
   to: string;
 }
 
+/**
+ * Where a child's funded hours came from — §9-2's two steps, plus the two ways of not knowing.
+ *
+ * Four states rather than a boolean, because they are different facts rather than degrees of
+ * one. Two are correct by the Handbook and two under-claim, and a readiness surface has to be
+ * able to tell a service which of those it is looking at.
+ */
+export type HoursBasis =
+  /**
+   * §9-2 step 1, for a permanently enrolled child: *"List the daily number of hours of
+   * **enrolment**"*. The agreement is the source and the absence rules decide how much of it
+   * survives. This is the only basis that can claim an absence.
+   */
+  | 'agreement'
+  /**
+   * §9-2 step 2, and **correct rather than a fallback**: *"If any children … attended the
+   * service on a casual or conditional basis, list the number of hours each of these children
+   * **attended**."* For these children attendance IS the rule, and §6-4 is explicit that a
+   * casual child who books and does not turn up must never be claimed.
+   */
+  | 'attendance'
+  /**
+   * A permanently enrolled child with no booking-schedule blocks. Attendance is all there is,
+   * and it **under-claims** — the child may have claimable absences nobody can compute. Every
+   * existing child is in this state, because `child_booking_schedule` ships empty.
+   */
+  | 'attendance-no-agreement'
+  /**
+   * `enrolments.enrolment_type` is null. Not stated is **not** permanent — §6-4 lets only a
+   * permanent child be claimed for absences, so assuming permanent would over-claim, which is
+   * the one direction these figures promise they never go. Under-claims deliberately.
+   */
+  | 'attendance-type-not-stated';
+
+/** An enrolled session the absence rules refused, with the Handbook's reason. */
+export interface UnclaimableAbsence {
+  date: string;
+  hours: number;
+  reason: string;
+}
+
 export interface ChildFunding {
   childId: string;
   /** What the child actually attended, from the events. */
@@ -395,6 +438,37 @@ export interface ChildFunding {
    */
   ineligibleDates: string[];
   twentyHoursEce: boolean;
+
+  /**
+   * Which of §9-2's sources produced `fundedHours`. Never inferred by a caller from the other
+   * fields: two of the four states look identical in the numbers and differ only in whether
+   * the figure is right.
+   */
+  hoursBasis: HoursBasis;
+
+  /**
+   * The part of `fundedHours` that came from enrolled-but-absent sessions. Always 0 on any
+   * attendance basis, because only a permanently enrolled child with an agreement can claim an
+   * absence at all.
+   *
+   * Separated because it is the figure an auditor asks about first, and because a service
+   * looking at a number larger than last month deserves to know which half moved.
+   */
+  absenceHours: number;
+
+  /** Enrolled sessions the absence rules refused, each with the reason. */
+  unclaimableAbsences: UnclaimableAbsence[];
+
+  /**
+   * Days the child attended that the agreement does not cover.
+   *
+   * REPORTED AND NEVER CLAIMED. §9-2 step 1 says to list the hours of *enrolment*, so extra
+   * attendance by a permanent child is not claimable on that basis — and whether it should be
+   * is not something this module gets to decide. A service seeing these dates can change the
+   * agreement, which is what §6-7 asks for when attendance stops matching it. Empty on any
+   * attendance basis, where the question does not arise.
+   */
+  attendedOutsideAgreement: string[];
 }
 
 export interface FundingSummary {
@@ -500,6 +574,35 @@ export function childFunding(input: {
   /** Needed only to check the 20 Hours age band. Null means the check cannot run — see `ineligibleDates`. */
   dateOfBirth?: string | null;
   caps?: FundingCaps;
+
+  /**
+   * `permanent`, `casual`, `conditional`, or null for not stated (`0084`). Optional so that no
+   * existing caller changes behaviour by upgrading — omitting it yields
+   * `attendance-type-not-stated`, which is what an unclassified child honestly is.
+   */
+  enrolmentType?: EnrolmentType | null;
+
+  /**
+   * The agreement, for §9-2 step 1. Build `sessions` with `enrolledSessions()`, which already
+   * excludes days the service was closed.
+   *
+   * ONLY CONSULTED FOR A PERMANENTLY ENROLLED CHILD. Passing it for a casual child is not an
+   * error and is ignored, because §9-2 step 2 and §6-4 both say attendance is the rule for
+   * them — silently switching them to the agreement would claim for a casual child who booked
+   * and did not turn up, which §6-4 says is recovered in an audit.
+   *
+   * A session counts as attended if the child was present at all, including on a day whose
+   * attendance record is incomplete: the child was there, and a broken sign-out does not change
+   * what the agreement entitled them to. That is the caller's decision when it builds
+   * `attendedDates`, and it is why the agreement basis is less sensitive to a broken record
+   * than the attendance basis is.
+   */
+  agreement?: {
+    sessions: readonly EnrolledSession[];
+    closures: readonly ServiceClosure[];
+    isExemptOn?: (date: string) => boolean;
+    noticeGivenOn?: string | null;
+  } | null;
 }): ChildFunding {
   const caps = input.caps ?? DEFAULT_CAPS;
   const all = attendedHours({ events: input.events, timeZone: input.timeZone });
@@ -510,7 +613,80 @@ export function childFunding(input: {
 
   const cappedDates: string[] = [];
   const ineligibleDates: string[] = [];
-  const perDay = complete.map((day) => {
+
+  /*
+    ═══════════════════════════════════════════════════════════════════════════
+    §9-2's TWO SOURCES, AND THE TWO WAYS OF NOT KNOWING — added 2026-09-04
+
+    Step 1, for a permanently enrolled child: "List the daily number of hours of ENROLMENT".
+    Step 2, separately, for casual and conditional children: the hours each "ATTENDED".
+
+    This function used attended hours for both until today, which is exactly right for a casual
+    child and UNDER-CLAIMS for a permanent one — unverified-claims item 55. Nothing below changes
+    the result for a caller that passes no agreement, and no caller passes one yet, so no
+    published figure moves in this commit.
+
+    WHY NOT "ATTENDANCE PLUS CLAIMABLE ABSENCES". The two agree when a child attends exactly as
+    enrolled, and the derivation is what an auditor follows: starting from the agreement and
+    deducting what the absence rules refuse is not the same computation as starting from the
+    turnstile and adding what they allow. They diverge the moment a child attends MORE than the
+    agreement — which is why those days are reported and never folded in.
+  */
+  const permanent = input.enrolmentType === 'permanent';
+  const agreement = permanent ? (input.agreement ?? null) : null;
+  const useAgreement = agreement !== null && agreement.sessions.length > 0;
+
+  let hoursBasis: HoursBasis;
+  let sourceDays: { date: string; minutes: number }[];
+  let absenceMinutes = 0;
+  const unclaimableAbsences: UnclaimableAbsence[] = [];
+  let attendedOutsideAgreement: string[] = [];
+
+  if (useAgreement) {
+    hoursBasis = 'agreement';
+    sourceDays = [];
+    const rows = classifyAbsences({
+      sessions: agreement.sessions,
+      closures: agreement.closures,
+      isExemptOn: agreement.isExemptOn,
+      noticeGivenOn: agreement.noticeGivenOn,
+    });
+    for (const row of rows) {
+      if (!row.absent) {
+        // Present, so the enrolled hours stand — not the attended hours. §9-2 asks for the
+        // hours of enrolment, and a child collected an hour early was still enrolled for it.
+        sourceDays.push({ date: row.date, minutes: row.minutes });
+      } else if (row.claimable) {
+        sourceDays.push({ date: row.date, minutes: row.minutes });
+        absenceMinutes += row.minutes;
+      } else {
+        unclaimableAbsences.push({
+          date: row.date,
+          hours: toHours(row.minutes),
+          reason: row.reason ?? 'refused by the absence rules',
+        });
+      }
+    }
+    /*
+      Attendance the agreement does not cover — reported, never claimed. Both complete and
+      unresolved days are included: an extra day with a broken sign-out is still an extra day,
+      and leaving it out would mean a second fault is what hides the first.
+    */
+    const enrolledDates = new Set(rows.map((r) => r.date));
+    attendedOutsideAgreement = inPeriod
+      .filter((d) => !enrolledDates.has(d.date))
+      .map((d) => d.date);
+  } else {
+    sourceDays = complete.map((d) => ({ date: d.date, minutes: d.minutes }));
+    hoursBasis =
+      input.enrolmentType == null
+        ? 'attendance-type-not-stated'
+        : permanent
+          ? 'attendance-no-agreement'
+          : 'attendance';
+  }
+
+  const perDay = sourceDays.map((day) => {
     const hours = toHours(day.minutes);
     /*
       THE DAILY CAP APPLIES TO EVERY CHILD — changed 2026-09-04, and it changes a money figure.
@@ -588,6 +764,16 @@ export function childFunding(input: {
     cappedDates,
     ineligibleDates,
     twentyHoursEce: input.twentyHoursEce,
+    hoursBasis,
+    /*
+      Floored the same way as the totals above. Note this is the absent minutes the rules
+      ALLOWED, before the daily and weekly caps — so it can exceed the share of `fundedHours`
+      that survived them. Named `absenceHours` rather than `fundedAbsenceHours` for exactly that
+      reason: it is what the absence rules permitted, not what the caps then paid for.
+    */
+    absenceHours: Math.floor(toHours(absenceMinutes) * 100) / 100,
+    unclaimableAbsences,
+    attendedOutsideAgreement,
   };
 }
 

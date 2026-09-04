@@ -5,6 +5,32 @@ says so.*
 
 ---
 
+2026-09-04 (nineteenth) — **§9-2's two sources: `childFunding` can start from the agreement,
+and nothing asks it to yet.** Narrowed: [[unverified-claims]] item 55, which now records what exists
+and what the wiring still needs. New: a [[funding-and-billing]] section on `hoursBasis`.
+
+§9-2 step 1 wants a permanent child's hours of **enrolment**; step 2 wants a casual child's hours
+**attended**. This product used attendance for both. `childFunding` now takes an optional `agreement`
+and returns a four-valued `hoursBasis` — `agreement`, `attendance` (correct for casual),
+`attendance-no-agreement` and `attendance-type-not-stated` (both under-claim). **No published figure
+moved**: all 51 existing funding assertions passed untouched and no caller passes an agreement.
+
+**Enrolled hours, not attended hours, even on a day the child was present** — a child collected an
+hour early was still enrolled for it. Which also makes this basis less sensitive to a broken
+attendance record than the attendance basis is.
+
+**Attendance outside the agreement is reported, never claimed**, because §9-2 asks for enrolment
+hours and whether extra attendance should be claimable is not this module's call.
+
+**An agreement is ignored for a casual child and for one whose type is not stated.** §6-4 forbids
+claiming a casual child's non-attendance, and `0084` chose null over a default precisely so that
+"not stated" could not be read as permanent.
+
+**Seven mutations, seven caught, and the seventh wrote a test.** Making `permanent` true for a
+not-stated child survived everything, because no test passed an agreement for one — a reachable and
+dangerous combination. That survivor was a **missing test**, where the survivor in `absence.ts` an
+hour earlier was **dead code**. Same symptom, opposite remedies.
+
 2026-09-04 (eighteenth) — **`enrolledSessions`: the classifier gets an input something can
 produce.** New: a [[conventions]] entry on what a surviving mutation actually means, and a paragraph
 in [[funding-and-billing]] on the bridge and on why §7-5 is still unbuilt.

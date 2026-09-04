@@ -7,6 +7,70 @@ itself, and from the wiki pages, which hold the durable *why*. This file is the 
 
 ---
 
+## 2026-09-04 (nineteenth) — §9-2's two sources, and a mutation that wrote a test
+
+The change item 55 has been waiting for since this morning, done in the safest available shape: the
+capability exists, nothing uses it, and no number moved.
+
+### The finding, restated because it is easy to lose
+
+§9-2 has two steps and they take different sources. Step 1, for a permanently enrolled child:
+*"List the daily number of hours of **enrolment**"*. Step 2, separately, for casual and conditional
+children: the hours each *"**attended**"*. This product used attended hours for both — exactly right
+for a casual child, and an under-claim for a permanent one.
+
+### `hoursBasis`, and why four states rather than a flag
+
+`childFunding` now returns which source produced the figure:
+
+- `agreement` — §9-2 step 1, the only basis that can claim an absence.
+- `attendance` — §9-2 step 2, and **correct**, not a fallback.
+- `attendance-no-agreement` — permanent, no blocks. Under-claims. Every existing child.
+- `attendance-type-not-stated` — type is null. Under-claims deliberately.
+
+The middle two produce **the same number** for the same events. Only the basis says whether that
+number is right, which is why it is a returned field rather than something a caller infers.
+
+### Three decisions
+
+**Enrolled hours, not attended hours, on the agreement basis** — including on a day the child was
+there. §9-2 asks for hours of enrolment, and a child collected an hour early was still enrolled for
+that hour. A side effect worth naming: this basis is *less* sensitive to a broken attendance record,
+because a missing sign-out no longer changes the claim.
+
+**Attendance outside the agreement is reported and never claimed.** Extra attendance by a permanent
+child is not claimable on §9-2 step 1's terms, and whether it ought to be is not something this
+module gets to decide. The dates come back so a service can change the agreement — which is what
+§6-7 asks for when attendance stops matching it.
+
+**An agreement is ignored for a casual child.** §6-4: *"Services must not claim for conditional or
+casual children who book for a session or day and do not attend."* A caller that fetched agreements
+for every child would otherwise start claiming absences for precisely the children the Handbook says
+are attendance-only, and in an audit that money is recovered.
+
+### The mutation that wrote a test
+
+Seven mutations. Six died immediately. The survivor was making `permanent` true for a not-stated
+child — and it survived because **no test passed an agreement for one**.
+
+That combination is reachable, and it is the dangerous one: a caller fetching agreements for every
+child would start claiming absences for children nobody has classified. `0084` chose null over a
+default for exactly this reason, and I had written the guard without writing the assertion.
+
+**Compare the survivor in `absence.ts` an hour earlier**, which looked identical and meant the
+opposite: there, `|| minutes === 0` could not be reached at all, so the answer was to delete it.
+Here the input is reachable, so the answer was the test. Same symptom, opposite remedies, and the
+question that separates them is *what input reaches this?*
+
+### What item 55 still needs
+
+The wiring, and it has a hazard already measured rather than discovered later:
+`readFundingPeriod` filters out children with `attendedHours === 0 && unresolvedDates.length === 0`.
+A permanent child whose claim is **entirely absence-based** has no attendance events at all and
+would be dropped from the period before the agreement was ever consulted. That filter has to change
+in the same commit as the wiring, or the fix arrives invisible — which is the same shape as the
+item 59 trap: a correction that looks applied and is not.
+
 ## 2026-09-04 (eighteenth) — the classifier gets an input, and a mutation finds dead code
 
 `classifyAbsences` shipped in the previous commit taking `EnrolledSession[]`, which nothing could

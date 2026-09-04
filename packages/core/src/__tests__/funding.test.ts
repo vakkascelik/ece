@@ -12,6 +12,7 @@ import {
   type FundingPeriod,
 } from '../funding';
 import type { HoursEvent } from '../hours';
+import { enrolledSessions } from '../absence';
 
 const NZ = 'Pacific/Auckland';
 const at = (day: number, hh: number, mm = 0) =>
@@ -707,5 +708,310 @@ describe('the licensed-place cap — the cap is on a place, not a child', () => 
     const summed = Object.values(r.dailyCappedByDate).reduce((t, h) => t + h, 0);
     expect(summed).toBe(30);
     expect(summed).toBe(r.fundedHours);
+  });
+});
+
+/**
+ * §9-2's TWO SOURCES — added 2026-09-04, and the reason these are here rather than in
+ * `absence.test.ts` is that they are about `childFunding`'s choice of source, not about the
+ * absence rules themselves.
+ *
+ * Every assertion above this block still passes untouched, which is the point: no caller that
+ * omits an agreement sees any change, and no caller passes one yet.
+ */
+describe('§9-2: which source produced the funded hours', () => {
+  // A Monday/Wednesday child, 9am to 3pm — six hours, exactly the daily cap.
+  const monWed = [
+    { weekday: 1, fromTime: '09:00', toTime: '15:00', effectiveFrom: '2026-01-01', effectiveTo: null },
+    { weekday: 3, fromTime: '09:00', toTime: '15:00', effectiveFrom: '2026-01-01', effectiveTo: null },
+  ];
+
+  /** August 2026: the 3rd is a Monday. Sessions for one week of the agreement. */
+  const oneWeek = (attended: string[]) =>
+    enrolledSessions({
+      blocks: monWed,
+      from: '2026-08-03',
+      to: '2026-08-09',
+      attendedDates: new Set(attended),
+      closures: [],
+    });
+
+  it('reports not-stated when no enrolment type is given, which is every existing caller', () => {
+    const r = childFunding({
+      childId: 'c',
+      events: fullDay(3),
+      timeZone: NZ,
+      period,
+      twentyHoursEce: false,
+    });
+    expect(r.hoursBasis).toBe('attendance-type-not-stated');
+    expect(r.absenceHours).toBe(0);
+    expect(r.unclaimableAbsences).toEqual([]);
+    expect(r.attendedOutsideAgreement).toEqual([]);
+  });
+
+  /*
+    §9-2 step 2 and §6-4: for a casual or conditional child attendance IS the rule, so this
+    basis is CORRECT rather than a fallback. The distinction matters because a readiness
+    surface must not nag a service about a casual child's missing agreement.
+  */
+  it('uses attendance for a casual child, and calls that correct', () => {
+    const r = childFunding({
+      childId: 'c',
+      events: fullDay(3),
+      timeZone: NZ,
+      period,
+      twentyHoursEce: false,
+      enrolmentType: 'casual',
+    });
+    expect(r.hoursBasis).toBe('attendance');
+    expect(r.fundedHours).toBe(6);
+  });
+
+  it('distinguishes a permanent child with no agreement, which under-claims', () => {
+    const r = childFunding({
+      childId: 'c',
+      events: fullDay(3),
+      timeZone: NZ,
+      period,
+      twentyHoursEce: false,
+      enrolmentType: 'permanent',
+    });
+    // Same number as the casual child above. Different basis, and only the basis says the
+    // figure may be too low — which is why it is a field and not something a caller derives.
+    expect(r.hoursBasis).toBe('attendance-no-agreement');
+    expect(r.fundedHours).toBe(6);
+  });
+
+  it('uses the agreement for a permanent child who has one', () => {
+    const r = childFunding({
+      childId: 'c',
+      events: [...fullDay(3), ...fullDay(5)],
+      timeZone: NZ,
+      period,
+      twentyHoursEce: false,
+      enrolmentType: 'permanent',
+      agreement: { sessions: oneWeek(['2026-08-03', '2026-08-05']), closures: [] },
+    });
+    expect(r.hoursBasis).toBe('agreement');
+    // Two six-hour sessions from the agreement, not the eight-hour days actually attended.
+    expect(r.fundedHours).toBe(12);
+    expect(r.absenceHours).toBe(0);
+  });
+
+  /*
+    THE DIVERGENCE ITEM 55 NAMES, and the assertion that makes it concrete.
+
+    An eight-hour day against a six-hour agreement funds SIX on the agreement basis and EIGHT
+    on the attendance basis — where the daily cap happens to trim it back to six as well. So the
+    test uses a five-hour agreement, where the two sources give genuinely different answers and
+    neither is the cap.
+  */
+  it('claims the agreement rather than the attendance when a child stays longer', () => {
+    const shortDay = [
+      { weekday: 1, fromTime: '09:00', toTime: '14:00', effectiveFrom: '2026-01-01', effectiveTo: null },
+    ];
+    const sessions = enrolledSessions({
+      blocks: shortDay,
+      from: '2026-08-03',
+      to: '2026-08-09',
+      attendedDates: new Set(['2026-08-03']),
+      closures: [],
+    });
+    const args = {
+      childId: 'c',
+      // 8am to 4pm: eight hours attended against a five-hour agreement.
+      events: fullDay(3),
+      timeZone: NZ,
+      period,
+      twentyHoursEce: false,
+    } as const;
+
+    const fromAgreement = childFunding({
+      ...args,
+      enrolmentType: 'permanent',
+      agreement: { sessions, closures: [] },
+    });
+    const fromAttendance = childFunding({ ...args, enrolmentType: 'casual' });
+
+    expect(fromAgreement.fundedHours).toBe(5);
+    // The daily cap trims eight to six, so the two sources really do disagree.
+    expect(fromAttendance.fundedHours).toBe(6);
+    // And `attendedHours` is a measurement either way — it never becomes a claim.
+    expect(fromAgreement.attendedHours).toBe(8);
+  });
+
+  /*
+    A day the child attended that the agreement does not cover: REPORTED, NEVER CLAIMED. §9-2
+    step 1 asks for the hours of enrolment, so this product does not get to decide that extra
+    attendance is claimable — it shows the service the dates so the agreement can be changed,
+    which is what §6-7 asks for when attendance stops matching it.
+  */
+  it('reports attendance outside the agreement without claiming it', () => {
+    const r = childFunding({
+      childId: 'c',
+      // Monday the 3rd is enrolled; Tuesday the 4th is not.
+      events: [...fullDay(3), ...fullDay(4)],
+      timeZone: NZ,
+      period,
+      twentyHoursEce: false,
+      enrolmentType: 'permanent',
+      agreement: { sessions: oneWeek(['2026-08-03', '2026-08-04']), closures: [] },
+    });
+    expect(r.attendedOutsideAgreement).toEqual(['2026-08-04']);
+    // Monday and Wednesday from the agreement. The Tuesday is not in the figure at all, even
+    // though the child was there for eight hours.
+    expect(r.fundedHours).toBe(12);
+  });
+
+  it('claims an absence inside the three-week window, and says how much came from absences', () => {
+    const r = childFunding({
+      childId: 'c',
+      // Attended Monday only; Wednesday absent and well inside the window.
+      events: fullDay(3),
+      timeZone: NZ,
+      period,
+      twentyHoursEce: false,
+      enrolmentType: 'permanent',
+      agreement: { sessions: oneWeek(['2026-08-03']), closures: [] },
+    });
+    expect(r.fundedHours).toBe(12);
+    expect(r.absenceHours).toBe(6);
+    expect(r.unclaimableAbsences).toEqual([]);
+  });
+
+  it('refuses an absence past the window and names the reason', () => {
+    // A Monday-only child across five weeks of August, never attending: days 0, 7, 14 are
+    // claimable and days 21 and 28 are not.
+    const mondayOnly = [
+      { weekday: 1, fromTime: '09:00', toTime: '15:00', effectiveFrom: '2026-01-01', effectiveTo: null },
+    ];
+    const r = childFunding({
+      childId: 'c',
+      events: [],
+      timeZone: NZ,
+      period,
+      twentyHoursEce: false,
+      enrolmentType: 'permanent',
+      agreement: {
+        sessions: enrolledSessions({
+          blocks: mondayOnly,
+          from: '2026-08-03',
+          to: '2026-08-31',
+          attendedDates: new Set<string>(),
+          closures: [],
+        }),
+        closures: [],
+      },
+    });
+    expect(r.fundedHours).toBe(18);
+    expect(r.absenceHours).toBe(18);
+    expect(r.unclaimableAbsences.map((u) => u.date)).toEqual(['2026-08-24', '2026-08-31']);
+    expect(r.unclaimableAbsences[0]?.reason).toMatch(/three-week window/);
+    // Nothing was attended at all, so this is a claim with no attendance behind it — which is
+    // exactly what §6-4 permits for a permanently enrolled child and forbids for a casual one.
+    expect(r.attendedHours).toBe(0);
+  });
+
+  /*
+    §6-4's PROTECTION, and the most important assertion in this block.
+
+    "Services must not claim for conditional or casual children who book for a session or day
+    and do not attend." So an agreement passed for a casual child is IGNORED rather than
+    honoured — otherwise a caller that fetched agreements for every child would silently start
+    claiming absences for the children the Handbook says are attendance-only, and in an audit
+    that money is recovered.
+  */
+  it('IGNORES an agreement for a casual child, because §6-4 forbids claiming their absences', () => {
+    const r = childFunding({
+      childId: 'c',
+      events: [],
+      timeZone: NZ,
+      period,
+      twentyHoursEce: false,
+      enrolmentType: 'casual',
+      agreement: { sessions: oneWeek([]), closures: [] },
+    });
+    expect(r.hoursBasis).toBe('attendance');
+    expect(r.fundedHours).toBe(0);
+    expect(r.absenceHours).toBe(0);
+  });
+
+  /*
+    NOT STATED IS NOT PERMANENT, AND THIS IS THE COMBINATION THAT PROVES IT.
+
+    Found by a mutation the tests could not kill. Making `permanent` true for a not-stated child
+    survived every assertion, because no test passed an agreement for one — and that combination
+    is reachable and is the dangerous one: a caller that fetches agreements for every child would
+    start claiming absences for children nobody has classified.
+
+    §6-4 allows absence funding only for a permanently enrolled child, and `0084` chose null over
+    a default for exactly this reason. So an agreement handed in alongside a null type must be
+    ignored as firmly as one handed in for a casual child.
+  */
+  it('IGNORES an agreement when the enrolment type is not stated', () => {
+    const r = childFunding({
+      childId: 'c',
+      events: [],
+      timeZone: NZ,
+      period,
+      twentyHoursEce: false,
+      enrolmentType: null,
+      agreement: { sessions: oneWeek([]), closures: [] },
+    });
+    expect(r.hoursBasis).toBe('attendance-type-not-stated');
+    // Two enrolled sessions, both absent, and NOTHING claimed - because nobody has said this
+    // child is permanent.
+    expect(r.fundedHours).toBe(0);
+    expect(r.absenceHours).toBe(0);
+    expect(r.unclaimableAbsences).toEqual([]);
+  });
+
+  it('ignores an empty agreement rather than reporting zero enrolled hours', () => {
+    // `child_booking_schedule` ships empty, so this is every existing child. An empty
+    // agreement must not be read as "enrolled for nothing" — it means "not recorded".
+    const r = childFunding({
+      childId: 'c',
+      events: fullDay(3),
+      timeZone: NZ,
+      period,
+      twentyHoursEce: false,
+      enrolmentType: 'permanent',
+      agreement: { sessions: [], closures: [] },
+    });
+    expect(r.hoursBasis).toBe('attendance-no-agreement');
+    expect(r.fundedHours).toBe(6);
+  });
+
+  it('still applies the weekly cap on the agreement basis', () => {
+    // Five six-hour days a week is 30, exactly the weekly cap; six would be 36.
+    const everyDay = [1, 2, 3, 4, 5, 6].map((weekday) => ({
+      weekday,
+      fromTime: '09:00',
+      toTime: '15:00',
+      effectiveFrom: '2026-01-01',
+      effectiveTo: null,
+    }));
+    const r = childFunding({
+      childId: 'c',
+      events: [],
+      timeZone: NZ,
+      period: { label: 'One week', from: '2026-08-03', to: '2026-08-09' },
+      twentyHoursEce: false,
+      enrolmentType: 'permanent',
+      agreement: {
+        sessions: enrolledSessions({
+          blocks: everyDay,
+          from: '2026-08-03',
+          to: '2026-08-09',
+          attendedDates: new Set<string>(),
+          closures: [],
+        }),
+        closures: [],
+      },
+    });
+    // Six enrolled days at six hours is 36; the weekly cap allows 30.
+    expect(r.absenceHours).toBe(36);
+    expect(r.fundedHours).toBe(30);
   });
 });

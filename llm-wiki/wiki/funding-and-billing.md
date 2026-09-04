@@ -658,6 +658,46 @@ like it filed something is a screen after which nobody files anything. `exportDi
 the wording from the summary, so it cannot say "complete" when it is not, and lives in `@ece/core`
 so a future emailed version says the same thing.
 
+### §9-2's two sources — `hoursBasis`, and the two ways of not knowing
+
+**Added 2026-09-04, and no published figure moved.** `childFunding` takes an optional `agreement`;
+without one it behaves exactly as before, and no caller passes one yet. All 51 existing funding
+assertions passed untouched, which is the evidence for that claim rather than the claim itself.
+
+§9-2 has **two** steps and this product used one source for both:
+
+- Step 1, permanent children: *"List the daily number of hours of **enrolment**"*.
+- Step 2, casual and conditional children: the hours each *"**attended**"*.
+
+So the four states of `hoursBasis` are not degrees of confidence — they are different facts, two of
+which are correct and two of which under-claim. `attendance` for a casual child is **right**;
+`attendance-no-agreement` for a permanent one is the same number arrived at wrongly, and only the
+basis distinguishes them. That is why it is a returned field and not something a caller derives.
+
+**Three decisions inside it.**
+
+**Enrolled hours, not attended hours, on the agreement basis** — including for a day the child was
+present. A child collected an hour early was still enrolled for that hour, and §9-2 asks for the
+hours of enrolment. It also makes this basis *less* sensitive to a broken attendance record: a
+missing sign-out does not change what the agreement entitled the child to.
+
+**Attendance outside the agreement is reported and never claimed.** §9-2 step 1 asks for enrolment
+hours, so extra attendance by a permanent child is not claimable on that basis — and whether it
+*should* be is not this module's decision. The dates are returned so a service can change the
+agreement, which is what §6-7 asks for when attendance stops matching it.
+
+**An agreement handed in for a casual child, or for one whose type is not stated, is ignored.** §6-4
+is explicit: *"Services must not claim for conditional or casual children who book for a session or
+day and do not attend."* A caller that fetched agreements for every child would otherwise silently
+start claiming absences for exactly the children the Handbook says are attendance-only. Both cases
+are asserted, and the second one exists because a mutation found it — see below.
+
+**Seven mutations, seven caught, and one of them wrote a test.** Making `permanent` true for a
+not-stated child survived every assertion, because no test passed an agreement for one. That
+combination is reachable and is the dangerous one, so the survivor was a missing test rather than
+dead code — the opposite of the survivor in `absence.ts` an hour earlier, which was dead code rather
+than a missing test. Telling those two apart is the whole skill.
+
 ### The absence classifier — `absence.ts`, and why it is not wired in
 
 **Phase 2F, first slice, 2026-09-04.** `classifyAbsences` answers one question per enrolled
