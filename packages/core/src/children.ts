@@ -111,6 +111,13 @@ export interface ChildGuardian {
  * conditional child and **under-claim** for a permanent one, who may be claimed for absences
  * under §6-5, §6-6 and §6-7.
  *
+ * **That is now a statement about attendance-only arithmetic, not about what this product does —
+ * clarified 2026-09-05.** Since 2026-09-04 a permanently enrolled child with a recorded
+ * `child_booking_schedule` is funded from the **agreement** with the absence rules applied, and
+ * `hoursBasis` in `./funding` names which of four sources produced each figure. The sentence above
+ * describes the fallback that applies when no schedule is recorded, which is where the under-claim
+ * still lives.
+ *
  * NOT AN ELI FIELD. Worth saying because it is the natural place to look and it is not
  * there: `ChildEnrolment` in the schema carries the two entity ids, a primary and optional
  * secondary residential address, and the start and end dates — and **no enrolment type

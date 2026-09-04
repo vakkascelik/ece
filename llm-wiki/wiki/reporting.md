@@ -104,9 +104,16 @@ attended" would admit eight or nine weekend zeros — no service records its wee
 and drop a 30-child average to about 21 while calling it a correction.
 
 What is actually missing is **which weekdays the service operates**. The only principled source is
-`child_booking_schedule` (`0085`), and it ships empty, so the fix has to fall back to today's proxy
-and say which basis it used. It is also wanted by RS7's advance-month counts, so it is a funding
-primitive rather than a reporting nicety. [[unverified-claims]] item 59 carries the corrected plan.
+`child_booking_schedule` (`0085`), which shipped empty — so the fix has to fall back to today's
+proxy for any centre that has recorded nothing, and say which basis it used. It is also wanted by
+RS7's advance-month counts, so it is a funding primitive rather than a reporting nicety.
+[[unverified-claims]] item 59 carries the corrected plan.
+
+**Updated 2026-09-05: the table is no longer only a schema.** It has a screen (the child record's
+Documents tab, from 2026-09-04) and three consumers in the funding calculation, so "it ships empty"
+is now a per-centre data question rather than a reason the fix cannot be built. The two-branch
+design item 59 describes — derive operating weekdays where blocks exist, fall back and say so where
+they do not — is buildable today.
 
 ---
 

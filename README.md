@@ -822,10 +822,18 @@ through ELI Web or another approved method.
 
 **This is not Ministry approval of this software, and nothing here may be read as it.** The
 Ministry described the conditions under which any system qualifies. It has not reviewed, endorsed
-or certified this one, and three of the four conditions rest on work still open — the §6-4 to §6-7
-absence rules are not modelled, the twelve §6-3 criteria were extracted by a tool rather than read
-by a person, and the restore drill currently cannot load data older than fourteen days. See
-[unverified-claims](llm-wiki/wiki/unverified-claims.md) items 37, 6, 36, 3 and 44, and
+or certified this one, and two of the four conditions still rest on work that is open:
+
+- ~~the §6-4 to §6-7 absence rules are not modelled~~ — **modelled 2026-09-04.** §6-5's window,
+  §6-6's suspension, §7-7's twelve weeks and §6-7's monthly check are implemented and
+  mutation-tested; §6-4's cross-child rule is detected and reported rather than deducted, which is
+  why `FUNDING_RULES_VERIFIED` is still `false`.
+- ~~the restore drill currently cannot load data older than fourteen days~~ — **fixed by `0078`**,
+  which replaced six time-relative CHECK constraints with triggers that yield during a restore.
+- the twelve §6-3 criteria were extracted by a tool rather than read by a person (item 36).
+- and the retention window's *start point* is still unsourced (item 3).
+
+See [unverified-claims](llm-wiki/wiki/unverified-claims.md) items 37, 6, 36, 3 and 44, and
 [funding-and-billing](llm-wiki/wiki/funding-and-billing.md) for the full text of the reply.
 
 **The same reply asks something of the vendor that this product does not yet do:** tell the customer
@@ -838,11 +846,18 @@ it filed something is a screen after which nobody files anything. Funding *perio
 operator, because the Ministry's boundaries are published figures this product does not know and a
 guessed date range on an official-looking total is worse than asking.
 
-### Invoices come from bookings, funding from attendance
+### Invoices come from bookings; funding comes from the agreement or from attendance
 
 Two sources pulling opposite ways, which is why they are separate tables. A family is charged for the
-days they **held**, because a centre cannot resell a Tuesday somebody did not turn up for. The Crown
-pays for hours **delivered**.
+days they **held**, because a centre cannot resell a Tuesday somebody did not turn up for.
+
+**What the Crown pays for depends on the enrolment**, and this heading said "funding from
+attendance" until 2026-09-05, which was the product's founding premise and is half right. §9-2 step
+1: for a **permanently enrolled** child, *"List the daily number of hours of ENROLMENT"* — so the
+agreement is the source, and the absence rules decide how much of an absence survives. Attended
+hours appear in the separate step for **casual and conditional** children, and are the fallback for
+a permanent child with no recorded booking schedule. `hoursBasis` on every row names which of the
+four situations produced the figure, because two of them look identical in the digits.
 
 **Stripe is not built, deliberately.** The pilot is free, so payment collection is speculative work
 against an unknown flow; most centres already collect through their accounting system or bank; and
@@ -857,8 +872,15 @@ Phase 6 security review; the line policy alone was defeated by three ordinary st
 a negative line rather than a second table, so the total is a sum and cannot disagree with itself.
 
 ```bash
-ECE_ALLOW_DEMO_SEED=yes ECE_DRILL_PASSWORD=... npm run reconcile:funding
+ECE_ALLOW_DEMO_SEED=yes npm run reconcile:funding
 ```
+
+`ECE_DRILL_PASSWORD` came off this command on 2026-09-04, for the reason already recorded above for
+`drill:offline`: a password cannot be fetched — Supabase stores `auth.users.encrypted_password` as a
+bcrypt hash — so a drill that demanded one could only ever be run by the person whose account it
+was. It now provisions its own `.invalid` account with a fresh password per run. It provisions a
+**manager**, not an educator, because it reads `absence_exemptions` and an educator would silently
+see none, making every §7-7 window three weeks instead of twelve.
 
 Writes a fortnight whose answer is hand-arithmetic in the script's comments and compares. 13/13.
 

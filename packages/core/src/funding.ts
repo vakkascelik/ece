@@ -52,56 +52,55 @@
  *        parent or guardian confirming it remains valid, or it is changed to new days and times
  *        and signed. A dated act by a named person, like the 20 Hours attestation.
  *
- * **This file claims none of it, and cannot yet.** Funded hours come from attendance events, so an
- * absent day contributes zero. Two things follow, and the second is why the gap is not a bug here:
+ * ~~**This file claims none of it, and cannot yet.** Funded hours come from attendance events, so
+ * an absent day contributes zero.~~
  *
- * - For a casual or conditional child, attendance-only is **exactly what 6-4 requires**. This
- *   calculation is already correct for them.
- * - For a permanently enrolled child it **under-claims**, and losing a centre funding it is owed is
- *   the same class of failure as over-claiming — it is the reason a broken day is named rather than
- *   silently zeroed.
+ * **ALL OF IT IS CLAIMED NOW — 2026-09-04, and this header described the opposite until
+ * 2026-09-05.** What follows is what the file does, and the list of missing pieces that used to
+ * live here is kept only where it is still true.
  *
- * ~~The blocker is the schema, not the arithmetic: `enrolments` has no permanent/casual
- * distinction, and 6-4 turns on exactly that.~~
+ * | Rule | Where |
+ * |---|---|
+ * | §6-5's three-week window, anchored on the first day of a spell, resetting on return | `classifyAbsences` in `./absence` |
+ * | §6-5's stop on notice, which beats the window | same, fed by `enrolments.notice_given_on` (`0093`) |
+ * | §6-6's suspension across a closure of two weeks or more | same, fed by `service_closures` (`0088`) |
+ * | §7-7's twelve-week window where an exemption applies | same, fed by `absence_exemptions` (`0089`) |
+ * | §6-7's monthly frequent-absence check — three triggers, four-month timeline | `assessFrequentAbsence`, fed by `enrolment_reconfirmations` (`0092`) |
+ * | §6-4's cross-child rule | `sixFourOverlaps` below — **detected and reported, not deducted** |
+ * | §9-2 step 1's hours source | the `agreement` branch of `childFunding`, fed by `child_booking_schedule` (`0085`) |
  *
- * **HALF THAT BLOCKER WENT ON 2026-09-03 — `0084`.** `enrolments.enrolment_type` now holds
- * `permanent`, `casual` or `conditional`, transcribed from §6-4 itself, with a CHECK refusing a
- * fourth value and `ENROLMENT_TYPES` in `./children` as the single source. So the question §6-4
- * asks can now be asked of a row.
+ * **The two things that follow from §6-4 are unchanged, and one of them is still the reason this
+ * file is careful:**
  *
- * **NULL IS NOT `permanent`, and every reader of this column has to honour that.** Each enrolment
- * filed before `0084` is not-stated, and `createEnrolment` writes null rather than defaulting.
- * Absence funding may only be claimed for a *permanently* enrolled child, so treating an unknown
- * as permanent would claim for children nobody has classified — **over**-claiming, the one
- * direction `exportDisclaimer` promises these figures never go.
+ * - For a casual or conditional child, attendance-only is **exactly what §6-4 requires**. That was
+ *   always correct and still is.
+ * - For a permanently enrolled child, attendance-only **under-claims** — and losing a centre
+ *   funding it is owed is the same class of failure as over-claiming. That is now the fallback
+ *   rather than the rule: it applies where no `child_booking_schedule` exists, and `hoursBasis`
+ *   says which of the four sources produced every figure so the two cannot be confused.
  *
- * What is still missing, and it is more than an enrolment type:
+ * **NULL IS NOT `permanent`, and every reader of `enrolment_type` has to honour that.** Each
+ * enrolment filed before `0084` is not-stated, and `createEnrolment` writes null rather than
+ * defaulting. Absence funding may only be claimed for a *permanently* enrolled child, so treating
+ * an unknown as permanent would claim for children nobody has classified — **over**-claiming, the
+ * one direction `exportDisclaimer` promises these figures never go.
  *
- *   - A three-week window per absence spell (§6-5), which needs `bookings` grouped into spells.
- *   - **The suspension of that window while the service is closed for two continuous weeks or
- *     more (§6-6).** Read 2026-09-03; it was not in this header before, while the disclaimer
- *     string below has always said "sections 6-4 to 6-7". A window measured in calendar dates
- *     would expire over the Christmas break and stop funding a child whose entitlement is
- *     *suspended*, not spent — so a spell needs the centre's operating calendar, which nothing
- *     records. `booking_status = 'closed'` is per child-day, a different statement.
- *   - A monthly frequent-absence check comparing attendance against the **enrolment agreement**
- *     (§6-7) — an effective-dated weekday pattern that does not exist. `bookings` is one row per
- *     calendar date with no pattern; ELI calls the missing thing `ChildBookingSchedule`.
- *   - A reconfirmation record, which is **not a boolean**: §6-7 wants the agreement "signed and
- *     dated by the child's parent/guardian", or changed to new days and times and signed. A dated
- *     act by a named person.
+ * AND THE ONE RULE THAT BREAKS THE SHAPE OF THIS FILE, which is the piece that did not get
+ * solved. §6-4: "Funding must not be claimed for both an absent permanently enrolled child under
+ * an absence rule and for the conditional or casual child who fills the absent child's place."
+ * `childFunding` takes ONE child and cannot see the others. `sixFourOverlaps` does the cross-child
+ * pass and **names the days and the hours without changing a figure**: §7-7 supplies the
+ * attribution ("without claiming funding for that replacement child"), but a trim here propagates
+ * into RS7's age-band and 20 Hours splits, and which casual child among several loses their hours
+ * is not something the Handbook decides.
  *
- * AND ONE RULE THAT BREAKS THE SHAPE OF THIS FILE, not just its inputs. §6-4: "Funding must not be
- * claimed for both an absent permanently enrolled child under an absence rule and for the
- * conditional or casual child who fills the absent child's place." `childFunding` below takes ONE
- * child and cannot see the others. That rule is about two children competing for one place, so the
- * obvious per-child implementation of absence funding would breach it and over-claim. Design
- * against it before writing any of the three rules.
- *
- * **The flag stays `false` for that reason**, and it is now precise about why: the rules are read,
- * the caps and periods are confirmed, and a whole class of claimable day is not implemented. A flag
- * reading "verified" over that would be worse than one that says nothing — the same discipline as
- * the ratio bands in `ratios.ts`.
+ * **The flag stays `false` for that reason, and the reason has changed.** It used to be "a whole
+ * class of claimable day is not implemented". It is now: the figures this file produces can still
+ * claim one place twice, and the correction is a sentence on a screen rather than arithmetic.
+ * Three other flags are also false — `hoursSource` (the attendance fallback under-claims),
+ * `sessionalRounding` (§9-2 gives one worked example and not a rule) and `rs7Rounding`. A flag
+ * reading "verified" over any of that would be worse than one that says nothing — the same
+ * discipline as the ratio bands in `ratios.ts`.
  *
  * There are **no funding rates here at all** — no dollars per child-hour. A rate is a number the
  * Ministry publishes and changes, and inventing one would let a centre budget against a figure this
@@ -1125,23 +1124,34 @@ export function exportDisclaimer(summary: FundingSummary): string {
             : ''),
       );
       /*
-        AND THE ONE PLACE THIS PRODUCT CAN NOW RUN HIGH, WHICH HAS TO BE SAID OUT LOUD.
+        THE ONE PLACE THIS PRODUCT CAN RUN HIGH — REWRITTEN 2026-09-05, BECAUSE IT SAID THE
+        PRODUCT COULD NOT DO SOMETHING IT NOW DOES.
 
-        Every other caveat in this function warns that a figure may be too LOW, and item 6 and
-        this file have both promised for weeks that the error only ever runs that way. The
-        agreement basis breaks that promise in exactly one way: §6-5 stops a claim the moment a
-        parent gives notice the child will not return, "even if the three week period has not
-        ended" — and nothing in this schema records notice, so the window runs its full length.
+        Every other caveat in this function warns that a figure may be too LOW. The agreement
+        basis breaks that promise in one way: §6-5 stops a claim the moment a parent gives notice
+        the child will not return, "even if the three week period has not ended".
 
-        Conditional on the agreement basis actually being used, because for an attendance-only
-        period it cannot happen and the sentence would be a false caveat — the thing this
+        The sentence used to end "and this system does not record notice — so check any child who
+        has stopped attending before you claim". `0093` added `notice_given_on` and
+        `notice_given_by` and `readFundingPeriod` passes them, so that clause became **false on
+        the day after it shipped** and told a manager to do by hand something the product had
+        started doing. It survived a day because a unit test asserted the exact wording, which is
+        how a stale string outlives its own fix.
+
+        THE RISK DID NOT GO AWAY — IT MOVED, from the schema to the data entry. A notice nobody
+        has recorded still cannot be applied, and the window still runs its full length for that
+        child. So the caveat now points at the missing row rather than at a missing feature,
+        which is a thing a manager can act on.
+
+        Still conditional on the agreement basis, because on an attendance-only period the
+        over-claim cannot happen and the sentence would be a false caveat — the thing this
         function has already had to remove twice.
 
         It sits with the sentence above it rather than at the end, because a manager who reads
-        that absences are now included needs the qualification in the same breath.
+        that absences are included needs the qualification in the same breath.
       */
       parts.push(
-        'One caution in the other direction: if a family has given notice that a child is leaving, the Handbook stops absence funding from that date, and this system does not record notice — so check any child who has stopped attending before you claim.',
+        'One caution in the other direction: these figures stop absence funding from the date a family gave notice that a child is leaving, but only where that date is recorded on the enrolment — so a child who has stopped attending with no notice date on file will still show claimable absences.',
       );
     }
     /*

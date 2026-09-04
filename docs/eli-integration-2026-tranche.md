@@ -187,9 +187,9 @@ plus an assertion plus the data entry nobody has done.
 | The Ministry requires | What exists | Verdict |
 |---|---|---|
 | *"child profile creation"* | `children` — `moe_nsn` (unique per centre), legal and preferred names, DOB, gender, `ethnicities text[]` capped at 3, `iwi`, `first_language`; immunisation in its own table | **Met.** Gaps are code sets and identity-document verification, not the profile |
-| *"child enrolment"* | `enrolments` — dates, a GiST overlap exclusion, `funded_hours_per_week`, `days smallint[]`, `twenty_hours_ece boolean`, and as of `0084` an `enrolment_type` (permanent/casual/conditional, values transcribed from §6-4) plus `twenty_hours_attested_on`/`_by` | **Partial, and less so than on 2 September.** ~~No permanent/casual/conditional type, which is the axis §6-4 turns on; the 20 Hours attestation is a tick with no date or signatory~~ — both added 2026-09-03, settable on the enrolment form, with a CHECK refusing an unlisted type and a paired-completeness CHECK refusing a half-recorded attestation. **What is still absent is `ChildBookingSchedule`**: ELI wants an effective-dated weekday pattern and `bookings` is one row per calendar date with no pattern, which is also what §6-7 needs to compare attendance against |
-| *"child booking schedule"* | `bookings` — one row per child per date, `absent` status with a guardian-supplied reason, parent-facing `report_absence` functions | **Partial.** There is no weekly or recurring schedule model at all. `ChildBookingSchedule` in the ELI schema is precisely an effective-dated weekday pattern |
-| *"20 Hours ECE funding"* | `funding.ts` — 6/day and 20/week caps confirmed against the Ministry's own rules, the 36-to-72-month age band applied *as at each day*, `ineligibleDates`, daily cap before weekly, floors downward | **Met for attended hours.** `FUNDING_RULES_VERIFIED` is `false` because §6-4 to §6-7 absence funding is not modelled — the product **under-claims** and says so |
+| *"child enrolment"* | `enrolments` — dates, a GiST overlap exclusion, `funded_hours_per_week`, `days smallint[]`, `twenty_hours_ece boolean`, `enrolment_type` (permanent/casual/conditional, values transcribed from §6-4) with `twenty_hours_attested_on`/`_by` (`0084`), `hours_at_other_service_per_week` and a dated parent signature (`0087`), `notice_given_on`/`_by` (`0093`), and a structured `child_addresses` row per kind (`0086`) | **Met as of 2026-09-04.** ~~No permanent/casual/conditional type; the 20 Hours attestation is a tick with no date or signatory~~ added 2026-09-03. ~~What is still absent is `ChildBookingSchedule`~~ **built 2026-09-04 as `0085`** — see the row below. §6-1's three missing fields closed the same day (register item 58): the residential address ELI also requires as `PrimaryResidentialAddress`, the attestation of hours enrolled elsewhere, and the dated signature on the record *and* on any change to the days and times. Remaining gaps are the code sets, exactly as for the profile row above, and a serialiser — which no element has |
+| *"child booking schedule"* | **`child_booking_schedule` (`0085`)** — effective-dated ISO-weekday blocks with times, keyed on the child as the XSD is, allowing more than one block per weekday for a sessional service; a screen on the child record's Documents tab; plus `bookings` for the per-date layer, with `absent` status, a guardian-supplied reason and parent-facing `report_absence` functions | **Met as a data model, 2026-09-04.** ~~There is no weekly or recurring schedule model at all~~ — `0085` is precisely the effective-dated weekday pattern the ELI schema asks for, and it has three consumers rather than sitting unread: §9-2's hours source, §6-5's *"enrolled to attend"*, and §6-7's comparison against the agreement. **Not serialised**, which is true of every element here — see Phase 4, and note there is no XML anywhere in this repo, not even a dependency |
+| *"20 Hours ECE funding"* | `funding.ts` — 6/day and **30**/week per the Glossary, with the 20 Hours / Plus 10 split; the 36-to-72-month age band applied *as at each day*; `ineligibleDates`; daily cap before weekly; floors downward. Plus `absence.ts`: §6-5's three-week window, §6-6's suspension across a closure of two weeks or more, §7-7's twelve-week window, §6-5's stop on notice, §6-7's monthly check with three triggers and a four-month timeline, and §6-4's cross-child detection | **Met for the calculation; the flag is still `false`, and the reason has changed completely.** ~~§6-4 to §6-7 absence funding is not modelled~~ — all four rules landed 2026-09-04, and a permanently enrolled child with a recorded agreement is now funded from the **agreement** (§9-2 step 1) rather than the turnstile. `FUNDING_RULES_VERIFIED` remains `false` on four of nine flags: `hoursSource` (a permanent child with no recorded schedule still falls back to attendance and under-claims), `absence` (§6-4's double-claimed place is **reported, not deducted**), `sessionalRounding` (§9-2 gives one worked example and not a rule — unread, not unbuilt) and `rs7Rounding` (Phase 3). The product's one **knowing over-claim** — a claim running past the date a family gave notice — closed with `0093` |
 | *"attendance marking"* | `attendance_events` — append-only, `corrects` supersession, `client_uuid` idempotency, centre-timezone day boundary, §6-3 electronic verification built end to end across `0061`–`0065`, kiosk PIN as signature, mobile roll, offline outbox on both clients | **Met, and the strongest part of the product** |
 | *"annual ECE census (staff details and qualifications)"* | ~~`staff_members` and `staff_records` only~~ **Built 2026-09-02/03**: `0080`, `0081`, `census.ts`, the API layer and the `/census` screen | **Partial, and the remaining blocker is not software.** Every field has a column and a form. Six of them — gender, staff role, qualification, playcentre qualification, ethnicity, iwi — cannot hold a value until a Ministry code list is imported, so their inputs are disabled and say so. See below |
 | *"RS7 return (for example, calculation for funding periods)"* | `/funding` produces funded hours per child, with completeness banners, and a CSV labelled preparation | **Not built as an RS7 return.** None of the figures the return actually wants is produced — measured 2026-09-03 against the XSD, that is **nine distinct counts** (six per calendar date, three advance-monthly repeated over four months) plus **six declaration fields**. The figure previously stated here, "eleven", was not sourced |
@@ -227,14 +227,19 @@ modelled at all. And the census **remains the input to most of RS7**, because
 `StaffHourQualifiedCount` and `StaffHourNotQualifiedCount` are daily counts split by
 qualification, which cannot be computed until a qualification can be recorded.
 
-### The service models — the requirement this product cannot currently even record
+### The service models — recordable since `0083`, and still not modelled
 
 | The Ministry requires | Status |
 |---|---|
 | *"centre-based (includes education and care services and kindergarten)"* | Education and care is the implicit and only model. **Kindergarten is not modelled**; the word does not appear in the schema, `packages/` or the web app |
 | *"home-based services"* | **Not modelled.** Named in `ratios.ts` as an excluded schedule |
-| *"sessional and all-day licensed services"* | **All-day only.** Sessional ratio bands differ (1–8 → 1, 9–30 → 2) and are explicitly excluded |
+| *"sessional and all-day licensed services"* | **Recorded since `0083`, assessed as all-day only.** `centres.service_model` holds `all_day`, `sessional` or `parent_led` and §6-7's third trigger reads it — the Handbook excludes sessional services from *"attends fewer hours than enrolled daily"*, so that exclusion is now checkable rather than a footnote. The **ratio** schedule is still the all-day one: sessional bands differ (1–8 → 1, 9–30 → 2) and `ratioInputCaveat()` says on every ratio surface that the transcribed schedule does not apply to a sessional service. Recording the model does not model it |
 | *"a minimum of 50 services"* | **Architecturally sound, untested at that scale.** RLS-enforced pooled tenancy, `centre_id` indexed everywhere, and `fetchAll` in `packages/api/src/paging.ts` pages past PostgREST's 1,000-row cap and *throws* rather than returning a partial — a defect that once produced 72 hours where 100 was correct. `drill:rowcap` holds it. No load test at 50 services exists |
+
+**The heading of this section used to read *"the requirement this product cannot currently even
+record"*, and that stopped being true on 2026-09-03.** Corrected 2026-09-05. What is still true is
+the harder half: two of the four models have no ratio schedule transcribed, and a field naming a
+model the product cannot assess is worse than no field if anybody reads it as coverage.
 
 ~~**`public.centres` has no service-type or licence-type column.**~~ **Built 2026-09-03 — `0083`.**
 It previously had six columns added since `0001` — witness requirements, sleep-check minutes, drill
@@ -295,15 +300,33 @@ which is documented in two places and built in none.
 
 **The first declaration on the application form cannot be signed truthfully today.** *"Your SMS
 meets the SMS Development Criteria"* is a statement to the Crown, and on the Ministry's own list
-the RS7 return and the Waha Rumaki/PITA return are absent, the annual ECE census is built but
-cannot hold six of its fields until a Ministry code list is published to us, two of the four
-service models are unmodelled, and the product cannot record which model a service is.
+the **RS7 return** and the **Waha Rumaki/PITA return** are absent, the annual ECE census is built
+but cannot hold six of its fields until a Ministry code list is published to us, and **two of the
+four service models are unmodelled** — kindergarten and home-based, with sessional recorded but
+assessed against the only ratio schedule that has been transcribed, the all-day one.
 
-**Updated 2026-09-03.** This paragraph said *"three of eight functionalities are absent"*. The
-census moved from absent to blocked-on-a-list in a day, which is a real change and a smaller one
-than it sounds: the declaration still cannot be made, and what moved was the *reason*. Worth
-watching in this document, because a gap table that improves faster than the product does is a gap
-table nobody should trust.
+**Updated 2026-09-05, and the reason has now changed twice.**
+
+- On 2026-09-03 this paragraph said *"three of eight functionalities are absent"*; the census moved
+  from absent to blocked-on-a-list in a day.
+- On 2026-09-05 three more rows moved: child enrolment and child booking schedule from **partial to
+  met** (`0085`–`0087`, `0093`), and 20 Hours ECE from *"met for attended hours, absence funding not
+  modelled"* to a modelled calculation with four named flags still false. That is **five met, one
+  blocked on the Ministry, two absent**.
+- ~~And the product cannot record which model a service is~~ — `0083` records `service_model` and
+  `licence_type`, settable in Settings. What is missing is the ratio schedule behind two of the
+  models, not the field.
+
+**The declaration still cannot be made, and the remaining reason is narrower and harder.** Every
+gap that closed was a gap this team could close alone. What is left is one absent return that is
+weeks of work (RS7), one that may be out of scope (PITA), one waiting on the Ministry (the code
+lists), and two service models that need ratio schedules transcribed from source. None of it is
+finished by another week of funding correctness.
+
+Worth watching in this document, because a gap table that improves faster than the product does is
+a gap table nobody should trust — and the failure mode ran the other way this time: the table sat
+**stale for ten commits** and understated the product until a status check caught it on 2026-09-05.
+A table nobody re-reads is a table that stops being a measurement.
 
 That is not an argument against applying. It is the work programme, and most of it —
 Phase 10, a test environment, a green CI — is worth doing whether or not this application is ever

@@ -5,6 +5,26 @@ says so.*
 
 ---
 
+2026-09-05 — **a documentation sweep, and one of the stale sentences was on a screen.** Corrected
+across thirteen files; register items 55 closed and 48/53 re-measured.
+
+`exportDisclaimer()` told managers *"this system does not record notice"*. `0093` added
+`notice_given_on` the day after that sentence shipped, so the product was telling a user to do by
+hand something it had started doing — and **a unit test asserted the exact wording**, so anybody who
+fixed the string would have failed the suite. The test now asserts that the caveat *appears* and that
+it names a missing **record** rather than a missing feature. A test that pins prose stops the prose
+from being corrected.
+
+The rest were comments and docs claiming the absence rules are not modelled, that
+`child_booking_schedule` does not exist, that `centres` has no service type, that the child record
+has no address, and that `reconcile:funding` needs a human's password. Each had been true and each
+was falsified by a commit that did not go looking for its own documentation.
+
+**Two things this sweep did not do.** It did not touch [[log]] or `LOGS.md`, which are dated
+journals where a superseded line is history rather than an error. And it did not soften what is still
+absent: no `rs7.ts`, no XML anywhere, no PITA return, six census fields waiting on Ministry code
+lists, and two service models with no ratio schedule transcribed.
+
 2026-09-04 (twenty-eighth) — **§6-4's cross-child rule, the last absence rule, and the one where
 not implementing it over-claims.** New [[funding-and-billing]] section; [[unverified-claims]] item
 57's attribution question narrowed by a quotation that was two chapters away.

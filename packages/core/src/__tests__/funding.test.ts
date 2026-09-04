@@ -1150,17 +1150,31 @@ describe('the disclaimer describes this period, not the product in general', () 
   });
 
   /*
-    THE CAUTION THAT RUNS THE OTHER WAY, and the assertion this whole block exists for.
+    THE CAUTION THAT RUNS THE OTHER WAY, and a lesson about what to assert.
 
-    Every other caveat in `exportDisclaimer` warns that a figure may be too LOW, and this file
-    has promised for weeks that the error only ever runs that way. The agreement basis breaks
-    that promise in exactly one place: §6-5 stops absence funding when a family gives notice, and
-    nothing in this schema records notice.
+    Every other caveat in `exportDisclaimer` warns that a figure may be too LOW. The agreement
+    basis breaks that promise in one place: §6-5 stops absence funding from the date a family
+    gives notice.
+
+    **THIS TEST ASSERTED THE EXACT WORDING `'does not record notice'` AND THEREBY KEPT A FALSE
+    SENTENCE ON A SCREEN FOR A DAY.** `0093` added the notice columns and wired them; the
+    disclaimer went on telling managers the product could not record notice, and this assertion
+    would have failed anybody who fixed it. Found by a documentation sweep on 2026-09-05, not by
+    the suite — the suite was the thing holding it in place.
+
+    So it now asserts the two things that are actually required of the sentence: that the caveat
+    appears at all, and that it points at a **missing record** rather than a missing feature. The
+    exact phrasing is deliberately not pinned. A test that pins prose stops the prose from being
+    corrected, and this function's whole history is corrected prose — two sentences removed on
+    2026-09-04 when the things they described were fixed.
   */
   it('warns about notice when the agreement basis was used', () => {
     const text = exportDisclaimer(summariseFunding(period, [onAgreement('a')]));
     expect(text).toContain('caution in the other direction');
-    expect(text).toContain('does not record notice');
+    // The risk is an unrecorded notice, which is a data gap. It must NOT claim the product is
+    // incapable of recording one — 0093 records it.
+    expect(text).toContain('recorded on the enrolment');
+    expect(text).not.toContain('does not record notice');
   });
 
   /*
@@ -1172,7 +1186,7 @@ describe('the disclaimer describes this period, not the product in general', () 
   it('does NOT warn about notice on an attendance-only period', () => {
     const text = exportDisclaimer(summariseFunding(period, [onAttendance('b')]));
     expect(text).not.toContain('caution in the other direction');
-    expect(text).not.toContain('does not record notice');
+    expect(text).not.toContain('notice');
   });
 
   it('says nothing about either when there are no children at all', () => {

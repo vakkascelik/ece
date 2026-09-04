@@ -1621,6 +1621,15 @@ The Ministry's application form asks the applicant to confirm *"Your SMS meets t
 Criteria as described on the ELI Homepage."* Measured 2026-09-02 against the eight mandatory
 functionalities and the four service-model requirements on that page:
 
+**Re-measured 2026-09-05, and every row below still holds.** What changed is outside this table:
+three functionalities moved from *partial* to *met* — child enrolment, child booking schedule and
+20 Hours ECE funding — so the eight now stand at **five met, one blocked on the Ministry, two
+absent**. The absent list is unchanged, which is the point of keeping it separate: the gaps that
+closed were the ones this team could close alone, and the two that remain are a return nobody has
+started and a return that may be out of scope. See
+[the tranche assessment](../../docs/eli-integration-2026-tranche.md), whose own table had gone ten
+commits stale before this check.
+
 | Absent | Detail |
 |---|---|
 | ~~**Annual ECE census (staff details and qualifications)**~~ **The schema is built — corrected 2026-09-02, hours after this item was written.** `0081` adds `staff_census_details` and `staff_contact_hours`, `census.ts` assembles the return's staffing section and names every gap, with 47 unit tests (24 mutations, all caught) and 24 RLS assertions (5 policy mutations, all caught). ~~**What is still absent is a screen**~~ — **also built, 2026-09-03**: `/census` under `manageCentre`, with the API layer, the roles matrix and an axe audit. **What remains is every code list**, because `0080` ships empty on purpose, so six of the sixteen fields render as disabled selects saying *"No Ministry code list loaded"* and cannot be filled in by anybody. So the criterion is still not met — but the reason is now a missing published list rather than missing software. See [[staff-as-people]] |
@@ -1907,7 +1916,8 @@ which is why this stays open.
 |---|---|
 | **What is asserted** | Nothing yet, and that is the point: `enrolments.days` and `child_booking_schedule` both record which days a child attends, and nothing decides which one is right when they disagree |
 | **Where** | `enrolments.days smallint[]` (0004) and `public.child_booking_schedule` (0085) |
-| **Measured before shipping the second one** | `enrolments.days` is **display-only**. `formatDays()` renders it on the children list (`children/page.tsx:175`) and on the enrolment row (`EnrolmentPanel.tsx:105`), and **nothing** in funding, ratios, the roll or the forecast computes with it. So this is not yet a duplicated *computed* fact |
+| **Measured before shipping the second one** | `enrolments.days` is **display-only**. `formatDays()` renders it on the children list (`children/page.tsx:175`) and on the enrolment row (`EnrolmentPanel.tsx:309`, was `:105` before the panel grew), and **nothing** in funding, ratios, the roll or the forecast computes with it |
+| **Sharpened 2026-09-05, and it got worse rather than better** | It is no longer "not yet a duplicated *computed* fact". `child_booking_schedule` is now computed with — §9-2's hours source, §6-5's *"enrolled to attend"*, §6-7's comparison — while `enrolments.days` is still what two screens render. **So the two can now disagree in front of a user**: a children list saying Mon/Wed beside a funded figure derived from a Tue/Thu schedule, with nothing on either screen saying which one the money came from. That is a sharper hazard than two recorded copies, and it arrived by building the thing this item said to build |
 | **Why it is a hazard anyway** | It is a duplicated *recorded* fact, in a repo where two hand-maintained copies of the design tokens diverged silently — a page background of `#fafaf9` against `#faf9f7`, and a muted grey a full contrast point worse than the value the contrast test asserted. `tokens:check` exists because of it |
 | **The stated rule** | **Where a schedule block exists it is authoritative; `enrolments.days` is the coarse older form.** Written into `0085`'s header and the table comment |
 
@@ -1918,12 +1928,20 @@ it would show every existing child as having no days. The same reasoning that ke
 sets empty rather than seeded — a mechanism with no data in it must not be allowed to overwrite the
 answer that does exist.
 
-**To close it, in order:** (a) a screen that writes schedule blocks, so the table stops being
-empty; (b) a backfill deriving one open-ended block per weekday from `enrolments.days`, with the
-times left null or stated as unknown — **and that is where this gets interesting, because `days`
-carries no times and the new table requires them**, so the backfill cannot be lossless and has to
-decide what an unstated time means; (c) then, and only then, derive `formatDays` from the schedule
-and drop the column.
+**To close it, in order:** ~~(a) a screen that writes schedule blocks, so the table stops being
+empty~~ **built 2026-09-04** — a section on the child record's Documents tab, beside
+`EnrolmentPanel`, under `manageCentre`; (b) a backfill deriving one open-ended block per weekday
+from `enrolments.days`, with the times left null or stated as unknown — **and that is where this
+gets interesting, because `days` carries no times and the new table requires them**, so the
+backfill cannot be lossless and has to decide what an unstated time means; (c) then, and only then,
+derive `formatDays` from the schedule and drop the column.
+
+**Step (b) is now the urgent one, not the tidy one.** While the table was empty the two sources
+could not contradict each other. Now that funding reads the schedule and two screens read `days`,
+every child who has one and not the other is a row where the screen and the money disagree. The
+cheapest honest interim — cheaper than the backfill, and it does not require deciding what an
+unstated time means — is for the screens that render `formatDays(enrolments.days)` to say so where a
+schedule block also exists, the way `hoursBasis` names the source of a funded figure.
 
 **Do not close it by deleting `enrolments.days` alone.** It is what two screens render today, and
 the enrolment form writes it.

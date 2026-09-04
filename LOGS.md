@@ -7,6 +7,84 @@ itself, and from the wiki pages, which hold the durable *why*. This file is the 
 
 ---
 
+## 2026-09-05 — the sweep, and a false sentence a test was holding in place
+
+Asked how the project was doing overall, and the honest answer needed a measurement rather than a
+recollection. The measurement found that **the authoritative readiness table had been stale for ten
+commits** — and then that the same decay had reached a user-facing string.
+
+### The one that mattered
+
+`exportDisclaimer()` renders on `/funding`. It said:
+
+> if a family has given notice that a child is leaving, the Handbook stops absence funding from that
+> date, and **this system does not record notice** — so check any child who has stopped attending
+> before you claim.
+
+`0093` added `enrolments.notice_given_on` and `notice_given_by` and wired them into
+`readFundingPeriod`. The sentence was written in `0968661` and falsified by `a0cab73`, the very next
+commit. For a day the product told a manager to do by hand something it was already doing.
+
+**And a test was holding it there.** `expect(text).toContain('does not record notice')` — so the
+first person to fix the string would have gone red and, quite reasonably, assumed they had broken
+something. That is the sharpest version of a lesson this repo keeps relearning: **a test that pins
+prose stops the prose from being corrected.** It now asserts the two things actually required — that
+the caveat appears at all, and that it points at a missing *record* rather than a missing capability.
+
+The risk itself did not vanish; it moved from the schema to the data entry. A notice nobody has
+recorded still cannot be applied. So the caveat now names the missing row.
+
+### What else was stale
+
+Thirteen files. The pattern is uniform and worth naming: **every one of these was true when written,
+and each was falsified by a commit that fixed the thing without going looking for its own
+documentation.**
+
+| Claim | Falsified by |
+|---|---|
+| "the §6-4 to §6-7 absence rules are not modelled" (README, `funding.ts` header, `funding-and-billing`, `index`) | 2026-09-04's four absence rules |
+| "`ChildBookingSchedule` — nothing maps / no recurring schedule model at all" (tranche doc, application answers, `eli-integration`) | `0085` |
+| "the child record has no residential address" (application answers, twice) | `0086` |
+| "a service type on `centres` — nothing exists" (application answers, AST50) | `0083` |
+| "`EceServiceClosure` has no counterpart at all" | `0088` |
+| "funding from attendance" as a heading and a docstring (README, `billing.ts`) | §9-2 step 1's agreement basis |
+| "`reconcile:funding` needs `ECE_DRILL_PASSWORD`" (README, e2e fixture) | the 2026-09-04 credential fix |
+| "the product cannot record which model a service is" (the tranche verdict) | `0083` |
+
+### The readiness picture, re-measured
+
+The eight mandatory functionalities moved from **3 met / 3 partial / 2 absent** to **5 met / 1
+blocked on the Ministry / 2 absent**. Child enrolment and child booking schedule went partial → met;
+20 Hours ECE went "met for attended hours, absence funding not modelled" → a modelled calculation
+with four named flags still false.
+
+**The first declaration still cannot be signed**, and the remaining reason is narrower and harder
+than the one it replaced. Everything that closed was closeable by this team alone. What is left is an
+RS7 return that does not exist in any form, a PITA return that may be out of scope, six census fields
+waiting on a Ministry publication, and two service models that need ratio schedules transcribed from
+source. Another week of funding correctness finishes none of it.
+
+### Two deliberate omissions
+
+**The journals were left alone.** `LOGS.md` and `llm-wiki/wiki/log.md` declare themselves dated
+narrative records; a line that was true on its date is history, and rewriting it would destroy the
+only account of what was known when. The distinction that matters: a page describing *current state*
+must be corrected, a page describing *a day* must not.
+
+**Nothing absent was softened.** No `rs7.ts`, no XML anywhere in the repo — not even a transitive
+dependency outside Expo's build tooling — no PITA return, and `FUNDING_RULES_VERIFIED` still `false`
+on four of nine flags.
+
+### And a register item that had quietly become true
+
+Item 55 said *"nothing in this schema records notice"*. `0093` fixed that two commits later and the
+item was never updated — closed today, with the date it was noticed recorded rather than backdated to
+the fix. Item 53 got the opposite treatment: it is **sharper** now, not closer to closed. While
+`child_booking_schedule` was empty the two sources of "which days does this child attend" could not
+contradict each other. Now funding computes from the schedule while two screens still render
+`enrolments.days`, so they can disagree in front of a user with nothing on either screen saying which
+one the money came from.
+
 ## 2026-09-04 (twenty-eighth) — §6-4, and the rule where doing nothing is the over-claim
 
 ### The asymmetry that decided this

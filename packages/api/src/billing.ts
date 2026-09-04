@@ -693,7 +693,14 @@ interface PaymentRowShape {
 // ---------------------------------------------------------------------------
 
 /**
- * Funded hours per child for a period, computed from attendance events.
+ * Funded hours per child for a period.
+ *
+ * **Not "computed from attendance events", which is what this line said until 2026-09-05.**
+ * A permanently enrolled child with a recorded `child_booking_schedule` is funded from the
+ * agreement (§9-2 step 1) with the absence rules applied to it; attendance is the source for
+ * casual and conditional children, and the fallback where no schedule exists. `hoursBasis` on
+ * each row names which. The file header above was corrected when the agreement basis landed and
+ * this docstring, one line from the code, was missed.
  *
  * **This cannot submit anything, and nothing here pretends to.** Submitting a funding return
  * requires being a Ministry-approved student management system integrated with ELI, and this

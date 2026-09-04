@@ -796,10 +796,12 @@ What can be stated now, because it is about our data rather than the interface:
 
 **AST31 — database changes required to comply with NSI data fields.** `[BLOCKED — spec]` for the
 field list. Known already from the public ELI schema: we hold one family name and one first name
-where the interface takes up to **three official given names**, and no middle name at all; and the
+where the interface takes up to **three official given names**, and no middle name at all. ~~And the
 child record has no residential address — addresses are held on guardians — which `ChildEnrolment`
-requires as a mandatory primary address with an optional secondary. Both are migrations, and both
-are certain irrespective of the NSI specification.
+requires as a mandatory primary address with an optional secondary.~~ **Built 2026-09-04:
+`child_addresses` (`0086`)**, at most one primary and one secondary per child, `Address1Line` and
+`AddressCity` required and the rest optional, matching `ChildEnrolmentAddress`. The names remain a
+migration, and it is certain irrespective of the NSI specification.
 
 **AST32 — how the SMS ensures compliance with NSI business rules.** `[BLOCKED — spec]`
 
@@ -837,10 +839,15 @@ replaces, and most ELI events have `Delete` and `Undelete` siblings for exactly 
 and consent events are recognisable directly.
 
 `[GAP]` The others are not, and the reasons are specific:
-`ChildBookingSchedule` needs an effective-dated weekday pattern and we store one row per calendar
-date with no pattern; `TwentyHoursSchedule` needs an attestation date and per-weekday hours and we
-store a boolean and a weekly total; `EceServiceClosure` has no counterpart at all;
-`ChildDemographics` needs up to three iwi and three home languages where we hold one of each.
+~~`ChildBookingSchedule` needs an effective-dated weekday pattern and we store one row per
+calendar date with no pattern~~ — **built 2026-09-04 as `child_booking_schedule` (`0085`)**, keyed
+on the child as the XSD is, with a screen and three consumers in the funding calculation;
+`TwentyHoursSchedule` needs an attestation date and per-weekday hours, and **`0084` added the
+attestation date and signatory** so what remains is the per-weekday split rather than the whole
+shape; ~~`EceServiceClosure` has no counterpart at all~~ — **`service_closures` (`0088`)**, with
+`0091`'s emergency-closure fields, built because §6-6 suspends the Three Week Rule across a closure
+of two weeks or more; `ChildDemographics` needs up to three iwi and three home languages where we
+hold one of each.
 
 **AST36 — event logs: location, retention, detail, access and security.**
 
@@ -867,13 +874,13 @@ must change:
 | Change | Why |
 |---|---|
 | Up to three official given names on the child | Schema takes three; we hold one |
-| A residential address on the child or the enrolment, with primary/secondary | `ChildEnrolment` requires a primary address; we hold addresses on guardians only |
+| ~~A residential address on the child or the enrolment, with primary/secondary~~ | **Done — `0086`.** `child_addresses`, one primary and one optional secondary per child |
 | Three iwi and three home-language slots | We hold one of each |
 | Ethnicity, iwi, language, gender as **codes** against effective-dated reference tables | All are free text or local CHECK constraints today |
-| An effective-dated weekday booking pattern | `ChildBookingSchedule` is a pattern; `bookings` is one row per date |
-| An attestation date and per-weekday hours for 20 Hours | We hold a boolean and a weekly total |
-| A service closure record | Nothing exists |
-| A service type on `centres` | Nothing exists, and RS7 advance counts are per service model |
+| ~~An effective-dated weekday booking pattern~~ | **Done — `0085`.** `child_booking_schedule`; `bookings` stays as the per-date layer, and the rule is that a block is authoritative where one exists |
+| An attestation date and **per-weekday hours** for 20 Hours | **Half done — `0084`** added `twenty_hours_attested_on`/`_by`, paired by a CHECK. The per-weekday split is still absent |
+| ~~A service closure record~~ | **Done — `0088`**, plus `0091`'s `claimed_as_emergency` and three-state ERO approval, because §7-5 makes an approved emergency closure claimable and a term break not |
+| ~~A service type on `centres`~~ | **Done — `0083`.** `licence_type` and `service_model`, settable in Settings. RS7's advance counts now have their axis; the **ratio schedules** for sessional and home-based are still untranscribed, which is a different gap |
 | The entire staff/census surface | Eleven of fifteen fields have no column |
 | `EntityId` columns for children and enrolments | See AST42 |
 
@@ -1086,9 +1093,12 @@ Three distinct blockers, worth separating because they are not the same size:
    is real work but not new thinking.
 2. **The staff data does not exist.** The two staff-hour counts need a qualification column. Same
    blocker as AST47.
-3. **The service model does not exist.** All-day, sessional and parent-led day counts need a service
-   type on `centres`, which has no such column, and sessional ratio bands we have deliberately not
-   transcribed.
+3. ~~**The service model does not exist.**~~ **Half built 2026-09-03 — `0083`.** All-day,
+   sessional and parent-led day counts need a service type on `centres`, and `service_model` now
+   holds exactly those three values, settable in Settings, so the RS7 advance counts have their
+   axis. **What is still missing is not the column but the schedule**: the sessional ratio bands
+   are deliberately not transcribed, so the product can record that a service is sessional and
+   cannot assess it as one.
 
 And one thing we will not do: the pay parity attestation codes are a legal statement by the service
 about teacher salaries. We will build the mechanism to record and transmit the service's own
@@ -1105,6 +1115,15 @@ turned three in March was not entitled in February and using today's age would c
 period in the service's favour. And the export discloses **under-claiming** — that it counts
 attended hours only, and a permanently enrolled child's absences may be claimable under §§6-4 to
 6-7, which we do not calculate.
+
+**Superseded 2026-09-04, and the disclosure is now sharper rather than absent.** The export
+disclaimer splits by what actually happened in the period: for a child funded from the agreement it
+says the figures **include** the absences the Handbook allows under §§6-4 to 6-7, and the
+attended-hours-only sentence is reserved for the children it is still true of — a casual child, or
+a permanent one with no recorded booking schedule. It also now discloses the one thing that can run
+**high**: §6-4 forbids claiming for both an absent permanent child and the casual or conditional
+child who filled their place, and the product names those days and the hours without deducting
+them, so a manager is told what to take off before keying the figures in.
 
 That disclosure was written from reading Chapter 6, before the Ministry's 31 August reply used the
 word "under-claiming" for the same thing. Our funding surfaces also state, unconditionally, that

@@ -5,10 +5,16 @@
  *
  * Two reasons, and the second is the important one.
  *
- * First, the demo drills (`drill:offline`, `reconcile:funding`) sign in as a human's
- * owner account and need `ECE_DRILL_PASSWORD` supplied at the keyboard. CI has no
- * keyboard. This creates its own account with a password generated at run time, so
- * the only secret it needs is the service-role key CI already has.
+ * First, this needs an account it can sign in as, and it creates one with a password
+ * generated at run time — so the only secret it needs is the service-role key CI already has.
+ *
+ * ~~The demo drills (`drill:offline`, `reconcile:funding`) sign in as a human's owner account
+ * and need `ECE_DRILL_PASSWORD` supplied at the keyboard.~~ **Both were fixed** — `drill:offline`
+ * on 2026-08-11 and `reconcile:funding` on 2026-09-04 — and each now provisions its own RFC 2606
+ * `.invalid` account exactly as this fixture does. A password cannot be fetched anyway: Supabase
+ * stores `auth.users.encrypted_password` as a bcrypt hash, so the only person who could ever run
+ * such a drill was the one whose account it was. This file got there first and the reasoning is
+ * now shared rather than a peculiarity of e2e.
  *
  * Second — and this is the point of the whole file — **an accessibility audit of an
  * empty page is worthless.** axe cannot find a contrast failure in a table that has

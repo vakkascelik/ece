@@ -32,6 +32,15 @@ completed ones are schema:
 | `0083` | `centres.licence_type` and `service_model` — what kind of service this is, which nothing recorded before |
 | `0084` | `enrolments.enrolment_type` and the 20 Hours attestation date and signatory |
 | `0085` | `child_booking_schedule` — the enrolment agreement as an effective-dated weekday pattern |
+| `0086` | `child_addresses` — the residential address §6-1 and `ChildEnrolment` both require |
+| `0087` | the last two §6-1 fields: hours enrolled at another service, and a dated parent signature |
+| `0088`–`0091` | `service_closures`, `absence_exemptions`, the audit attribution they needed, and the emergency-closure fields that make a closed day claimable |
+| `0092`–`0093` | §6-7's reconfirmation record, and the notice date that closed this product's one knowing over-claim |
+
+**And the phases past the schema are no longer only schema.** All four absence rules (§6-4 to §6-7),
+§7-7's exemption window and §9-2's hours source are implemented in `packages/core`, mutation-tested,
+and read by `/funding`. What is absent is the **RS7 return itself** — no `rs7.ts`, and no XML
+anywhere in this repo — plus the Waha Rumaki/PITA return.
 
 **The honest summary is that the gap is not code quality.** Of the Ministry's eight mandatory
 functionalities, three are met, three partial and two absent, and the application's first
@@ -39,11 +48,14 @@ declaration — *"your SMS meets the SMS Development Criteria"* — **cannot be 
 today**. [[unverified-claims]] item 48 is that measurement and it is deliberately on the register
 rather than only in a plan.
 
-**Read [[funding-and-billing]] and [[unverified-claims]] items 52 to 60 before touching a funding
+**Read [[funding-and-billing]] and [[unverified-claims]] items 52 to 62 before touching a funding
 figure.** Five days of reading the ECE Funding Handbook against this code found that the funded-hours
-number is derived from the wrong source for a permanently enrolled child, misses two whole
-entitlements, and — the one nobody had allowed for — can be **too high** for a child without a
-20 Hours attestation. The range grew on 2026-09-04 and the later items are the sharper ones: **57**
+number was derived from the wrong source for a permanently enrolled child, missed two whole
+entitlements, and — the one nobody had allowed for — could be **too high** for a child without a
+20 Hours attestation. **All three were fixed on 2026-09-04**: the agreement is now the source for a
+permanent child with a recorded schedule, all four absence rules are modelled, and the caps apply to
+every child. What remains is one over-claim that is *reported* rather than corrected — §6-4's
+double-claimed place — and four of nine verification flags still `false`. The range grew on 2026-09-04 and the later items are the sharper ones: **57**
 the funding unit is a place rather than a child, **59** the occupancy average cannot tell a closed
 day from an empty one *and the obvious fix makes it worse*, **60** an approved emergency closure is
 fundable and the closures table cannot say which days those are.

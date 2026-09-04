@@ -548,7 +548,12 @@ June–September, October–January — four-monthly, three a year, one straddli
 a centre may want an arbitrary window and a period that cannot be chosen is a screen somebody works
 around. What has gone is the need to invent a date range on a document that looks official.
 
-### The absence rules, read 2026-08-18 — and this product under-claims
+### The absence rules, read 2026-08-18 — and what this product did about them
+
+**This heading read "and this product under-claims" until 2026-09-05.** It was a standing claim
+about the product in a section about the *rules*, and it stopped being true on 2026-09-04. The
+sections below are the reading as it was done; what was built from it is under
+"§6-7 implemented" and "§6-4's cross-child rule" further up this page.
 
 Chapter 6 was read the same day, and it changes what "funding from attendance" means.
 
@@ -595,14 +600,19 @@ and a `reconfirmed boolean` column would be the wrong schema for it.
 
 #### What that means for this product
 
-**It claims none of it.** `attendedHours` is the only source of funded hours, so an absent day
-contributes zero. Two consequences, and the second is the one that matters:
+~~**It claims none of it.** `attendedHours` is the only source of funded hours, so an absent day
+contributes zero.~~ **It claims all of it as of 2026-09-04** — §6-5, §6-6, §6-7 and §7-7 are
+implemented and §6-4 is detected. What was written here as the product's behaviour is now the
+behaviour of the **fallback**, and the distinction is worth keeping because the fallback is what
+most rows still use:
 
-- For a **casual or conditional** child, attendance-only is exactly what 6-4 requires. The
-  calculation is already correct for them.
-- For a **permanently enrolled** child it **under-claims** — and losing a centre funding it is owed
-  is the same class of failure as over-claiming. It is the reason this phase names a broken day
-  rather than silently zeroing it.
+- For a **casual or conditional** child, attendance-only is exactly what §6-4 requires. The
+  calculation was always correct for them and still is.
+- For a **permanently enrolled** child, attendance-only **under-claims** — and losing a centre
+  funding it is owed is the same class of failure as over-claiming. It is the reason this phase
+  names a broken day rather than silently zeroing it. **That path now applies only where no
+  `child_booking_schedule` is recorded**, and `hoursBasis` names it `attendance-no-agreement` so a
+  reader can tell it from a figure computed the right way.
 
 ~~**The blocker is the schema, not the arithmetic.** `enrolments` carries no permanent/casual
 distinction; the word "casual" appears nowhere in this repo.~~
@@ -619,11 +629,13 @@ direction these figures promise they never go, since [[unverified-claims]] item 
 `exportDisclaimer` both say the error only ever runs *low*. So a child whose type is unknown must
 be treated as ineligible for absence funding, not eligible.
 
-**What is still missing, and it is more than it looked.** Building absence funding needs, beyond the
-type: a three-week window per absence spell (§6-5), **the suspension of that window while the
-service is closed for two weeks or more (§6-6 — which this page did not know about until
-2026-09-03)**, a monthly frequent-absence check against the enrolment agreement (§6-7), and a record
-of reconfirmations that is a **dated act by a named person**, not a boolean.
+~~**What is still missing, and it is more than it looked.**~~ **All four were built on
+2026-09-04**, and this paragraph is kept because the list is what the design was checked against:
+a three-week window per absence spell (§6-5 — `classifyAbsences`), **the suspension of that window
+while the service is closed for two weeks or more** (§6-6 — which this page did not know about until
+2026-09-03; `suspendsTheWindow` plus `service_closures`), a monthly frequent-absence check against
+the enrolment agreement (§6-7 — `assessFrequentAbsence`), and a record of reconfirmations that is a
+**dated act by a named person**, not a boolean (`0092`, with `affirmed` and `revised` outcomes).
 
 ~~It also needs the enrolment agreement itself as an effective-dated weekday pattern, which is
 `ChildBookingSchedule` and does not exist yet.~~ **Built 2026-09-04 — `0085`,
@@ -644,6 +656,11 @@ child who fills the absent child's place."* Every funded-hours figure in this pr
 about two children competing for one place, so a per-child implementation of absence funding would
 breach it and **over-claim**. That is the constraint to design against before any of the three
 absence rules is written.
+
+**Superseded 2026-09-05.** The three rules are written, and §6-4 was not designed *around* — it was
+implemented as `sixFourOverlaps`, a day-level pass that names the days a place is claimed twice and
+the hours, without changing a figure. The constraint the sentence above describes is real and
+unchanged; the instruction is what expired.
 
 **One thing already in place helps more than it looks.** `bookings` (0018) and the `absent` status
 with its reason (0063) already record *which enrolled days a child was expected and did not come* —
@@ -788,13 +805,22 @@ on the page.** That is the whole change.
 
 **And it now admits an over-claim, which nothing here has had to do before.** Every other caveat in
 `exportDisclaimer` warns a figure may be too *low*, and [[unverified-claims]] item 6 has promised for
-weeks that the error only ever runs that way. The agreement basis breaks that promise in exactly one
-place: §6-5 stops absence funding when a family gives notice, and nothing in this schema records
-notice. So:
+weeks that the error only ever runs that way. The agreement basis breaks that promise in one place:
+§6-5 stops absence funding when a family gives notice.
 
-> One caution in the other direction: if a family has given notice that a child is leaving, the
-> Handbook stops absence funding from that date, and this system does not record notice — so check
-> any child who has stopped attending before you claim.
+**The sentence below is the second version. The first said the product could not record notice, and
+`0093` gave it exactly that — the day after.** It survived a day because a unit test asserted the
+exact wording, so the fix would have failed the suite; found by a documentation sweep on 2026-09-05
+rather than by any check. The risk did not disappear, it **moved from the schema to the data
+entry**, and the caveat now points at the missing row:
+
+> One caution in the other direction: these figures stop absence funding from the date a family gave
+> notice that a child is leaving, but only where that date is recorded on the enrolment — so a child
+> who has stopped attending with no notice date on file will still show claimable absences.
+
+The test that held the old wording in place now asserts the two things actually required — that the
+caveat appears, and that it names a missing *record* rather than a missing feature. **A test that
+pins prose stops the prose from being corrected.**
 
 **Conditional on the agreement basis being used**, because on an attendance-only period the
 over-claim cannot happen and the sentence would be the false caveat this function has already had to
