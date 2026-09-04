@@ -658,6 +658,41 @@ like it filed something is a screen after which nobody files anything. `exportDi
 the wording from the summary, so it cannot say "complete" when it is not, and lives in `@ece/core`
 so a future emailed version says the same thing.
 
+### §7-5, transcribed — emergency closure, and the closed days that ARE claimable
+
+Read the same day as §7-7 and found by reading past it, from [7-5 Emergency
+closure](https://www.education.govt.nz/education-professionals/early-learning/funding-and-financials/chapter-7-special-circumstances/7-5-emergency-closure).
+
+*"An emergency closure occurs when circumstances beyond the control of individual services cause
+temporary closures. Closures are normally for 1 or 2 days only."*
+
+| | |
+|---|---|
+| **Qualifies** | *"extreme weather conditions"*, *"interruptions to essential services"*, *"non-controllable health and safety issues"*, *"civil defence emergencies"* |
+| **Does not** | *"lack of staff (except when this is due to a non-controllable health and safety issue)"*, *"person responsible is absent"*, *"funerals in the community"*, *"A&P show"* |
+
+**Approval, and it comes back in writing.** *"Contact ERO at the first available opportunity"* and
+*"ERO will provide a letter to confirm approval/not approval"*. So approval is **three-state** —
+requested, approved, declined — because *"not approval"* is an outcome the letter carries, and a
+boolean would make a declined closure indistinguishable from a term break.
+
+**And with approval the closed days are claimable.** *"Funding may be claimed for the hours that
+children have a permanent enrolment subject to the funding maximums of the ECE Subsidy and 20 Hours
+ECE"*, using *"actual booked hours for the day(s) of emergency closure"*.
+
+**That is the sentence that changed the closures table.** A closed day is not uniformly
+unclaimable: a term break and a snow day are both closed and only one is fundable. `0088` shipped
+with no way to tell them apart, and `0091` added one — see [[unverified-claims]] item 60 for the
+shape and the three decisions inside it.
+
+**Note how far this is from §7-7, two pages away in the same chapter.** An absence-rule exemption
+needs *no* approval — the service completes an EC12 and retains it against an audit. An emergency
+closure needs a letter from ERO before a claim is defensible. Two sections, opposite processes, and
+the only way to know that is to read both.
+
+**For Phase 3D:** the paper RS7 uses an *"EC" code in the Staff Hour Count column* for emergency
+closure days. Recorded here so it is not rediscovered.
+
 ### §7-7, transcribed — absence-rule exemptions, and the twelve-week rule
 
 Read from [7-7 Absence rule

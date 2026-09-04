@@ -5,6 +5,38 @@ says so.*
 
 ---
 
+2026-09-04 (fifteenth) — **`0091`: the closed days that ARE claimable.** Closes
+[[unverified-claims]] item 60 on the schema, four hours after opening it. New: a verbatim §7-5
+transcription in [[funding-and-billing]] beside §7-7. Refreshed: [[index]]'s pointer to the funding
+register, which said "items 52 to 55" when the sharper ones are now 57, 59 and 60, and its
+[[reporting]] line, which described the open-days proxy as settled design when item 59 has it as a
+defect with a corrected plan.
+
+§7-5: with ERO approval, *"funding may be claimed for the hours that children have a permanent
+enrolment … using actual booked hours for the day(s) of emergency closure"*. So **a closed day is
+not uniformly unclaimable** — a term break and a snow day are both closed and only one is fundable,
+and `0088` had no way to tell them apart.
+
+`0091` adds `claimed_as_emergency`, `ero_approval` and `ero_letter_dated_on`. **Approval is
+three-state** because §7-5 says ERO's letter confirms *"approval/not approval"*: declined is an
+outcome, and a boolean would make a declined closure indistinguishable from a term break. **The
+claim and the answer are separate columns** because §7-5 says to contact ERO *"at the first
+available opportunity"* — after the doors are shut — so they arrive at different times.
+
+**The default under-claims on purpose.** `claimed_as_emergency` defaults to false, so every closure
+already on file stays an ordinary closure. A default of true would have silently turned every term
+break into a funding claim, and there is an assertion pinning it.
+
+**§7-5's four qualifying circumstances are deliberately NOT an enum.** They are prose, not a
+published list, and `ClosureReasonCode` — the field meant to hold the Ministry's vocabulary — sits on
+the same row shipping unresolvable. An invented enum beside it is the AGENTS.md §7 mistake with an
+extra trap: somebody would later serialise it.
+
+Nine assertions, 717 → 726, the approval/claim coupling mutation-drilled. And one that was mine: the
+block first landed after `0088`'s educator assertions, so its opening insert ran as an educator and
+died on the write policy — the suite is one transaction and the JWT is whatever the previous block
+left behind.
+
 2026-09-04 (fourteenth) — **§7-7 read properly and built: `0089` absence exemptions, plus
 `0090` because `0089` shipped a silent audit trigger.** New: a verbatim §7-7 transcription in
 [[funding-and-billing]], [[unverified-claims]] item 60 for a §7-5 finding that makes `0088`

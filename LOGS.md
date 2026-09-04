@@ -7,6 +7,68 @@ itself, and from the wiki pages, which hold the durable *why*. This file is the 
 
 ---
 
+## 2026-09-04 (fifteenth) — `0091`, the closed days that are claimable
+
+Item 60, opened four hours earlier when reading §7-5 found a gap in `0088`, closed on the schema.
+
+### The sentence that did it
+
+*"Funding may be claimed for the hours that children have a permanent enrolment subject to the
+funding maximums of the ECE Subsidy and 20 Hours ECE"*, using *"actual booked hours for the day(s) of
+emergency closure"*.
+
+A closed day is therefore **not uniformly unclaimable**, which is what `0088` had quietly assumed by
+having no opinion. A term break and a snow day are both closed days; only one is fundable. The table
+carried an unresolvable `LookupCode` and a free-text note, and the funded-hours path could not branch
+on either.
+
+### Three decisions
+
+**Approval is three-state, not a boolean.** §7-5: *"ERO will provide a letter to confirm
+approval/not approval"*. Declined is an outcome the letter carries. A boolean holds two answers where
+there are three — not asked, approved, declined — and collapsing declined into false would make a
+declined emergency closure indistinguishable from an ordinary term break, which is the exact
+distinction this migration exists to draw.
+
+**The claim and the answer are separate columns.** §7-5 says to contact ERO *"at the first available
+opportunity"*, which is after the doors are already shut. The claim and the reply arrive at different
+times, so a single column would force a service to either wait before recording anything or guess an
+outcome. The one relationship that must hold is enforced instead: an approval state can only exist on
+a closure actually being claimed. An ERO letter about a term break is not a thing.
+
+**The default under-claims.** `claimed_as_emergency` defaults to false, so every closure recorded
+before today stays an ordinary closure. That is the safe direction — under-claiming rather than
+over-claiming is the one promise this product's funding figures make — and a default of true would
+have silently turned every term break already on file into a funding claim. There is an assertion
+pinning the default, because it is the kind of thing a later migration "tidies up".
+
+### What I did not build, and why
+
+§7-5 lists four qualifying circumstances and it is tempting to make them an enum. Rejected on two
+grounds. They are prose in a Handbook section rather than a published code list — and
+`ClosureReasonCode`, the field meant to hold the Ministry's actual vocabulary, sits on the same row
+shipping unresolvable because `code_sets` has nothing in its `closure_reason` domain. A
+locally-invented enum beside it is the AGENTS.md §7 mistake with an extra trap: somebody downstream
+would serialise it as though it were the Ministry's. And the list is not exhaustive in the way an
+enum implies — *"non-controllable health and safety issues"* is a category, not a value.
+
+### A mistake of mine, cheap and worth naming
+
+The assertion block first landed immediately before `0088`'s `anon` check — which is *after* its
+educator assertions. The suite is one long transaction and the JWT is whatever the previous block
+left behind, so my opening insert ran as an educator and died on the write policy with `new row
+violates row-level security policy`. Nothing to do with the code under test.
+
+Fixed by re-setting the owner claim at the top of the block, with a comment saying why, because the
+next person adding a block to the middle of that file will hit exactly this.
+
+### Where the absence rules now stand
+
+Everything §6-5, §6-6 and §7-7 need is on disk: the agreement (`0085`), the calendar (`0088`), the
+fundable-closure distinction (`0091`), the exemptions and their twelve-week window (`0089`). What is
+missing is the arithmetic, and it is all in one place — 2F. Nothing computes a funded absence yet,
+and the disclaimer still says so.
+
 ## 2026-09-04 (fourteenth) — §7-7 read properly, and two defects found by reading
 
 Phase 2D. The plan had a one-line summary of §7-7 from an enquiry draft. Designing a table from it

@@ -2222,7 +2222,7 @@ consumers want, and building it for the occupancy average alone would be buildin
 `service_closures`, keep `null` (no data) distinct from `0` (nobody came), state the basis on the
 screen, and share the derivation with Phase 3C rather than writing it twice.
 
-### 60. An approved emergency closure is FUNDABLE, and `0088` cannot tell one from a term break — **OPEN, added 2026-09-04**
+### 60. An approved emergency closure is FUNDABLE, and `0088` could not tell one from a term break — **CLOSED on the schema 2026-09-04**
 
 Found by reading [§7-5 Emergency
 closure](https://www.education.govt.nz/education-professionals/early-learning/funding-and-financials/chapter-7-special-circumstances/7-5-emergency-closure)
@@ -2255,11 +2255,29 @@ claimable.
 Count column* for emergency closure days. That belongs to Phase 3D and is recorded here so it is not
 rediscovered.
 
-**To close it:** a follow-up migration on `service_closures` recording whether the closure is
-claimed as an emergency closure, whether ERO approval was sought and what came back — approval is a
-three-state answer, not a boolean, because *"not approval"* is a real outcome the letter carries —
-and the date of the letter. Then the funded-hours path may treat those days as claimable and no
-others.
+**Closed by `0091`**, which added exactly that: `claimed_as_emergency`, `ero_approval`
+(`requested` / `approved` / `declined`, null meaning nobody has contacted ERO) and
+`ero_letter_dated_on`, with three CHECKs — an unlisted state is refused, an approval cannot sit on a
+closure nobody is claiming, and a letter date cannot exist for a request nobody has answered.
+
+**Three decisions inside it worth keeping:**
+
+- **The claim and the answer are separate columns**, because §7-5 says to contact ERO *"at the first
+  available opportunity"* — which is after the doors are shut. They arrive at different times, and
+  one column would force the service to wait or guess.
+- **`claimed_as_emergency` defaults to false**, so every closure recorded before `0091` is an
+  ordinary closure. That under-claims rather than over-claims, which is the one direction this
+  product's funding figures promise they never get wrong — a default of `true` would have silently
+  turned every term break already on file into a funding claim. Asserted.
+- **§7-5's four qualifying circumstances are NOT an enum.** They are prose in a Handbook section,
+  not a published code list, and the field meant to hold the Ministry's vocabulary —
+  `ClosureReasonCode` — sits on the same row and ships unresolvable. A locally-invented enum beside
+  it is the AGENTS.md §7 mistake with an extra trap: somebody would later serialise it. The
+  circumstance stays in `reason_note`.
+
+**What remains, and it is arithmetic rather than schema:** nothing computes funded hours from
+closures yet. The question is now answerable and no code asks it; that belongs to 2F with the rest of
+the absence rules.
 
 ## See Also
 

@@ -39,11 +39,14 @@ declaration — *"your SMS meets the SMS Development Criteria"* — **cannot be 
 today**. [[unverified-claims]] item 48 is that measurement and it is deliberately on the register
 rather than only in a plan.
 
-**Read [[funding-and-billing]] and [[unverified-claims]] items 52 to 55 before touching a funding
-figure.** Four days of reading the ECE Funding Handbook against this code found that the funded-hours
+**Read [[funding-and-billing]] and [[unverified-claims]] items 52 to 60 before touching a funding
+figure.** Five days of reading the ECE Funding Handbook against this code found that the funded-hours
 number is derived from the wrong source for a permanently enrolled child, misses two whole
 entitlements, and — the one nobody had allowed for — can be **too high** for a child without a
-20 Hours attestation.
+20 Hours attestation. The range grew on 2026-09-04 and the later items are the sharper ones: **57**
+the funding unit is a place rather than a child, **59** the occupancy average cannot tell a closed
+day from an empty one *and the obvious fix makes it worse*, **60** an approved emergency closure is
+fundable and the closures table cannot say which days those are.
 
 ## Access and isolation
 
@@ -102,7 +105,9 @@ entitlements, and — the one nobody had allowed for — can be **too high** for
   product, why a cell beginning `=` is an attack, and why two exports are stricter than the
   pages they sit on
 - [[funding-and-billing]] — attendance into money: why a broken record is excluded rather than
-  estimated, why bookings and attendance are separate, and what this product cannot submit
+  estimated, why bookings and attendance are separate, and what this product cannot submit. Now also
+  the **transcribed Handbook sections** — §6-1's enrolment-record contents field by field, §6-6's
+  closures, §7-7's exemptions and the twelve-week window — each with the quotation behind it
 - [[eli-integration]] — the Ministry's interface: the mandatory schema that turned out to be on a
   public URL, the nine event families and where each would come from, and why the hardest part of
   an event interface is the part this product already got right. Also the RS7 field count that
@@ -135,8 +140,9 @@ entitlements, and — the one nobody had allowed for — can be **too high** for
 ## Reporting
 
 - [[reporting]] — occupancy and attendance trends, the licence figure this product refused to
-  invent a default for, why the average is over open days rather than calendar days, and the
-  Postgres GROUP BY that would have been faster and wrong
+  invent a default for, and the Postgres GROUP BY that would have been faster and wrong. Also **why
+  the average over "open days" is a proxy that flatters the figure**, why `service_closures` alone
+  does not fix it, and what does — [[unverified-claims]] item 59
 
 ## Model calls
 

@@ -1630,6 +1630,154 @@ begin
   perform pg_temp.expect(n = 0, 'an educator CANNOT change a closure (0088)');
 end $$;
 
+
+-- ---------------------------------------------------------------------------
+-- 0091 — an approved emergency closure is fundable, and the states that guard it
+--
+-- The assertions here are all about which combinations may EXIST, because the funded-hours
+-- path will branch on them in 2F: a term break and a snow day are both closed days and only
+-- one is claimable. A row that says "approved" without saying it is being claimed, or that
+-- carries a letter date for a request nobody has answered, would each be a claim nobody could
+-- defend to an auditor.
+--
+-- The owner claim is re-set first, and that is not decoration: this block sits after 0088's
+-- educator assertions, so without it the first insert runs as an educator and dies on the
+-- write policy rather than testing anything. The suite is one long transaction and the JWT is
+-- whatever the previous block left behind.
+-- ---------------------------------------------------------------------------
+
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+
+do $$
+declare n integer;
+begin
+  insert into public.service_closures
+    (centre_id, starts_on, ends_on, reason_note, claimed_as_emergency, ero_approval,
+     ero_letter_dated_on)
+  values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '2026-06-10', '2026-06-11',
+          'Storm, roads closed', true, 'approved', '2026-06-20');
+  get diagnostics n = row_count;
+  perform pg_temp.expect(n = 1, 'an APPROVED emergency closure can be recorded in full (0091)');
+end $$;
+
+-- Declined is an outcome, not an absence of one. §7-5: ERO's letter confirms
+-- "approval/not approval", so a boolean could not hold this and a declined closure would be
+-- indistinguishable from a term break.
+do $$
+declare n integer;
+begin
+  insert into public.service_closures
+    (centre_id, starts_on, ends_on, reason_note, claimed_as_emergency, ero_approval,
+     ero_letter_dated_on)
+  values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '2026-06-15', '2026-06-15',
+          'Staff shortage - claimed, then declined', true, 'declined', '2026-06-25');
+  get diagnostics n = row_count;
+  perform pg_temp.expect(n = 1, 'a DECLINED emergency closure is a recorded outcome (0091)');
+end $$;
+
+-- And a claim with no answer yet, which is the ordinary state: §7-5 says to contact ERO "at
+-- the first available opportunity", which is after the doors are already shut.
+do $$
+declare n integer;
+begin
+  insert into public.service_closures
+    (centre_id, starts_on, ends_on, reason_note, claimed_as_emergency, ero_approval)
+  values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '2026-06-18', '2026-06-18',
+          'Flooding, ERO contacted', true, 'requested');
+  get diagnostics n = row_count;
+  perform pg_temp.expect(n = 1, 'an emergency closure awaiting EROs answer is recordable (0091)');
+end $$;
+
+-- An unlisted approval state is refused rather than stored.
+do $$
+declare code text := 'none (the insert SUCCEEDED)';
+begin
+  begin
+    insert into public.service_closures
+      (centre_id, starts_on, ends_on, claimed_as_emergency, ero_approval)
+    values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '2026-06-22', '2026-06-22', true, 'pending');
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '23514', 'an unlisted ERO approval state is refused, got ' || code);
+end $$;
+
+/*
+ * AN ERO LETTER ABOUT A TERM BREAK IS NOT A THING.
+ *
+ * The assertion that stops the two facts drifting apart. Without it a closure could carry
+ * `approved` while `claimed_as_emergency` stayed false — a row saying the Ministry's auditor
+ * approved something nobody is claiming, which reads as evidence and is not.
+ */
+do $$
+declare code text := 'none (the insert SUCCEEDED)';
+begin
+  begin
+    insert into public.service_closures
+      (centre_id, starts_on, ends_on, claimed_as_emergency, ero_approval)
+    values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '2026-06-24', '2026-06-24', false, 'approved');
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '23514',
+    'an approval cannot sit on a closure nobody is claiming as an emergency, got ' || code);
+end $$;
+
+-- A letter date with no letter. `requested` means ERO has been contacted and nothing has come
+-- back, so a date here would be a document that does not exist.
+do $$
+declare code text := 'none (the insert SUCCEEDED)';
+begin
+  begin
+    insert into public.service_closures
+      (centre_id, starts_on, ends_on, claimed_as_emergency, ero_approval, ero_letter_dated_on)
+    values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '2026-06-26', '2026-06-26', true,
+            'requested', '2026-06-27');
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '23514',
+    'a letter date on a request nobody has answered is refused, got ' || code);
+end $$;
+
+/*
+ * THE DEFAULT IS THE SAFE DIRECTION, and this pins it.
+ *
+ * Every closure recorded before 0091 has `claimed_as_emergency = false`, so it is an ordinary
+ * closure: not claimable. That under-claims rather than over-claims, which is the one
+ * direction this product's funding figures promise they never get wrong — and a default of
+ * true would have silently turned every term break already on file into a funding claim.
+ */
+do $$
+declare v_claimed boolean;
+begin
+  insert into public.service_closures (centre_id, starts_on, ends_on, reason_note)
+  values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '2026-07-06', '2026-07-17', 'Term break');
+  select claimed_as_emergency into v_claimed from public.service_closures
+   where centre_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' and starts_on = '2026-07-06';
+  perform pg_temp.expect(v_claimed = false,
+    'a closure recorded without saying otherwise is NOT claimable (0091)');
+end $$;
+
+-- Still owner-or-manager to write, unchanged by 0091: the new columns are covered by 0088's
+-- policies because the table is not column-scoped. Asserted rather than assumed, since a
+-- column added to a table with column-level grants would have needed its own grant (0047).
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+do $$
+declare n integer;
+begin
+  update public.service_closures set claimed_as_emergency = true, ero_approval = 'approved'
+   where centre_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' and starts_on = '2026-07-06';
+  get diagnostics n = row_count;
+  perform pg_temp.expect(n = 0,
+    'an educator CANNOT turn a term break into an approved emergency closure (0091)');
+end $$;
+
+-- And an educator can still READ them, which 0088 established and 0091 must not narrow.
+select pg_temp.expect(
+  (select count(*) from public.service_closures) > 0,
+  'an educator still reads closures after 0091 added columns (0091)'
+);
+
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+
 -- `anon` is stopped by the GRANT, before any policy runs.
 do $$
 declare code text := 'none';
