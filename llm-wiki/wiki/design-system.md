@@ -571,8 +571,10 @@ optimistic state — which changes how attendance is written on the web, not mer
 looks.
 
 **On the drill.** AGENTS §5 gates the offline path behind `npm run drill:offline`, and it was
-**not run** for this change: it requires `ECE_DRILL_PASSWORD`, the demo centre owner's password,
-which is not available here. What did run: nine new unit tests on the queue's own rules, two new
+**not run** for this change: at the time it required `ECE_DRILL_PASSWORD`, the demo centre
+owner's password, which was not available here. **That is no longer true** — the drill has
+provisioned its own throwaway account since 2026-08-11, needs no human's password, and now
+covers the queue-stalling RLS refusal as well. Anyone extending the web queue should run it. What did run: nine new unit tests on the queue's own rules, two new
 browser specs with the network actually cut, both mutation-tested, plus the full suite at 54/54.
 The gap is specifically that the contract has not been re-exercised against live Postgres from
 this side — the same `recordAttendance` and `classifyWriteFailure` the drill covers are the ones

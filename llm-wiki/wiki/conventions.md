@@ -1016,6 +1016,49 @@ any three-state numeric field — where null, zero and a figure are three differ
 test emptiness **before** conversion, in the action and in the row mapper both. `Number(null)` is
 also `0`, which is the mapper's version of the same bug.
 
+### A copy of a rule cannot verify the rule
+
+`offline-drill.ts` asserted that a permanently refused write is set aside, using its own inline
+regex under a comment claiming it was *"the same classification"* the outbox applies. It was a
+copy. When `0078` changed the refusal message, the drill went red and the product was fine — and
+the first thing I did with that red result was announce a defect in the product.
+
+A copy tells you two things have drifted. It cannot tell you which one is wrong, and the guess
+goes against whichever you trust less. **Assert through the function the product actually calls**,
+even when re-implementing the condition would be three characters shorter. If the function is
+hard to reach from a drill, that is the finding.
+
+The same rule caught a second time on the same day: `reconcile-funding.ts` had hand arithmetic
+asserting a figure the product also computed — that one is worth keeping, because the arithmetic
+is an *independent* derivation of the answer. A regex copied from the implementation is not
+independent of anything; it is the implementation, one revision stale.
+
+### A refusal message is an interface, so read it rather than reasoning about it
+
+Every rule in `classifyWriteFailure` matches text a database emits. Three of them matched text no
+database emits, for months, and a unit suite fed them synthetic strings and stayed green — the
+exact decay `0079`'s header warns about.
+
+The fix is cheap and I did not do it first: **attempt the write against live Postgres inside a
+rolled-back transaction and print `error.message` and `error.code`.** Four refusals, four exact
+strings, about fifteen lines of `pg`. It turned one misdiagnosis and three real defects into a
+table. Do that before writing the rule, and put the captured string in the test verbatim.
+
+### A `LIKE` pattern that selects a tenant is a loaded gun
+
+`reconcile-funding.ts` chose its centre with `.like('slug', '%albert%').single()`. It seeds
+attendance events. `demo-mt-albert` and `little-pearls-mt-albert` both match that pattern, and only
+the resulting `.single()` error stopped it writing invented attendance into a live customer's
+records — records funding is claimed from.
+
+The ambiguity was load-bearing by accident. Drop one of those centres, or rename either, and the
+pattern resolves cleanly to whichever survives.
+
+**Any script that writes, and selects its target by pattern, is one row away from writing to the
+wrong tenant.** Select by exact slug — a constant the seed script controls — and let it fail loudly
+when that row is absent. The failure message should name the fixture to create, not a different
+script that would create a *real* tenant, which is what this one did.
+
 ### Mutate by restoring a saved copy, never by reversing the edit
 
 An ad-hoc mutation on `rls_isolation.sql` was applied by string replacement and undone the same way.

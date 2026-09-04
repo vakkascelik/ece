@@ -66,9 +66,22 @@ describe('classifyWriteFailure', () => {
   });
 
   it('treats a revoked membership as permanent', () => {
-    // 42501. Retrying will not restore a membership somebody deliberately revoked, and the
-    // queue must not keep offering the write to a server that is right to refuse it.
-    expect(classifyWriteFailure('new row violates row-level security policy')).toBe('transient');
+    /*
+      42501. Retrying will not restore a membership somebody deliberately revoked, and the
+      queue must not keep offering the write to a server that is right to refuse it.
+
+      THE FIRST ASSERTION SAID `transient` UNTIL 2026-09-04, in a test called "treats a revoked
+      membership as permanent", under a comment explaining why it is permanent. The gap had been
+      noticed and then **pinned** rather than closed: PostgREST's RLS message carries neither
+      `permission denied` nor `42501`, so it fell through to the default, and the assertion was
+      written to match the code instead of the requirement.
+
+      A test that contradicts its own name is worse than a missing test, because the name is
+      what the next reader greps for. What made it visible was measuring the real messages: with
+      `recordAttendance` now propagating the sqlstate, and a text rule for the RLS wording, the
+      bare message classifies as this test always said it should.
+    */
+    expect(classifyWriteFailure('new row violates row-level security policy')).toBe('permanent');
     expect(classifyWriteFailure('ERROR: 42501: permission denied for table attendance_events')).toBe(
       'permanent',
     );
@@ -108,6 +121,61 @@ describe('classifyWriteFailure', () => {
     const dup =
       'duplicate key value violates unique constraint "attendance_events_client_uuid_key" (23505)';
     expect(classifyWriteFailure(dup)).not.toBe('permanent');
+  });
+
+  /*
+    THE FOUR REFUSALS THIS PRODUCT ACTUALLY PRODUCES, READ OFF THE DATABASE.
+
+    Every string below was captured from live Postgres on 2026-09-04 by attempting the write
+    inside a rolled-back transaction, not written from memory. That distinction is the entire
+    reason these tests are shaped this way. `0079`'s header warns that a rule in the classifier
+    "becomes dead code matching a string the database can no longer produce, and its unit test
+    goes on passing because it feeds a synthetic message rather than a real one" - and the first
+    version of this block, written an hour earlier, was precisely that: it asserted the 14-day
+    message *without* its trigger name, which is what 0078 briefly emitted and 0079 put back. It
+    passed, while asserting something untrue about the database.
+
+    Three of the four were classified `transient` until this commit, because `recordAttendance`
+    threw `error.message` and dropped `error.code`. `transient` is not "retry later" - it is
+    "the network is down, stop flushing" - so any one of them at the head of a queue stopped the
+    queue.
+  */
+  const REAL: Array<[string, string, string]> = [
+    [
+      'the 14-day trigger, which was the one already classified correctly',
+      'attendance_not_ancient : row is older than the 14 day window (at on public.attendance_events)',
+      '23514',
+    ],
+    [
+      'RLS refused the row, because the writer is not a member of that centre',
+      'new row violates row-level security policy for table "attendance_events"',
+      '42501',
+    ],
+    [
+      'the child was purged, so the reference no longer resolves',
+      'insert or update on table "attendance_events" violates foreign key constraint "attendance_events_child_id_fkey"',
+      '23503',
+    ],
+    [
+      'a malformed uuid, which no amount of retrying repairs',
+      'invalid input syntax for type uuid: "not-a-uuid"',
+      '22P02',
+    ],
+  ];
+
+  for (const [label, message, code] of REAL) {
+    it(`treats as permanent: ${label}`, () => {
+      // Exactly as the API layer now hands it over: prefix, message, sqlstate.
+      expect(classifyWriteFailure(`recordAttendance: ${message} [${code}]`)).toBe('permanent');
+    });
+  }
+
+  it('still recognises the pre-0078 constraint name, because an old queue will send it', () => {
+    // A device offline since before 0078 flushes refusals phrased the old way. 0079's header
+    // makes the same point from the migration side.
+    expect(classifyWriteFailure('violates check constraint "attendance_not_ancient"')).toBe(
+      'permanent',
+    );
   });
 
   it('survives a message it has never seen', () => {

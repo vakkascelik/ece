@@ -5,6 +5,55 @@ says so.*
 
 ---
 
+2026-09-04 (twenty-sixth) — **three of the classifier's six rules were unreachable, and my first
+diagnosis of why was wrong.** Corrected in [[offline-outbox]], with two new [[conventions]]
+entries.
+
+`recordAttendance` threw `error.message` and dropped `error.code`. Four of
+`classifyWriteFailure`'s rules key on a sqlstate and three have no text fallback, so an RLS
+refusal, a purged child and a malformed uuid all answered `transient` — which means *stop
+flushing*, so one such event parks the whole queue. Measured off live Postgres in a rolled-back
+transaction; the `42501` case is the one that happens in practice.
+
+**The correction:** the red drill assertion that started this was not an outbox defect. `0079`
+puts the trigger name in the 14-day message and the classifier matches on it, so that case was
+always right. The drill was asserting through its own **copy** of the rule, which had drifted
+from the product at `0078`. A copy cannot verify a rule — it only reports drift, and the guess
+goes against the product.
+
+Also found: `writeFailure.test.ts` had a test called *"treats a revoked membership as permanent"*
+whose assertion said `transient`. The gap was noticed and pinned rather than closed.
+
+Fixed at both ends (sqlstate in the message from both outbox writes, plus a text rule for the RLS
+wording), new drill assertion, mutation-tested against the live database — **11/11**, and `got
+transient` with the fix removed. Corrected the stale claim in [[design-system]] that the drill
+needs a password.
+
+2026-09-04 (twenty-fifth) — **`reconcile:funding` runs, needed no password, and had been aimed
+at the live tenant.** New: a [[funding-and-billing]] section, and a [[conventions]] entry on
+selecting a tenant by `LIKE`.
+
+Asked how to obtain `ECE_DRILL_PASSWORD`, the answer turned out to be that it cannot be obtained and
+should not exist: Supabase stores the password as a bcrypt hash, so only its owner could ever run the
+drill. `offline-drill.ts` had already fixed this for itself; this script had not. It now provisions
+an RFC 2606 `.invalid` account with a fresh random password per run — **a manager**, not an educator,
+because `readFundingPeriod` reads `absence_exemptions` and an educator would silently see no §7-7
+exemptions at all.
+
+**And the centre lookup was pointed at the real customer.** `.like('slug', '%albert%')` matches both
+`demo-mt-albert` and `little-pearls-mt-albert`; `.single()` erroring on two rows was the **only**
+thing stopping a script that seeds attendance events from writing into a live tenant. Now an exact
+match on the demo slug.
+
+**16/16 reconciliation checks then passed** against hand arithmetic — the plan's Phase 5
+verification, and an independent confirmation of the day's funding work including this morning's
+caps correction.
+
+**Footnote:** the failing run ended on `Assertion failed: !(handle->flags & UV_HANDLE_CLOSING)`,
+the exact libuv assertion `sweep-audit-tenants.ts` documents as killing the Playwright CLI mid-run
+here. Observed directly, which makes it the likely explanation for today's e2e run that reported 92
+passed, 32 not run, exit code 0.
+
 2026-09-04 (twenty-fourth) — **`0093`: the notice date, which closes the one over-claim in this
 product.** Narrowed: [[unverified-claims]] item 55, where the "error only ever runs low" promise went
 conditional a few hours ago and is now restored with a stated qualification. New: a

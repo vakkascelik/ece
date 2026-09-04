@@ -123,7 +123,43 @@ export async function recordAttendance(
       { onConflict: 'client_uuid', ignoreDuplicates: true },
     )
     .select(COLUMNS);
-  if (error) throw new Error(`recordAttendance: ${error.message}`);
+  /*
+    THE SQLSTATE GOES IN THE MESSAGE, AND DROPPING IT STALLED QUEUES - measured 2026-09-04.
+
+    This threw `error.message` alone. `classifyWriteFailure` decides what the offline outbox
+    does with a refused write, and four of its six rules key on a sqlstate - 23514, 42501,
+    23503, 22P02 - none of which could ever match, because the code never reached it.
+
+    Three of the four have no message-text fallback, so each was answered `transient`. That
+    verdict is not "retry in a minute": it means "the network is down, stop flushing", so one
+    such event at the head of a queue stops every write behind it, indefinitely. Read off live
+    Postgres inside a rolled-back transaction rather than reasoned about:
+
+      | refusal                                    | code  | before      | after     |
+      |--------------------------------------------|-------|-------------|-----------|
+      | RLS: not a member of that centre           | 42501 | transient   | permanent |
+      | the child was purged (FK)                  | 23503 | transient   | permanent |
+      | a malformed uuid                           | 22P02 | transient   | permanent |
+      | the 14-day trigger (0078/0079)             | 23514 | permanent   | permanent |
+
+    The last row is the correction. I first wrote this comment claiming the 14-day case was the
+    broken one - that 0078's trigger message carried no identifier, so nothing matched. It does
+    carry one: `0079` puts `tg_name` at the front, and the name is what the classifier matches.
+    That case was always right. What was broken was the three above it, and the drill's own
+    inline copy of the rule, which is what actually went red. See `offline-drill.ts`.
+
+    The 42501 row is the one that matters operationally: an educator removed from a centre, or a
+    child moved to another service, and a tablet still holding their queue.
+
+    So the code goes into the message. Ugly, and the alternative is a typed error class every
+    caller and both outboxes would have to learn; the classifier already reads strings, and this
+    makes the string true.
+  */
+  if (error) {
+    throw new Error(
+      `recordAttendance: ${error.message}${error.code ? ` [${error.code}]` : ''}`,
+    );
+  }
 
   // `ignoreDuplicates` returns no rows when the conflict was ignored, which is how
   // we know this exact event had already landed.
@@ -248,7 +284,14 @@ export async function recordAdultsPresent(
       { onConflict: 'client_uuid', ignoreDuplicates: true },
     )
     .select('id');
-  if (error) throw new Error(`recordAdultsPresent: ${error.message}`);
+  // The sqlstate, for the same reason and by the same mechanism as `recordAttendance` above:
+  // the mobile outbox flushes adult counts through here and classifies the failure with the
+  // same function, so a refusal whose text matches no rule would stall its queue too.
+  if (error) {
+    throw new Error(
+      `recordAdultsPresent: ${error.message}${error.code ? ` [${error.code}]` : ''}`,
+    );
+  }
   return (data ?? []).length === 0 ? 'duplicate' : 'recorded';
 }
 

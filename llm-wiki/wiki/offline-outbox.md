@@ -131,6 +131,87 @@ The two clock constraints look almost identical and behave in **opposite** direc
 exactly how one rule came to swallow both. There is a test asserting they are never classified the
 same.
 
+### Three of the classifier's six rules were unreachable, and `transient` stops the flush
+
+**2026-09-04, measured against live Postgres.** `recordAttendance` threw `error.message` and
+discarded `error.code`. Four of `classifyWriteFailure`'s six rules key on a sqlstate; three of
+those four have no message-text fallback, so all three fell through to the default:
+
+| Refusal | Code | Message text | Before | After |
+|---|---|---|---|---|
+| RLS refused the row | `42501` | `new row violates row-level security policy for table "attendance_events"` | `transient` | `permanent` |
+| the child was purged | `23503` | `insert or update on table "attendance_events" violates foreign key constraint "attendance_events_child_id_fkey"` | `transient` | `permanent` |
+| a malformed uuid | `22P02` | `invalid input syntax for type uuid: "not-a-uuid"` | `transient` | `permanent` |
+| the 14-day trigger | `23514` | `attendance_not_ancient : row is older than the 14 day window (...)` | `permanent` | `permanent` |
+
+Every string above was read off the database by attempting the write inside a rolled-back
+transaction, not written from memory.
+
+**Why `transient` is the damaging verdict, not a harmless one.** It does not mean "retry in a
+minute". Its whole purpose is to say *nothing after this will do better right now*, so the flush
+**stops** — see the three-verdict section above, where that distinction is the bug it was
+introduced to fix. A permanent refusal misread as transient therefore parks the entire queue
+behind it, indefinitely. Not one lost write: a tablet that quietly stops recording sign-ins.
+
+**The `42501` row is the one that happens.** An educator removed from a centre, a child moved to
+another service, a membership ended while a tablet sat in a bag — the queue still holds those
+events and the server is right to refuse every one. And PostgREST's RLS message carries neither
+`permission denied` nor the code, so nothing matched it.
+
+Fixed at both ends, deliberately:
+
+- **`recordAttendance` and `recordAdultsPresent` now append the sqlstate** to the message. Both,
+  because the mobile outbox flushes adult counts through the second one and classifies the result
+  with the same function. The alternative — a typed error class — would have to be learned by
+  every caller and both outboxes; the classifier already reads strings, so this makes the string
+  true.
+- **A text rule for the RLS wording**, which survives a third write being added to an outbox by
+  someone who does not know the code has to be put into the message by hand.
+
+The other `throw new Error(\`fn: ${error.message}\`)` sites in `packages/api` were left alone —
+161 of exactly that shape, counted, plus a few multi-line variants. Only these two reach an outbox; the rest are server actions where a thrown error becomes a
+message on a screen, and widening the change would have been a refactor rather than a fix.
+
+#### A test that contradicted its own name, and pinned the defect
+
+`writeFailure.test.ts` already had this:
+
+    it('treats a revoked membership as permanent', () => {
+      // 42501. Retrying will not restore a membership somebody deliberately revoked...
+      expect(classifyWriteFailure('new row violates row-level security policy')).toBe('transient');
+
+The gap had been **noticed and then pinned**: the title says permanent, the comment explains why
+it is permanent, and the assertion was written to match the code. That is worse than no test,
+because the name is what the next reader greps for and finds reassurance in.
+
+#### The correction: the 14-day case was never broken
+
+The red drill assertion that started this was read, by me, as a live outbox defect, and I said so
+before checking. It was not. `0079` puts `tg_name` at the front of the trigger's message and
+`classifyWriteFailure` matches on that name, so the 14-day refusal has classified as `permanent`
+throughout. The section above already said this and I did not read it closely enough.
+
+What was actually broken was the drill — see below — and, separately and genuinely, the three
+rows in the table above.
+
+### `drill:offline` was testing its own copy of the rule
+
+The assertion that a permanently refused write is not retried read:
+
+    permanent = /\b23514\b/.test(message) || /violates check constraint/i.test(message);
+
+under a comment claiming *"the same classification `outbox.ts#isPermanent` applies"*. It was a
+copy, not a call. `0078` changed the message to the trigger's own sentence, which matches neither
+pattern, so the drill went red while the product was correct.
+
+**A copy of a rule cannot verify the rule.** It can only report that two things have drifted,
+without saying which of them is wrong — and the first guess will be the product. The assertion
+now calls `classifyWriteFailure` itself, the same function both outboxes call.
+
+The drill also gained the assertion that would have caught the real defect: a write RLS refuses
+must classify as `permanent`, not stall the queue. Mutation-tested against the live database by
+removing both halves of the fix, which produced `got transient` and a red drill. **11/11.**
+
 ### `attendance_not_ancient` is a trigger now, and that nearly broke this table quietly
 
 **2026-08-31.** `0078` moved six `_not_ancient` rules from CHECK constraints to `BEFORE INSERT`

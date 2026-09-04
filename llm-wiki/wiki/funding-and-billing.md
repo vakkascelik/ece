@@ -658,6 +658,66 @@ like it filed something is a screen after which nobody files anything. `exportDi
 the wording from the summary, so it cannot say "complete" when it is not, and lives in `@ece/core`
 so a future emailed version says the same thing.
 
+### `reconcile:funding` needed a human's password, and pointed at the wrong tenant
+
+**Both fixed 2026-09-04, and the second was the dangerous one.**
+
+The plan had carried "run `reconcile:funding`" as an owner-only task for weeks, with the note that
+it *"has not been run against the two commits that changed its arithmetic"*. The reason was a
+credential: it signed in as a named person and demanded `ECE_DRILL_PASSWORD`.
+
+**A password cannot be fetched.** Supabase stores `auth.users.encrypted_password` as a bcrypt hash
+and no anon key, service role or PAT returns it, so the only person who could run the drill was the
+one whose account it was — and the only "fix" available to anybody else was resetting a real login
+in order to run a test. `offline-drill.ts` had already worked this out and fixed itself; this script
+never got the same treatment.
+
+It now provisions its own account, exactly as the offline drill does: an RFC 2606 `.invalid` address
+that cannot receive mail, a membership on the demo centre, and a fresh random password per run,
+never stored. `ECE_DRILL_PASSWORD` survives as an optional override.
+
+**A manager, not an educator** — which differs from the offline drill and the reason matters.
+`readFundingPeriod` reads `absence_exemptions`, whose select policy is `caller_may_exempt`: owner or
+manager. An educator would read no exemptions, every §7-7 window would silently be three weeks
+instead of twelve, and the drill would reconcile a figure that was wrong for a reason it could not
+see. Manager is the least privilege that can answer the question the drill asks.
+
+#### And it was aimed at the live customer's tenant
+
+The centre lookup was `.like('slug', '%albert%').single()`. Two problems, and the ambiguity was
+hiding the serious one:
+
+- **Ambiguous.** `demo-mt-albert` and `little-pearls-mt-albert` both match, `.single()` errors on
+  more than one row, and the script reported *"Expected Little Pearls Mt Albert. Run `npm run
+  onboard` first"* — a message pointing at the opposite of the real problem, which is how this
+  surfaced at all.
+- **Aimed at the real tenant.** The old error message says so in as many words. **This script seeds
+  attendance events** — `ECE_ALLOW_DEMO_SEED=yes` exists to make the caller confirm exactly that —
+  so had the pattern ever resolved to one row, it would have written invented attendance into a live
+  centre's records, from which funding is claimed. **The ambiguity was the only thing preventing
+  it.**
+
+Now an exact match on `demo-mt-albert`, with `maybeSingle()` and an error that says to run
+`seed:demo` rather than `onboard`. Measured before changing it: the three `Demo-Seed` children the
+drill needs are in `demo-mt-albert`, and there were no attendance events anywhere in the project.
+
+#### What it then proved
+
+**16/16 reconciliation checks passed**, against hand arithmetic in the script's own comments rather
+than a snapshot. That is the plan's Phase 5 verification — *"reconcile a month of attendance against
+a manually calculated roll return"* — and it independently confirms the day's funding work,
+including the assertion that reads *"funded is exactly 28.00 — deterministic since the weekly cap
+became 30h"*, which is this morning's caps correction checked by a second method.
+
+#### A footnote that explains something else
+
+The failing run ended with `Assertion failed: !(handle->flags & UV_HANDLE_CLOSING), file
+src\win\async.c, line 94`. That is the **exact** libuv assertion `sweep-audit-tenants.ts` names in
+its header as a thing that kills the Playwright CLI mid-run on this machine. Observed directly here
+on `process.exit()`, which upgrades it from a documented rumour to a reproduced fact — and it is the
+most likely explanation for the e2e run earlier today that reported 92 passed, 32 not run and exit
+code 0.
+
 ### §6-5's notice date — the one over-claim, and closing it
 
 **`0093`, 2026-09-04.** Every other gap recorded in this repo makes a funding figure too **low**.
@@ -1202,7 +1262,7 @@ offered a place" is a question families ask.
 ### The reconciliation
 
 ```bash
-ECE_ALLOW_DEMO_SEED=yes ECE_DRILL_PASSWORD=… npm run reconcile:funding
+ECE_ALLOW_DEMO_SEED=yes npm run reconcile:funding
 ```
 
 Writes a fortnight whose correct answer is worked out **by hand in the script's comments** — a day

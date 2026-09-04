@@ -7,6 +7,171 @@ itself, and from the wiki pages, which hold the durable *why*. This file is the 
 
 ---
 
+## 2026-09-04 (twenty-sixth) — a queue that stalls, and a diagnosis I got wrong first
+
+### What I said, and what was true
+
+Yesterday's last act was running `drill:offline`, seeing `FAIL a 20-day-old event is refused with
+a code the outbox treats as permanent`, and reporting a live defect: *"both web and mobile
+outboxes retried a doomed write forever, blocking everything queued behind it."*
+
+**That was wrong, and it was checkable in one query.** `0079` exists specifically to put `tg_name`
+at the front of the 14-day trigger's message, and `classifyWriteFailure` matches on that name. The
+real message is:
+
+    attendance_not_ancient : row is older than the 14 day window (at on public.attendance_events)
+
+which classifies as `permanent`, and always did. `offline-outbox.md` said so already, two sections
+above where I was reading. I wrote a fix, three comments and three unit tests on the wrong story
+before checking the message against the database — and one of those tests asserted the 14-day
+message *without* its trigger name, which is precisely the failure mode `0079`'s header warns
+about: a green test feeding a string the database cannot produce.
+
+### What was actually broken
+
+Two things, and the second is worse than what I claimed.
+
+**1. The drill was testing its own copy of the rule.**
+
+    permanent = /\b23514\b/.test(message) || /violates check constraint/i.test(message);
+
+under a comment claiming it was *"the same classification `outbox.ts#isPermanent` applies"*. A
+copy, not a call. `0078` changed the message, the copy stopped matching, and the drill went red
+about a product that was correct. A copy of a rule can only report that two things have drifted;
+it cannot say which is wrong, and the guess goes against whichever you trust less. It now calls
+`classifyWriteFailure`.
+
+**2. Three of the classifier's six rules could never fire.** `recordAttendance` threw
+`error.message` and discarded `error.code`. Four rules key on a sqlstate; three of those have no
+message-text fallback. Measured off live Postgres inside a rolled-back transaction:
+
+| Refusal | Code | Before | After |
+|---|---|---|---|
+| RLS refused the row | `42501` | `transient` | `permanent` |
+| the child was purged (FK) | `23503` | `transient` | `permanent` |
+| a malformed uuid | `22P02` | `transient` | `permanent` |
+| the 14-day trigger | `23514` | `permanent` | `permanent` |
+
+And `transient` is not the harmless verdict. It exists to mean *nothing after this will do better
+right now*, so the flush **stops**. One RLS-refused event at the head of a queue parks every write
+behind it, indefinitely — a tablet that silently stops recording sign-ins. The `42501` case is
+also the one that actually happens: an educator removed from a centre, or a child moved to another
+service, with a tablet still holding their events.
+
+Fixed in both directions: `recordAttendance` **and** `recordAdultsPresent` now append the sqlstate
+(the mobile outbox flushes adult counts through the second and classifies with the same function),
+plus a text rule for the RLS wording so the classification survives a caller that forgets. The
+other `${error.message}` sites in `packages/api` were left alone (161 of exactly that shape,
+counted, plus a few multi-line variants) — none of them reaches an
+outbox, and widening it would be a refactor, not a fix.
+
+### A test that contradicted its own name
+
+`writeFailure.test.ts` already contained:
+
+    it('treats a revoked membership as permanent', () => {
+      // 42501. Retrying will not restore a membership somebody deliberately revoked...
+      expect(classifyWriteFailure('new row violates row-level security policy')).toBe('transient');
+
+Noticed, and then **pinned**. The title and the comment state the requirement; the assertion was
+written to match the code instead. That is worse than a missing test, because the name is what the
+next person greps for.
+
+### Verification
+
+- **11/11 `drill:offline`** against live Postgres, including a new assertion: a write RLS refuses
+  must be `permanent`, not a stalled queue.
+- **Mutation-tested against the live database.** Both halves of the fix removed → `got transient`,
+  drill red, exit 1. The two halves are independent, so removing one at a time proves nothing.
+- **4/4 killable mutations caught** on the unit side, across both packages. A fifth is recorded as
+  an expected survivor with its reason: removing the `attendance_not_ancient` name rule is
+  output-equivalent, because the generic `violates check constraint` rule answers the same. No
+  assertion on the return value can distinguish them, so no test is claimed to cover it.
+- The first run of that unit drill caught 1 of 3 — both survivors because I pointed the mutations
+  at a suite that could not see them. `packages/api` was not in the run.
+
+### The lesson worth keeping
+
+Both conventions written today are the same one from different sides: **a rule that reads a string
+another system emits has to be checked against that system, not against my model of it.** Fifteen
+lines of `pg` and a rolled-back transaction turned one misdiagnosis and three real defects into a
+four-row table. That is cheaper than the comment I wrote instead.
+
+## 2026-09-04 (twenty-fifth) — a password that cannot exist, and a drill aimed at the wrong tenant
+
+The owner asked how to get `ECE_DRILL_PASSWORD`. The answer is that you cannot, and it should not
+exist — and chasing that turned up something considerably worse.
+
+### Why the password cannot be obtained
+
+`reconcile-funding.ts` signed in as `vakkascelik@gmail.com` and required that account's real
+password. Supabase stores `auth.users.encrypted_password` as a **bcrypt hash**; no anon key, service
+role or PAT returns it. So the only person who could ever run this drill was the one whose account it
+was, and the only remedy available to anybody else was resetting a real login in order to run a test.
+
+That is not a new insight in this repo. `offline-drill.ts` reached it months ago, wrote three reasons
+into its header, and fixed itself by provisioning a throwaway account. `reconcile-funding.ts` never
+got the same treatment — and the cost was concrete and recorded: the plan has carried a note for
+weeks that this drill *"has not been run against the two commits that changed its arithmetic"*.
+
+It now does the same thing: an RFC 2606 `.invalid` address that cannot receive mail, find-or-create
+through `generateLink`, a fresh random password every run and never stored, and
+`ECE_DRILL_PASSWORD` demoted to an optional override.
+
+**A manager rather than an educator**, which is where it diverges from the offline drill.
+`readFundingPeriod` reads `absence_exemptions`, whose select policy is `caller_may_exempt` — owner or
+manager. An educator would read **no exemptions**, so every §7-7 window would silently be three
+weeks instead of twelve, and the drill would happily reconcile a figure that was wrong for a reason
+it could not see. Manager is the least privilege that can answer the question being asked.
+
+### The thing that was actually alarming
+
+The centre lookup was:
+
+    .like('slug', '%albert%').single()
+
+**This script seeds attendance events.** `ECE_ALLOW_DEMO_SEED=yes` exists precisely to make the
+caller confirm that. And `%albert%` matches two centres: `demo-mt-albert` and the live
+`little-pearls-mt-albert`.
+
+`.single()` errors on more than one row, which is the *only* reason it never wrote anything — and
+the error it produced, *"Expected Little Pearls Mt Albert. Run `npm run onboard` first"*, named the
+live tenant as the intended target. Drop the demo centre, or rename either of them, and the pattern
+resolves cleanly to whichever survives. Invented attendance into records a funding claim is built
+from.
+
+The ambiguity was load-bearing by accident. That is now a convention: **a `LIKE` pattern that selects
+a tenant, in a script that writes, is one row away from writing to the wrong one.** Exact slug, and
+fail loudly.
+
+Fixed to `.eq('slug', 'demo-mt-albert').maybeSingle()`, measured first: the three `Demo-Seed`
+children the drill needs are in `demo-mt-albert`, the other two are in `demo-mt-roskill`, and there
+were no attendance events anywhere in the project. The new error tells you to run `seed:demo` rather
+than `onboard` — the old message pointed at the script that creates a *real* tenant.
+
+### And then it passed
+
+**16/16 reconciliation checks**, against hand arithmetic written in the script's comments rather than
+a snapshot of whatever the code produced. This is the plan's Phase 5 verification — *"reconcile a
+month of attendance against a manually calculated roll return for one Little Pearls site"* — and it
+independently confirms the day's funding work by a second method. One assertion reads *"funded is
+exactly 28.00 — deterministic since the weekly cap became 30h, because 28 cannot be capped by 30
+however the ISO weeks fall"*, which is this morning's caps correction checked by hand.
+
+### A footnote that closes an open question
+
+The failing run ended with:
+
+    Assertion failed: !(handle->flags & UV_HANDLE_CLOSING), file src\win\async.c, line 94
+
+That is the **exact** libuv assertion `sweep-audit-tenants.ts` names in its header as something that
+has killed the Playwright CLI mid-run on this machine more than once. I had treated it as a
+documented rumour; it is now a reproduced fact, observed on `process.exit()` from a `tsx` script.
+
+It is also the most likely explanation for the e2e run earlier today that reported **92 passed, 32
+did not run, exit code 0** — a shape I could not account for at the time and did not want to guess
+at.
+
 ## 2026-09-04 (twenty-fourth) — the notice date, and the one over-claim closes
 
 Chosen ahead of §6-7's detection deliberately: removing a wrong number beats adding a new report.

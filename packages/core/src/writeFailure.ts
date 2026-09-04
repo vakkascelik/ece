@@ -66,6 +66,30 @@ export function classifyWriteFailure(message: string): WriteFailure {
    */
   if (/attendance_not_ancient/i.test(m)) return 'permanent';
 
+  /*
+    RLS, WHICH IS THE PERMANENT REFUSAL MOST LIKELY TO ACTUALLY HAPPEN - added 2026-09-04.
+
+    Measured against live Postgres, because a refusal message is an interface and this file had
+    been reasoning about one instead of reading it. The text is:
+
+        new row violates row-level security policy for table "attendance_events"
+
+    It contains neither `permission denied` nor `42501`, so before this line every rule below
+    missed it and this function answered `transient` - which does not mean "try again in a
+    minute", it means "the network is down, stop flushing". One such event at the head of a
+    queue stalls every write behind it, indefinitely.
+
+    Not hypothetical, and not rare: an educator removed from a centre, a child moved to another
+    service, a membership ended while a tablet sat in a bag. The queue still holds those events
+    and the server will refuse every one of them for ever.
+
+    `recordAttendance` and `recordAdultsPresent` now propagate the sqlstate, so the `42501` rule
+    below catches this as well. Both paths on purpose: the code is the general fix, and this
+    line is what survives a third write being added to an outbox by someone who does not know
+    the code has to be put into the message by hand.
+  */
+  if (/violates row-level security policy/i.test(m)) return 'permanent';
+
   if (
     /\b23514\b/.test(m) || // check_violation — some other rule the row breaks
     /violates check constraint/i.test(m) ||

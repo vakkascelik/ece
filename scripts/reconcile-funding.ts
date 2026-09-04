@@ -13,7 +13,11 @@
  * a day over the cap, a week over the cap, a split day, a correction, a missing sign-out, and a
  * child without the 20 Hours attestation.
  *
- *   ECE_ALLOW_DEMO_SEED=yes ECE_DRILL_PASSWORD=… npm run reconcile:funding
+ *   ECE_ALLOW_DEMO_SEED=yes npm run reconcile:funding
+ *
+ * `ECE_DRILL_PASSWORD` is no longer required. It provisions its own manager account on a
+ * `.invalid` address with a fresh random password each run; supply the variable only if you
+ * would rather drill as a real person.
  */
 
 import { randomUUID } from 'node:crypto';
@@ -34,7 +38,12 @@ if (!url || !anonKey || !serviceKey) die('Supabase env vars are required.');
 if (process.env.ECE_ALLOW_DEMO_SEED !== 'yes') {
   die('This writes attendance events. Set ECE_ALLOW_DEMO_SEED=yes to confirm.');
 }
-if (!password) die('Set ECE_DRILL_PASSWORD to the owner password for the demo centre.');
+/*
+  NO LONGER REQUIRED — 2026-09-04. This used to `die` without it, which meant the drill could
+  only be run by one person, and so it was not run against the two commits that changed the
+  arithmetic it exists to check. It is now an optional override; see `main()`.
+*/
+const DRILL_EMAIL = process.env.ECE_DRILL_EMAIL ?? 'reconcile.manager@littlepearls.invalid';
 
 const results: boolean[] = [];
 function check(ok: boolean, label: string) {
@@ -83,20 +92,116 @@ function nzAt(daysAgo: number, hh: number, mm = 0): { iso: string; date: string 
 async function main() {
   const admin = createServiceClient(url!, serviceKey!);
 
+  /*
+    THE DEMO TENANT, BY EXACT SLUG — corrected 2026-09-04, and the bug it fixes is worse than
+    the one that surfaced.
+
+    This read `.like('slug', '%albert%').single()`. Two problems, and the second is the serious
+    one:
+
+      • IT IS AMBIGUOUS. `demo-mt-albert` and `little-pearls-mt-albert` both match, `.single()`
+        errors on more than one row, and the script reported "Expected Little Pearls Mt Albert.
+        Run `npm run onboard` first" — a message pointing at the opposite of the actual problem.
+        That is how this surfaced.
+      • IT WAS AIMED AT THE REAL CUSTOMER'S TENANT. The name in the old error message says so
+        outright. This script SEEDS ATTENDANCE EVENTS — `ECE_ALLOW_DEMO_SEED=yes` exists to make
+        the caller confirm exactly that — so had the pattern ever resolved to one row, it would
+        have written invented attendance into a live centre's records, from which funding is
+        claimed. The ambiguity was the only thing preventing it.
+
+    Measured before changing it: the three `Demo-Seed` children this drill needs are in
+    `demo-mt-albert` (the other two are in `demo-mt-roskill`), and there were no attendance
+    events anywhere in the project. So the demo tenant is both the correct target and the one
+    that already holds the fixtures.
+
+    Exact match, not a pattern. A pattern is what let this point somewhere it should never have
+    pointed, and the slug is a constant `seed-demo.ts` controls.
+  */
+  const DEMO_SLUG = 'demo-mt-albert';
   const { data: centreRow } = await admin
     .from('centres')
     .select('id, name, timezone')
-    .like('slug', '%albert%')
-    .single();
-  if (!centreRow) die('Expected Little Pearls Mt Albert. Run `npm run onboard` first.');
+    .eq('slug', DEMO_SLUG)
+    .maybeSingle();
+  if (!centreRow) {
+    die(`No centre with slug '${DEMO_SLUG}'. Run \`npm run seed:demo\` first — this drill writes
+  attendance events and must never target a real tenant.`);
+  }
   const centre = centreRow as { id: string; name: string; timezone: string };
+
+  /*
+    NO HUMAN CREDENTIAL IS REQUIRED — 2026-09-04, and this was the blocker that stopped this
+    drill running for weeks.
+
+    It signed in as `vakkascelik@gmail.com` and demanded `ECE_DRILL_PASSWORD`: a named person's
+    real account password. `offline-drill.ts` records why that is wrong and fixed itself months
+    ago; this script never got the same treatment, and the consequence was concrete — it has
+    NOT been run against the two commits that changed its arithmetic, because the one person who
+    could run it had to be present with their own password.
+
+    The first of its three reasons is the one that bites: A PASSWORD CANNOT BE FETCHED. Supabase
+    stores `auth.users.encrypted_password` as a bcrypt hash, and no anon key, service role or
+    PAT returns it. Anybody without that person's password simply cannot run the drill, and the
+    only "fix" available to them is resetting a real login in order to run a test.
+
+    So it provisions its own account, exactly as the offline drill does: a `.invalid` address
+    that cannot receive mail (RFC 2606), a membership on the demo centre, and a fresh random
+    password on every run, never stored. `ECE_DRILL_PASSWORD` still works as an override for
+    anybody who would rather drill as a real person.
+
+    A MANAGER, NOT AN OWNER, and not an educator either — which differs from the offline drill
+    and the reason is worth stating. `readFundingPeriod` reads `absence_exemptions`, whose select
+    policy is `caller_may_exempt`: owner or manager. An educator would read no exemptions, every
+    §7-7 window would silently be three weeks instead of twelve, and the drill would reconcile a
+    figure that was wrong for a reason it could not see. Manager is the least privilege that can
+    actually answer the question this drill asks.
+  */
+  const drillPassword = password ?? `Drill!${randomUUID().slice(0, 18)}`;
+  let drillUserId: string;
+
+  /*
+    Find-or-create through `generateLink`, the same shape `offline-drill.ts` and `seed-demo.ts`
+    use: `invite` errors when the address already exists, and `recovery` then returns the
+    existing user. Not elegant, and it is the documented way to ask "does this user exist"
+    without listing every user in the project — which on this project intermittently returns a
+    500 with an empty body.
+  */
+  const invite = await admin.auth.admin.generateLink({ type: 'invite', email: DRILL_EMAIL });
+  if (invite.error) {
+    const recovery = await admin.auth.admin.generateLink({ type: 'recovery', email: DRILL_EMAIL });
+    if (recovery.error || !recovery.data?.user) {
+      die(`Could not resolve the drill account: ${recovery.error?.message}`);
+    }
+    drillUserId = recovery.data.user.id;
+  } else {
+    drillUserId = invite.data.user.id;
+  }
+
+  if (!password) {
+    // Reset every run, so nothing is stored anywhere and a leaked value is dead by the next
+    // drill. Skipped when somebody supplied their own — theirs is not ours to change.
+    await admin.auth.admin.updateUserById(drillUserId, {
+      password: drillPassword,
+      email_confirm: true,
+    });
+  }
+
+  // Upserted rather than inserted so a re-run is a no-op, and `revoked_at: null` so a
+  // previously revoked drill account comes back rather than failing at the first policy.
+  const membership = await admin
+    .from('memberships')
+    .upsert(
+      { centre_id: centre.id, user_id: drillUserId, role: 'manager', revoked_at: null },
+      { onConflict: 'centre_id,user_id' },
+    );
+  if (membership.error) die(`Could not give the drill account access: ${membership.error.message}`);
 
   const staff = createAnonClient(url!, anonKey!);
   const signIn = await staff.auth.signInWithPassword({
-    email: 'vakkascelik@gmail.com',
-    password: password!,
+    email: DRILL_EMAIL,
+    password: drillPassword,
   });
-  if (signIn.error) die(`Sign-in failed: ${signIn.error.message}`);
+  if (signIn.error) die(`Sign-in failed for ${DRILL_EMAIL}: ${signIn.error.message}`);
 
   /**
    * A dedicated child, so the figures are not disturbed by other probes.

@@ -22,6 +22,7 @@ import { randomUUID } from 'node:crypto';
 import {
   assessRatio,
   buildRoll,
+  classifyWriteFailure,
   splitByAgeBand,
   type Child,
   type HealthCondition,
@@ -325,10 +326,61 @@ async function main() {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    // The same classification `outbox.ts#isPermanent` applies.
-    permanent = /\b23514\b/.test(message) || /violates check constraint/i.test(message);
+    /*
+      CALLS THE REAL CLASSIFIER - changed 2026-09-04. This is the defect the drill found, and
+      the defect was in the drill.
+
+      It used to re-implement the rule inline:
+
+          permanent = /\b23514\b/.test(message) || /violates check constraint/i.test(message);
+
+      under a comment claiming "the same classification `outbox.ts#isPermanent` applies". It was
+      a copy, not a call. `0078` replaced the 14-day CHECK with a trigger phrasing its own
+      refusal - `attendance_not_ancient : row is older than the 14 day window (...)` - which
+      matches neither of those two patterns, so this assertion went red.
+
+      **The product was fine.** `classifyWriteFailure` matches on the trigger name, which `0079`
+      deliberately put at the front of that message, so both outboxes classified it `permanent`
+      throughout. I first read the red assertion as a live outbox defect and said so; it was
+      not. What the copy actually cost was this check's ability to tell the truth about the
+      product in either direction.
+
+      Now it asserts on `classifyWriteFailure` itself - the same function both outboxes call - so
+      a pass means the product classifies it correctly, not that this file agrees with a snapshot
+      of how the product once behaved.
+    */
+    permanent = classifyWriteFailure(message) === 'permanent';
   }
   check(permanent, 'a 20-day-old event is refused with a code the outbox treats as permanent');
+
+  /*
+    AND THE REFUSAL THAT ACTUALLY STALLS QUEUES, which nothing exercised until 2026-09-04.
+
+    RLS phrases its refusal as `new row violates row-level security policy for table "..."`,
+    carrying neither `permission denied` nor `42501` in the text. Until this commit
+    `recordAttendance` threw the message without the code, so the classifier saw nothing it
+    recognised and answered `transient` - which means "the network is down, stop flushing", not
+    "try again shortly". One such event at the head of a queue parks every write behind it.
+
+    A child id that is not in this centre is the cheapest way to provoke it, and it is also the
+    real scenario: an educator removed from a centre, or a child moved to another service, with
+    a tablet still holding their events.
+  */
+  let rlsVerdict = 'accepted';
+  try {
+    await recordAttendance(staff, {
+      childId: '00000000-0000-0000-0000-0000000000ff',
+      kind: 'in',
+      at: new Date().toISOString(),
+      clientUuid: randomUUID(),
+    });
+  } catch (err) {
+    rlsVerdict = classifyWriteFailure(err instanceof Error ? err.message : String(err));
+  }
+  check(
+    rlsVerdict === 'permanent',
+    `a write RLS refuses is permanent, not a stalled queue (got ${rlsVerdict})`,
+  );
 
   const passed = results.filter(Boolean).length;
   console.log(`\n  ${passed}/${results.length} drill checks passed`);
