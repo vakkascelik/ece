@@ -1971,7 +1971,7 @@ bolted onto the current single `fundedHours` number cannot express that. The cap
 30/week for every child, with a 20/week sub-cap on the 20 Hours component and the remainder to 30
 as Plus 10.
 
-### 55. Funded hours are derived from attendance, and for a permanently enrolled child the Handbook starts from enrolment — **OPEN, added 2026-09-04, wired the same day**
+### 55. Funded hours are derived from attendance, and for a permanently enrolled child the Handbook starts from enrolment — **CLOSED 2026-09-04**
 
 > **The claim that this product's funding error only ever runs LOW went conditional and is now
 > restored — 2026-09-04, both within a few hours.**
@@ -2021,21 +2021,40 @@ claim is entirely absence-based — so the whole change would have been invisibl
 right and the child missing from the report. It now also keeps a row with funded hours or with
 unclaimable absences, the second being the most actionable row on the page.
 
-**What is left is one column, and it is an OVER-claim — the only one this product knowingly has.**
-§6-5 stops a claim when a parent gives notice the child will not return, *"even if the three week
-period has not ended"*, and the Ministry recovers anything claimed after that point. **Nothing in
-this schema records notice.** `enrolments.end_date` is not it: notice comes first, and the end date
-may be later or absent entirely.
+#### What was left was one column, and it was an OVER-claim — closed the same day by `0093`
 
-So `noticeGivenOn` is passed as null and the window runs its full length. Every other gap in this
-product errs low; this one errs high, which is why it is named here in the section on the change that
-introduced it rather than filed as a future feature. It is a missing column, not a missing
-calculation — `classifyAbsences` already takes the date and has an assertion for it.
+§6-5 stops a claim when a parent gives notice the child will not return, *"even if the three week
+period has not ended"*, and the Ministry recovers anything claimed after that point. For a few hours
+**nothing in this schema recorded notice**, so `noticeGivenOn` was passed as null and the window ran
+its full length. `enrolments.end_date` was never it: notice comes first, and the end date may be
+later or absent entirely.
+
+`0093` added `enrolments.notice_given_on` and `notice_given_by`, paired by a CHECK so a date cannot
+exist without the guardian who gave it, and `readFundingPeriod` passes it
+(`packages/api/src/billing.ts`). **This product now knowingly contains no over-claim in the absence
+calculation.**
+
+**Two later commits closed the rest of the absence work**, which is why this item is CLOSED rather
+than partly so: §6-7's monthly check, and §6-4's cross-child detection. §6-4 is *detected and
+reported* rather than deducted — a place can still be claimed twice in `fundedHours` with a sentence
+on the screen saying by how much — but that is item 57's remaining question, not this item's. The
+hours **source** question this item was opened about is answered: a permanently enrolled child with
+a recorded agreement is funded from the agreement, and `hoursBasis` names the source of every
+figure.
+
+**What is NOT closed by this**, and is tracked elsewhere: `FUNDING_RULES.hoursSource` stays `false`,
+because a permanent child with no recorded booking schedule still falls back to attendance and
+under-claims. That is a data gap the product reports per child, not a calculation gap.
 
 **The sentence in [[funding-and-billing]] is not wrong so much as half-right**, and it is corrected
 there rather than deleted, because the reasoning behind it is sound: a claim for hours nobody
 observed *is* the hazard, and the Handbook's answer is that for a permanently enrolled child the
 observation that matters is the **agreement plus the absence rules**, not the turnstile.
+
+**Closed 2026-09-05**, two days after the gap it named was filled — found by re-reading this register
+during a status check rather than by the commit that fixed it, which is the failure mode
+[[conventions]] warns about from the other direction. The commit message for `0093` said it closed
+the product's one over-claim; it did not say so here.
 
 ### 56. Whether the RS7 two-and-over subsidy figure excludes Plus 10 hours or only the first twenty — **OPEN, added 2026-09-04**
 
