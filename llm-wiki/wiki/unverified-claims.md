@@ -2279,6 +2279,43 @@ closure nobody is claiming, and a letter date cannot exist for a request nobody 
 closures yet. The question is now answerable and no code asks it; that belongs to 2F with the rest of
 the absence rules.
 
+### 61. §6-7's sentence and §6-8's examples disagree about month three — **OPEN, added 2026-09-04**
+
+Two Ministry sources, one narrower than the other, and the difference decides whether a funding
+claim is legitimate.
+
+**§6-7's own prose:** *"Funding for absences in the third month must only be claimed if the child's
+enrolment agreement has been reconfirmed."* One condition — a reconfirmation.
+
+**§6-8's worked examples say two**, in all three of them. Example 1, Kristen, absent more than half
+the Fridays in August: *"May claim: August and September enrolled hours; October enrolled hours if
+attendance returns to normal in October **OR** enrolment agreement is reconfirmed/changed"*. Example
+2 (Sione, fewer hours) and Example 3 (Vijay, fewer days) repeat the same structure with different
+months.
+
+So the examples permit a month-3 claim where **attendance simply returned to normal** and nobody
+reconfirmed anything. §6-7's sentence does not mention that case at all.
+
+**Why it matters in both directions.** Implement the narrow reading and the product refuses a claim
+the Ministry's own examples allow, and tells a service to go and collect a signature it does not
+need. Implement the permissive reading and the product may claim a month the Handbook's binding
+prose says requires a reconfirmation. The first under-claims, which is this product's stated safe
+direction; the second is a Crown return asserting something the rule may not permit.
+
+**This is not a reading error.** The plan's earlier one-line summary of §6-7 had the narrow version —
+*"month 3 claimable only if reconfirmed"* — which is what §6-7 says and is why the disagreement only
+surfaced when §6-8 was read alongside it. Reading the examples is what found it, and that is now the
+third time this week that a companion section changed the answer: §7-5 beside §7-7, §6-8 beside §6-7.
+
+**How this product will behave until it is resolved:** `enrolment_reconfirmations` (`0092`) records
+the reconfirmation and nothing computes month-3 claimability yet, so nothing is currently wrong. When
+2F lands, the narrow reading applies — under-claiming — **and the surface says which reading it
+used**, because a figure computed one way must not silently look like a figure computed the other.
+
+**To close it:** ask. This belongs in the next Ministry enquiry beside the Plus 10 question, and it
+is a sharper question than that one because both sources are the Ministry's own and they are two
+pages apart.
+
 ## See Also
 
 - [[eli-integration]] — the public schema, the event catalogue, and items 47 and 48

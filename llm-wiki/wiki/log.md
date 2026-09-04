@@ -5,6 +5,41 @@ says so.*
 
 ---
 
+2026-09-04 (sixteenth) — **`0092`: the §6-7 reconfirmation, and §6-8's examples contradict
+§6-7's prose.** New: a verbatim §6-7 transcription in [[funding-and-billing]],
+[[unverified-claims]] item 61 for the contradiction, and a third question in the Ministry enquiry.
+
+**The contradiction is the finding.** §6-7 says the third month *"must only be claimed if the
+child's enrolment agreement has been reconfirmed"* — one condition. §6-8's three worked examples each
+say the third month may be claimed *"if attendance returns to normal … **OR** enrolment agreement is
+reconfirmed/changed"* — two. Both are the Ministry's own and they are two pages apart. Third time this
+week a companion section changed the answer: §7-5 beside §7-7, now §6-8 beside §6-7.
+
+**§6-7 also carries three distinct trigger situations**, not one, and the third — fewer hours than
+enrolled — *"excludes sessional services"*. `centres.service_model` (`0083`) is exactly that
+distinction, so the exclusion is checkable rather than a footnote.
+
+`enrolment_reconfirmations` mirrors `attendance_verifications` (`0061`) and diverges twice, both
+stated: **keyed on the enrolment** rather than the child, because month 4 requires *that* agreement
+to change and a reconfirmation of a previous enrolment must not unlock a later claim; and **no
+period**, because a reconfirmation is a forward-looking act on a date rather than a verification of a
+stretch that already happened. `verification_method` is reused — same question, and the type already
+carries §6-3's reasoning about `paper` — while the outcome vocabulary is text plus a CHECK, since
+affirmed/revised is not approved/disputed.
+
+**Repeated reconfirmation is allowed, and asserted.** The three other dated tables built this week
+all refuse overlapping periods; copying that here would have refused precisely what §6-7 asks for.
+
+**The signatory trigger from `0087` was extended** to resolve a child through an enrolment, because
+this table has no `child_id` — copied verbatim and diffed, per the convention `0090` established.
+Fourteen assertions, 726 → 741.
+
+**And one of mine passed for the wrong reason before it was fixed**: the tenancy assertion borrowed
+`0088`'s other-centre guardian, but this block sits earlier in the file so that row did not exist
+yet — and the trigger fires before the foreign key, so a uuid belonging to nobody raises the same
+`23514` as one belonging to another centre. The block now creates its own subject and asserts the
+row exists unseen first.
+
 2026-09-04 (fifteenth) — **`0091`: the closed days that ARE claimable.** Closes
 [[unverified-claims]] item 60 on the schema, four hours after opening it. New: a verbatim §7-5
 transcription in [[funding-and-billing]] beside §7-7. Refreshed: [[index]]'s pointer to the funding

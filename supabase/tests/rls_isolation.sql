@@ -1203,6 +1203,250 @@ select pg_temp.expect(
 );
 
 -- ===========================================================================
+-- 0092 — the §6-7 reconfirmation
+--
+-- The assertion worth reading first is the REPEATED one. Every other dated table built this
+-- week refuses overlapping periods; this one deliberately does not, because §6-7's timeline
+-- expects a pattern that persists to be reconfirmed more than once. An exclusion constraint
+-- copied from `0089` out of habit would have refused exactly what the rule asks for.
+--
+-- The second is the SIGNATORY one, which is the only test that the trigger extended in 0092
+-- can resolve a child through an enrolment. `enrolment_reconfirmations` carries no
+-- `child_id`, so before that extension the guard silently compared against null and let
+-- anything through.
+-- ===========================================================================
+
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+
+do $$
+declare v_enrolment uuid; n integer;
+begin
+  select id into v_enrolment from public.enrolments
+   where child_id = 'a1111111-1111-4111-8111-111111111111' limit 1;
+
+  insert into public.enrolment_reconfirmations
+    (enrolment_id, guardian_id, confirmed_on, outcome, method)
+  values (v_enrolment, 'd1111111-1111-4111-8111-111111111111', '2026-04-30', 'affirmed', 'portal');
+  get diagnostics n = row_count;
+  perform pg_temp.expect(n = 1, 'an owner CAN record a §6-7 reconfirmation (0092)');
+end $$;
+
+/*
+ * REPEATED RECONFIRMATION IS THE POINT, NOT A CONFLICT.
+ *
+ * §6-7 runs month by month: a pattern that continues is reconfirmed again. The three other
+ * dated tables from this week — 0085, 0088, 0089 — all refuse overlapping periods, and
+ * copying that here would have refused the thing the rule requires. This is the assertion
+ * that pins the ABSENCE of a constraint, which is the kind of decision a later migration
+ * "tidies up".
+ */
+do $$
+declare v_enrolment uuid; n integer;
+begin
+  select id into v_enrolment from public.enrolments
+   where child_id = 'a1111111-1111-4111-8111-111111111111' limit 1;
+  insert into public.enrolment_reconfirmations
+    (enrolment_id, guardian_id, confirmed_on, outcome, method)
+  values (v_enrolment, 'd1111111-1111-4111-8111-111111111111', '2026-05-31', 'affirmed', 'paper');
+  get diagnostics n = row_count;
+  perform pg_temp.expect(n = 1,
+    'the SAME agreement can be reconfirmed again a month later - §6-7 expects it (0092)');
+end $$;
+
+-- What is refused is the same agreement twice on one day, which is a double submission rather
+-- than a second conversation.
+do $$
+declare v_enrolment uuid; code text := 'none (the insert SUCCEEDED)';
+begin
+  select id into v_enrolment from public.enrolments
+   where child_id = 'a1111111-1111-4111-8111-111111111111' limit 1;
+  begin
+    insert into public.enrolment_reconfirmations
+      (enrolment_id, guardian_id, confirmed_on, outcome, method)
+    values (v_enrolment, 'd3333333-3333-4333-8333-333333333333', '2026-05-31', 'affirmed', 'kiosk');
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '23505',
+    'one agreement cannot be reconfirmed twice on the same day, got ' || code);
+end $$;
+
+-- §6-7's second outcome: "documenting revised attendance days/times". It has to say what it
+-- revised — the same reasoning as 0061's `av_dispute_explained`, that an outcome needing a
+-- reason is not recordable without one.
+do $$
+declare v_enrolment uuid; code text := 'none (the insert SUCCEEDED)';
+begin
+  select id into v_enrolment from public.enrolments
+   where child_id = 'a1111111-1111-4111-8111-111111111111' limit 1;
+  begin
+    insert into public.enrolment_reconfirmations
+      (enrolment_id, guardian_id, confirmed_on, outcome, method)
+    values (v_enrolment, 'd1111111-1111-4111-8111-111111111111', '2026-06-30', 'revised', 'portal');
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '23514',
+    'a REVISED agreement must say what changed, got ' || code);
+end $$;
+
+do $$
+declare v_enrolment uuid; n integer;
+begin
+  select id into v_enrolment from public.enrolments
+   where child_id = 'a1111111-1111-4111-8111-111111111111' limit 1;
+  insert into public.enrolment_reconfirmations
+    (enrolment_id, guardian_id, confirmed_on, outcome, method, detail)
+  values (v_enrolment, 'd1111111-1111-4111-8111-111111111111', '2026-06-30', 'revised', 'portal',
+          'Dropped Friday; new block filed from 1 July');
+  get diagnostics n = row_count;
+  perform pg_temp.expect(n = 1, 'a revision WITH a note is recorded (0092)');
+end $$;
+
+-- Whitespace is not a note. `not null` alone would accept a single space, which is the same
+-- class of hole 0086 found on a required address line.
+do $$
+declare v_enrolment uuid; code text := 'none (the insert SUCCEEDED)';
+begin
+  select id into v_enrolment from public.enrolments
+   where child_id = 'a1111111-1111-4111-8111-111111111111' limit 1;
+  begin
+    insert into public.enrolment_reconfirmations
+      (enrolment_id, guardian_id, confirmed_on, outcome, method, detail)
+    values (v_enrolment, 'd1111111-1111-4111-8111-111111111111', '2026-07-31', 'revised',
+            'portal', '   ');
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '23514', 'a blank revision note is refused, got ' || code);
+end $$;
+
+do $$
+declare v_enrolment uuid; code text := 'none (the insert SUCCEEDED)';
+begin
+  select id into v_enrolment from public.enrolments
+   where child_id = 'a1111111-1111-4111-8111-111111111111' limit 1;
+  begin
+    insert into public.enrolment_reconfirmations
+      (enrolment_id, guardian_id, confirmed_on, outcome, method)
+    values (v_enrolment, 'd1111111-1111-4111-8111-111111111111', '2026-08-31', 'maybe', 'portal');
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '23514', 'an unlisted reconfirmation outcome is refused, got ' || code);
+end $$;
+
+/*
+ * THE SIGNATORY TRIGGER, RESOLVING A CHILD THROUGH AN ENROLMENT.
+ *
+ * Quinn is Beau's father: a real guardian, at this same centre, with an account — and not
+ * Ana's guardian. The foreign key accepts him. This table has no `child_id`, so 0087's
+ * trigger compared against null until 0092 taught it to resolve one through the enrolment,
+ * and without that extension this insert would have SUCCEEDED — a signature on Ana's funding
+ * record attributed to another family's parent.
+ */
+do $$
+declare v_enrolment uuid; code text := 'none (the insert SUCCEEDED)';
+begin
+  select id into v_enrolment from public.enrolments
+   where child_id = 'a1111111-1111-4111-8111-111111111111' limit 1;
+  begin
+    insert into public.enrolment_reconfirmations
+      (enrolment_id, guardian_id, confirmed_on, outcome, method)
+    values (v_enrolment, 'd2222222-2222-4222-8222-222222222222', '2026-09-30', 'affirmed', 'portal');
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '23514',
+    'ANOTHER FAMILY''S guardian cannot reconfirm this child''s agreement, got ' || code);
+end $$;
+
+/*
+ * And the other centre's guardian, which is the tenancy half of the same trigger.
+ *
+ * The guardian is CREATED HERE rather than borrowed from 0088's block, and that correction is
+ * worth recording: this block sits earlier in the file, so 0088's `d9999999` does not exist
+ * yet. Borrowing it made the assertion pass for the wrong reason — the trigger fires before
+ * the foreign key, so a uuid belonging to nobody raises the same 23514 as one belonging to
+ * another centre, and the label claimed a tenancy test it was not performing.
+ */
+set local request.jwt.claims = '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}';
+insert into public.guardians (id, centre_id, full_name)
+values ('d8888888-8888-4888-8888-888888888888', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+        'Other Centre Signatory');
+
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+do $$
+declare v_enrolment uuid; code text := 'none (the insert SUCCEEDED)'; v_exists boolean;
+begin
+  select id into v_enrolment from public.enrolments
+   where child_id = 'a1111111-1111-4111-8111-111111111111' limit 1;
+
+  -- The guardian must actually EXIST for this to be a tenancy test rather than a
+  -- missing-row test. Asserted, because that is precisely what went wrong first time.
+  select exists (select 1 from public.guardians g
+                  where g.id = 'd8888888-8888-4888-8888-888888888888') into v_exists;
+  perform pg_temp.expect(v_exists = false,
+    'centre A cannot even SEE the other centre''s guardian, so the row exists unseen (0092)');
+
+  begin
+    insert into public.enrolment_reconfirmations
+      (enrolment_id, guardian_id, confirmed_on, outcome, method)
+    values (v_enrolment, 'd8888888-8888-4888-8888-888888888888', '2026-10-31', 'affirmed', 'portal');
+  exception when others then code := sqlstate;
+  end;
+  perform pg_temp.expect(code = '23514',
+    'ANOTHER CENTRE''S guardian cannot reconfirm an agreement here, got ' || code);
+end $$;
+
+-- The audit row, attributed through the enrolment. This is 0090's branch doing its work on a
+-- second table, and the assertion is what distinguishes "the trigger fired" from "the trigger
+-- resolved a tenant".
+select pg_temp.expect(
+  (select count(*) from public.audit_events
+    where entity = 'enrolment_reconfirmations'
+      and action = 'insert'
+      and centre_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') >= 1,
+  'a reconfirmation leaves an audit row attributed through the enrolment (0090 + 0092)'
+);
+
+-- An educator neither reads nor writes: a reconfirmation is a funding-compliance record, and
+-- `caller_may_exempt` is owner-or-manager.
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.enrolment_reconfirmations) = 0,
+  'an educator reads NO reconfirmation (0092)'
+);
+
+-- Nor the parent who signed it. They hold their own copy and §6-7 requires the SERVICE to keep
+-- one; a family-facing view of their own signatures is a real feature and is not this one.
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.enrolment_reconfirmations) = 0,
+  'the PARENT who signed does not read it back here either (0092)'
+);
+
+set local request.jwt.claims = '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.enrolment_reconfirmations) = 0,
+  'another centre CANNOT read this centre''s reconfirmations (0092)'
+);
+
+do $$
+declare code text := 'none';
+begin
+  set local role anon;
+  begin
+    perform 1 from public.enrolment_reconfirmations;
+  exception when others then code := sqlstate;
+  end;
+  set local role authenticated;
+  perform pg_temp.expect(code = '42501',
+    'anon is refused by the GRANT on enrolment_reconfirmations, got ' || code);
+end $$;
+
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+
+-- Leave the table empty, so a later assertion counting rows on this enrolment is not reading
+-- this block's fixtures.
+delete from public.enrolment_reconfirmations;
+
+-- ===========================================================================
 -- 0089 — absence-rule exemptions (§7-7), and 0090's audit attribution
 --
 -- Two things are under test here and they are worth separating. The CHECK constraints are a

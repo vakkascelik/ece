@@ -658,6 +658,58 @@ like it filed something is a screen after which nobody files anything. `exportDi
 the wording from the summary, so it cannot say "complete" when it is not, and lives in `@ece/core`
 so a future emailed version says the same thing.
 
+### §6-7, transcribed — the Frequent Absence Rule
+
+Read from [6-7 The Frequent Absence
+Rule](https://www.education.govt.nz/education-professionals/early-learning/funding-and-financials/chapter-6-recording-enrolment-attendance-and-absence/6-7-frequent-absence-rule)
+and its companion [6-8
+Examples](https://www.education.govt.nz/education-professionals/early-learning/funding-and-financials/chapter-6-recording-enrolment-attendance-and-absence/6-8-frequent-absence-rule-examples)
+on **2026-09-04**. Reading both is what found [[unverified-claims]] item 61 — they disagree.
+
+**The rule.** *"A child's attendance must match their enrolment agreement for at least half (i.e. 50
+per cent or more) of each calendar month."*
+
+**Three trigger situations**, and this product can express all three because `0085` holds the
+agreement with times and `0083` holds the service model:
+
+| | Trigger | Needs |
+|---|---|---|
+| 1 | absent on the same enrolled day(s) for more than half of those days in a calendar month | the agreement's weekdays |
+| 2 | attends fewer days per week than enrolled, in more than half the weeks in a month | the agreement's weekdays, weekly |
+| 3 | attends fewer hours than enrolled daily, on more than half of enrolled days in a month — ***"excludes sessional services"*** | the agreement's **times**, and `centres.service_model` |
+
+That third exclusion is why `0083` matters here: `service_model = 'sessional'` is exactly the
+distinction the Handbook draws, so the exclusion is checkable rather than a footnote somebody has to
+remember.
+
+**The timeline.** Month 1: note it and claim. Month 2: re-check, reconfirm if it continues, and
+claim. Month 3: *"must only be claimed if the child's enrolment agreement has been reconfirmed"* —
+**and §6-8's examples add a second route, see item 61**. Month 4: *"must not be claimed and the
+enrolment agreement must be changed to match the child's attendance"*.
+
+**The rule may be extended** across *"periods of two or more weeks of non-operation (holidays,
+renovations, etc.)"* — the same clause as §6-6, and `service_closures` (`0088`) is what makes it
+answerable.
+
+**What a reconfirmation is:** *"signed, dated confirmation from parents/guardians either affirming
+the agreement remains valid or documenting revised attendance days/times."* Two outcomes, and they
+are not degrees of one thing — **affirmed** says the absences were incidental, **revised** says the
+agreement was wrong and month 4's *"must be changed"* is satisfied by a new `child_booking_schedule`
+block rather than by the reconfirmation row.
+
+`enrolment_reconfirmations` (`0092`) is that record. Three things about its shape:
+
+- **Keyed on the enrolment, not the child**, diverging from `attendance_verifications`. Month 4
+  requires *that* agreement to change, and a reconfirmation of a previous enrolment must not unlock
+  a month-3 claim against a later one.
+- **No period**, also diverging. `attendance_verifications` stores both ends because it verifies a
+  stretch of attendance that already happened; a reconfirmation is a forward-looking act on a single
+  date, and what month 3 needs to know is whether one happened before it.
+- **Repeated reconfirmation is allowed and asserted.** Every other dated table built this week
+  refuses overlapping periods; this one must not, because §6-7 expects a persisting pattern to be
+  reconfirmed again. An exclusion constraint copied out of habit would have refused the thing the
+  rule asks for.
+
 ### §7-5, transcribed — emergency closure, and the closed days that ARE claimable
 
 Read the same day as §7-7 and found by reading past it, from [7-5 Emergency

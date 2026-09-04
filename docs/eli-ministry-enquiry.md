@@ -35,6 +35,19 @@ work that is otherwise ready to build**.
 | Is the 6-hour daily cap per child or per licensed place? | Glossary. An FCH is *"an occupied child-place that is funded for 1 hour"*, capped *"per child-place per day"*. §9-3's "per child" is loose phrasing of the same rule |
 | Do the child hour counts round the same way as the staff hour count? | §9-2 step 5 — *"Round the total to the nearest whole number"* — and note it rounds the **daily total across children**, not each child's hours |
 
+### A third question, added 2026-09-04
+
+**Does §6-7's third month require a reconfirmation, or is returning to normal attendance enough?**
+
+§6-7 says *"funding for absences in the third month must only be claimed if the child's enrolment
+agreement has been reconfirmed"*. §6-8's three worked examples each say the third month may be
+claimed *"if attendance returns to normal … OR enrolment agreement is reconfirmed/changed"*.
+
+Both are the Ministry's own, two pages apart. The difference decides whether a service must collect
+a signature it may not need, and whether a month is claimable. Recorded as
+[[unverified-claims]] item 61; until answered this product will apply the narrower reading — which
+under-claims — and say on screen which reading produced the figure.
+
 ### Suggested subject
 
 `ELI integration — two calculation questions before we submit (Little Pearls Educare)`

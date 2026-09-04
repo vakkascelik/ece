@@ -7,6 +7,86 @@ itself, and from the wiki pages, which hold the durable *why*. This file is the 
 
 ---
 
+## 2026-09-04 (sixteenth) — `0092`, and two Ministry sources that disagree
+
+Phase 2E. §6-7 read, its companion §6-8 read alongside it, and the two do not say the same thing.
+
+### The contradiction
+
+**§6-7:** *"Funding for absences in the third month must only be claimed if the child's enrolment
+agreement has been reconfirmed."* One condition.
+
+**§6-8, all three worked examples:** the third month may be claimed *"if attendance returns to
+normal … **OR** enrolment agreement is reconfirmed/changed."* Two conditions.
+
+The examples permit a month-3 claim where attendance simply returned to normal and nobody
+reconfirmed anything. §6-7's sentence does not mention that case.
+
+It matters in both directions. The narrow reading refuses a claim the Ministry's own examples allow
+and sends a service to collect a signature it does not need. The permissive reading may claim a month
+the binding prose says requires a reconfirmation. Item 61, and a third question in the enquiry draft
+— sharper than the Plus 10 one, because both sources here are the Ministry's own.
+
+**And the plan's one-line summary had the narrow version**, which is what §6-7 says. The
+disagreement only exists if you read the examples. That is now the third time this week a companion
+section changed the answer: §7-5 beside §7-7, and now §6-8 beside §6-7. Reading the section you came
+for is not reading the chapter.
+
+### What §6-7 carries that the summary did not
+
+Three distinct trigger situations rather than one — absent on the same enrolled days, fewer days per
+week, fewer hours per day — and the third *"excludes sessional services"*. `centres.service_model`
+(`0083`) is exactly that distinction, so the exclusion is checkable rather than something a future
+reader has to remember. That is the second time `0083` has turned out to matter for a rule it was
+not built for.
+
+### The table, and two deliberate divergences from `0061`
+
+`attendance_verifications` was the right template and I diverged from it twice, both recorded in the
+migration:
+
+**Keyed on the enrolment, not the child.** `0061`'s reason for keying on the child still holds —
+the row reaches its tenant through the child, so there is no denormalised centre to drift — and this
+table has no `centre_id` either. But §6-7 is about *the child's enrolment agreement*, and month 4
+requires *that* agreement to change. A child who leaves and comes back has two agreements, and a
+reconfirmation of the first must not unlock a month-3 claim against the second, which a child-keyed
+table would do silently.
+
+**No period.** `attendance_verifications` stores both ends because it verifies a stretch of
+attendance that already happened, and §6-3's cadence is weekly for some services and monthly for
+others. A reconfirmation is not that: it is a forward-looking act on a single date, and what month 3
+needs to know is whether one happened before it. Storing a period would invite somebody to compute
+"the month this covers", which is derived from attendance and would then have two sources.
+
+**Reused `verification_method`, did not reuse `verification_outcome`.** The method is the same
+question — how was the signature given — and that type already carries §6-3's reasoning about why
+`paper` is a first-class path. The outcome is not: affirmed/revised is not approved/disputed, so it
+is text plus a CHECK, following `0083` and `0089`.
+
+**Repeated reconfirmation is allowed, and there is an assertion pinning it.** `0085`, `0088` and
+`0089` all refuse overlapping periods and I nearly copied that reflexively. §6-7's timeline expects a
+persisting pattern to be reconfirmed month after month; an exclusion constraint would have refused
+the rule. What is refused is the same agreement twice on one day, which is a double submission.
+
+### A mistake, and a near-miss in my own assertion
+
+The signatory trigger from `0087` needed extending, because this table carries `enrolment_id` and no
+`child_id` — so the guard was comparing against null. Copied verbatim and diffed, per the convention
+`0090` earned the hard way, and the diff was exactly the resolution block plus one substitution.
+
+Then the tenancy assertion **passed for the wrong reason**. It borrowed `0088`'s other-centre
+guardian, but this block sits earlier in the same file, so that row did not exist yet — and the
+trigger fires before the foreign key, so a uuid belonging to nobody raises the same `23514` as one
+belonging to another centre. The label claimed a tenancy test it was not performing. It now creates
+its own guardian in the other centre and asserts the row **exists unseen** first, which is the thing
+that makes the difference visible.
+
+I also tried to mutation-test the trigger extension by weakening it in the DB, and stopped: the
+migrate tool refused to re-apply — correctly — and a hand-applied weakening would have left a live
+security trigger degraded for the duration. It is unnecessary anyway. Without the enrolment branch
+`v_child` is null, `cg.child_id = null` matches nothing, and the guard refuses **every** guardian —
+so the positive assertion could not pass at all. The pair proves the branch between them.
+
 ## 2026-09-04 (fifteenth) — `0091`, the closed days that are claimable
 
 Item 60, opened four hours earlier when reading §7-5 found a gap in `0088`, closed on the schema.
