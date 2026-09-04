@@ -930,6 +930,25 @@ lives in `tokens.ts` and a stylesheet wants it, emit it rather than copying it.
 - **`dotenv-cli` wraps the Next scripts.** Next ignores a monorepo root `.env.local`, and the
   failure is delayed — `next build` succeeds and only a real request fails.
 
+### A background command's silence is not evidence of a hang
+
+`npm run sweep:audit` was backgrounded, produced zero bytes for ten minutes, and I concluded it had
+hung on an unresponsive endpoint. It had not: output for a backgrounded command arrives when the
+process exits, so zero bytes means *"no result yet"* and nothing whatever about progress. It had in
+fact finished quickly and deleted fifteen rows.
+
+Then a dry run of the same script reported nothing to do — which was **the first run's effect**, not
+a defect in the second. I read the empty result as proof of the bug I had already decided on, wrote
+that in a commit message, and pushed it.
+
+Two rules out of it. **Check the effect, not the transcript**: one query against `auth.users` would
+have shown the rows were gone and there was nothing to explain. And **a dry run after a real run
+tells you about the real run**, so establish the order before drawing a conclusion from an empty
+result.
+
+The same mistake in miniature as the stale-build one below: both are cases of a tool telling the
+truth about a world I had already changed.
+
 ### Running the Playwright CLI directly skips the build, and the failure blames your code
 
 `npm run test:e2e` is `npm run build && playwright test`. Invoking the CLI on its own to iterate on

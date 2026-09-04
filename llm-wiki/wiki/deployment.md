@@ -538,6 +538,44 @@ limit to make it pass is the move AGENTS.md forbids by name), and **decide wheth
 service-role key goes into GitHub Actions secrets** — a real decision about where that key lives,
 not a chore.
 
+### Two sweeps, and only one of them can remove an account
+
+**Established 2026-09-04, after a transient e2e failure that cost an hour.** There are two audit
+sweeps and they do different things. Confusing them is easy and I did it in a commit message —
+see the correction below.
+
+| | Removes | Runs as | Called by |
+|---|---|---|---|
+| `sweepStaleAuditTenants` (`e2e/fixtures/tenant.ts`) | stale audit **centres** only | `service_role` | the e2e teardown, every run |
+| `npm run sweep:audit` (`scripts/sweep-audit-tenants.ts`) | stale audit centres **and** `audit.%@ece.invalid` accounts | direct Postgres, as the table owner | by hand |
+
+**The in-suite sweep never touches `auth.users`.** It cannot: it goes through PostgREST as
+`service_role`, which has no access to the `auth` schema at all. So every run that creates five
+accounts leaves five behind, and they accumulate until somebody runs the script.
+
+**Fifteen had accumulated** by 2026-09-04, from three interrupted runs on 1–2 September — five each.
+The e2e suite then failed twice on `seed.setup.ts` with a bare 60-second timeout and no locator, ran
+`npm run sweep:audit`, and passed 124/124 on the next attempt with nothing else changed.
+
+**That is a correlation and not a proof**, and it is recorded as the leading hypothesis rather than a
+diagnosis. What was ruled out with evidence at the time: the app itself (the built server answered
+`/login` with HTTP 200), an import cycle in `@ece/core`, leftover audit *centres* (measured zero),
+Supabase being down (REST 0.4s, GoTrue health 0.2s, Postgres serving `migrate --status`), and a stuck
+transaction holding locks on `centres` (`pg_stat_activity` showed nothing active or in-transaction).
+
+**The practical rule:** if the seed times out, run `npm run sweep:audit` before anything else. It is
+idempotent, matches only `audit.` on the RFC 2606 `.invalid` domain, and has a two-hour grace period
+so it cannot touch a run in flight.
+
+**CORRECTION — the commit message for `5d4e696` says this wrongly.** It claims *"the sweep finds
+accounts VIA the centres it deletes, so once a centre is gone its accounts are invisible to it"*.
+That is not true of `scripts/sweep-audit-tenants.ts`, which selects accounts by email pattern and age
+independently of any centre. What is true is the table above: the **in-suite** sweep never looks at
+accounts, and the script does. The dry run reported zero accounts because the non-dry run I had
+launched minutes earlier had already removed all fifteen — I read its silence as a hang, concluded a
+defect that was not there, and pushed that conclusion. The commit message cannot be edited; this is
+the correction.
+
 ## See Also
 
 - [[tenancy-and-rls]] — the boundary that makes one deployment safe

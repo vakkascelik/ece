@@ -5,6 +5,31 @@ says so.*
 
 ---
 
+2026-09-04 (twenty-first) — **Correction: the sweep does not have the defect I said it had,
+and the transient e2e failure has a better explanation.** New: a [[deployment]] section on the two
+audit sweeps and which one can reach an account; a [[conventions]] entry on reading a backgrounded
+command's silence as a hang.
+
+**What `5d4e696`'s commit message gets wrong.** It says *"the sweep finds accounts VIA the centres it
+deletes, so once a centre is gone its accounts are invisible to it"*. Untrue of
+`scripts/sweep-audit-tenants.ts`, which selects accounts by email pattern and age with no reference
+to any centre.
+
+**What is actually the case.** There are two sweeps. `sweepStaleAuditTenants` in the e2e fixture
+removes stale **centres** only and runs as `service_role`, which has no access to the `auth` schema —
+so the suite's own teardown can never remove an account, and five per run accumulate.
+`npm run sweep:audit` removes both, on direct Postgres as the table owner, and has to be run by hand.
+
+**How I got it wrong.** I backgrounded the non-dry sweep, saw zero bytes for ten minutes, and called
+it a hang. Output for a backgrounded command arrives on exit, so zero bytes meant nothing at all. It
+had already deleted all fifteen orphan accounts — which is why the dry run I then ran reported zero,
+an empty result I read as confirmation of a defect I had already decided on.
+
+**And the better explanation for the e2e failure.** Fifteen orphan accounts were present for both
+failures and absent for the pass, with `sweep:audit` the only intervention between. A correlation
+rather than a proof, and recorded as such — but it predicts recurrence, so the practical rule is now
+written down: if the seed times out, sweep first.
+
 2026-09-04 (twentieth) — **§9-2 wired: the agreement basis reaches the funding page, and the
 one over-claim in this product gets named.** Narrowed: [[unverified-claims]] item 55, now recording
 that the wiring is done and what one missing column still costs. Corrected: `billing.ts`'s own file

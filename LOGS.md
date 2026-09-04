@@ -7,6 +7,67 @@ itself, and from the wiki pages, which hold the durable *why*. This file is the 
 
 ---
 
+## 2026-09-04 (twenty-first) — a correction, and the sweep I accused of a bug it does not have
+
+No product code. This is the record being fixed.
+
+### The wrong claim
+
+`5d4e696`'s commit message says:
+
+> The sweep finds accounts VIA the centres it deletes, so once a centre is gone its accounts are
+> invisible to it — precisely the accumulation its own header says it exists to prevent.
+
+That is not true. `scripts/sweep-audit-tenants.ts` selects accounts with
+`email like 'audit.%@ece.invalid'` and the age cutoff, and never joins to a centre. I had read the
+account block after concluding what it did, which is the wrong order.
+
+### What is actually true, and it matters more than the error
+
+There are **two** sweeps:
+
+- `sweepStaleAuditTenants` in `e2e/fixtures/tenant.ts` removes stale audit **centres** and nothing
+  else. It goes through PostgREST as `service_role`, which has no access to the `auth` schema at all,
+  so it *cannot* remove an account even in principle. The e2e teardown calls this one.
+- `npm run sweep:audit` removes centres **and** accounts, on direct Postgres as the table owner. It
+  has to be run by hand.
+
+So every e2e run leaves five accounts behind and they accumulate silently. Fifteen had, from three
+interrupted runs on 1–2 September.
+
+That is a real and useful finding. It is just not the one I wrote down.
+
+### How I got there
+
+I backgrounded the non-dry sweep. It produced zero bytes for ten minutes and I called it a hang —
+then went looking for an unresponsive endpoint, and found REST at 0.4s, GoTrue health at 0.2s,
+Postgres serving `migrate --status`, and no blocking transactions.
+
+**Output for a backgrounded command arrives when the process exits.** Zero bytes means "no result
+yet" and says nothing whatever about progress. The sweep had finished quickly and deleted all
+fifteen rows.
+
+Then the dry run reported nothing to do — which was **the first run's effect**. I read that empty
+result as proof of the defect I had already decided on, and pushed it in a commit message.
+
+One query against `auth.users` would have ended it. Check the effect, not the transcript.
+
+### The better explanation for the transient failure
+
+The e2e suite failed twice on `seed.setup.ts` with a bare 60-second timeout, then passed 124/124.
+The only intervention between was removing fifteen orphan accounts.
+
+A correlation, not a proof, and recorded as such — but it predicts recurrence, which the rate-limit
+hypothesis in `5d4e696` does not usefully. So the practical rule is written into [[deployment]]: if
+the seed times out, run `npm run sweep:audit` before investigating anything else.
+
+### Why this is two mistakes and not one
+
+The first was reasoning from a transcript instead of from state. The second was letting a conclusion
+I had already formed decide what an empty result meant — the same shape as the stale-build confusion
+earlier today, where a page snapshot told me the truth about a build I had already replaced. Both
+times the tool was honest about a world I had changed underneath it.
+
 ## 2026-09-04 (twentieth) — §9-2 wired, and the one over-claim gets a name
 
 The previous commit gave `childFunding` the ability to start from the agreement and left it
