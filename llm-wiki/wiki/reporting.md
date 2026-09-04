@@ -109,11 +109,19 @@ proxy for any centre that has recorded nothing, and say which basis it used. It 
 RS7's advance-month counts, so it is a funding primitive rather than a reporting nicety.
 [[unverified-claims]] item 59 carries the corrected plan.
 
-**Updated 2026-09-05: the table is no longer only a schema.** It has a screen (the child record's
-Documents tab, from 2026-09-04) and three consumers in the funding calculation, so "it ships empty"
-is now a per-centre data question rather than a reason the fix cannot be built. The two-branch
-design item 59 describes — derive operating weekdays where blocks exist, fall back and say so where
-they do not — is buildable today.
+**BUILT 2026-09-05, and item 59 is closed.** `operatingDays()` in `packages/core/src/closures.ts`
+derives the operating weekdays from `child_booking_schedule` per date, subtracts `service_closures`,
+and returns a three-state `basis` — `schedule` where a block is effective in the range, `unknown`
+where none is. `averageOverOpenDays` takes it and returns `basis` and `denominatorDays` alongside
+the figure.
+
+**What changes on the screen.** On the calendar basis a day the service operated and nobody came is
+a zero **in the denominator**, because it is one — on the fixture that moves a week's average from
+23.5 to 18.8. On the `unknown` basis the old proxy survives and the page now says *why*: no booking
+schedule covers the period, and here is where the days and times are entered.
+
+The helper lives in `closures.ts` rather than here because Phase 3C wants the same derivation for
+RS7's forward operating-day counts. Two consumers, one answer.
 
 ---
 

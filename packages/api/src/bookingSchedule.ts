@@ -104,6 +104,44 @@ export async function listBookingSchedule(db: Db, childIds: string[]): Promise<B
   return rows.map(toBlock);
 }
 
+/**
+ * Every block for every child at a centre — the input to the **operating calendar**.
+ *
+ * A second read rather than a `childIds` call at the caller, because the caller that wants this
+ * does not have a child list and should not have to fetch one to find out which weekdays the
+ * service operates. `readAttendanceByDay` is the same shape: a centre-scoped question answered by
+ * a centre-scoped read.
+ *
+ * Joins through `children!inner(centre_id)` exactly as `readFundingPeriod`'s agreement read does —
+ * `child_booking_schedule` has no `centre_id` of its own, deliberately, because a child's centre is
+ * the child's fact and duplicating it would give two answers to one question.
+ *
+ * Superseded blocks included, and **not** date-filtered in SQL, for the reason
+ * `listBookingSchedule` gives above: `blocksOn` in `@ece/core` is the one written-down copy of the
+ * effective-date rule, and `operatingDays` derives per date rather than over a range precisely so
+ * a block that ended mid-range stops contributing.
+ *
+ * Paged. `bounded-queries.test.ts` would refuse it otherwise, and a truncated read here would drop
+ * a weekday from an operating-day count that RS7's advance months are built on.
+ */
+export async function listCentreBookingSchedule(
+  db: Db,
+  centreId: string,
+): Promise<BookingScheduleRow[]> {
+  const rows = await fetchAll<ScheduleRow>('listCentreBookingSchedule', (from, to) =>
+    db
+      .from('child_booking_schedule')
+      .select(`${SCHEDULE_COLUMNS}, children!inner(centre_id)`)
+      .eq('children.centre_id', centreId)
+      .order('child_id')
+      .order('weekday')
+      .order('from_time')
+      .order('id')
+      .range(from, to),
+  );
+  return rows.map(toBlock);
+}
+
 export interface BookingScheduleInput {
   childId: string;
   /** ISO weekday, 1 = Monday. */

@@ -2272,7 +2272,7 @@ guardian picker on both panels; and the **Record incomplete** flag that names th
 unit tests, thirteen RLS assertions on the migration, and an e2e test that links a guardian and
 completes a record end to end.
 
-### 59. The occupancy average cannot tell a closed day from an empty one — **OPEN, added 2026-09-04**
+### 59. The occupancy average cannot tell a closed day from an empty one — **CLOSED 2026-09-05**
 
 `averageOverOpenDays` (`packages/core/src/occupancy.ts`) filters with `d.children > 0`. It is a
 proxy for "the service was open", and it is the only one that existed until `0088`.
@@ -2323,9 +2323,43 @@ three-state like everything else here:
 return. So "which days does this service operate" is a funding primitive that two separate
 consumers want, and building it for the occupancy average alone would be building it twice.
 
-**To close it:** derive operating weekdays from the booking schedule, combine with
-`service_closures`, keep `null` (no data) distinct from `0` (nobody came), state the basis on the
-screen, and share the derivation with Phase 3C rather than writing it twice.
+**CLOSED 2026-09-05, and the plan above is what shipped.**
+
+`operatingDays({ blocks, closures, from, to })` in `packages/core/src/closures.ts` derives the
+operating weekdays as the **union of `child_booking_schedule.weekday`** per date, minus closures,
+and returns a three-state `basis`:
+
+| `basis` | Meaning |
+|---|---|
+| `schedule` | a block was effective on some open day in the range, so the calendar is derived |
+| `unknown` | no block was effective anywhere in the range — **nothing is claimed** |
+
+The `unknown` state is the part that matters. An implementation testing `blocks.length === 0` would
+answer `schedule` with zero dates for a centre whose schedule expired last year, which reads as a
+permanently closed service rather than as one nobody has updated. That mutation is in the drill.
+
+**`averageOverOpenDays` now takes the calendar and returns `basis` and `denominatorDays`**, and
+`daysWithAttendance` keeps its old meaning on both bases — redefining it silently would have been
+the drift this page exists to prevent. Measured on the fixture: a week with a wet Tuesday and one
+day nobody came averages **23.5 over four days** on the old proxy and **18.8 over five** on the
+calendar. Nearly five children, in the flattering direction.
+
+Two decisions inside it, both asserted:
+
+- **A closure beats the pattern.** A Tuesday the service was shut is not an operating day even
+  though Tuesdays normally are, and `closedDates` is populated on **both** bases because a closure
+  is recorded directly and does not need the weekday pattern to be known.
+- **A day with attendance the calendar omits is still counted.** The children were demonstrably
+  there, so the calendar is what is wrong; dropping the day would hide an attendance record that
+  contradicts the schedule.
+
+**And `/reports` renders which basis produced the figure**, in words, because the two give different
+answers from the same attendance. On the proxy basis it now says *why* — no booking schedule covers
+the period — and points at the record where the days and times are entered. That sentence is the
+actual fix; the arithmetic was never the hard part.
+
+**9/9 mutations caught.** Phase 3C consumes the same helper for RS7's `AdvanceMonthCounts`, which
+is why it lives in `closures.ts` rather than in `occupancy.ts` where its first consumer is.
 
 ### 60. An approved emergency closure is FUNDABLE, and `0088` could not tell one from a term break — **CLOSED on the schema 2026-09-04**
 

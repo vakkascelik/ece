@@ -5,6 +5,27 @@ says so.*
 
 ---
 
+2026-09-05 (second) — **the operating calendar, and item 59 closes.** `operatingDays()` in
+`packages/core/src/closures.ts`; [[reporting]] updated.
+
+The occupancy average divided by days with `children > 0` and called them open days. That cannot
+tell a **closed** day from an **open day nobody attended**, and the two belong on opposite sides of
+the division: a Saturday is not a data point, and a wet Tuesday when four came out of thirty is the
+most important one in the range. On the test fixture the difference is **23.5 over four days versus
+18.8 over five** — nearly five children, in the flattering direction.
+
+Nothing recorded a centre's opening pattern, so the weekdays are the **union of
+`child_booking_schedule.weekday`**, derived **per date** rather than over the range so a block that
+ends mid-range stops contributing. Three-state basis: `schedule` where a block is effective,
+`unknown` where none is — and `unknown` is not an empty calendar, because answering "zero operating
+days" for a centre whose schedule expired reads as permanently closed.
+
+`/reports` renders which basis produced the figure, and on the proxy basis says why and where to fix
+it. That sentence is the fix; the arithmetic was the easy half.
+
+Built in `closures.ts` rather than `occupancy.ts` because Phase 3C wants the same derivation for
+RS7's `AdvanceMonthCounts`. **9/9 mutations caught**, all gates green, e2e a11y 49/49.
+
 2026-09-05 — **a documentation sweep, and one of the stale sentences was on a screen.** Corrected
 across thirteen files; register items 55 closed and 48/53 re-measured.
 

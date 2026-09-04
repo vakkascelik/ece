@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { closureOn, isClosedOn, type ServiceClosure } from '../closures';
+import { closureOn, isClosedOn, operatingDays, type ServiceClosure } from '../closures';
+import type { WeekdayBlock } from '../weekdayBlock';
 
 /**
  * `service_closures` (0088) — the predicates the occupancy average and §6-6 will both read.
@@ -89,5 +90,114 @@ describe('closureOn', () => {
     // and `?? null` at every call site is the version somebody forgets once.
     expect(closureOn([closure({})], '2026-05-10')).toBeNull();
     expect(closureOn([], '2026-05-10')).toBeNull();
+  });
+});
+
+/*
+  `operatingDays` — the question RS7's advance-month counts and the occupancy average both
+  ask, and which nothing recorded until 2026-09-05.
+
+  Every case below is one where being wrong looks plausible: a closure that loses to the
+  weekday pattern, a schedule that expired but still votes, a range with no schedule at all
+  answering "zero operating days" instead of "cannot tell".
+*/
+
+/** A Monday-and-Wednesday pattern, effective for ever unless told otherwise. */
+const monWed = (over: Partial<WeekdayBlock> = {}): WeekdayBlock[] => [
+  { weekday: 1, fromTime: '09:00', toTime: '15:00', effectiveFrom: '2026-01-01', effectiveTo: null, ...over },
+  { weekday: 3, fromTime: '09:00', toTime: '15:00', effectiveFrom: '2026-01-01', effectiveTo: null, ...over },
+];
+
+describe('operatingDays', () => {
+  it('derives the weekdays from the schedule and lists the dates', () => {
+    // Mon 3 Aug to Sun 9 Aug 2026: one Monday, one Wednesday.
+    const r = operatingDays({
+      blocks: monWed(),
+      closures: [],
+      from: '2026-08-03',
+      to: '2026-08-09',
+    });
+    expect(r.basis).toBe('schedule');
+    expect(r.weekdays).toEqual([1, 3]);
+    expect(r.dates).toEqual(['2026-08-03', '2026-08-05']);
+    expect(r.closedDates).toEqual([]);
+  });
+
+  it('lets a closure beat the pattern', () => {
+    // The service normally operates that Wednesday. It was shut.
+    const r = operatingDays({
+      blocks: monWed(),
+      closures: [closure({ startsOn: '2026-08-05', endsOn: '2026-08-05' })],
+      from: '2026-08-03',
+      to: '2026-08-09',
+    });
+    expect(r.dates).toEqual(['2026-08-03']);
+    expect(r.closedDates).toEqual(['2026-08-05']);
+    // And the weekday is no longer claimed at all, because no Wednesday in range operated.
+    expect(r.weekdays).toEqual([1]);
+  });
+
+  it('records closed days even when it cannot tell what the pattern is', () => {
+    /*
+      Both bases populate `closedDates`, and this is the assertion that pins it. A closure is
+      recorded directly and does not depend on knowing the weekday pattern — so a caller that
+      only wants "were we shut" gets an answer even with no schedule.
+    */
+    const r = operatingDays({
+      blocks: [],
+      closures: [closure({ startsOn: '2026-08-05', endsOn: '2026-08-06' })],
+      from: '2026-08-03',
+      to: '2026-08-09',
+    });
+    expect(r.basis).toBe('unknown');
+    expect(r.dates).toEqual([]);
+    expect(r.weekdays).toEqual([]);
+    expect(r.closedDates).toEqual(['2026-08-05', '2026-08-06']);
+  });
+
+  it('answers UNKNOWN, not zero, when every block expired before the range', () => {
+    /*
+      The distinction the three-state basis exists for. Blocks exist, so an implementation
+      testing `blocks.length === 0` would answer `schedule` with no dates — which reads as a
+      permanently closed service rather than as a service whose schedule nobody has updated.
+    */
+    const r = operatingDays({
+      blocks: monWed({ effectiveTo: '2026-07-31' }),
+      closures: [],
+      from: '2026-08-03',
+      to: '2026-08-09',
+    });
+    expect(r.basis).toBe('unknown');
+    expect(r.dates).toEqual([]);
+  });
+
+  it('derives per date, so a block that ends mid-range stops contributing', () => {
+    // The Wednesday pattern ends on the 5th; the following Wednesday must not operate.
+    const r = operatingDays({
+      blocks: [
+        { weekday: 1, fromTime: '09:00', toTime: '15:00', effectiveFrom: '2026-01-01', effectiveTo: null },
+        { weekday: 3, fromTime: '09:00', toTime: '15:00', effectiveFrom: '2026-01-01', effectiveTo: '2026-08-05' },
+      ],
+      closures: [],
+      from: '2026-08-03',
+      to: '2026-08-16',
+    });
+    expect(r.dates).toEqual(['2026-08-03', '2026-08-05', '2026-08-10']);
+    // A range-wide union of weekdays would have kept the 12th, which is the bug this catches.
+    expect(r.dates).not.toContain('2026-08-12');
+  });
+
+  it('unions the days across children rather than taking one child as the pattern', () => {
+    const r = operatingDays({
+      blocks: [
+        { weekday: 1, fromTime: '09:00', toTime: '15:00', effectiveFrom: '2026-01-01', effectiveTo: null },
+        { weekday: 5, fromTime: '09:00', toTime: '12:00', effectiveFrom: '2026-01-01', effectiveTo: null },
+      ],
+      closures: [],
+      from: '2026-08-03',
+      to: '2026-08-09',
+    });
+    expect(r.weekdays).toEqual([1, 5]);
+    expect(r.dates).toEqual(['2026-08-03', '2026-08-07']);
   });
 });

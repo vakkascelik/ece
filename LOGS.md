@@ -7,6 +7,81 @@ itself, and from the wiki pages, which hold the durable *why*. This file is the 
 
 ---
 
+## 2026-09-05 (second) — the operating calendar, and the first piece of RS7's spine
+
+First code task of the rewritten plan, chosen because it is the only Phase 3 dependency that also
+closes an open register item.
+
+### The defect, in one line
+
+`averageOverOpenDays` filtered `d.children > 0` and called the result "open days". A closed day and
+an open day nobody attended are indistinguishable under that test, and they belong on **opposite
+sides** of the division.
+
+Measured on the fixture rather than argued: a week with thirty children on four days, four on a wet
+Tuesday, and one day nobody came at all.
+
+| Basis | Denominator | Average |
+|---|---|---|
+| old proxy | 4 days that had attendance | **23.5** |
+| operating calendar | 5 days the service operated | **18.8** |
+
+Nearly five children of difference, in the flattering direction, on the figure that ends up in a
+board paper. And the proxy could not be fixed by counting every day either — a fortnight holds ten
+weekend days no service records as a closure, so averaging over fourteen reports about a third of
+the truth.
+
+### Where the weekdays came from, since nothing records them
+
+**Nothing in this schema records a centre's opening pattern.** Every `weekday` column is per child
+(`child_booking_schedule`, `enrolments.days`) or per staff member (`staff_contact_hours`) — all
+measured, none assumed. So the operating weekdays are the **union of the days children are enrolled
+to attend**. That is a proxy too, and a defensible one: a service with nobody enrolled on a Friday
+does not operate on Fridays in any sense a funding return or an occupancy figure cares about.
+
+Two design points, both asserted and both mutation-tested:
+
+- **Derived per date, not over the range.** A block that ends on the 5th stops contributing on the
+  6th. A range-wide union would keep a Friday alive for a month after the last Friday child left.
+- **A closure beats the pattern**, and `closedDates` is populated on *both* bases — a closure is
+  recorded directly and does not need the weekday pattern to be known.
+
+### The three-state basis, which is the whole point
+
+`schedule` where a block is effective somewhere in the range; `unknown` where none is. The
+temptation is `blocks.length === 0`, and it is wrong: a centre whose blocks all expired last year
+**has** blocks and has no schedule for this range, so that test answers `schedule` with zero
+operating days — which reads as a permanently closed service rather than as one nobody has updated.
+
+`operatingDays` also refuses to fall back to a proxy of its own. The fallback belongs to the caller,
+which knows what its figure means and can say which basis produced it — the same division
+`hoursBasis` keeps in the funding calculation. A helper that quietly substituted a worse answer
+would make the two bases indistinguishable, which is the defect, not the fix.
+
+### The fix is a sentence, not the arithmetic
+
+`/reports` now renders the basis in words. On the calendar basis it says the average is over the
+days the schedule says you operated, closures excluded, and how many of those had nobody. On the
+proxy basis it says **why** — no booking schedule covers this period — and points at the record
+where the days and times are entered.
+
+That is the half that matters. A corrected average that still looked like the old one would have
+been a silent change to a number somebody had already quoted.
+
+### Verification
+
+9/9 mutations caught, including the five that look like simplifications: the pattern beating a
+closure, `blocks.length` for effectiveness, the range-wide union, `unknown` treated as a calendar,
+and the basis label lying about which denominator was used.
+
+Full gate green; `drill:rowcap` 9/9 for the new paged read (`listCentreBookingSchedule`, joined
+through `children!inner(centre_id)` because `child_booking_schedule` has no `centre_id` of its own);
+e2e a11y 49/49, which covers `/reports`.
+
+**Next in the plan:** 3A, `packages/core/src/rs7.ts` — and its two-and-over bucket stays behind a
+stated assumption until the Ministry answers the Plus 10 question, which is still in an unsent
+draft.
+
 ## 2026-09-05 — the sweep, and a false sentence a test was holding in place
 
 Asked how the project was doing overall, and the honest answer needed a measurement rather than a

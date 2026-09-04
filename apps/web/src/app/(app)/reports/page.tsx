@@ -1,6 +1,6 @@
 import Link from 'next/link';
-import { readAttendanceByDay } from '@ece/api';
-import { summariseOccupancy, todayInZone } from '@ece/core';
+import { listCentreBookingSchedule, listServiceClosures, readAttendanceByDay } from '@ece/api';
+import { operatingDays, summariseOccupancy, todayInZone } from '@ece/core';
 import { requireCapability } from '@/lib/auth';
 import { serverDb } from '@/lib/supabase';
 import { dayWindow, shiftLocalDate } from '@/lib/dayWindow';
@@ -42,8 +42,34 @@ export default async function ReportsPage() {
     ...dayWindow(date, ctx.centre.timezone),
   }));
 
-  const attendance = await readAttendanceByDay(db, ctx.centre.id, days);
-  const summary = summariseOccupancy(attendance, ctx.centre.licensedPlaces);
+  /*
+    THE OPERATING CALENDAR, which is what the average's denominator should have been all along —
+    [[unverified-claims]] item 59.
+
+    Until 2026-09-05 the average was over days with `children > 0`, which cannot tell a closed day
+    from an open day nobody attended. Those belong on opposite sides of the division: a Saturday is
+    not a data point, and a wet Tuesday when four came out of thirty is the most important one in
+    the range. Excluding it flattered the figure by exactly the days a centre most wants to see.
+
+    Two reads rather than one because the two facts are recorded separately, and both are
+    centre-scoped: the closures a service declared, and the weekdays its children are enrolled to
+    attend. `operatingDays` refuses to guess where no schedule is effective, and the page renders
+    which basis it got — a figure computed one way must never silently look like a figure computed
+    the other.
+  */
+  const [attendance, closures, blocks] = await Promise.all([
+    readAttendanceByDay(db, ctx.centre.id, days),
+    listServiceClosures(db, ctx.centre.id),
+    listCentreBookingSchedule(db, ctx.centre.id),
+  ]);
+
+  const operating = operatingDays({
+    blocks,
+    closures,
+    from: days[0]?.date ?? today,
+    to: days[days.length - 1]?.date ?? today,
+  });
+  const summary = summariseOccupancy(attendance, ctx.centre.licensedPlaces, operating);
 
   const busiestPercent =
     summary.busiest && ctx.centre.licensedPlaces
@@ -100,7 +126,8 @@ export default async function ReportsPage() {
           <>
             <div role="status" className="inline">
               <span className="flag flag-quiet">
-                {summary.averageChildren} tamariki on an average open day
+                {summary.averageChildren} tamariki on an average{' '}
+                {summary.averageBasis === 'operating-days' ? 'operating' : 'open'} day
               </span>
               <span className="flag flag-quiet">
                 {summary.daysWithAttendance} of 30 days with attendance
@@ -118,11 +145,29 @@ export default async function ReportsPage() {
                 </span>
               )}
             </div>
-            <p className="sub" style={{ margin: '0.5rem 0 0', fontSize: '0.8125rem' }}>
-              The average is over the {summary.daysWithAttendance} days that had any attendance,
-              not over all thirty. Averaging closed days in would report roughly a third of the
-              truth.
-            </p>
+            {/*
+              WHICH DENOMINATOR, said in words, because the two produce different figures from
+              the same attendance and a reader cannot tell them apart from the number.
+            */}
+            {summary.averageBasis === 'operating-days' ? (
+              <p className="sub" style={{ margin: '0.5rem 0 0', fontSize: '0.8125rem' }}>
+                The average is over the {summary.denominatorDays} days your booking schedule says
+                you operated, closures excluded — so a day you were open and nobody came counts as
+                a zero, because it is one.
+                {summary.denominatorDays > summary.daysWithAttendance
+                  ? ` ${summary.denominatorDays - summary.daysWithAttendance} of those had no
+                     attendance at all.`
+                  : ''}
+              </p>
+            ) : (
+              <p className="sub" style={{ margin: '0.5rem 0 0', fontSize: '0.8125rem' }}>
+                The average is over the {summary.daysWithAttendance} days that had any attendance,
+                not over all thirty — <strong>because no booking schedule covers this period</strong>,
+                so a day nobody attended cannot be told from a day you were closed. Recording the
+                days and times each child attends, on their record, makes this figure exact.
+                Averaging all thirty days in would report roughly a third of the truth.
+              </p>
+            )}
           </>
         )}
       </div>

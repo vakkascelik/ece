@@ -13,7 +13,8 @@
  * know the centre is shut next Thursday.
  */
 
-import { coversDate } from './weekdayBlock';
+import { shiftLocalDate } from './children';
+import { blocksOn, coversDate, isoWeekdayOf, type WeekdayBlock } from './weekdayBlock';
 
 export interface ServiceClosure {
   id: string;
@@ -65,4 +66,119 @@ export function closureOn(
   date: string,
 ): ServiceClosure | null {
   return closures.find((c) => coversDate(c.startsOn, c.endsOn, date)) ?? null;
+}
+
+// ---------------------------------------------------------------------------
+// Which days does this service operate?
+// ---------------------------------------------------------------------------
+
+/**
+ * How `operatingDays` arrived at its answer. **Never inferred by a caller from the other
+ * fields** — an empty `dates` means "no operating days in this range" on the `schedule` basis
+ * and "could not tell" on the `unknown` one, and those must not be confused.
+ */
+export type OperatingBasis =
+  /** A booking schedule covers part of the range, so the operating weekdays are derived. */
+  | 'schedule'
+  /** No schedule block is effective anywhere in the range. Nothing is claimed. */
+  | 'unknown';
+
+export interface OperatingDays {
+  basis: OperatingBasis;
+  /** ISO weekdays the service operates, ascending. Empty when `basis` is `unknown`. */
+  weekdays: number[];
+  /** Dates in range the service operated, ascending. Empty when `basis` is `unknown`. */
+  dates: string[];
+  /**
+   * Dates in range a closure covered, ascending. Populated on **both** bases, because a
+   * closure is recorded directly and does not depend on knowing the weekday pattern.
+   */
+  closedDates: string[];
+}
+
+/**
+ * The days a service operated over a range — closures excluded, weekdays derived.
+ *
+ * TWO CONSUMERS, WHICH IS WHY IT IS HERE AND NOT IN EITHER OF THEM
+ *
+ * RS7's `AdvanceMonthCounts` wants forward operating days by service model, and the occupancy
+ * average needs to tell a closed day from an open one nobody attended
+ * ([[unverified-claims]] item 59). Both reduce to this question. `averageOverOpenDays` was
+ * about to answer it with `d.children > 0`, which is a proxy that reports a fraction of the
+ * truth and looks precise doing it.
+ *
+ * WHY THE WEEKDAYS COME FROM THE CHILDREN'S SCHEDULE
+ *
+ * Nothing records a centre's opening pattern. Every `weekday` column in this schema is per
+ * child (`child_booking_schedule`, `enrolments.days`) or per staff member
+ * (`staff_contact_hours`) — measured, not assumed. So the operating weekdays are the **union
+ * of the days children are enrolled to attend**, which is a proxy too, and a defensible one:
+ * a service that has nobody enrolled on a Friday does not operate on Fridays in any sense
+ * that matters to a funding return or an occupancy figure.
+ *
+ * It is derived **per date** rather than as a union over the range, so a block that ends
+ * mid-range stops contributing from the day it ends. A range-wide union would keep a Friday
+ * alive for a month after the last Friday child left.
+ *
+ * WHAT IT REFUSES TO DO
+ *
+ * With no schedule anywhere in the range it returns `unknown` and an empty `dates`, rather
+ * than falling back to a proxy of its own. The fallback belongs to the caller, which knows
+ * what its figure means and can say which basis produced it — the same division
+ * `hoursBasis` keeps in the funding calculation. A helper that quietly substituted a worse
+ * answer would make the two bases indistinguishable, which is the defect item 59 is about.
+ */
+export function operatingDays(input: {
+  /** Every booking-schedule block for the centre's children, superseded ones included. */
+  blocks: readonly WeekdayBlock[];
+  closures: readonly ServiceClosure[];
+  /** Inclusive ISO date range. */
+  from: string;
+  to: string;
+}): OperatingDays {
+  const blocks = [...input.blocks];
+  const weekdays = new Set<number>();
+  const dates: string[] = [];
+  const closedDates: string[] = [];
+  let sawAnyBlock = false;
+
+  for (let date = input.from; date <= input.to; date = shiftLocalDate(date, 1)) {
+    /*
+      A closed day is recorded, and it is recorded whether or not a schedule exists — which is
+      why `closedDates` is populated on both bases. It also comes FIRST: a closure beats the
+      pattern, so a Tuesday the service was shut is not an operating day even though Tuesdays
+      normally are.
+    */
+    if (isClosedOn(input.closures, date)) {
+      closedDates.push(date);
+      continue;
+    }
+
+    const today = blocksOn(blocks, date);
+    if (today.length === 0) continue;
+    sawAnyBlock = true;
+
+    const weekday = isoWeekdayOf(date);
+    if (today.some((b) => b.weekday === weekday)) {
+      weekdays.add(weekday);
+      dates.push(date);
+    }
+  }
+
+  /*
+    `sawAnyBlock` is set by a block being EFFECTIVE on some open date in the range, not by the
+    input array being non-empty. A centre whose only blocks expired last year has blocks and no
+    schedule for this range, and answering `schedule` for it would claim the service operates
+    zero days — which reads as permanently closed rather than as unknown.
+  */
+  if (!sawAnyBlock) {
+    return { basis: 'unknown', weekdays: [], dates: [], closedDates };
+  }
+
+  return {
+    basis: 'schedule',
+    weekdays: [...weekdays].sort((a, b) => a - b),
+    dates,
+    closedDates,
+  };
 }
