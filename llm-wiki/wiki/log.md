@@ -5,6 +5,36 @@ says so.*
 
 ---
 
+2026-09-04 (seventeenth) — **Phase 2F, first slice: the absence classifier.** New:
+`packages/core/src/absence.ts` and a section in [[funding-and-billing]] on what it is and what it
+deliberately is not; a [[conventions]] entry on mutation drills, earned by one that left the code
+weakened.
+
+`classifyAbsences` answers *was this absence claimable?* per enrolled session, from §6-4, §6-5, §6-6
+and §7-7. **Nothing calls it**, and `FUNDING_RULES.absence.verified` stays `false` — the arithmetic
+that would consume it still needs the §9-2 hours source and §6-4's cross-child pass, and shipping the
+classifier first means the hard part is testable before a published figure moves.
+
+**A spell is the unit and attendance breaks it**, because both windows run from *"the first day of
+absence"* and both reset on return. A Monday-only child who misses four Mondays is in one
+twenty-eight-day spell, not four spells.
+
+**The window counts forward, skipping suspended days, rather than subtracting closed ones** — which
+is both §6-6's own wording (*"suspended"*, *"restart"*) and the only version that is right for a
+closure starting before the spell. There is a test for exactly that case.
+
+**Day zero is the first absent day**, so `used < 21` admits twenty-one days. The boundary is asserted
+on the exact day, not on a count of claimable rows.
+
+**Six mutations, six caught** — suspension removed, boundary widened, spell reset dropped, notice
+demoted below the window, exemption tested per session, two-week threshold lowered to one day.
+
+**And the drill itself was the day's sharpest lesson.** Its first version decided red-or-green by
+reading vitest's stdout, which raised a `UnicodeDecodeError` on a Windows console and propagated
+*before* the restore — leaving §6-6's suspension **deleted from the source** while the suite reported
+green. Now a convention: restore in a `finally`, judge by exit code, and assert the baseline is green
+first.
+
 2026-09-04 (sixteenth) — **`0092`: the §6-7 reconfirmation, and §6-8's examples contradict
 §6-7's prose.** New: a verbatim §6-7 transcription in [[funding-and-billing]],
 [[unverified-claims]] item 61 for the contradiction, and a third question in the Ministry enquiry.

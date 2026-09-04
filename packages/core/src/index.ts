@@ -309,6 +309,11 @@ export * from './children';
 // average - and none of them owns it.
 export * from './closures';
 
+// Which enrolled-but-absent sessions may be claimed (6-4, 6-5, 6-6, 7-7). Deliberately not
+// wired into `childFunding` yet - it classifies, nothing consumes it, and no published figure
+// moves. See the module header.
+export * from './absence';
+
 // Regulated ratios. The bands are unverified data with citations — see the file.
 export * from './ratios';
 

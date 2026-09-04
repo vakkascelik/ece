@@ -658,6 +658,53 @@ like it filed something is a screen after which nobody files anything. `exportDi
 the wording from the summary, so it cannot say "complete" when it is not, and lives in `@ece/core`
 so a future emailed version says the same thing.
 
+### The absence classifier — `absence.ts`, and why it is not wired in
+
+**Phase 2F, first slice, 2026-09-04.** `classifyAbsences` answers one question per enrolled
+session: *was this absence claimable?* It is pure, it consumes `service_closures` and the §7-7
+exemptions, and **nothing calls it**.
+
+That is the point rather than an omission. The arithmetic that would consume it still needs two
+things — the §9-2 hours source for a permanently enrolled child, and §6-4's cross-child pass — and
+shipping the classifier first means the hard part is testable before any published figure moves.
+**`FUNDING_RULES.absence.verified` stays `false`**: the rules are read and sourced, and the product
+still claims none of them, so a flag saying otherwise would be a claim about the law made by a module
+nothing calls.
+
+**A spell is the unit, and attendance is what breaks it.** Both windows are measured from *"the first
+day of absence"* and both reset when the child returns, so the classifier cannot decide one session
+at a time. A Monday-only child who misses four Mondays is in **one** spell twenty-eight days long,
+not four spells — the intervening days are not enrolled and say nothing about whether the child came
+back. That is why the input is the *enrolled sessions* rather than a calendar.
+
+**The window is counted forward, skipping suspended days — not by subtraction.** The obvious
+implementation is `daysBetween(start, date) - closedDays`, and it is wrong for a closure that starts
+*before* the spell, because it subtracts days that were never inside the window. Counting forward is
+also the shape of §6-6's own wording: the rule is *"suspended"* on one date and *"restart[s]"* on
+another. There is a test for a closure entirely before the spell, which is the case subtraction gets
+wrong.
+
+**Day zero is the first absent day.** So `used < 21` admits twenty-one days, which is the reading of
+*"within three weeks of the first day"* together with *"nothing from the fourth week onward"*: the
+first day is inside, and day 21 begins week four. The boundary is asserted on the exact day rather
+than on a count of claimable rows, because a classifier admitting a twenty-second day would still
+pass "three of four are claimable".
+
+**Notice beats the window**, and it is the only case where a session inside the window is refused.
+§6-5 stops the claim *"even if the three week period has not ended"*, and the Ministry recovers
+anything claimed after that point — so the notice test comes first in the code and has its own
+assertion.
+
+**Only closures of fourteen days or more suspend anything**, measured inclusively to match
+`coversDate` and `0088`'s `[]` range bound. A one or two day emergency closure does not stop the
+clock — which is consistent with §7-5 treating those as *fundable days* rather than as an
+interruption.
+
+**Six mutations, six caught.** Removing the suspension, widening the boundary to `<=`, dropping the
+spell reset, demoting notice below the window, testing the exemption per session instead of at the
+spell start, and lowering the two-week threshold to one day. Each one makes the suite red on the
+assertion that names it.
+
 ### §6-7, transcribed — the Frequent Absence Rule
 
 Read from [6-7 The Frequent Absence

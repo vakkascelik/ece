@@ -997,6 +997,27 @@ any three-state numeric field — where null, zero and a figure are three differ
 test emptiness **before** conversion, in the action and in the row mapper both. `Number(null)` is
 also `0`, which is the mapper's version of the same bug.
 
+### A mutation drill must restore in a `finally`, and must not parse the runner's output
+
+Both halves cost something on 2026-09-04, in the same script.
+
+**It crashed and left the mutation in place.** The drill read `subprocess.run(...).stdout` to decide
+whether the suite went red. On a Windows console that decode raised `UnicodeDecodeError` — vitest
+prints characters cp1252 has no mapping for — and the exception propagated *before* the restore, so
+the source was left with §6-6's suspension **deleted**. The tests then passed, because the assertion
+for it had been reverted along with everything else.
+
+A drill that can leave the thing it was testing weakened is worse than no drill. So:
+
+- restore in a `finally`, and assert afterwards that the file matches what was read;
+- decide red-or-green from the **exit code**, never from the text — `stdout=DEVNULL` and check
+  `returncode`;
+- assert the **baseline is green** before the first mutation, because a red baseline makes every
+  mutation "fail" for the wrong reason and reports a perfect score.
+
+The tell that something had gone wrong was not the crash: it was checking the file afterwards and
+finding one anchor at count 0. Check the source, not the script's last line.
+
 ### Re-create a shared function by copying its current definition, never by retyping it
 
 `0090` had to add one branch to `audit_trigger()`. The first draft reconstructed the function from a

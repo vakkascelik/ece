@@ -7,6 +7,81 @@ itself, and from the wiki pages, which hold the durable *why*. This file is the 
 
 ---
 
+## 2026-09-04 (seventeenth) — the absence classifier, and a drill that broke the code it tested
+
+Phase 2F, first slice. Everything the absence rules need has been on disk since `0092`; this is the
+first arithmetic over it.
+
+### What shipped, and what deliberately did not
+
+`classifyAbsences` in `packages/core/src/absence.ts` answers one question per enrolled session: *was
+this absence claimable?* It reads §6-4's gate from its caller, §6-5's three-week window, §6-6's
+suspension across a closure, and §7-7's twelve-week window. Eighteen tests.
+
+**Nothing calls it.** The arithmetic that would — `childFunding` — still needs the §9-2 hours source
+for a permanently enrolled child and §6-4's cross-child pass, and both are larger than this. Shipping
+the classifier first means the subtle part is testable before any published number moves, and
+`FUNDING_RULES.absence.verified` stays `false` because the product still claims none of it. A flag
+saying otherwise would be a claim about the law made by a module nothing calls.
+
+### Three decisions the Handbook made for me
+
+**A spell is the unit, and attendance is what breaks it.** Both windows run from *"the first day of
+absence"* and both reset when the child returns, so a session cannot be judged alone. A Monday-only
+child who misses four Mondays is in **one** spell of twenty-eight days, not four spells of one — the
+intervening days are not enrolled and say nothing about whether the child came back. Hence the input
+is enrolled sessions rather than a calendar.
+
+**The window counts forward and skips suspended days.** The obvious implementation is
+`daysBetween(start, date) - closedDays`. It gives the right answer for a closure inside the spell and
+the wrong one for a closure that starts *before* it, because it subtracts days that were never in the
+window. Counting forward cannot, and it is the shape of §6-6's own wording — the rule is
+*"suspended"* on one date and *"restart[s]"* on another. There is a test for the
+closure-before-the-spell case specifically.
+
+**Day zero is the first absent day.** `used < 21` therefore admits twenty-one days, which is
+*"within three weeks of the first day"* read together with *"nothing from the fourth week onward"*.
+The boundary is asserted on the exact day rather than on a count of claimable rows, because a
+classifier that admitted a twenty-second day would still pass "three of the four are claimable".
+
+### Eighteen tests passed first try, which is the signal to distrust them
+
+So six mutations: remove the §6-6 suspension, widen the boundary to `<=`, drop the spell reset,
+demote notice below the window, test the exemption per session instead of at the spell start, lower
+the two-week threshold to one day. All six caught, each on the assertion that names it.
+
+### The drill deleted §6-6's suspension and reported green
+
+Its first version decided red-or-green by reading `subprocess.run(...).stdout`. On a Windows console
+that decode raised `UnicodeDecodeError` — vitest prints characters cp1252 cannot map — and the
+exception propagated **before the restore**. The source was left with the suspension line deleted.
+
+The tests then passed. Of course they did: the assertion for the suspension had been reverted along
+with the rest of the file, so what remained was a classifier with a missing rule and no test for it.
+
+**A drill that can leave the thing it was testing weakened is worse than no drill.** What caught it
+was not the traceback — it was checking the source afterwards and finding one anchor at count 0
+rather than 1. Check the code, not the script's last line.
+
+Rewritten with the restore in a `finally`, an assertion that the file matches what was read, red-or-
+green from the **exit code** with stdout discarded, and a baseline-is-green check first — because a
+red baseline makes every mutation "fail" for the wrong reason and reports a perfect score.
+
+### What 2F still needs
+
+- **The §9-2 hours source.** A permanently enrolled child's funded hours come from the agreement,
+  not the turnstile — [[unverified-claims]] item 55. This is the change that moves a published
+  figure, and it is the next one.
+- **§6-4's cross-child pass.** A service may not claim for both an absent permanent child and the
+  casual child filling their place. `childFunding` sees one child, so this needs a day-level pass —
+  and §7-7 gives it a second source: *"another child may attend the absent child's place without
+  claiming funding for that replacement child"*.
+- **§6-7's monthly check**, whose month-3 rule is contradicted between §6-7 and §6-8 — item 61,
+  unresolved, and an enquiry question.
+- **The notice date.** §6-5 stops the claim when a parent gives notice, and *nothing in this schema
+  records notice*. `enrolments.end_date` is not it: notice comes first, and the end date may be later
+  or absent. The classifier takes it as an argument, and no caller can supply it yet.
+
 ## 2026-09-04 (sixteenth) — `0092`, and two Ministry sources that disagree
 
 Phase 2E. §6-7 read, its companion §6-8 read alongside it, and the two do not say the same thing.
