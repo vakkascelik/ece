@@ -7,6 +7,138 @@ itself, and from the wiki pages, which hold the durable *why*. This file is the 
 
 ---
 
+## 2026-09-04 (twenty-third) — the sweep that would not exit, and an hour spent on the wrong suspect
+
+No product code. A one-line-shaped defect in a script, and a diagnosis I got wrong twice before
+getting it right.
+
+### What actually happened
+
+`scripts/sweep-audit-tenants.ts` opens a `pg` Client in `runner()` and closes it **nowhere**. The
+script did its work perfectly — its output reads `15 account(s) removed` — and then `main()`
+returned, the socket stayed open, and node sat there forever.
+
+I had chained it ahead of the suite in a single shell command:
+
+    npm run sweep:audit 2>&1 | tail -4; npm run test:e2e 2>&1 | tail -8
+
+With `;`, the second command waits for the first. **The e2e suite never started.** Zero bytes of
+output, no test artefacts, several node processes alive.
+
+### The hour I spent on the wrong thing
+
+I concluded the Playwright run was hung and went looking for what it was hung on: the auth admin
+API, orphan accounts in `auth.users`, blocking transactions in `pg_stat_activity`, an import cycle
+in `@ece/core`, a stale build. Every one came back healthy. REST answered in 0.4s, GoTrue health in
+0.2s, Postgres served `migrate --status`, no backend was in a transaction.
+
+All of that was correct work on a question that had no answer, because the premise was wrong.
+
+**The tell was sitting there.** `e2e/.artifacts/owner.json` had an mtime ninety minutes old, and a
+healthy run writes it within seconds of the seed. I had direct evidence that e2e had *not begun* and
+interpreted it as evidence that e2e was *stuck*. Those are different failures and they look identical
+if you have already decided which one you are looking at.
+
+### What I did get right, eventually
+
+Killing the node processes unblocked the chained command — and e2e immediately started, which is the
+observation that gave it away. A hung run does not begin when you kill an unrelated process.
+
+Then a bounded probe settled the last open question: `auth.admin.createUser` in **942ms**,
+`deleteUser` in **895ms**. The rate-limit hypothesis I had put in `5d4e696`'s commit message is
+simply wrong, and I have said so in [[deployment]] rather than leaving it as a plausible-sounding
+explanation somebody would find later.
+
+What survives from `cba6af3` is the orphan-account correlation: fifteen accounts present for two
+seed failures, absent for a 124/124 pass, with the sweep the only intervention. Still a correlation.
+
+### The fix, and why it is asymmetric
+
+`runner()` now returns `{ run, close }` and `main()` awaits `close()`. There is no `finally`, and the
+comment says why: a throw goes through `die()`, which calls `process.exit(1)` — that terminates
+immediately without waiting for the event loop, so the failure path could **never** hang. Only the
+success path could. A defensive `finally` would imply otherwise and teach the next reader something
+untrue.
+
+`--dry-run` went from never exiting to **1.8 seconds**.
+
+### And a result I had to throw away
+
+Unblocking the chained run let its e2e start — while I had already launched a second run. The two
+overlapped. `conventions.md` says plainly that two concurrent `test:e2e` runs produce a false
+failure, because they share one database, and they duly produced one: a red `incidents.spec.ts`
+against 123 passes.
+
+**I created the exact condition the convention warns about.** That run proves nothing in either
+direction, so I stopped both, cleared every node process, swept two stranded tenants and five
+accounts with `--all` (safe precisely because nothing was in flight), and started one clean run.
+
+### Two rules
+
+**Never chain a script ahead of the suite with `;`.** Run them as separate commands, so a script that
+will not exit cannot silently swallow the run behind it.
+
+**When a long command produces nothing, check whether the thing it should have started has
+started** — not whether the thing you assume is running is stuck.
+
+## 2026-09-04 (twenty-second) — 2G: the disclaimer stops describing the product
+
+The last item in Phase 2, and it turned out to be a correctness change rather than a tidy-up.
+
+### The sentence had become half false
+
+> These figures count attended hours only. Under sections 6-4 to 6-7 of the Funding Handbook a
+> service may also claim funding for days a permanently enrolled child was booked but absent, and
+> this system does not calculate that.
+
+For a permanently enrolled child with recorded days and times, the figures no longer count attended
+hours only and the system **does** calculate it. For everybody else the sentence is still exactly
+right — which is why the plan said *replace, do not delete*, and why deleting it would have been the
+mirror image of the false-caveat mistake: removing a true warning.
+
+So it splits on `summary.basisCounts`. **A disclaimer that describes the product in general is a
+disclaimer that is wrong for half the rows on the page.**
+
+### It admits an over-claim, and nothing here has had to do that before
+
+Every other caveat in `exportDisclaimer` warns that a figure may be too **low**, and this repo has
+promised that for weeks — item 6, the ratio banner, the funding page. The agreement basis breaks the
+promise in exactly one place: §6-5 stops absence funding the moment a family gives notice, and
+nothing in this schema records notice, so the window runs its full length.
+
+The disclaimer now says so, conditionally on the agreement basis actually being used — because on an
+attendance-only period the over-claim cannot happen and the sentence would be the false caveat this
+function has already had to remove twice. **There is an assertion for its presence and a separate one
+for its absence**, which is the pair that keeps a conditional caveat honest in both directions.
+
+I also went back and flagged it on item 55, because "the error only ever runs low" appears in more
+than one place and a reader meeting it elsewhere should know it is now qualified.
+
+### A seeded record, for a reason worth keeping
+
+`basisCounts` is built by reducing over children into an object **pre-seeded with all four keys at
+zero**. Reduced into `{}` instead, a basis nobody happens to be on is `undefined` — falsy — so
+`basisCounts.agreement` would read as "nobody used the agreement" in exactly the case where the
+distinction matters. Asserted, and the mutation that removes one seed key dies on it.
+
+### Where 2G actually bites: the CSV
+
+The page had been saying which basis funded each child since the previous commit. The **file** had
+not — and the file is what gets keyed into ELI Web. `export.csv/route.ts` states its own principle
+in a comment: *"the disclaimer travels in the rows"*, because a total that excludes three days must
+say which three on the row they came from.
+
+Four columns follow from that: `Hours basis` (the raw value, since a spreadsheet gets filtered and
+`attendance-no-agreement` is greppable where "may be low" is not), `Claimable absent hours`
+(unconditional — `0.00` is a positive statement that none of the claim rests on a day nobody
+attended), `Absences not claimable` with their reasons, and `Attended outside agreement`.
+
+### Where Phase 2 now stands
+
+2A through 2E and 2G are done. 2F is the remainder: §6-7's monthly check, whose month-three rule is
+contradicted between §6-7 and §6-8 (item 61, an enquiry question), and §6-4's cross-child day-level
+pass. Ten mutations on this change, ten caught.
+
 ## 2026-09-04 (twenty-first) — a correction, and the sweep I accused of a bug it does not have
 
 No product code. This is the record being fixed.

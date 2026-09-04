@@ -529,6 +529,21 @@ export interface FundingSummary {
   periodPrecedesRecord: boolean | null;
   verified: boolean;
   capsBasis: string;
+
+  /**
+   * How many children in this period were funded from each of §9-2's sources.
+   *
+   * ON THE SUMMARY RATHER THAN DERIVED BY THE CALLER, because `exportDisclaimer` needs it and a
+   * disclaimer computed from a field somebody forgot to pass is a disclaimer that quietly stops
+   * appearing. Every key is always present, so a caller reading `agreement` gets 0 rather than
+   * `undefined` when nobody is on it.
+   *
+   * The reason this exists at all: the paragraph a manager reads before keying a figure into a
+   * Crown system used to be able to say one thing about the whole period. It cannot any more —
+   * a period can mix children funded from their agreement with children funded from attendance,
+   * and those two carry **opposite** risks.
+   */
+  basisCounts: Record<HoursBasis, number>;
 }
 
 /**
@@ -830,6 +845,25 @@ export function summariseFunding(
     periodPrecedesRecord,
     verified: FUNDING_RULES_VERIFIED,
     capsBasis: caps.basis,
+    /*
+      Seeded with every key at zero and then counted up, rather than built by reducing into an
+      empty object. A `Record<HoursBasis, number>` assembled from the data alone would be missing
+      the keys nobody happened to be on, and `basisCounts.agreement` would read `undefined` —
+      which is falsy, so the disclaimer's "did anybody use the agreement" test would silently
+      answer no in exactly the case it matters.
+    */
+    basisCounts: children.reduce<Record<HoursBasis, number>>(
+      (acc, c) => {
+        acc[c.hoursBasis] += 1;
+        return acc;
+      },
+      {
+        agreement: 0,
+        attendance: 0,
+        'attendance-no-agreement': 0,
+        'attendance-type-not-stated': 0,
+      },
+    ),
   };
 }
 
@@ -916,24 +950,74 @@ export function exportDisclaimer(summary: FundingSummary): string {
       concluded that once absences were accounted for by hand, the figure was complete. It was
       not, and nothing on the page said so.
     */
-    parts.push(
-      'These figures count attended hours only. Under sections 6-4 to 6-7 of the Funding Handbook a service may also claim funding for days a permanently enrolled child was booked but absent, and this system does not calculate that — so the total may be lower than what you are entitled to claim.',
-    );
     /*
-      TWO SENTENCES CAME OUT HERE ON 2026-09-04, because the things they described were fixed
-      rather than because they became inconvenient — which is the distinction that matters for a
-      disclaimer.
+      REPLACED, NOT DELETED — 2026-09-04, later the same day, and this is the third revision of
+      this sentence in three weeks.
+
+      It used to read: "These figures count attended hours only. Under sections 6-4 to 6-7 of the
+      Funding Handbook a service may also claim funding for days a permanently enrolled child was
+      booked but absent, and this system does not calculate that."
+
+      Both halves stopped being unconditionally true when the agreement basis landed. For a
+      permanently enrolled child with recorded days and times, the figures no longer count
+      attended hours only, and the system DOES calculate the absence funding. For everybody else
+      the old sentence is still exactly right.
+
+      So it splits by what actually happened in this period, which is what `basisCounts` is for.
+      A disclaimer that describes the product in general is a disclaimer that is wrong for half
+      the rows on the page.
+    */
+    const fromAgreement = summary.basisCounts.agreement;
+    const fromAttendance =
+      summary.basisCounts.attendance +
+      summary.basisCounts['attendance-no-agreement'] +
+      summary.basisCounts['attendance-type-not-stated'];
+
+    if (fromAgreement === 0) {
+      parts.push(
+        'These figures count attended hours only. Under sections 6-4 to 6-7 of the Funding Handbook a service may also claim funding for days a permanently enrolled child was booked but absent, and no child here has recorded days and times for that to be worked out from — so the total may be lower than what you are entitled to claim.',
+      );
+    } else {
+      parts.push(
+        `For ${fromAgreement} ${fromAgreement === 1 ? 'child' : 'children'} these figures start from the enrolment agreement and include absences the Handbook allows, under sections 6-4 to 6-7.` +
+          (fromAttendance > 0
+            ? ` The other ${fromAttendance} count attended hours only, because no days and times are recorded or the enrolment type is not stated, so those may be lower than what you are entitled to claim.`
+            : ''),
+      );
+      /*
+        AND THE ONE PLACE THIS PRODUCT CAN NOW RUN HIGH, WHICH HAS TO BE SAID OUT LOUD.
+
+        Every other caveat in this function warns that a figure may be too LOW, and item 6 and
+        this file have both promised for weeks that the error only ever runs that way. The
+        agreement basis breaks that promise in exactly one way: §6-5 stops a claim the moment a
+        parent gives notice the child will not return, "even if the three week period has not
+        ended" — and nothing in this schema records notice, so the window runs its full length.
+
+        Conditional on the agreement basis actually being used, because for an attendance-only
+        period it cannot happen and the sentence would be a false caveat — the thing this
+        function has already had to remove twice.
+
+        It sits with the sentence above it rather than at the end, because a manager who reads
+        that absences are now included needs the qualification in the same breath.
+      */
+      parts.push(
+        'One caution in the other direction: if a family has given notice that a child is leaving, the Handbook stops absence funding from that date, and this system does not record notice — so check any child who has stopped attending before you claim.',
+      );
+    }
+    /*
+      TWO SENTENCES CAME OUT HERE EARLIER ON 2026-09-04, because the things they described were
+      fixed rather than because they became inconvenient — which is the distinction that matters
+      for a disclaimer.
 
       One said Plus 10 was not computed. It is now: `plusTenHours` on every child.
 
       The other said the figure could run HIGH for a child with no 20 Hours attestation, because
       the caps were gated on the attestation. They are not any more — 6 a day and 30 a week apply
-      to every child — so that sentence would now be the false caveat this file has twice had to
-      remove. Deleting a warning is only honest when the warning has stopped being true, and both
-      have.
+      to every child — so that sentence would now be a false caveat.
 
-      What remains is absence funding, which is genuinely still missing, so exactly one sentence
-      remains and it names one gap.
+      Deleting a warning is only honest when the warning has stopped being true. Both had. The
+      absence sentence above was replaced rather than deleted for the same reason in reverse: it
+      is still true for most rows, and the new one says which.
     */
   }
   return parts.join(' ');

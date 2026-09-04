@@ -563,9 +563,42 @@ diagnosis. What was ruled out with evidence at the time: the app itself (the bui
 Supabase being down (REST 0.4s, GoTrue health 0.2s, Postgres serving `migrate --status`), and a stuck
 transaction holding locks on `centres` (`pg_stat_activity` showed nothing active or in-transaction).
 
+**Later the same day the auth-rate-limit half was disproved outright.** A bounded probe found
+`auth.admin.createUser` responding in **942ms** and `deleteUser` in **895ms**, so the admin API was
+never slow. `5d4e696`'s commit message offers a rate limit as the leading explanation; it is wrong,
+and the orphan-account correlation is what remains.
+
 **The practical rule:** if the seed times out, run `npm run sweep:audit` before anything else. It is
 idempotent, matches only `audit.` on the RFC 2606 `.invalid` domain, and has a two-hour grace period
-so it cannot touch a run in flight.
+so it cannot touch a run in flight. Use `--all` only when nothing is running — which is exactly what
+the grace period exists to protect against.
+
+### The sweep finished its work and would not exit, which cost an hour
+
+**Fixed 2026-09-04.** `runner()` opened a `pg` Client and closed it nowhere. The script did its job
+correctly — output reads `15 account(s) removed` — then `main()` returned and the open socket kept
+node's event loop alive **indefinitely**.
+
+Harmless as a leak. Not harmless in context: it had been chained ahead of the suite in one shell
+command, `npm run sweep:audit; npm run test:e2e`, so **the e2e suite never started**. Zero output, no
+artefacts, several node processes. That read as a hung Playwright run and sent me through the auth
+admin API, orphan accounts, Postgres locks, an import cycle and a stale build — all healthy, because
+none of them was the problem.
+
+**The tell that was there and that I misread:** `e2e/.artifacts/owner.json` was ninety minutes old. A
+healthy run writes it within seconds of the seed starting. I had direct evidence that e2e had not
+begun and read it as evidence that e2e was stuck.
+
+`runner()` now returns `{ run, close }` and `main()` awaits `close()`. Only the success path needed
+it — a throw goes to `die()`, which calls `process.exit(1)` and does not wait for the event loop, so
+the failure path could never hang. `--dry-run` went from never exiting to 1.8 seconds.
+
+**Two rules out of it.** Never chain a script ahead of the suite with `;` — run them as separate
+commands, so a script that will not exit cannot silently swallow the run behind it. And when a long
+command produces nothing, **check whether the thing it should have started has started**, rather than
+investigating the thing you assume is stuck.
+
+## See Also
 
 **CORRECTION — the commit message for `5d4e696` says this wrongly.** It claims *"the sweep finds
 accounts VIA the centres it deletes, so once a centre is gone its accounts are invisible to it"*.

@@ -48,13 +48,34 @@ const GRACE_HOURS = 2;
 type Run = (sql: string) => Promise<Record<string, unknown>[]>;
 
 /** The same two paths the migration runner and the restore drill use. */
-async function runner(): Promise<Run> {
+/*
+  Returns the query function AND a closer, which is the whole point of the second half — added
+  2026-09-04 after this script cost an hour of misdiagnosis.
+
+  IT DID ITS WORK AND THEN NEVER EXITED. `runner()` opened a `pg` Client and nothing ever closed
+  it, so an open socket kept the event loop alive indefinitely. The script printed
+  "15 account(s) removed", `main()` returned, and the process sat there.
+
+  That is harmless on its own and was not harmless in context: it had been chained ahead of the
+  e2e suite in one shell command — `npm run sweep:audit; npm run test:e2e` — so **the e2e suite
+  never started at all**. Zero output and no artefacts for forty minutes, which I read as a hung
+  Playwright run and spent an hour investigating: the auth admin API, orphan accounts, Postgres
+  locks, an import cycle, a stale build. Every one of those came back healthy, because none of
+  them was the problem.
+
+  The `fetch` path never had this bug, which is why it was invisible on any machine without
+  `SUPABASE_DB_URL` set.
+*/
+async function runner(): Promise<{ run: Run; close: () => Promise<void> }> {
   const dbUrl = process.env.SUPABASE_DB_URL;
   if (dbUrl) {
     const { Client } = await import('pg');
     const client = new Client({ connectionString: dbUrl, ssl: { rejectUnauthorized: false } });
     await client.connect();
-    return async (sql) => (await client.query(sql)).rows;
+    return {
+      run: async (sql) => (await client.query(sql)).rows,
+      close: () => client.end(),
+    };
   }
 
   const token = process.env.SUPABASE_ACCESS_TOKEN;
@@ -62,16 +83,21 @@ async function runner(): Promise<Run> {
   if (!token || !ref) {
     die('Set SUPABASE_DB_URL, or SUPABASE_ACCESS_TOKEN + SUPABASE_PROJECT_REF.');
   }
-  return async (sql) => {
-    const res = await fetch(`https://api.supabase.com/v1/projects/${ref}/database/query`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: sql }),
-    });
-    const body = await res.text();
-    if (!res.ok) throw new Error(`${body.slice(0, 400)}\n  statement: ${sql.slice(0, 120)}`);
-    const parsed = JSON.parse(body);
-    return Array.isArray(parsed) ? parsed : [];
+  return {
+    run: async (sql) => {
+      const res = await fetch(`https://api.supabase.com/v1/projects/${ref}/database/query`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: sql }),
+      });
+      const body = await res.text();
+      if (!res.ok) throw new Error(`${body.slice(0, 400)}\n  statement: ${sql.slice(0, 120)}`);
+      const parsed = JSON.parse(body);
+      return Array.isArray(parsed) ? parsed : [];
+    },
+    // Nothing to close: `fetch` holds no socket open between calls, which is why this branch
+    // never exhibited the bug the Postgres one did.
+    close: async () => {},
   };
 }
 
@@ -85,7 +111,7 @@ async function main() {
   const dryRun = args.includes('--dry-run');
   const all = args.includes('--all');
 
-  const run = await runner();
+  const { run, close } = await runner();
   const cutoff = new Date(Date.now() - GRACE_HOURS * 3_600_000).toISOString();
   const olderThan = all ? '' : `and created_at < '${cutoff}'`;
 
@@ -167,6 +193,21 @@ async function main() {
     await run(`delete from auth.users where email like 'audit.%@ece.invalid' ${olderThan}`);
   }
   console.log(`  ${accounts.length} account(s)${dryRun ? '' : ' removed'}\n`);
+
+  /*
+    ONLY THE HAPPY PATH NEEDED THIS, and the asymmetry is worth a sentence rather than a
+    defensive `finally` that implies otherwise.
+
+    A throw goes to `die()`, which calls `process.exit(1)` — that terminates immediately and does
+    not wait for the event loop, so an open socket has never been able to hang the failure path.
+    It was the success path that hung: `main()` returned, nothing closed the client, and node sat
+    on a live connection forever.
+
+    The failure this prevents is not a leaked socket. It is a process that has finished its work
+    and will not exit — which, chained ahead of another command, silently stops that command from
+    ever running.
+  */
+  await close();
 }
 
 main().catch((e) => die(e instanceof Error ? e.message : String(e)));

@@ -1971,7 +1971,13 @@ bolted onto the current single `fundedHours` number cannot express that. The cap
 30/week for every child, with a 20/week sub-cap on the 20 Hours component and the remainder to 30
 as Plus 10.
 
-### 55. Funded hours are derived from attendance, and for a permanently enrolled child the Handbook starts from enrolment — **OPEN, added 2026-09-04**
+### 55. Funded hours are derived from attendance, and for a permanently enrolled child the Handbook starts from enrolment — **OPEN, added 2026-09-04, wired the same day**
+
+> **The claim that this product's funding error only ever runs LOW is now conditional, and that is
+> the sharpest consequence of this item.** It held while attendance was the only source. The
+> agreement basis breaks it in one place — §6-5's notice rule, with no column to record notice — and
+> `exportDisclaimer` says so out loud whenever the agreement basis was used. Anywhere else that
+> repeats the unconditional promise, including item 6, should be read against this.
 
 | | |
 |---|---|

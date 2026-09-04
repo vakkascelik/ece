@@ -1,9 +1,36 @@
 # CI secrets, and the second Supabase project that should come first
 
-**Owner runbook.** Written 2026-09-04, because four of the six verification gates have never
-executed in CI and the reason is two missing repository secrets. This is the whole procedure, in
-the order it should be done, with the reason for the order stated first — because doing it in the
-obvious order trades one Ministry criterion for another.
+**Owner runbook.** Written 2026-09-04. The whole procedure, in the order it should be done.
+
+> ## STATUS: DEFERRED BY THE OWNER, 2026-09-04
+>
+> **Do not act on this document.** The owner will supply the GitHub credentials later; nothing here
+> is to be set in the meantime.
+>
+> **And the reason for it was re-framed the same day, after the owner pushed back on it — correctly.**
+> This originally led with *"four of the six verification gates have never executed in CI"*, which
+> reads as an engineering blocker. It is not one. Every gate runs locally against `.env.local` and
+> does, on every commit: `test:rls` 741/741, `review:security` 16/16, `drill:restore` 6/6,
+> `test:e2e` 124/124, `migrate`, `drill:rowcap`, `expo export`.
+>
+> **All four credential values already exist** in `ece/.env.local` and always did. Nothing needs
+> finding. What is absent is those values being in *GitHub Actions*, which buys exactly one thing:
+> CI going green, as **evidence** for `AST18` and `AST19`. That is a third-party assurance question,
+> and even there the suites exist and are strong, so those items are answered with a **disclosure**
+> — "CI has never passed in 137 runs" — rather than a failure. Ugly, not a no.
+>
+> Against that, `SUPABASE_SERVICE_ROLE_KEY` as a repository secret means anyone who can push a branch
+> can print a key that bypasses RLS on production, and the `e2e` job it enables writes a tenant and
+> five `auth.users` accounts on every push, into the same auth store as real families.
+>
+> **So the value is low today and the risk is real.** With one contributor running all six gates by
+> hand every commit, this is worth revisiting when a second person joins, when the Ministry asks for
+> pipeline evidence specifically, or when there is an isolated project to point it at.
+>
+> **The part that still stands on its own is the environment separation below** — `AST06` (three
+> environments, there is one) and `AST09` (production data isolated to production; local development
+> currently runs against production). Those are genuine failures rather than disclosures, and they
+> would concern an auditor whether or not CI ever runs.
 
 ---
 

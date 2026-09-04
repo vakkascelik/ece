@@ -658,6 +658,53 @@ like it filed something is a screen after which nobody files anything. `exportDi
 the wording from the summary, so it cannot say "complete" when it is not, and lives in `@ece/core`
 so a future emailed version says the same thing.
 
+### 2G — the disclaimer describes the period, and admits the one over-claim
+
+**2026-09-04.** The disclaimer's absence sentence was **replaced, not deleted**, for the third
+revision in three weeks. It read:
+
+> These figures count attended hours only. Under sections 6-4 to 6-7 of the Funding Handbook a
+> service may also claim funding for days a permanently enrolled child was booked but absent, and
+> this system does not calculate that.
+
+Both halves stopped being unconditionally true when the agreement basis landed — and both are still
+exactly right for a child funded from attendance. So the sentence now **splits by what happened in
+this period**, driven by `summary.basisCounts`:
+
+| Period | What it says |
+|---|---|
+| Nobody on the agreement | the original sentence, with *"no child here has recorded days and times for that to be worked out from"* replacing *"this system does not calculate that"* |
+| Some on the agreement | how many start from the agreement and include allowed absences, and how many count attended hours only |
+| All on the agreement | the first half only — no phantom second group |
+
+**A disclaimer that describes the product in general is a disclaimer that is wrong for half the rows
+on the page.** That is the whole change.
+
+**And it now admits an over-claim, which nothing here has had to do before.** Every other caveat in
+`exportDisclaimer` warns a figure may be too *low*, and [[unverified-claims]] item 6 has promised for
+weeks that the error only ever runs that way. The agreement basis breaks that promise in exactly one
+place: §6-5 stops absence funding when a family gives notice, and nothing in this schema records
+notice. So:
+
+> One caution in the other direction: if a family has given notice that a child is leaving, the
+> Handbook stops absence funding from that date, and this system does not record notice — so check
+> any child who has stopped attending before you claim.
+
+**Conditional on the agreement basis being used**, because on an attendance-only period the
+over-claim cannot happen and the sentence would be the false caveat this function has already had to
+remove twice. There is an assertion for its presence and an assertion for its **absence**.
+
+**`basisCounts` is seeded with all four keys at zero** rather than reduced into an empty object. A
+missing key reads as `undefined`, which is falsy, so the "did anybody use the agreement" test would
+answer *no* in precisely the case that matters. Asserted, and mutation-drilled.
+
+**The CSV carries it too**, which is where 2G actually bites: the file is what gets keyed into ELI
+Web, and this file's own principle is that *"the disclaimer travels in the rows"*. Four new columns —
+`Hours basis` (the raw value, because a spreadsheet gets filtered and `attendance-no-agreement` is
+greppable where "may be low" is not), `Claimable absent hours` (unconditional: `0.00` is a positive
+statement that none of the claim rests on a day nobody attended), `Absences not claimable` with
+their reasons, and `Attended outside agreement`.
+
 ### §9-2's two sources — `hoursBasis`, and the two ways of not knowing
 
 **Added and wired 2026-09-04.** `childFunding` takes an optional `agreement`; `readFundingPeriod`

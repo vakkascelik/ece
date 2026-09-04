@@ -76,6 +76,42 @@ export async function GET(request: Request) {
       // enrolment, and a manager checking a wrong attestation needs to know which days
       // put the child outside the third-to-sixth-birthday band.
       { header: '20 Hours days outside age band', value: (c) => c.ineligibleDates.join(' ') },
+      /*
+        §9-2's SOURCE, IN THE ROW — added 2026-09-04, and it follows this file's own principle
+        rather than extending it.
+
+        The page shows which of §9-2's two sources funded each child; until now the FILE did not,
+        and the file is what gets keyed into ELI Web. Two of the four bases produce the same
+        number from the same events and differ only in whether it is right, so a row without its
+        basis is a figure somebody could transcribe believing the wrong thing about it — exactly
+        what the `Unresolved days` column exists to prevent, one field along.
+
+        The raw basis value rather than a friendly phrase. A spreadsheet gets filtered and sorted,
+        and `attendance-no-agreement` is greppable in a way that "may be low" is not.
+      */
+      { header: 'Hours basis', value: (c) => c.hoursBasis },
+      /*
+        Unconditional, unlike the split above it, and for the opposite reason: the split is zero
+        or identical to the total for most children, whereas an absence figure of 0.00 is a
+        positive statement that none of this claim rests on a day nobody attended. On a Crown
+        return that is the number an auditor asks about first.
+      */
+      { header: 'Claimable absent hours', value: (c) => c.absenceHours.toFixed(2) },
+      /*
+        Dates and their reason, for the same reason `Unresolved days` carries dates: this is the
+        actionable column. An enrolled child whose absences have run past the three-week window
+        is what §6-7 expects a service to act on, and "which days" is the first thing they need.
+      */
+      {
+        header: 'Absences not claimable',
+        value: (c) => c.unclaimableAbsences.map((u) => `${u.date} (${u.reason})`).join('; '),
+      },
+      /*
+        Attendance the agreement does not cover. Reported and never claimed — §9-2 step 1 asks
+        for the hours of enrolment — so a service seeing dates here can change the agreement,
+        which is what §6-7 asks for when attendance stops matching it.
+      */
+      { header: 'Attended outside agreement', value: (c) => c.attendedOutsideAgreement.join(' ') },
     ],
   });
 }

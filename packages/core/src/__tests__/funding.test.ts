@@ -1015,3 +1015,127 @@ describe('§9-2: which source produced the funded hours', () => {
     expect(r.fundedHours).toBe(30);
   });
 });
+
+/**
+ * 2G — the disclaimer, replaced rather than deleted, and the one caution that runs the other way.
+ *
+ * This file has twice had to remove a caveat that had stopped being true, so the assertions here
+ * are as much about what the paragraph must NOT say as what it must.
+ */
+describe('the disclaimer describes this period, not the product in general', () => {
+  const monWed = [
+    { weekday: 1, fromTime: '09:00', toTime: '15:00', effectiveFrom: '2026-01-01', effectiveTo: null },
+    { weekday: 3, fromTime: '09:00', toTime: '15:00', effectiveFrom: '2026-01-01', effectiveTo: null },
+  ];
+
+  /** A child funded from their agreement: permanent, with blocks. */
+  const onAgreement = (childId: string) =>
+    childFunding({
+      childId,
+      events: fullDay(3),
+      timeZone: NZ,
+      period,
+      twentyHoursEce: false,
+      enrolmentType: 'permanent',
+      agreement: {
+        sessions: enrolledSessions({
+          blocks: monWed,
+          from: '2026-08-03',
+          to: '2026-08-09',
+          attendedDates: new Set(['2026-08-03']),
+          closures: [],
+        }),
+        closures: [],
+      },
+    });
+
+  /** A child funded from attendance, because nobody has recorded days and times. */
+  const onAttendance = (childId: string) =>
+    childFunding({
+      childId,
+      events: fullDay(4),
+      timeZone: NZ,
+      period,
+      twentyHoursEce: false,
+      enrolmentType: 'permanent',
+    });
+
+  it('seeds every basis in the counts, so a missing key cannot read as zero children', () => {
+    // A `Record<HoursBasis, number>` built by reducing into `{}` would leave `agreement`
+    // undefined — falsy — and the disclaimer's "did anybody use the agreement" test would
+    // answer no in exactly the case that matters.
+    const counts = summariseFunding(period, []).basisCounts;
+    expect(Object.keys(counts).sort()).toEqual([
+      'agreement',
+      'attendance',
+      'attendance-no-agreement',
+      'attendance-type-not-stated',
+    ]);
+    expect(counts.agreement).toBe(0);
+  });
+
+  it('counts each child against the basis that funded them', () => {
+    const counts = summariseFunding(period, [onAgreement('a'), onAttendance('b')]).basisCounts;
+    expect(counts.agreement).toBe(1);
+    expect(counts['attendance-no-agreement']).toBe(1);
+  });
+
+  /*
+    THE OLD SENTENCE IS STILL RIGHT WHEN NOBODY IS ON THE AGREEMENT, which is every centre today
+    because `child_booking_schedule` ships empty. Replacing it unconditionally would have been
+    the mirror image of the false-caveat mistake: removing a true warning.
+  */
+  it('says the figures count attended hours only when no child is on the agreement', () => {
+    const text = exportDisclaimer(summariseFunding(period, [onAttendance('b')]));
+    expect(text).toContain('count attended hours only');
+    expect(text).toContain('may be lower than what you are entitled to claim');
+  });
+
+  it('names both groups when a period mixes the two bases', () => {
+    const text = exportDisclaimer(
+      summariseFunding(period, [onAgreement('a'), onAttendance('b'), onAttendance('c')]),
+    );
+    expect(text).toContain('For 1 child these figures start from the enrolment agreement');
+    expect(text).toContain('The other 2 count attended hours only');
+  });
+
+  it('does not mention the other group when every child is on the agreement', () => {
+    const text = exportDisclaimer(summariseFunding(period, [onAgreement('a')]));
+    expect(text).toContain('start from the enrolment agreement');
+    expect(text).not.toContain('The other');
+  });
+
+  /*
+    THE CAUTION THAT RUNS THE OTHER WAY, and the assertion this whole block exists for.
+
+    Every other caveat in `exportDisclaimer` warns that a figure may be too LOW, and this file
+    has promised for weeks that the error only ever runs that way. The agreement basis breaks
+    that promise in exactly one place: §6-5 stops absence funding when a family gives notice, and
+    nothing in this schema records notice.
+  */
+  it('warns about notice when the agreement basis was used', () => {
+    const text = exportDisclaimer(summariseFunding(period, [onAgreement('a')]));
+    expect(text).toContain('caution in the other direction');
+    expect(text).toContain('does not record notice');
+  });
+
+  /*
+    AND IT MUST NOT WARN OTHERWISE. On an attendance-only period the over-claim cannot happen, so
+    the sentence would be a false caveat — precisely what was removed from this function twice on
+    2026-09-04 when the caps and Plus 10 were fixed. A caveat beside a figure it cannot apply to
+    is how people learn to skip the paragraph.
+  */
+  it('does NOT warn about notice on an attendance-only period', () => {
+    const text = exportDisclaimer(summariseFunding(period, [onAttendance('b')]));
+    expect(text).not.toContain('caution in the other direction');
+    expect(text).not.toContain('does not record notice');
+  });
+
+  it('says nothing about either when there are no children at all', () => {
+    // `periodPrecedesRecord` and the caps basis still speak; the absence sentences must not
+    // invent a population.
+    const text = exportDisclaimer(summariseFunding(period, []));
+    expect(text).not.toContain('start from the enrolment agreement');
+    expect(text).not.toContain('caution in the other direction');
+  });
+});

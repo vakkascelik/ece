@@ -5,6 +5,58 @@ says so.*
 
 ---
 
+2026-09-04 (twenty-third) — **The sweep finished its work and would not exit, and that is what
+"hung" the e2e suite for an hour.** Fixed in `scripts/sweep-audit-tenants.ts`. Corrected:
+[[deployment]], where the auth-rate-limit hypothesis from `5d4e696` is now disproved outright.
+
+`runner()` opened a `pg` Client and closed it nowhere. The script did its job — `15 account(s)
+removed` — then `main()` returned and the live socket kept node alive indefinitely. Chained ahead of
+the suite with `;`, that meant **e2e never started**: zero output, no artefacts, several node
+processes, which I read as a hung Playwright run.
+
+**The tell was there.** `e2e/.artifacts/owner.json` was ninety minutes old, and a healthy run writes
+it within seconds. I had evidence that e2e had not begun and read it as evidence that it was stuck.
+
+**A bounded probe also killed the rate-limit hypothesis**: `auth.admin.createUser` answers in 942ms,
+`deleteUser` in 895ms. What survives from `cba6af3` is the orphan-account correlation, and only that.
+
+`runner()` now returns `{ run, close }`. Only the success path needed it — a throw goes to `die()`,
+which calls `process.exit(1)` and never waits for the event loop. `--dry-run` went from never
+exiting to 1.8 seconds.
+
+**And one result has to be thrown away**, which is the other half of the lesson: unblocking the
+chained run let its e2e start while I had already launched a second one. [[conventions]] says two
+concurrent runs produce a false failure, and they did — one red `incidents.spec.ts` against 123
+passes. I created the condition the convention warns about, so that run proves nothing either way and
+was re-run from a clean slate.
+
+2026-09-04 (twenty-second) — **2G: the disclaimer describes the period rather than the
+product, and admits an over-claim for the first time.** New: a [[funding-and-billing]] section on the
+replaced sentence and the four new CSV columns. Narrowed: [[unverified-claims]] item 55, which now
+carries the warning that this product's "the error only ever runs low" promise has become
+conditional.
+
+The absence sentence was **replaced, not deleted** — third revision in three weeks. Both halves of it
+stopped being unconditionally true when the agreement basis landed, and both are still exactly right
+for a child funded from attendance, so it now splits by `summary.basisCounts`: the original wording
+when nobody is on the agreement, a count of each group when a period mixes them, and no phantom
+second group when everybody is.
+
+**And it admits an over-claim, which nothing here has had to do before.** Every other caveat warns a
+figure may be too *low*. §6-5 stops absence funding when a family gives notice, and nothing records
+notice — so the disclaimer says to check any child who has stopped attending. **Conditional on the
+agreement basis being used**, because otherwise it would be the false caveat this function has twice
+had to remove; there is an assertion for its presence and one for its absence.
+
+**`basisCounts` is seeded with all four keys at zero**, because a key missing from a reduce reads as
+`undefined` and the "did anybody use the agreement" test would answer no in exactly the case that
+matters.
+
+**The CSV gained four columns**, which is where 2G actually bites — the file is what gets keyed into
+ELI Web, and this route's own principle is that the disclaimer travels in the rows.
+
+Ten mutations, ten caught.
+
 2026-09-04 (twenty-first) — **Correction: the sweep does not have the defect I said it had,
 and the transient e2e failure has a better explanation.** New: a [[deployment]] section on the two
 audit sweeps and which one can reach an account; a [[conventions]] entry on reading a backgrounded
