@@ -205,3 +205,103 @@ test('the licence type and service model save, which proves the column grant', a
   await expect(page.getByLabel('Licence type')).toHaveValue('');
   await expect(page.getByLabel('How this service operates')).toHaveValue('');
 });
+
+/**
+ * Service closures — `0088`.
+ *
+ * The migration shipped with no reader or writer, so this is the first proof the whole path
+ * works: form → server action → `caller_has_role` → the GiST exclusion → read back.
+ *
+ * FIXED DATES IN 2029, not dates relative to today, and for two reasons. The exclusion
+ * constraint is per centre and this suite shares a tenant with the other specs, so a closure
+ * placed on "today" would collide with anything else that recorded one. And an assertion built
+ * on `new Date()` is only true for half the day when the suite runs in UTC and the product
+ * judges in the centre's zone — which cost a run earlier the same day this was written.
+ */
+test('a closure is recorded, an open one blocks the next, and reopening closes it off', async ({
+  page,
+}) => {
+  await visit(page, '/settings');
+
+  const closures = page.locator('section.card').filter({ hasText: 'Closed days' });
+  await expect(closures.getByText('No closures recorded.')).toBeVisible();
+
+  await closures.getByRole('button', { name: 'Record a closure' }).click();
+  /*
+    `exact: true` on the end date, and it is not decoration. Once an open-ended closure exists
+    its row carries an input labelled "Last closed day for the closure starting 2029-09-01",
+    and accessible-name matching is SUBSTRING by default — so the unqualified locator resolves
+    to two elements and the fill fails on strict mode. The same near-miss the schedule panel
+    hit with "Day" against "Days attending", and it only bites after the open closure is
+    recorded, which is why the first two fills were fine and the fourth was not.
+  */
+  await closures.getByLabel('First closed day').fill('2029-07-06');
+  await closures.getByLabel('Last closed day', { exact: true }).fill('2029-07-17');
+  await closures.getByLabel('Reason', { exact: true }).fill('July term break');
+  await closures.getByRole('button', { name: 'Record', exact: true }).click();
+
+  // Before any reload: a refused write and one that did not persist look identical after.
+  await expect(closures.locator('.error')).toHaveCount(0);
+  await expect(closures.getByRole('cell', { name: '2029-07-06' })).toBeVisible();
+  await expect(closures.getByText('July term break')).toBeVisible();
+
+  /*
+    THE OVERLAP MESSAGE, which is the assertion this screen most needs. A bare `23P01` reads
+    "conflicting key value violates exclusion constraint" and sends somebody hunting for a
+    duplicate that does not exist. One day of overlap is enough to trigger it.
+  */
+  await closures.getByRole('button', { name: 'Record a closure' }).click();
+  await closures.getByLabel('First closed day').fill('2029-07-17');
+  await closures.getByLabel('Last closed day', { exact: true }).fill('2029-07-20');
+  await closures.getByRole('button', { name: 'Record', exact: true }).click();
+  await expect(closures.getByText(/overlap a closure already recorded/)).toBeVisible();
+
+  /*
+    A CLOSURE WITH NO END DATE — the flood case. It is a real answer rather than a missing
+    one, and the screen has to say so in a word rather than leaving the cell blank, because
+    the next person to record a closure will collide with it and needs to know why.
+  */
+  await closures.getByLabel('First closed day').fill('2029-09-01');
+  await closures.getByLabel('Last closed day', { exact: true }).fill('');
+  await closures.getByLabel('Reason', { exact: true }).fill('Flood');
+  await closures.getByRole('button', { name: 'Record', exact: true }).click();
+  await expect(closures.locator('.error')).toHaveCount(0);
+  await expect(closures.locator('span.flag').filter({ hasText: 'no end date' })).toBeVisible();
+
+  // And it covers every later date, so a closure after it collides. This is the infinity
+  // semantics of a null end, asserted through the screen rather than only in SQL.
+  await closures.getByRole('button', { name: 'Record a closure' }).click();
+  await closures.getByLabel('First closed day').fill('2029-11-01');
+  await closures.getByLabel('Last closed day', { exact: true }).fill('2029-11-05');
+  await closures.getByRole('button', { name: 'Record', exact: true }).click();
+  await expect(closures.getByText(/overlap a closure already recorded/)).toBeVisible();
+
+  /*
+    Dismiss the form, which also dismisses its error — that is the whole reason the add error
+    lives inside it. A merged error slot would keep showing this sentence after the next
+    gesture succeeded, which is what the assertion below would then be reporting rather than
+    anything about reopening.
+  */
+  await closures.getByRole('button', { name: 'Cancel' }).click();
+  await expect(closures.getByText(/overlap a closure already recorded/)).toHaveCount(0);
+
+  /*
+    Reopening closes it off. The gesture this exists for is exactly this: shut with no known
+    end, and three weeks later the centre reopens. Deleting and re-entering would lose the
+    audit row saying when the original was made.
+  */
+  await closures.getByLabel(/Last closed day for the closure starting 2029-09-01/).fill('2029-09-20');
+  await closures.getByRole('button', { name: 'Reopened' }).click();
+  await expect(closures.locator('.error')).toHaveCount(0);
+  await expect(closures.locator('span.flag').filter({ hasText: 'no end date' })).toHaveCount(0);
+  await expect(closures.getByRole('cell', { name: '2029-09-20' })).toBeVisible();
+
+  // Tidy up after itself: the exclusion constraint is per centre and this suite shares a
+  // tenant, so leaving 2029 closed would collide with any later test that records one.
+  for (const from of ['2029-09-01', '2029-07-06']) {
+    const row = closures.locator('tr').filter({ hasText: from });
+    await row.getByRole('button', { name: 'Delete' }).click();
+    await expect(closures.locator('.error')).toHaveCount(0);
+  }
+  await expect(closures.getByText('No closures recorded.')).toBeVisible();
+});

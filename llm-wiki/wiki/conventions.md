@@ -930,6 +930,26 @@ lives in `tokens.ts` and a stylesheet wants it, emit it rather than copying it.
 - **`dotenv-cli` wraps the Next scripts.** Next ignores a monorepo root `.env.local`, and the
   failure is delayed — `next build` succeeds and only a real request fails.
 
+### Running the Playwright CLI directly skips the build, and the failure blames your code
+
+`npm run test:e2e` is `npm run build && playwright test`. Invoking the CLI on its own to iterate on
+one spec — which is otherwise the right move, 40 seconds against nine minutes — serves the
+**previous** build. So a component change is not in the page under test, and the test fails against
+code you have already fixed.
+
+It cost three cycles on `ClosureList`: a genuine defect was found, fixed, and the fix appeared not to
+work, because the running server was still the old bundle. The tell is that the page snapshot shows
+markup you no longer have.
+
+Build first, then filter:
+
+```bash
+npm run build
+node --env-file-if-exists=.env.local ./node_modules/@playwright/test/cli.js   test -c apps/web/playwright.config.ts settings.spec.ts
+```
+
+The setup and teardown projects still run, so the tenant is seeded and dropped as usual.
+
 ### An e2e assertion built on `new Date()` is only true for half the day
 
 `new Date().toISOString()` is a **UTC** date. Everything this product decides about a calendar day
@@ -1029,6 +1049,15 @@ child's name on screen.
 
 Closing a panel on success belongs in a `useEffect`, not the render body: calling the parent's
 `setState` during render is a React error that only shows up in the console.
+
+**Close an add form on success and NOT on failure, and the asymmetry is the point.** On success the
+new row is in the list above it, and a form still holding the values that produced it invites a
+second identical record. On failure the form must stay open *with what was typed*, because the
+failure that actually happens is a constraint the user can fix by changing one field — an overlap, a
+duplicate name — and a form that has just thrown the values away makes them retype everything to
+change one date. `ClosureList` learned this from an e2e timeout: with no close-on-success at all,
+the second "Record a closure" button never appeared, because the form was still sitting where the
+button would be.
 
 **An uncontrolled form keyed on nothing keeps a deleted row's values.** `revalidatePath` re-renders
 the server component and the new `defaultValue` is ignored, because `defaultValue` seeds an

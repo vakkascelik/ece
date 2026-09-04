@@ -1,16 +1,28 @@
-import { listRooms } from '@ece/api';
-import { sortRooms } from '@ece/core';
+import { listRooms, listServiceClosures } from '@ece/api';
+import { sortRooms, todayInZone } from '@ece/core';
 import { requireCapability } from '@/lib/auth';
 import { serverDb } from '@/lib/supabase';
 import { PageHeader } from '../PageHeader';
 import './settings.css';
+import { ClosureList } from './ClosureList';
 import { RoomList } from './RoomList';
 import { SettingsForm } from './SettingsForm';
 
 export default async function SettingsPage() {
   const ctx = await requireCapability('manageCentre');
   const db = await serverDb();
-  const rooms = await listRooms(db, ctx.centre.id);
+  const [rooms, closures] = await Promise.all([
+    listRooms(db, ctx.centre.id),
+    listServiceClosures(db, ctx.centre.id),
+  ]);
+
+  /*
+    The centre's date, not the server's. A Next server runs in UTC, which is yesterday for the
+    whole New Zealand morning — and this value decides both what "closed today" means and what
+    the date fields default to. The same boundary that made an e2e assertion true for only half
+    the day on 2026-09-04.
+  */
+  const today = todayInZone(ctx.centre.timezone);
 
   return (
     <>
@@ -32,6 +44,7 @@ export default async function SettingsPage() {
         serviceModel={ctx.centre.serviceModel}
       />
       <RoomList rooms={sortRooms(rooms)} />
+      <ClosureList closures={closures} today={today} />
     </>
   );
 }

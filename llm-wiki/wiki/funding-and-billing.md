@@ -686,6 +686,23 @@ with the `LookupCode` length bound and **no foreign key** — the same treatment
 census codes, because a foreign key would make the column unwritable until the Ministry publishes a
 list, and an unresolvable code belongs on a readiness report rather than in a rejected write.
 
+**Where it is entered:** a *Closed days* card on `/settings`, beside the rooms and the licence
+figure — centre-level configuration entered rarely, by the same two roles, and read by everything
+else. `isClosedOn` and `closureOn` in `@ece/core` are the predicates; both go through `coversDate`,
+which is now on its **third** consumer and whose inclusive-at-both-ends semantics match the `[]`
+range bound the exclusion constraint uses, so the database and the TypeScript cannot disagree about
+a boundary day.
+
+**The code is rendered raw, with a caveat, and never as a guessed label.** The form says so in as
+many words: there is nowhere yet to look one up, so whatever a service types is stored as typed and
+shown as typed.
+
+**A gap worth naming rather than letting the policy imply it.** `0088`'s read policy is plain centre
+membership — every member, **parents included** — and the justification given for it was that a
+family needs to know the centre is shut next Thursday. There is an RLS assertion proving the policy
+allows that, and **nothing surfaces closures to families yet**. The boundary is right; the screen
+does not exist. Do not read the policy as a delivered feature.
+
 ### The enrolment record — what §6-1 requires, and where each part lives
 
 Complete as at 2026-09-04, and this table is the map. §6-1 is the rule; everything under it is

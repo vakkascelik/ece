@@ -264,6 +264,11 @@ export * from './bookingSchedule';
 // `bookingSchedule` is: the enrolment vocabulary in there is already large, and this table has
 // a different write predicate and a different identity rule from everything beside it.
 export * from './childAddresses';
+
+// Service closures (0088). Centre-scoped rather than child-scoped, and the only table in
+// this package whose read policy is plain centre membership - a family needs to know the
+// centre is shut next Thursday.
+export * from './closures';
 // Definer functions only — a kiosk holds no table grant, so there is nothing here to
 // select from and no query for a later reader to widen.
 export * from './kiosk';

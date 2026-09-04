@@ -7,6 +7,89 @@ itself, and from the wiki pages, which hold the durable *why*. This file is the 
 
 ---
 
+## 2026-09-04 (twelfth) — the operating calendar becomes reachable
+
+`0088` shipped schema-only this morning. This gives it a reader, three writers and a screen.
+
+### What shipped
+
+`ServiceClosure`, `isClosedOn` and `closureOn` in `@ece/core`; `packages/api/src/closures.ts` with
+list, add, end and delete; three actions on `manageCentre`; and a **Closed days** card on
+`/settings`, beside the rooms and the licence figure.
+
+On settings rather than a page of its own because it is centre-level configuration in the same sense
+those are — entered rarely, by the same two roles, and read by everything else. A calendar view
+would be a nicer screen and is not what was missing.
+
+### The extraction paying off
+
+`isClosedOn` reuses `coversDate`, which is now on its **third** consumer after the booking schedule
+and the code-set effective windows. That is not tidiness: `coversDate` is inclusive at both ends,
+which is exactly the `[]` range bound `service_closures_no_overlap` uses. If the two disagreed, a
+closure the database refuses as overlapping would be treated in TypeScript as leaving a gap between
+them. Mutating `coversDate` to an exclusive end fails the closure test on its own label, which is
+the check that the agreement is real rather than coincidental.
+
+### Two things the screen says out loud
+
+**The reason code is rendered raw, with a caveat.** `ClosureReasonCode` is a `LookupCode` and the
+Ministry has not published the list, so `code_sets` ships a `closure_reason` domain with nothing in
+it. The form says there is nowhere to look one up and that whatever is typed is stored as typed. A
+label invented here is exactly what AGENTS.md §7 forbids.
+
+**A null end date is a word, not a blank cell.** An empty cell reads as missing data. This is a
+recorded state that covers every later date, and the next person recording a closure will collide
+with it — so it says `no end date`, and there is a **Reopened** control for the case it exists for:
+shut on Tuesday with no known end, reopening three weeks later. Deleting and re-entering would lose
+the audit row saying when the original record was made.
+
+### The gap I am naming rather than letting a policy imply
+
+`0088`'s read policy is plain centre membership — every member, **parents included** — and the
+reason I gave for it was that a family needs to know the centre is shut next Thursday. There is an
+RLS assertion proving the policy allows that.
+
+**Nothing surfaces closures to families.** The boundary is right and the screen does not exist. That
+is worth writing down because a wide policy with no consumer reads, three months later, like a
+delivered feature — and the next person would find the assertion and assume the parent view was
+built.
+
+### Three e2e cycles, each finding something different
+
+**One: a missing behaviour, not a broken one.** The suite timed out waiting for the second "Record a
+closure" button. The add form never closed on success, so the button was never there to click — the
+form was still sitting where it would be. Fixed in the component rather than the test, because this
+repo's conventions already said add forms close on success in a `useEffect`. The fix carries an
+asymmetry worth stating: close on success, **not** on failure. On success the row is in the table
+above and a form still holding those values invites a duplicate. On failure the form keeps what was
+typed, because the failure that actually happens here is the overlap and the user fixes it by
+changing one of two dates.
+
+**Two: my own locator, and a trap I had already written down.** Once an open-ended closure exists,
+its row carries an input labelled *"Last closed day for the closure starting 2029-09-01"* — and
+accessible-name matching is **substring** by default, so `getByLabel('Last closed day')` resolved to
+two elements. The same near-miss the schedule panel hit with "Day" against "Days attending". It only
+bites after the open closure is recorded, which is why the first two fills were fine and the fourth
+was not.
+
+**Three: a real UI defect the test surfaced.** One merged error slot kept showing "those dates
+overlap a closure already recorded" after the form had been dismissed *and* a different gesture had
+succeeded. `BookingSchedulePanel` merges its three action errors on the grounds that three alerts is
+three places to look, and that reasoning holds where every gesture is permanent furniture. It fails
+where the form is **dismissible**. So the add error now renders inside the add form — unmounted with
+it, beside the values that caused it — and the row errors keep the slot above, because those controls
+cannot be dismissed. A stale error beside a successful action is worse than none: it reads as though
+the thing that just worked did not.
+
+### And a fourth that was not a defect at all
+
+I iterated on the one spec by invoking the Playwright CLI directly — 40 seconds against nine
+minutes, and the right instinct. It also **skips the `npm run build`** that `test:e2e` does first, so
+the server kept serving the previous bundle and my fix appeared not to work. I read the page snapshot
+twice trying to explain how a merged error slot could be rendering in a component that no longer had
+one; the answer was that the running code did. Now a convention, because the failure blames your own
+change and the only tell is a snapshot showing markup you have already deleted.
+
 ## 2026-09-04 (eleventh) — `0088`, and a proxy that flatters the occupancy figure
 
 The operating calendar. Built before the absence rules it enables, because it turned out four

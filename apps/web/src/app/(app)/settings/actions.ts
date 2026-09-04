@@ -1,7 +1,14 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { createRoom, updateCentre, updateRoom } from '@ece/api';
+import {
+  addServiceClosure,
+  createRoom,
+  deleteServiceClosure,
+  endServiceClosure,
+  updateCentre,
+  updateRoom,
+} from '@ece/api';
 import {
   LICENCE_TYPES,
   RATIO_SOURCES,
@@ -250,6 +257,101 @@ export async function archiveRoom(_prev: unknown, form: FormData): Promise<RoomR
     await updateRoom(db, id, { archivedAt: restoring ? null : new Date().toISOString() });
   } catch (e) {
     return actionError(e, 'settings.archiveRoom');
+  }
+
+  revalidatePath('/settings');
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Service closures (0088)
+// ---------------------------------------------------------------------------
+
+/*
+  `manageCentre`, matching the rest of this screen, while the database checks
+  `caller_has_role(centre_id, owner|manager)` independently. The two are the same people
+  today and are allowed to diverge: the capability decides whether a form is drawn, Postgres
+  decides whether a row changes.
+
+  READING IS WIDER THAN WRITING, and much wider than this screen. Every member of the centre
+  can read closures, parents included — that is the policy in 0088 and there is an RLS
+  assertion pinning it. Nothing surfaces them to families yet. That is a gap in the product
+  rather than in the boundary, and it is named in the wiki rather than implied by a policy
+  nobody exercises.
+*/
+
+const CLOSURE_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+export async function addClosure(_prev: unknown, form: FormData): Promise<RoomResult> {
+  const ctx = await requireCapability('manageCentre');
+  const db = await serverDb();
+
+  const startsOn = roomStr(form, 'startsOn');
+  const endsOn = roomStr(form, 'endsOn');
+  if (!CLOSURE_DATE.test(startsOn)) return { error: 'Give the first day the service was closed.' };
+  if (endsOn && !CLOSURE_DATE.test(endsOn)) return { error: 'That last day is not a date.' };
+  if (endsOn && endsOn < startsOn) return { error: 'The last day is before the first day.' };
+
+  const reasonCode = roomStr(form, 'reasonCode');
+  // The schema's LookupCode bound, checked here so a 23514 naming a constraint never reaches
+  // a centre manager. The database refuses it too — this is the sentence, not the guard.
+  if (reasonCode.length > 10) return { error: 'A Ministry code is at most 10 characters.' };
+
+  const { data: auth } = await db.auth.getUser();
+  try {
+    await addServiceClosure(
+      db,
+      {
+        centreId: ctx.centre.id,
+        startsOn,
+        // Empty means "no stated end", which is a real answer here rather than a missing one.
+        endsOn: endsOn || null,
+        reasonCode: reasonCode || null,
+        reasonNote: roomStr(form, 'reasonNote') || null,
+      },
+      auth.user?.id ?? null,
+    );
+  } catch (e) {
+    // `addServiceClosure` already turns the overlap into a sentence about ending the open
+    // closure first, which is the case that actually happens: an open closure collides with
+    // everything after it.
+    return actionError(e, 'settings.addClosure');
+  }
+
+  revalidatePath('/settings');
+  return { ok: true };
+}
+
+export async function endClosure(_prev: unknown, form: FormData): Promise<RoomResult> {
+  await requireCapability('manageCentre');
+  const db = await serverDb();
+
+  const id = roomStr(form, 'id');
+  const endsOn = roomStr(form, 'endsOn');
+  if (!id) return { error: 'Missing closure.' };
+  if (!CLOSURE_DATE.test(endsOn)) return { error: 'Give the last day the service was closed.' };
+
+  try {
+    await endServiceClosure(db, id, endsOn);
+  } catch (e) {
+    return actionError(e, 'settings.endClosure');
+  }
+
+  revalidatePath('/settings');
+  return { ok: true };
+}
+
+export async function removeClosure(_prev: unknown, form: FormData): Promise<RoomResult> {
+  await requireCapability('manageCentre');
+  const db = await serverDb();
+
+  const id = roomStr(form, 'id');
+  if (!id) return { error: 'Missing closure.' };
+
+  try {
+    await deleteServiceClosure(db, id);
+  } catch (e) {
+    return actionError(e, 'settings.removeClosure');
   }
 
   revalidatePath('/settings');

@@ -5,6 +5,45 @@ says so.*
 
 ---
 
+2026-09-04 (twelfth) — **The operating calendar becomes reachable.** New: `isClosedOn` and
+`closureOn` in `@ece/core`, an API module, and a *Closed days* card on `/settings`; a
+[[conventions]] entry on closing an add form on success but not on failure. Updated:
+[[funding-and-billing]]'s §6-6 section with where closures are entered — and with a gap named rather
+than implied.
+
+**`coversDate` is now on its third consumer** — the booking schedule, the code-set effective
+windows, and closures. Worth recording because it is why that extraction was right: its
+inclusive-at-both-ends semantics match the `[]` range bound `service_closures_no_overlap` uses, so
+the database and the TypeScript cannot disagree about a boundary day. Mutating it to an exclusive
+end fails the closure test on its own label.
+
+**The reason code renders raw, with a caveat, never as a guessed label**, and the form says there is
+nowhere yet to look one up. **A null end date is named on screen rather than left blank**, because
+an empty cell reads as missing data while this is a recorded state that covers every later date —
+and the next person recording a closure will collide with it.
+
+**A gap named rather than implied.** `0088`'s read policy is plain centre membership, parents
+included, and the justification was that a family needs to know the centre is shut next Thursday.
+The policy allows it and an RLS assertion proves it; **nothing surfaces closures to families yet**.
+The boundary is right, the screen does not exist, and the wiki now says so rather than letting a
+policy nobody exercises look like a feature.
+
+**Three e2e cycles, and each found something different.** The add form never closed on success, so
+the second "Record a closure" button never appeared — fixed in the component, because the repo's own
+rule already said forms close on success in a `useEffect`, with the asymmetry that matters: **not**
+on failure, since the failure here is the overlap and the user fixes it by changing one date. Then a
+locator resolved to two elements, because a row's `aria-label` starts with the same words as the add
+form's and accessible-name matching is substring by default. Then a **real UI defect**: one merged
+error slot went on showing the overlap message after the form was dismissed and a different gesture
+had succeeded, so the add error now lives inside the dismissible form and the row errors keep the
+slot above — a stale error beside a successful action reads as though the thing that just worked did
+not.
+
+**And a fourth thing that was not a defect at all**: invoking the Playwright CLI directly to iterate
+on one spec skips the `npm run build` that `test:e2e` does first, so the fix appeared not to work
+against a stale bundle. Now a [[conventions]] entry, because the failure blames your code and the
+only tell is a page snapshot showing markup you no longer have.
+
 2026-09-04 (eleventh) — **`0088`: when the service was closed, and a proxy that flatters the
 occupancy figure.** New: [[unverified-claims]] item 59, and a §6-6 section in
 [[funding-and-billing]]. Corrected: [[eli-integration]]'s `EceServiceClosure` rows, which have said

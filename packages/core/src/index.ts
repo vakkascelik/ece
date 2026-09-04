@@ -304,6 +304,11 @@ export * from './brand';
 
 export * from './children';
 
+// Days the service did not operate (0088). Its own module because it is about to have
+// three consumers - the absence rules, RS7's operating-day counts, and the occupancy
+// average - and none of them owns it.
+export * from './closures';
+
 // Regulated ratios. The bands are unverified data with citations — see the file.
 export * from './ratios';
 
