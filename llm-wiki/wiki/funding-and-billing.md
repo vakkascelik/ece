@@ -660,9 +660,21 @@ so a future emailed version says the same thing.
 
 ### §9-2's two sources — `hoursBasis`, and the two ways of not knowing
 
-**Added 2026-09-04, and no published figure moved.** `childFunding` takes an optional `agreement`;
-without one it behaves exactly as before, and no caller passes one yet. All 51 existing funding
-assertions passed untouched, which is the evidence for that claim rather than the claim itself.
+**Added and wired 2026-09-04.** `childFunding` takes an optional `agreement`; `readFundingPeriod`
+now supplies it, along with the operating calendar and the §7-7 exemptions, and the funding page
+states the basis on any row that under-claims.
+
+**No figure moves for any centre today**, and the reason is data rather than code:
+`child_booking_schedule` is empty, so every child resolves to `attendance-no-agreement` and the
+arithmetic is what it was. All 51 pre-existing funding assertions passed untouched, which is the
+evidence for that rather than the claim itself. The figure changes for a centre the first time
+somebody fills in the days and times — and that row then says so.
+
+**The filter in `readFundingPeriod` was the trap it looked like.** It dropped children with
+`attendedHours === 0 && unresolvedDates.length === 0`, which is exactly a permanent child whose claim
+is entirely absence-based. Left alone, the whole change would have been invisible: the figure correct
+and the child missing from the report. Same shape as the item 59 trap — a correction that looks
+applied and is not.
 
 §9-2 has **two** steps and this product used one source for both:
 

@@ -296,6 +296,37 @@ export default async function FundingPage({
                           {c.twentyHoursHours.toFixed(2)} + {c.plusTenHours.toFixed(2)} Plus 10
                         </span>
                       )}
+                      {/*
+                        WHICH OF §9-2's SOURCES PRODUCED THIS NUMBER — added 2026-09-04.
+
+                        Two of the four bases yield the same figure from the same events and differ
+                        only in whether it is right, so a number without its basis is a number
+                        somebody could key into ELI Web believing the wrong thing about it. This is
+                        the sentence that stops that.
+
+                        Nothing is shown for `attendance` on a casual or conditional child, because
+                        there the figure is CORRECT and a note would be a warning about compliance.
+                        Nothing is shown for `agreement` either — that is the Handbook's own basis
+                        and needs no caveat. Only the two that under-claim say anything, which keeps
+                        the column quiet on the rows where quiet is the truth.
+                      */}
+                      {c.hoursBasis === 'attendance-no-agreement' && (
+                        <span className="sub" style={{ display: 'block' }}>
+                          <span className="flag flag-warn">may be low</span> from attendance — no
+                          days and times recorded
+                        </span>
+                      )}
+                      {c.hoursBasis === 'attendance-type-not-stated' && (
+                        <span className="sub" style={{ display: 'block' }}>
+                          <span className="flag flag-warn">may be low</span> from attendance —
+                          enrolment type not stated
+                        </span>
+                      )}
+                      {c.absenceHours > 0 && (
+                        <span className="sub" style={{ display: 'block' }}>
+                          includes {c.absenceHours.toFixed(2)} claimable absent
+                        </span>
+                      )}
                     </td>
                     <td>
                       {c.cappedDates.length === 0 ? (

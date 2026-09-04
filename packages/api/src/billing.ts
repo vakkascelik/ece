@@ -6,22 +6,43 @@
  * An **invoice** is computed from bookings: a family is charged for the days they held, because a
  * centre cannot resell a Tuesday somebody did not turn up for.
  *
- * A **funding claim** is computed from attendance: the Crown pays for hours actually delivered, and
- * a claim built on what was planned rather than recorded would be a claim for hours nobody observed.
+ * A **funding claim** is computed from attendance — ~~and that was the whole of it~~ **corrected
+ * 2026-09-04, and the correction is the point of this paragraph.**
  *
- * Those two facts are the whole reason bookings and attendance are separate tables, and why nothing
- * in this file lets one stand in for the other.
+ * The original sentence read: *"the Crown pays for hours actually delivered, and a claim built on
+ * what was planned rather than recorded would be a claim for hours nobody observed."* The hazard it
+ * names is real. The conclusion was half right, and §9-2 says which half:
+ *
+ *   - For a **casual or conditional** child, attendance is the rule — §9-2 step 2, and §6-4 is
+ *     explicit that one who books and does not turn up must never be claimed. Unchanged.
+ *   - For a **permanently enrolled** child, §9-2 step 1 says *"List the daily number of hours of
+ *     **enrolment**"*. The observation that matters is the **agreement plus the absence rules**,
+ *     not the turnstile — and computing it from attendance alone UNDER-claims.
+ *
+ * So `readFundingPeriod` now reads the agreement, the operating calendar and the §7-7 exemptions,
+ * and `childFunding` returns which of §9-2's sources produced the figure. `unverified-claims`
+ * item 55 is the record of the original claim and why it was only half wrong.
+ *
+ * Bookings are still not either of those, and that is why they remain a separate table: a family is
+ * charged for the days they held, and nothing in this file lets a booking stand in for an agreement
+ * or for a record of attendance.
  */
 
 import {
+  attendedHours,
   childFunding,
+  coversDate,
+  enrolledSessions,
   summariseFunding,
   todayInZone,
+  type EnrolmentType,
   type FundingPeriod,
   type FundingSummary,
   type HoursEvent,
   type FundingReceipt,
   type OutstandingInvoice,
+  type ServiceClosure,
+  type WeekdayBlock,
 } from '@ece/core';
 import type { Db } from './index';
 import { fetchAll } from './paging';
@@ -700,10 +721,49 @@ interface AttendanceRow {
 }
 
 interface EnrolmentRow {
+  id: string;
   child_id: string;
   twenty_hours_ece: boolean;
+  enrolment_type: EnrolmentType | null;
   start_date: string;
   end_date: string | null;
+}
+
+/*
+  THE THREE READS §9-2's AGREEMENT BASIS NEEDS, added 2026-09-04.
+
+  `childFunding` has been able to start from the agreement since the previous commit and no
+  caller asked it to. These are what let it: the agreement itself, the operating calendar that
+  decides which days were sessions at all, and the §7-7 exemptions that lengthen the absence
+  window from three weeks to twelve.
+
+  All three are centre-scoped through a join rather than by an `in` list of ids. `.in()` with a
+  few hundred uuids is a URL long enough to be truncated by something in the middle, and the
+  failure mode is silent: fewer rows, a shorter agreement, a smaller claim. The
+  `children!inner(centre_id)` shape is the one `attendance_events` already uses here.
+*/
+interface ScheduleRow {
+  child_id: string;
+  weekday: number;
+  from_time: string;
+  to_time: string;
+  effective_from: string;
+  effective_to: string | null;
+}
+
+interface ClosureRow {
+  id: string;
+  centre_id: string;
+  starts_on: string;
+  ends_on: string | null;
+  reason_code: string | null;
+  reason_note: string | null;
+}
+
+interface ExemptionRow {
+  enrolment_id: string;
+  exempt_from: string;
+  exempt_to: string | null;
 }
 
 export async function readFundingPeriod(
@@ -730,7 +790,7 @@ export async function readFundingPeriod(
    * Under-reporting the money and fabricating broken records at the same time, silently, in
    * the one calculation whose whole design principle is that nothing is estimated.
    */
-  const [children, events, enrolments] = await Promise.all([
+  const [children, events, enrolments, schedule, closures, exemptions] = await Promise.all([
     /*
       Ordered, for the reason spelled out on `attendance_events` below — which is the whole
       point: that lesson was learned, written down, and applied to one of the three reads in
@@ -765,11 +825,66 @@ export async function readFundingPeriod(
     fetchAll<EnrolmentRow>('readFundingPeriod (enrolments)', (from, to) =>
       db
         .from('enrolments')
-        .select('child_id, twenty_hours_ece, start_date, end_date')
+        .select('id, child_id, twenty_hours_ece, enrolment_type, start_date, end_date')
         .eq('centre_id', input.centreId)
-        // Same reason as `children` above. `id` is not selected because nothing here needs it;
-        // it is ordered on regardless, because paging needs a total order and not a column the
-        // caller happens to want.
+        /*
+          Same reason as `children` above: paging needs a total order.
+
+          `id` IS now selected, as of 2026-09-04 — this comment used to say it was not, and that
+          the ordering was on a column nobody wanted. Both halves were true and the first stopped
+          being so when the §7-7 exemptions arrived, because they key on `enrolment_id` and a
+          claim cannot be matched to its exemption without it.
+        */
+        .order('id')
+        .range(from, to),
+    ),
+    /*
+      The agreement. Not date-filtered in SQL: `blocksOn` in `@ece/core` is the one written-down
+      copy of the effective-window rule, and a `.lte()` here would be a second copy that
+      disagrees with it the first time either changes. A superseded block also has to be
+      readable, because a claim for last March is computed against the agreement as it stood.
+    */
+    fetchAll<ScheduleRow>('readFundingPeriod (agreement)', (from, to) =>
+      db
+        .from('child_booking_schedule')
+        .select(
+          'child_id, weekday, from_time, to_time, effective_from, effective_to, children!inner(centre_id)',
+        )
+        .eq('children.centre_id', input.centreId)
+        .order('child_id')
+        .order('id')
+        .range(from, to),
+    ),
+    /*
+      The operating calendar. Every closure, not just those inside the period: §6-6 suspends the
+      Three Week Rule across a closure, and a spell that began before the period started is
+      suspended by a closure that also began before it. Filtering to the period would silently
+      spend a window the service is entitled to keep.
+    */
+    fetchAll<ClosureRow>('readFundingPeriod (closures)', (from, to) =>
+      db
+        .from('service_closures')
+        .select('id, centre_id, starts_on, ends_on, reason_code, reason_note')
+        .eq('centre_id', input.centreId)
+        .order('starts_on')
+        .order('id')
+        .range(from, to),
+    ),
+    /*
+      §7-7 exemptions, which lengthen the window from three weeks to twelve.
+
+      READABLE HERE ONLY BECAUSE THE CALLER IS AN OWNER OR MANAGER. `0089`'s select policy is
+      `caller_may_exempt`, and the funding page is gated on `manageCentre` — both
+      `['owner','manager']`, checked rather than assumed. That alignment matters: for any other
+      role this read would return nothing, every window would silently be three weeks instead of
+      twelve, and the claim would be too low with nothing on screen to say why.
+    */
+    fetchAll<ExemptionRow>('readFundingPeriod (exemptions)', (from, to) =>
+      db
+        .from('absence_exemptions')
+        .select('enrolment_id, exempt_from, exempt_to, enrolments!inner(centre_id)')
+        .eq('enrolments.centre_id', input.centreId)
+        .order('enrolment_id')
         .order('id')
         .range(from, to),
     ),
@@ -812,9 +927,81 @@ export async function readFundingPeriod(
     if (overlaps && r.twenty_hours_ece) attested.set(r.child_id, true);
   }
 
+  /*
+    §9-2's TWO SOURCES, WIRED — 2026-09-04.
+
+    The enrolment in force during the period, per child, for its type and its id. Same
+    limitation as `attested` above and stated the same way: a child whose enrolment changed
+    mid-period is not split, because splitting it wrongly changes a claim.
+
+    `find` rather than a reduce onto the last match: `enrolments` is ordered by `id`, which is a
+    uuid and therefore says nothing about time, so "the last overlapping row" would be an
+    arbitrary choice dressed as a decision.
+  */
+  const current = new Map<string, EnrolmentRow>();
+  for (const r of enrolments) {
+    const overlaps =
+      r.start_date <= input.period.to && (r.end_date === null || r.end_date >= input.period.from);
+    if (overlaps && !current.has(r.child_id)) current.set(r.child_id, r);
+  }
+
+  const blocksByChild = new Map<string, WeekdayBlock[]>();
+  for (const r of schedule) {
+    const block: WeekdayBlock = {
+      weekday: r.weekday,
+      fromTime: r.from_time,
+      toTime: r.to_time,
+      effectiveFrom: r.effective_from,
+      effectiveTo: r.effective_to,
+    };
+    const list = blocksByChild.get(r.child_id);
+    if (list) list.push(block);
+    else blocksByChild.set(r.child_id, [block]);
+  }
+
+  const centreClosures: ServiceClosure[] = closures.map((c) => ({
+    id: c.id,
+    centreId: c.centre_id,
+    startsOn: c.starts_on,
+    endsOn: c.ends_on,
+    reasonCode: c.reason_code,
+    reasonNote: c.reason_note,
+  }));
+
+  const exemptionsByEnrolment = new Map<string, ExemptionRow[]>();
+  for (const r of exemptions) {
+    const list = exemptionsByEnrolment.get(r.enrolment_id);
+    if (list) list.push(r);
+    else exemptionsByEnrolment.set(r.enrolment_id, [r]);
+  }
+
+  /*
+    Which dates a child was present at all — including days whose attendance record is
+    incomplete.
+
+    That inclusion is deliberate and is the one place the two bases differ in their tolerance of
+    a broken record. A child who signed in and never out WAS THERE: the day is not an absence,
+    and treating it as one would claim an absence for a day the child attended, which is worse
+    than the unresolved hours it already reports. On the attendance basis the same day
+    contributes nothing, because its hours genuinely are unknown.
+  */
+  const attendedDatesByChild = new Map<string, Set<string>>();
+  for (const [childId, childEvents] of byChild) {
+    // `attendedHours` is called again here and again inside `childFunding`, which is duplicated
+    // work and deliberately so: the alternative is threading a precomputed day list through a
+    // pure function's signature to save a pass over at most a few hundred events per child.
+    // Measured trade — clarity over a cost nobody can perceive.
+    const { days } = attendedHours({ events: childEvents, timeZone: input.timeZone });
+    attendedDatesByChild.set(childId, new Set(days.map((d) => d.date)));
+  }
+
   const results = children
-    .map(({ id, date_of_birth }) =>
-      childFunding({
+    .map(({ id, date_of_birth }) => {
+      const enrolment = current.get(id) ?? null;
+      const blocks = blocksByChild.get(id) ?? [];
+      const rows = enrolment ? (exemptionsByEnrolment.get(enrolment.id) ?? []) : [];
+
+      return childFunding({
         childId: id,
         events: byChild.get(id) ?? [],
         timeZone: input.timeZone,
@@ -823,11 +1010,60 @@ export async function readFundingPeriod(
         // Only used for the 20 Hours age band. Selected here rather than looked up per child,
         // because the read is already paged and a second query per child is a thousand round trips.
         dateOfBirth: date_of_birth,
-      }),
-    )
-    // A child with no events in the period did not attend, and a row of zeros in an export is noise
-    // that hides the rows that matter.
-    .filter((c) => c.attendedHours > 0 || c.unresolvedDates.length > 0);
+        enrolmentType: enrolment?.enrolment_type ?? null,
+        agreement:
+          blocks.length === 0
+            ? null
+            : {
+                sessions: enrolledSessions({
+                  blocks,
+                  from: input.period.from,
+                  to: input.period.to,
+                  attendedDates: attendedDatesByChild.get(id) ?? new Set<string>(),
+                  closures: centreClosures,
+                }),
+                closures: centreClosures,
+                /*
+                  `coversDate` rather than a comparison written here, so the exemption window and
+                  every other effective window in this product answer the same way about a
+                  boundary day.
+                */
+                isExemptOn: (date) => rows.some((e) => coversDate(e.exempt_from, e.exempt_to, date)),
+                /*
+                  §6-5 stops a claim when a parent gives notice the child will not return, "even
+                  if the three week period has not ended". NOTHING IN THIS SCHEMA RECORDS NOTICE
+                  — `enrolments.end_date` is not it, because notice comes first and the end date
+                  may be later or absent. So this is left undefined and the window runs to its
+                  full length, which OVER-claims for a child whose family has given notice.
+
+                  The only over-claim this product knowingly contains, and it is here rather than
+                  hidden: see `unverified-claims`. It is a missing column, not a missing
+                  calculation.
+                */
+                noticeGivenOn: null,
+              },
+      });
+    })
+    /*
+      A row of zeros in an export is noise that hides the rows that matter — but "zero" now has
+      two shapes, and the original filter only knew one.
+
+      A permanently enrolled child whose claim is ENTIRELY absence-based has no attendance events
+      at all, so `attendedHours` is 0 and `unresolvedDates` is empty. The old predicate dropped
+      them before anybody could see the claim, which would have made the whole §9-2 change
+      invisible: the figure would have been right and the child absent from the report.
+
+      Also kept: a child with unclaimable absences and nothing funded. That is not noise, it is
+      the most actionable row on the page — an enrolled child whose absences have run past the
+      window, which is precisely what §6-7 expects a service to act on.
+    */
+    .filter(
+      (c) =>
+        c.attendedHours > 0 ||
+        c.unresolvedDates.length > 0 ||
+        c.fundedHours > 0 ||
+        c.unclaimableAbsences.length > 0,
+    );
 
   /*
     The instant becomes a calendar date IN THE CENTRE'S TIMEZONE, via the same helper every

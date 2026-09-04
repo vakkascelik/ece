@@ -1996,10 +1996,24 @@ two that under-claim:
 | `attendance-no-agreement` | Permanent, but no blocks. Under-claims. **Every existing child is here** |
 | `attendance-type-not-stated` | `enrolment_type` is null. Under-claims deliberately, because assuming permanent would over-claim |
 
-**What remains for this item** is the wiring, and it has a hazard already measured:
-`readFundingPeriod` filters out children with no attendance events, so a permanent child whose claim
-is entirely absence-based would be dropped from the period before the agreement was consulted. That
-filter has to change in the same commit as the wiring, or the fix arrives invisible.
+**WIRED 2026-09-04, and the hazard was real.** `readFundingPeriod` now reads the agreement, the
+operating calendar and the §7-7 exemptions, and the funding page says on any row that under-claims
+which basis produced it. The filter was the trap it looked like: it dropped children with
+`attendedHours === 0 && unresolvedDates.length === 0`, which is **exactly** a permanent child whose
+claim is entirely absence-based — so the whole change would have been invisible, with the figure
+right and the child missing from the report. It now also keeps a row with funded hours or with
+unclaimable absences, the second being the most actionable row on the page.
+
+**What is left is one column, and it is an OVER-claim — the only one this product knowingly has.**
+§6-5 stops a claim when a parent gives notice the child will not return, *"even if the three week
+period has not ended"*, and the Ministry recovers anything claimed after that point. **Nothing in
+this schema records notice.** `enrolments.end_date` is not it: notice comes first, and the end date
+may be later or absent entirely.
+
+So `noticeGivenOn` is passed as null and the window runs its full length. Every other gap in this
+product errs low; this one errs high, which is why it is named here in the section on the change that
+introduced it rather than filed as a future feature. It is a missing column, not a missing
+calculation — `classifyAbsences` already takes the date and has an assertion for it.
 
 **The sentence in [[funding-and-billing]] is not wrong so much as half-right**, and it is corrected
 there rather than deleted, because the reasoning behind it is sound: a claim for hours nobody

@@ -5,6 +5,34 @@ says so.*
 
 ---
 
+2026-09-04 (twentieth) — **§9-2 wired: the agreement basis reaches the funding page, and the
+one over-claim in this product gets named.** Narrowed: [[unverified-claims]] item 55, now recording
+that the wiring is done and what one missing column still costs. Corrected: `billing.ts`'s own file
+header, which said a funding claim is computed from attendance — half right, and §9-2 says which
+half.
+
+`readFundingPeriod` now reads the agreement, every closure (not just those inside the period, because
+§6-6 suspends a window across one that began earlier), and the §7-7 exemptions — readable there only
+because the funding page is gated on `manageCentre` and `0089`'s policy is `caller_may_exempt`, both
+`['owner','manager']`, checked rather than assumed. For any other role that read would return nothing
+and every window would silently be three weeks instead of twelve.
+
+**The filter was the trap it looked like.** It dropped children with no attendance events, which is
+exactly a permanent child whose claim is entirely absence-based — so the change would have been
+invisible, the figure right and the child missing from the report. It now also keeps a row with
+funded hours or with unclaimable absences, the second being the most actionable row on the page.
+
+**No figure moves for any centre today**, and that is data rather than code: the schedule table is
+empty, so every child resolves to `attendance-no-agreement`. The funding page says so on those rows,
+in a `may be low` flag — and says nothing on the two bases that are correct, because a caveat beside
+a right number is how people learn to ignore caveats.
+
+**And the one over-claim this product knowingly contains is now named rather than filed.** §6-5 stops
+a claim when a parent gives notice the child will not return; nothing in this schema records notice,
+and `enrolments.end_date` is not it. `noticeGivenOn` is passed as null and the window runs its full
+length. Every other gap here errs low. This one errs high, and it is a missing column rather than a
+missing calculation.
+
 2026-09-04 (nineteenth) — **§9-2's two sources: `childFunding` can start from the agreement,
 and nothing asks it to yet.** Narrowed: [[unverified-claims]] item 55, which now records what exists
 and what the wiring still needs. New: a [[funding-and-billing]] section on `hoursBasis`.

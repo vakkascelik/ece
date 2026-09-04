@@ -7,6 +7,91 @@ itself, and from the wiki pages, which hold the durable *why*. This file is the 
 
 ---
 
+## 2026-09-04 (twentieth) — §9-2 wired, and the one over-claim gets a name
+
+The previous commit gave `childFunding` the ability to start from the agreement and left it
+unused. This connects it.
+
+### What was wired
+
+`readFundingPeriod` gained three paged reads: the agreement from `child_booking_schedule`, every
+closure from `service_closures`, and the §7-7 exemptions from `absence_exemptions`.
+
+**Every closure, not just those inside the period.** §6-6 suspends the Three Week Rule across a
+closure, and a spell that began before the period started can be suspended by a closure that also
+began before it. Filtering to the period would silently spend a window the service is entitled to
+keep — the same class of error as the naive item 59 fix.
+
+**All three are centre-scoped through a join rather than an `in` list of ids.** A few hundred uuids
+in a URL is long enough to be truncated by something in the middle, and the failure is silent: fewer
+rows, a shorter agreement, a smaller claim.
+
+**The exemptions are readable there only because of an alignment I checked rather than assumed.**
+`0089`'s select policy is `caller_may_exempt` — owner or manager — and the funding page is gated on
+`manageCentre`, which is `['owner','manager']`. If those had differed, the read would have returned
+nothing for some roles, every window would have been three weeks instead of twelve, and the claim
+would have been too low with nothing on screen to explain it. That is written into the query's
+comment, because the next person to widen either one needs to see it.
+
+### The filter was exactly the trap I had written down
+
+`readFundingPeriod` ended with `.filter((c) => c.attendedHours > 0 || c.unresolvedDates.length > 0)`
+— a sensible rule for keeping rows of zeros out of an export, and precisely wrong now. A permanently
+enrolled child whose claim is **entirely absence-based** has no attendance events at all, so both
+conditions are false and the child was dropped before anybody could see the claim.
+
+The whole §9-2 change would have been invisible: the figure correct and the child missing from the
+report. I had named this hazard in the previous commit message rather than discovered it here, which
+is the only reason it took two minutes instead of a week.
+
+It now also keeps a row with funded hours, and a row with unclaimable absences — the second being
+the most actionable row on the page, because it is an enrolled child whose absences have run past
+the window, which is what §6-7 expects a service to act on.
+
+### What the screen says, and where it says nothing
+
+Two of the four bases produce the same number from the same events and differ only in whether that
+number is right, so a figure without its basis is a figure somebody could key into ELI Web believing
+the wrong thing. The row now carries a `may be low` flag for the two that under-claim, and the
+reason: *no days and times recorded*, or *enrolment type not stated*.
+
+**It says nothing at all on the two that are correct.** Not for `attendance` on a casual child —
+there the Handbook's own rule is attendance and a note would read as a compliance warning. Not for
+`agreement` either, which needs no caveat. A caveat beside a right number is how people learn to
+ignore caveats.
+
+### No figure moves today, and that is data rather than code
+
+`child_booking_schedule` is empty, so every child resolves to `attendance-no-agreement` and the
+arithmetic is unchanged. All 51 pre-existing funding assertions passed untouched. The figure changes
+for a centre the first time somebody fills in the days and times — and that row then stops saying
+*may be low*.
+
+### The one over-claim this product knowingly contains
+
+§6-5 stops a claim the moment a parent gives notice the child will not return, *"even if the three
+week period has not ended"*, and the Ministry recovers anything claimed after that point.
+
+**Nothing in this schema records notice.** `enrolments.end_date` is not it — notice comes first, and
+the end date may be later or absent entirely. So `noticeGivenOn` is passed as null and the window
+runs its full length.
+
+Every other gap in this product errs **low**. This one errs **high**, which is why it is written into
+item 55 beside the change that introduced it rather than filed as a future feature, and into the
+query comment where a reader will meet it. It is a missing column, not a missing calculation:
+`classifyAbsences` already takes the date and already has an assertion for it.
+
+### And `billing.ts`'s own header was wrong
+
+It opened with *"A funding claim is computed from attendance: the Crown pays for hours actually
+delivered, and a claim built on what was planned rather than recorded would be a claim for hours
+nobody observed."*
+
+The hazard it names is real and the conclusion was half right. For a casual child attendance is the
+rule; for a permanent one §9-2 asks for the hours of **enrolment**, and the observation that matters
+is the agreement plus the absence rules. Corrected in place with the original sentence quoted, since
+the reasoning behind it is sound and only its scope was wrong.
+
 ## 2026-09-04 (nineteenth) — §9-2's two sources, and a mutation that wrote a test
 
 The change item 55 has been waiting for since this morning, done in the safest available shape: the
