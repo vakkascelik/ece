@@ -1,10 +1,17 @@
 import Link from 'next/link';
-import { listLeave, listShifts, listStaffMembers, readForecast } from '@ece/api';
+import {
+  listLeave,
+  listOffFloorIntervals,
+  listShifts,
+  listStaffMembers,
+  readForecast,
+} from '@ece/api';
 import { can, currentStaff, shiftLocalDate, summariseForecast, todayInZone } from '@ece/core';
 import { requireCapability } from '@/lib/auth';
 import { serverDb } from '@/lib/supabase';
 import { PageHeader } from '../PageHeader';
 import { RosterWeek, type DayView } from './RosterWeek';
+import { OffFloorPanel } from './OffFloorPanel';
 
 const DAYS = 7;
 
@@ -34,11 +41,12 @@ export default async function RosterPage({
   const dates = Array.from({ length: DAYS }, (_, i) => shiftLocalDate(from, i));
   const to = dates[DAYS - 1] as string;
 
-  const [members, shifts, leave, forecasts] = await Promise.all([
+  const [members, shifts, leave, forecasts, offFloor] = await Promise.all([
     listStaffMembers(db, ctx.centre.id),
     listShifts(db, ctx.centre.id, from, to),
     listLeave(db, ctx.centre.id, from, to),
     readForecast(db, { centreId: ctx.centre.id, dates }),
+    listOffFloorIntervals(db, ctx.centre.id, from, to),
   ]);
 
   const nameById = new Map(members.map((m) => [m.id, m.fullName]));
@@ -150,6 +158,19 @@ export default async function RosterPage({
         previousFrom={shiftLocalDate(from, -DAYS)}
         nextFrom={shiftLocalDate(from, DAYS)}
         today={today}
+      />
+
+      {/*
+        Off-floor intervals, here rather than on the attendance screen, because the write predicate
+        is `caller_may_roster` — the same one shifts and leave use — and because it is planning
+        work: somebody deciding who covers lunch. It changes the live ratio, and the panel says so.
+      */}
+      <OffFloorPanel
+        members={roster.map((m) => ({ id: m.id, fullName: m.fullName }))}
+        intervals={offFloor}
+        canEdit={can(ctx.role, 'manageMembers')}
+        ratioSource={ctx.centre.ratioSource}
+        defaultDate={from}
       />
     </>
   );

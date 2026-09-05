@@ -239,6 +239,7 @@ export * from './compliance';
 export * from './engagement';
 export * from './billing';
 export * from './exemptions';
+export * from './offFloor';
 export * from './reconfirmations';
 export * from './rs7';
 export * from './recruitment';

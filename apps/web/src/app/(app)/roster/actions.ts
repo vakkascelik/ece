@@ -1,7 +1,14 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { createShift, recordLeave, setLeaveStatus, setShiftStatus } from '@ece/api';
+import {
+  addOffFloorInterval,
+  createShift,
+  deleteOffFloorInterval,
+  recordLeave,
+  setLeaveStatus,
+  setShiftStatus,
+} from '@ece/api';
 import { actionError } from '@/lib/actionError';
 import { requireCapability } from '@/lib/auth';
 import { serverDb } from '@/lib/supabase';
@@ -137,6 +144,67 @@ export async function declineLeave(_prev: unknown, form: FormData): Promise<Resu
     return actionError(e, 'roster.declineLeave');
   }
 
+  revalidatePath('/roster');
+  return { ok: true };
+}
+
+/*
+  OFF-FLOOR INTERVALS — 0094, and the third write path AST50's mapping table found missing.
+
+  §9-4 wants staff hours "at times when they were counted towards regulated (ratio) staff". This
+  records the exceptions and two things subtract them: the RS7 staff figures, and
+  `adults_present_now` since 0095. Nothing could write the table until now, so nothing was ever
+  subtracted and an adult at lunch went on counting towards the ratio.
+
+  `manageMembers`, matching 0094's `caller_may_roster` — the same courtesy the shift actions above
+  give, for the same reason: the policy is the real boundary and this produces a sentence instead
+  of a Postgres error.
+*/
+export async function addOffFloor(_prev: unknown, form: FormData): Promise<Result> {
+  await requireCapability('manageMembers');
+  const db = await serverDb();
+
+  const staffMemberId = str(form, 'staffMemberId');
+  const onDate = str(form, 'onDate');
+  const fromTime = str(form, 'fromTime');
+  const toTime = str(form, 'toTime');
+
+  if (!staffMemberId) return { error: 'Choose who was off the floor.' };
+  if (!ISO_DATE.test(onDate)) return { error: 'Give the date.' };
+  if (!CLOCK.test(fromTime) || !CLOCK.test(toTime)) {
+    return { error: 'Give a start and end time, as HH:MM.' };
+  }
+  if (toTime <= fromTime) return { error: 'The end time has to be after the start time.' };
+
+  try {
+    await addOffFloorInterval(db, {
+      staffMemberId,
+      onDate,
+      fromTime,
+      toTime,
+      reason: str(form, 'reason') || null,
+    });
+  } catch (e) {
+    // `addOffFloorInterval` already turns the overlap into a sentence about the same half hour
+    // being subtracted twice, so this passes it through rather than replacing it.
+    return actionError(e, 'roster.addOffFloor');
+  }
+  revalidatePath('/roster');
+  return { ok: true };
+}
+
+export async function removeOffFloor(_prev: unknown, form: FormData): Promise<Result> {
+  await requireCapability('manageMembers');
+  const db = await serverDb();
+
+  const id = str(form, 'intervalId');
+  if (!id) return { error: 'Missing interval.' };
+
+  try {
+    await deleteOffFloorInterval(db, id);
+  } catch (e) {
+    return actionError(e, 'roster.removeOffFloor');
+  }
   revalidatePath('/roster');
   return { ok: true };
 }

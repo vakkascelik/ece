@@ -1125,10 +1125,19 @@ implemented and mutation-tested; the data collection for them is not built:
 | `absence_exemptions` (0089) | §7-7's twelve-week absence window | Every window is three weeks; the product **under-claims** |
 | `enrolment_reconfirmations` (0092) | §6-7's third-month claim | A third month is never unlocked; the product **under-claims** |
 
-All three read paths exist and are exercised by tests against the live schema. All three error in the
-direction of claiming less, which is the direction we choose everywhere — but a rule that cannot
-receive its input is not a rule a service can rely on, and we would rather say so here than have it
-found. Screens for these are the immediate next work.
+~~Screens for these are the immediate next work.~~ **All three were built the same day**, and the
+table above is left in place rather than deleted because the honest thing to show is that our own
+data-source mapping found them:
+
+| Table | Where it is editable now |
+|---|---|
+| `absence_exemptions` | The child record's Documents tab — basis, evidence, EC12 date and period |
+| `enrolment_reconfirmations` | The same tab — who confirmed, when, and whether the agreement stands or changed |
+| `staff_off_floor` | `/roster`, beside shifts and leave, which share its `caller_may_roster` predicate |
+
+All three errored in the direction of claiming less, which is the direction we choose everywhere.
+But a rule that cannot receive its input is not a rule a service can rely on, and the reason we are
+describing it rather than having it found is that the template's middle column asks the question.
 
 ### What the return still cannot do
 

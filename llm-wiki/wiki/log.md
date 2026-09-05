@@ -5,6 +5,25 @@ says so.*
 
 ---
 
+2026-09-05 (twelfth) — **`OffFloorPanel`, and all three missing write paths are closed.**
+
+The last of the three AST50's mapping table found. §9-4's staff hours and — since `0095` — the live
+ratio both subtract these intervals, and nothing could write them, so nothing was ever subtracted.
+
+It lives on `/roster` rather than the attendance screen: the write predicate is `caller_may_roster`,
+the same one shifts and leave use, and deciding who covers lunch is planning work. **The panel says
+out loud that it moves a live compliance figure**, which is unusual here — most tables feed the
+funding figures or the ratio, not both — and a centre on the typed adult count is told the intervals
+will do nothing for it.
+
+**Two labels and a lesson.** The panel's `Who` collided with the leave form's, breaking Playwright
+strict mode before any assertion ran. Renaming it *"Who was off the floor"* did not fix it:
+`getByLabel` matches on **substring**. Making a label more specific is not the same as making it
+distinct. It is `Staff member` now.
+
+All three rules can now receive their input: §7-7's twelve-week window, §6-7's third month, §9-4's
+staff hours.
+
 2026-09-05 (eleventh) — **§6-7's reconfirmations become recordable.** `ReconfirmationPanel`, the
 second of the three write paths AST50's mapping table found missing.
 

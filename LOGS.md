@@ -7,6 +7,57 @@ itself, and from the wiki pages, which hold the durable *why*. This file is the 
 
 ---
 
+## 2026-09-05 (twelfth) — the last of the three, and a lesson about labels
+
+`OffFloorPanel` on `/roster`. Third and last of the write paths AST50's mapping table found
+missing.
+
+### Why the roster and not the attendance screen
+
+The write predicate is `caller_may_roster` — owner or manager, the same one `shifts` and
+`staff_leave` use — and recording who is off the floor is planning work: somebody deciding who
+covers lunch. Putting it on the attendance screen would have needed a looser capability than the
+policy allows, which produces a refusal at the database with a confusing message instead of a clear
+one on the screen.
+
+### The panel had to warn about something
+
+Most tables here feed the funding figures **or** the ratio. This one feeds both: §9-4's staff hours,
+and `adults_present_now` since `0095`. So recording a lunch break lowers the ratio on the attendance
+screen **right now**, and can move a room into a breach.
+
+That is the rule working — an adult on a break does not count — but discovering it by accident,
+during a busy hour, is not how somebody should meet it. The panel says so before the form.
+
+A centre on the `declared` adult count is told something different: there is no per-person
+attendance for these intervals to subtract from, so recording them changes nothing until the source
+is switched in Settings. Better than accepting rows that do nothing.
+
+### Two labels, and the second attempt was still wrong
+
+The form's `Who` label collided with the leave form's on the same page, and Playwright's strict mode
+failed before any assertion ran — the same class of failure a duplicate heading caused on the child
+record months ago.
+
+I renamed it **"Who was off the floor"** and it failed identically. `getByLabel` matches on
+**substring**, so a longer label containing the word still resolves two elements.
+
+**Making a label more specific is not the same as making it distinct.** It is `Staff member` now,
+and that is the version worth remembering: when a locator is ambiguous, the fix is a different word,
+not more words.
+
+### All three closed
+
+| Table | Rule | Was |
+|---|---|---|
+| `absence_exemptions` | §7-7's twelve-week window | every window three weeks |
+| `enrolment_reconfirmations` | §6-7's third month | never unlocked |
+| `staff_off_floor` | §9-4's staff hours, and the ratio | nothing subtracted |
+
+Every one of them was implemented, mutation-tested and read against the live schema while being
+unwritable. The unit tests could not see it because they supply their own inputs. It took a
+documentation column asking *where is this editable* to find all three.
+
 ## 2026-09-05 (eleventh) — the third month, unlocked
 
 `ReconfirmationPanel`. Second of the three write paths that were missing.
