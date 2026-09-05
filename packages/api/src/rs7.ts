@@ -1,5 +1,7 @@
 import {
   countedStaffHours,
+  operatingDays,
+  rs7AdvanceMonths,
   rs7DayCounts,
   sixFourOverlaps,
   type OffFloorInterval,
@@ -7,12 +9,16 @@ import {
   type Rs7DayCounts,
   type Rs7Declaration,
   type FundingPeriod,
+  lastDayOf,
+  nextMonth,
 } from '@ece/core';
 
 import { readFundingPeriod } from './billing';
 import { listChildren } from './children';
 import { listStaffRecords } from './compliance';
 import { fetchAll } from './paging';
+import { listCentreBookingSchedule } from './bookingSchedule';
+import { listServiceClosures } from './closures';
 import { listStaffAttendance, listStaffMembers } from './staff';
 
 import type { Db } from './index';
@@ -229,6 +235,8 @@ export async function readRs7Return(
     /** From `centres.ratio_source`. Only `derived` yields per-person staff hours. */
     ratioSource: 'declared' | 'derived';
     licensedPlaces: number | null;
+    /** From `centres.service_model` (0083). Decides which advance-month bucket the days go in. */
+    serviceModel: 'all_day' | 'sessional' | 'parent_led' | null;
   },
 ): Promise<Rs7DayCounts> {
   const [summary, children, declaration] = await Promise.all([
@@ -318,6 +326,38 @@ export async function readRs7Return(
     staff = { totals: computed.totals, gaps: [...computed.gaps] };
   }
 
+  /*
+    THE ADVANCE MONTHS, and the reads are the same two the operating calendar always needs.
+
+    Deliberately a SECOND `operatingDays` call over a forward window rather than one call over
+    a range spanning both: the period's own dates and the four months after it are different
+    questions, and a single call would make the daily figures and the forward counts share a
+    calendar whose bounds suit neither.
+
+    Blocks are read unfiltered by date — `blocksOn` is the one written-down effective-window
+    rule — so a block with no end date is effective into next year, which is exactly what makes
+    a FORWARD count possible at all.
+  */
+  const advanceFrom = nextMonth(input.period.to.slice(0, 7));
+  let advanceTo = advanceFrom;
+  for (let i = 0; i < 3; i += 1) advanceTo = nextMonth(advanceTo);
+
+  const [advanceBlocks, advanceClosures] = await Promise.all([
+    listCentreBookingSchedule(db, input.centreId),
+    listServiceClosures(db, input.centreId),
+  ]);
+
+  const advance = rs7AdvanceMonths({
+    operating: operatingDays({
+      blocks: advanceBlocks,
+      closures: advanceClosures,
+      from: `${advanceFrom}-01`,
+      to: lastDayOf(advanceTo),
+    }),
+    serviceModel: input.serviceModel,
+    firstMonth: advanceFrom,
+  });
+
   return rs7DayCounts({
     children: summary.children,
     datesOfBirth,
@@ -326,5 +366,6 @@ export async function readRs7Return(
     staffHours: staff?.totals,
     staffHourGaps: staff?.gaps,
     declaration,
+    advance,
   });
 }

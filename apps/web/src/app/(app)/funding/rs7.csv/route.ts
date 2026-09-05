@@ -61,6 +61,7 @@ export async function GET(request: Request) {
     toUtc: end.toUtc,
     ratioSource: ctx.centre.ratioSource,
     licensedPlaces: ctx.centre.licensedPlaces,
+    serviceModel: ctx.centre.serviceModel,
   });
 
   /*
@@ -97,6 +98,15 @@ export async function GET(request: Request) {
       [],
       ['These are preparation figures. Nothing has been submitted and this system cannot submit.'],
       [`Period: ${period.label}`],
+      [],
+      ['Advance months', 'All-day days', 'Sessional days', 'Parent-led days'],
+      ...rs7.advanceMonths.map((m) => [
+        m.month,
+        m.allDayDays ?? '',
+        m.sessionalDays ?? '',
+        m.parentLedDays ?? '',
+      ]),
+      [],
       ...rs7.assumptions.map((a) => [a]),
       ...(rs7.outOfRangeDates.length > 0
         ? [[`Figures outside the schema's 0-9999 bound on: ${rs7.outOfRangeDates.join(' ')}`]]

@@ -5,6 +5,21 @@ says so.*
 
 ---
 
+2026-09-05 (eighth) — **3C: `AdvanceMonthCounts`, and Phase 3's figures are complete.** New
+[[funding-and-billing]] section; register item 64 opens.
+
+Four forward months of operating days by service model, on the calendar `operatingDays()` already
+produces. **Which four months is not sourced** — the schema gives the names, the count and the
+`0–99` bound, and never says *ahead of what* — so `firstMonth` is a parameter and the answer is
+disclosed on every return rather than once in a comment.
+
+**Nulls twice, not zeros:** where the service model is unrecorded, and where no schedule covers the
+months. Zero forward operating days says the service is closing. The tempting mutation — defaulting
+an unrecorded service to all-day, the common case — is caught.
+
+**6/6 mutations.** `nextMonth`/`lastDayOf` moved into `weekdayBlock.ts` on their second consumer,
+the fourth extraction into that module today.
+
 2026-09-05 (seventh) — **3D and 3E: the RS7 screen, the export and the declaration.** `0096`,
 `/funding/rs7`, `/funding/rs7.csv`. See [[funding-and-billing]].
 

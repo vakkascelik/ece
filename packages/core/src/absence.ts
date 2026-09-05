@@ -55,7 +55,9 @@ import {
   blockMinutes,
   blocksOn,
   isoWeekdayOf,
+  lastDayOf,
   mondayOf,
+  nextMonth,
   type WeekdayBlock,
 } from './weekdayBlock';
 // `shiftLocalDate` lives in `children.ts` beside the other date helpers rather than in a
@@ -371,18 +373,6 @@ export interface FrequentAbsenceMonth {
    * sentence saying which input is missing, never a default that reads like an answer.
    */
   gaps: readonly string[];
-}
-
-/** `YYYY-MM` + 1. */
-function nextMonth(month: string): string {
-  const [y, m] = month.split('-').map(Number);
-  if (!y || !m || m > 12) throw new Error(`Not an ISO month: ${month}`);
-  return m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`;
-}
-
-/** The last day of `YYYY-MM`, without a table of month lengths. */
-function lastDayOf(month: string): string {
-  return shiftLocalDate(`${nextMonth(month)}-01`, -1);
 }
 
 /** Does any part of `month` fall inside the closure? */

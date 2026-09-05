@@ -7,6 +7,73 @@ itself, and from the wiki pages, which hold the durable *why*. This file is the 
 
 ---
 
+## 2026-09-05 (eighth) — 3C, and the question the schema does not answer
+
+`rs7AdvanceMonths`. The last of Phase 3's figures.
+
+### What was sourced, and what was not
+
+Three things about `AdvanceMonthCounts` are established from the public schema: the element names,
+that there are up to four of them, and that each count is bounded `0–99`.
+
+**Ahead of what** is in none of them. Not the XSD, not §14-4, not the RS7 Return Specification —
+which we do not hold, and which is in the list requested with the password in the enquiry sent two
+days ago.
+
+The structural argument for the four months following the period is decent. A period is four
+months. The counts are four months. "Advance" reads as funding paid forward. Three facts pointing
+the same way, and still an inference — so `firstMonth` is a **parameter**, its default is stated,
+and the answer goes into `assumptions` on every return rather than once in a comment somebody reads
+in a year. A mutation removing that disclosure is in the drill.
+
+Item 64, and its direction is unusual: a wrong anchor neither over- nor under-claims. It reports
+operating days for the wrong months, and a service is then funded forward against a calendar it
+does not have.
+
+### Two places a zero would have been a lie
+
+A count is `null` where the **service model** is not recorded, and `null` where **no booking
+schedule** covers the months. Zero forward operating days is a statement that the service is
+closing, and neither of those means it.
+
+The mutation worth having is the first: default an unrecorded service to all-day, because that is
+the common case. It is caught, and the reason it must be is that which bucket the days belong in is
+a question the Ministry asked the **service**. Answering it from the shape of the customer base
+would be the product making the statement.
+
+### A second call, on purpose
+
+`operatingDays()` is called twice — once over the period for the daily figures, once over the four
+months after it. One call spanning both would give two different questions a shared calendar suiting
+neither.
+
+Forward counting works at all because of a property built for a different reason: `blocksOn` is the
+one written-down effective-window rule, and a booking-schedule block with no end date is effective
+into next year. The calendar was never limited to the past; nothing had asked it about the future
+until now.
+
+### The fourth extraction into one module today
+
+`nextMonth` and `lastDayOf` were private in `absence.ts`. `rs7.ts` became the second consumer, so
+they moved to `weekdayBlock.ts` — which this morning gained `isoWeekdayOf` and `mondayOf` from four
+copies scattered across the package.
+
+That module has now absorbed a helper on four separate occasions in one day, always on the second
+consumer and never before. Worth noticing as a shape: the rule is not "extract early", it is
+"extract on the second consumer, and then it is not a judgement call".
+
+Exporting them needed one small decision. `weekdayBlock` reaches `@ece/core` only through
+`census.ts`'s partial re-export, so a blanket `export *` in `index.ts` would collide with it. Two
+named exports, with the reason written down, rather than rearranging a working re-export to suit a
+third consumer.
+
+### Phase 3's figures are done
+
+3A, 3B, 3C, 3D, 3E. The return produces every count it can and names every one it cannot: staff
+hours for a centre recording adults as a typed total, advance months for a service that has not
+said what kind it is, and the two-and-over bucket's Plus 10 treatment, which is still waiting on an
+unsent enquiry.
+
 ## 2026-09-05 (seventh) — 3D and 3E, and the return assembles
 
 `0096`, `/funding/rs7`, `/funding/rs7.csv`. Phase 3's remaining pieces.

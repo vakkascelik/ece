@@ -2551,6 +2551,25 @@ entitled to and claims less. The gap text tells them why.
 **To close it:** the third question for the Ministry enquiry, and it is cheap to ask alongside the
 item 61 question because both are about the same rule.
 
+### 64. RS7's advance months are four, and nothing says four ahead of what — **OPEN, added 2026-09-05**
+
+| | |
+|---|---|
+| **What is asserted** | By `rs7AdvanceMonths`: that the four `AdvanceMonthCounts` entries are the four calendar months **following the period's last day** |
+| **What is actually sourced** | Three things, all from the public schema retrieved 2026-09-03: the element names `AllDayDaysCount`, `SessionalDaysCount` and `ParentLedDaysCount`; that there are up to **four** of them; and that each is bounded `0–99`. Nothing states the anchor |
+| **The structural argument for the default** | An RS7 period is four months. The advance counts are four months. *"Advance"* reads as funding paid forward. Three facts pointing the same way — and still an inference |
+| **What else it could be** | The four months **of** the period being returned, which would make them a restatement of operating days already covered by the daily figures; or four months from the submission date rather than from the period, which for a return filed late is a different four months |
+| **Direction of the error** | Neither. A wrong anchor does not over- or under-claim — it reports operating days for the wrong months, which is a figure the Ministry uses to pay in advance. Being wrong here means a service is funded forward against a calendar it does not have |
+
+**How this product behaves meanwhile.** `firstMonth` is a **parameter**, not a constant, and the
+answer is disclosed in `assumptions` on **every** return rather than once in a comment — the screen
+and the CSV both carry the sentence *"the schema says there are four and does not say four ahead of
+what"*. A mutation removing that disclosure is in the drill and is caught.
+
+**To close it:** the RS7 Return Specification 6.0, which is in the list requested with the password
+in the enquiry sent 2026-09-03. A specification that defines a forward count almost certainly says
+what it counts forward from. Failing that, it is a one-line question for the next enquiry.
+
 ## See Also
 
 - [[eli-integration]] — the public schema, the event catalogue, and items 47 and 48

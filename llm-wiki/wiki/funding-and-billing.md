@@ -952,6 +952,33 @@ emergency closure is claimable on *"actual booked hours"*, but that is a differe
 absence — its own eligibility, no window to run — so those days are excluded here too rather than
 misclassified as absences. Item 60 carries what remains.
 
+### `AdvanceMonthCounts` — 3C, and the anchor nobody stated
+
+**2026-09-05.** `rs7AdvanceMonths`, on the operating calendar `operatingDays()` already produces.
+Four forward months, three counts each, on the screen and in the file.
+
+**Which four months is not sourced.** The schema gives the element names, that there are four, and
+the `0–99` bound. *Ahead of what* appears in nothing read so far. The structural argument for the
+four months following the period is decent — a period is four months, the counts are four months,
+"advance" reads as paid forward — and it is still an inference, so `firstMonth` is a parameter and
+the answer is disclosed on every return. [[unverified-claims]] item 64.
+
+**Nulls, not zeros, twice over.** A count is `null` where the service model is not recorded, and
+`null` where no booking schedule covers the months. Zero forward operating days is a statement that
+the service is closing, and neither of those means it. The mutation putting unrecorded services in
+the all-day bucket — the common case, and therefore the tempting default — is caught: which bucket
+the days belong in is a question the Ministry asked the **service**.
+
+**A second `operatingDays` call, deliberately.** The period's own dates and the four months after it
+are different questions, and one call spanning both would give the daily figures and the forward
+counts a shared calendar suiting neither. Forward counting works at all because `blocksOn` is the
+one written-down effective-window rule: a booking-schedule block with no end date is effective into
+next year.
+
+**6/6 mutations caught.** And `nextMonth`/`lastDayOf` moved from `absence.ts` into `weekdayBlock.ts`
+on the second consumer — the same rule that brought `isoWeekdayOf` and `mondayOf` there hours
+earlier, and the fourth time today that module has been where a helper belonged.
+
 ### The RS7 screen and export — 3D and 3E, 2026-09-05
 
 `/funding/rs7` and `/funding/rs7.csv`, plus `rs7_declarations` (`0096`). The return is now

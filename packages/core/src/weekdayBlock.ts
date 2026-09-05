@@ -27,6 +27,27 @@
  */
 
 /**
+ * `YYYY-MM` plus one.
+ *
+ * Extracted from `absence.ts` on 2026-09-05, when `rs7.ts` became the second consumer — the
+ * same rule this module's own header describes, and the same rule that brought `isoWeekdayOf`
+ * and `mondayOf` here a few hours earlier.
+ *
+ * Throws on a malformed month rather than returning a plausible one. A silent rollover from
+ * `2026-13` would put a funding month a year out and look entirely ordinary in a table.
+ */
+export function nextMonth(month: string): string {
+  const [y, m] = month.split('-').map(Number);
+  if (!y || !m || m > 12) throw new Error(`Not an ISO month: ${month}`);
+  return m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`;
+}
+
+/** The last day of `YYYY-MM`, without a table of month lengths and without a leap-year rule. */
+export function lastDayOf(month: string): string {
+  return shiftLocalDate(`${nextMonth(month)}-01`, -1);
+}
+
+/**
  * The ISO weekday of an already-resolved local date, Monday = 1 .. Sunday = 7.
  *
  * `Date.UTC` on the components, never `new Date(string)` and never

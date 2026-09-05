@@ -386,6 +386,15 @@ export * from './funding';
  * The RS7 return's daily counts. Kept separate from `./funding` because it must NOT reuse
  * `toHours` — that floors, and §9-2 rounds to nearest. See the file header and item 52.
  */
+/*
+  The two month helpers, named explicitly rather than `export * from './weekdayBlock'`.
+
+  That module's other exports already reach the package through `census.ts`, which re-exports the
+  four it needs, and a blanket star here would collide with them. Two names is the smaller thing
+  than rearranging a working re-export to suit a third consumer.
+*/
+export { lastDayOf, nextMonth } from './weekdayBlock';
+
 export * from './rs7';
 export * from './staffHours';
 

@@ -69,8 +69,9 @@
 import { ageInMonths } from './children';
 import type { ChildFunding } from './funding';
 import type { FundingPeriod } from './funding';
+import type { OperatingDays } from './closures';
 import type { StaffDayTotals } from './staffHours';
-import { mondayOf } from './weekdayBlock';
+import { mondayOf, nextMonth } from './weekdayBlock';
 
 /**
  * How the two-and-over subsidy figure treats Plus 10 hours — [[unverified-claims]] item 56.
@@ -188,6 +189,12 @@ export interface Rs7DayCounts {
   declaration: Rs7Declaration | null;
   /** Which of the six declaration fields are unanswered. Empty when it is complete. */
   missingDeclarationFields: string[];
+  /**
+   * `AdvanceMonthCounts` — four forward months of operating days by service model. Empty where
+   * the caller did not supply an operating calendar, which is not the same as four months of
+   * zero and is why they are absent rather than blank.
+   */
+  advanceMonths: Rs7AdvanceMonth[];
 }
 
 /** The whole-hours rounding §9-2 step 5 and §9-4 both direct. Never exported — item 52. */
@@ -314,6 +321,8 @@ export function rs7DayCounts(input: {
   staffHourGaps?: readonly string[];
   /** The declaration for this period, from `rs7_declarations` (0096). */
   declaration?: Rs7Declaration | null;
+  /** `AdvanceMonthCounts`, from `rs7AdvanceMonths`. Its gaps join `assumptions`. */
+  advance?: { months: Rs7AdvanceMonth[]; gaps: readonly string[] };
   caps?: { maxHoursPerWeek: number; twentyHoursWeeklyCap: number };
 }): Rs7DayCounts {
   const caps = input.caps ?? { maxHoursPerWeek: 30, twentyHoursWeeklyCap: 20 };
@@ -502,6 +511,8 @@ export function rs7DayCounts(input: {
     );
   }
 
+  assumptions.push(...(input.advance?.gaps ?? []));
+
   return {
     period: input.period,
     days,
@@ -510,5 +521,132 @@ export function rs7DayCounts(input: {
     outOfRangeDates,
     declaration,
     missingDeclarationFields: missing,
+    advanceMonths: input.advance?.months ?? [],
   };
+}
+
+
+// ---------------------------------------------------------------------------
+// AdvanceMonthCounts — 3C
+// ---------------------------------------------------------------------------
+
+/**
+ * One forward month's operating days, split by service model.
+ *
+ * All three are `number | null` and **null means the model is not recorded**, not zero. A
+ * service that has not told this product whether it is all-day or sessional cannot have its
+ * days placed in a bucket, and putting them all in `allDayDays` because that is the common case
+ * would be the product answering a question the Ministry asked the service.
+ */
+export interface Rs7AdvanceMonth {
+  /** `YYYY-MM`. */
+  month: string;
+  allDayDays: number | null;
+  sessionalDays: number | null;
+  parentLedDays: number | null;
+}
+
+/**
+ * `AdvanceMonthCounts` — forward operating days by service model, four months of them.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * WHICH FOUR MONTHS IS NOT SOURCED, SO IT IS A PARAMETER
+ *
+ * Three things about this element are established from the public schema: the element names,
+ * that there are up to four of them, and that each count is 0–99. **Ahead of what** is not
+ * stated in anything read so far — not in the XSD, not in §14-4, not in the RS7 Return
+ * Specification, which we do not hold.
+ *
+ * The structural argument for the four months *following the period* is decent: an RS7 period is
+ * four months long, the advance counts are four months long, and "advance" reads as the funding
+ * being paid forward. That is an inference, and it is exactly the kind this repo does not make
+ * silently — so `firstMonth` is a parameter, its default is stated, and the answer goes in
+ * `gaps` every time it is used. [[unverified-claims]] item 64.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * WHAT AN OPERATING DAY IS HERE
+ *
+ * `operatingDays()` in `./closures` — the union of the weekdays children are enrolled to attend,
+ * derived per date, minus recorded closures. Forward-looking by construction: a booking schedule
+ * block with no end date is effective into next year, and a closure recorded for the Christmas
+ * break is already in the table.
+ *
+ * A service that has recorded no schedule gets `basis: 'unknown'`, and every count is `null`
+ * rather than zero. Zero forward operating days is a statement that the service is closing.
+ */
+export function rs7AdvanceMonths(input: {
+  /**
+   * The operating calendar, computed by the caller over at least the four months wanted.
+   * Passed in rather than computed here because it needs the centre's booking schedule and
+   * closures, which are reads, and this module does no I/O.
+   */
+  operating: OperatingDays;
+  /**
+   * `all_day`, `sessional` or `parent_led` from `centres.service_model` (0083), or `null` where
+   * the service has not said. Spelled out rather than imported: `ServiceModel` lives in
+   * `index.ts`, which re-exports this module, so importing it would close a cycle.
+   */
+  serviceModel: 'all_day' | 'sessional' | 'parent_led' | null;
+  /** First forward month, `YYYY-MM`. */
+  firstMonth: string;
+  /** How many. Four, unless a caller has a reason. */
+  count?: number;
+}): { months: Rs7AdvanceMonth[]; gaps: string[] } {
+  const count = input.count ?? 4;
+  const gaps: string[] = [];
+
+  const operatingByMonth = new Map<string, number>();
+  for (const date of input.operating.dates) {
+    const month = date.slice(0, 7);
+    operatingByMonth.set(month, (operatingByMonth.get(month) ?? 0) + 1);
+  }
+
+  const months: Rs7AdvanceMonth[] = [];
+  let month = input.firstMonth;
+  let outOfRange = 0;
+
+  for (let i = 0; i < count; i += 1) {
+    const days = operatingByMonth.get(month) ?? 0;
+
+    /*
+      `0..99` per the schema. A calendar month cannot exceed 31 operating days, so this is
+      unreachable through the normal path — it is here because the bound is the Ministry's and a
+      figure past it must be reported rather than sent, exactly as the daily counts do.
+    */
+    if (days > 99) outOfRange += 1;
+
+    if (input.operating.basis === 'unknown' || input.serviceModel === null) {
+      months.push({ month, allDayDays: null, sessionalDays: null, parentLedDays: null });
+    } else {
+      months.push({
+        month,
+        allDayDays: input.serviceModel === 'all_day' ? days : 0,
+        sessionalDays: input.serviceModel === 'sessional' ? days : 0,
+        parentLedDays: input.serviceModel === 'parent_led' ? days : 0,
+      });
+    }
+    month = nextMonth(month);
+  }
+
+  if (input.operating.basis === 'unknown') {
+    gaps.push(
+      'Forward operating days could not be counted: no booking schedule covers these months, so nothing records which weekdays the service operates. The counts are blank rather than zero, because zero would say the service is closing.',
+    );
+  } else if (input.serviceModel === null) {
+    gaps.push(
+      'The service model is not recorded, so the forward operating days cannot be placed in the all-day, sessional or parent-led count. Setting it in Settings places them.',
+    );
+  }
+
+  gaps.push(
+    `The four advance months are taken as the four calendar months from ${input.firstMonth}. The schema says there are four and does not say four ahead of what — see unverified-claims item 64.`,
+  );
+
+  if (outOfRange > 0) {
+    gaps.push(
+      `${outOfRange} advance month exceeds the schema's 0-99 bound, which should be impossible for a calendar month and means something upstream is wrong.`,
+    );
+  }
+
+  return { months, gaps };
 }

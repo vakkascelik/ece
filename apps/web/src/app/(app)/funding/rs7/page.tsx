@@ -75,6 +75,7 @@ export default async function Rs7Page({
     toUtc: end.toUtc,
     ratioSource: ctx.centre.ratioSource,
     licensedPlaces: ctx.centre.licensedPlaces,
+    serviceModel: ctx.centre.serviceModel,
   });
 
   const totals = rs7.days.reduce(
@@ -197,6 +198,41 @@ export default async function Rs7Page({
                 </td>
               </tr>
             </tfoot>
+          </table>
+        )}
+      </section>
+
+      <section>
+        <h2>Advance months</h2>
+        {/*
+          Forward operating days by service model. A dash rather than a zero throughout: zero
+          forward operating days is a statement that the service is closing, and neither an
+          unrecorded service model nor an unrecorded booking schedule means that.
+        */}
+        {rs7.advanceMonths.length === 0 ? (
+          <p>
+            <em>No forward months could be counted.</em>
+          </p>
+        ) : (
+          <table>
+            <thead>
+              <tr>
+                <th>Month</th>
+                <th>All-day days</th>
+                <th>Sessional days</th>
+                <th>Parent-led days</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rs7.advanceMonths.map((m) => (
+                <tr key={m.month}>
+                  <td>{m.month}</td>
+                  <td>{m.allDayDays ?? '—'}</td>
+                  <td>{m.sessionalDays ?? '—'}</td>
+                  <td>{m.parentLedDays ?? '—'}</td>
+                </tr>
+              ))}
+            </tbody>
           </table>
         )}
       </section>

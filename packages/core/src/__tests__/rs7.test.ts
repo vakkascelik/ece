@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { childFunding, type ChildFunding, type FundingPeriod } from '../funding';
 import type { HoursEvent } from '../hours';
-import { rs7DayCounts } from '../rs7';
+import { rs7AdvanceMonths, rs7DayCounts } from '../rs7';
+import type { OperatingDays } from '../closures';
 
 /**
  * §9-2, §9-4 and §14-4 — the RS7 return's daily figures.
@@ -463,5 +464,98 @@ describe('rs7DayCounts — the three boundaries the mutation drill found unasser
 
     expect(r.days[0]?.subsidyFundedChildTwoAndOver).toBe(10200);
     expect(r.outOfRangeDates).toEqual(['2026-08-03']);
+  });
+});
+
+describe('rs7AdvanceMonths — forward operating days by service model', () => {
+  /** An operating calendar covering two months: 3 days in October, 2 in November. */
+  const calendar = (dates: string[]): OperatingDays => ({
+    basis: 'schedule',
+    weekdays: [1],
+    dates,
+    closedDates: [],
+  });
+
+  const OCT_NOV = calendar([
+    '2026-10-05',
+    '2026-10-12',
+    '2026-10-19',
+    '2026-11-02',
+    '2026-11-09',
+  ]);
+
+  it('puts the days in the bucket the service model names, and zero in the others', () => {
+    const r = rs7AdvanceMonths({
+      operating: OCT_NOV,
+      serviceModel: 'sessional',
+      firstMonth: '2026-10',
+    });
+
+    expect(r.months.map((m) => m.month)).toEqual(['2026-10', '2026-11', '2026-12', '2027-01']);
+    expect(r.months[0]).toEqual({
+      month: '2026-10',
+      allDayDays: 0,
+      sessionalDays: 3,
+      parentLedDays: 0,
+    });
+    expect(r.months[1]?.sessionalDays).toBe(2);
+    // A month the calendar does not reach is zero operating days, which is correct: the
+    // schedule says nobody is enrolled to attend then.
+    expect(r.months[2]?.sessionalDays).toBe(0);
+  });
+
+  it('rolls the year over rather than producing a thirteenth month', () => {
+    const r = rs7AdvanceMonths({
+      operating: OCT_NOV,
+      serviceModel: 'all_day',
+      firstMonth: '2026-11',
+    });
+    expect(r.months.map((m) => m.month)).toEqual(['2026-11', '2026-12', '2027-01', '2027-02']);
+  });
+
+  it('leaves every count NULL when the service model is not recorded', () => {
+    /*
+      Not zero, and not all-day-because-that-is-common. Which bucket the days belong in is a
+      question the Ministry asked the SERVICE, and answering it here would be the product making
+      the statement.
+    */
+    const r = rs7AdvanceMonths({
+      operating: OCT_NOV,
+      serviceModel: null,
+      firstMonth: '2026-10',
+    });
+    expect(r.months[0]).toEqual({
+      month: '2026-10',
+      allDayDays: null,
+      sessionalDays: null,
+      parentLedDays: null,
+    });
+    expect(r.gaps.join(' ')).toContain('service model is not recorded');
+  });
+
+  it('leaves every count NULL when no schedule covers the months', () => {
+    // `basis: 'unknown'` is not an empty calendar. Zero forward operating days is a statement
+    // that the service is closing.
+    const r = rs7AdvanceMonths({
+      operating: { basis: 'unknown', weekdays: [], dates: [], closedDates: [] },
+      serviceModel: 'all_day',
+      firstMonth: '2026-10',
+    });
+    expect(r.months.every((m) => m.allDayDays === null)).toBe(true);
+    expect(r.gaps.join(' ')).toContain('no booking schedule covers these months');
+  });
+
+  it('always discloses which four months it took, because the schema does not say', () => {
+    /*
+      Item 64. Three things are sourced — the element names, that there are four, and the 0-99
+      bound. "Four months ahead of what" is in none of them, so the answer is disclosed every
+      time rather than assumed once.
+    */
+    const r = rs7AdvanceMonths({
+      operating: OCT_NOV,
+      serviceModel: 'all_day',
+      firstMonth: '2026-10',
+    });
+    expect(r.gaps.join(' ')).toContain('does not say four ahead of what');
   });
 });
