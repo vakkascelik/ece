@@ -7,6 +7,79 @@ itself, and from the wiki pages, which hold the durable *why*. This file is the 
 
 ---
 
+## 2026-09-05 (fifth) — §9-4 computed, and a caveat I decided not to narrow
+
+`countedStaffHours` in `packages/core/src/staffHours.ts`, and `rs7.ts` now places the result.
+
+### The subtraction, and what it reuses
+
+    counted = paired staff attendance − the off-floor intervals 0094 records
+
+The pairing is **`attendedHours`**, not a second copy. `staff_attendance_events` has the same shape
+as children's attendance and 0039 says so — same enum, same `corrects` supersession, same
+`client_uuid`. So correction resolution and the definition of a broken day come from one place.
+
+That matters beyond tidiness: `pairDay` treats a missing sign-out as making the day's total
+**unknown**, and a payroll-shaped figure that assumed somebody went home at closing time would be a
+confident invention on a Crown return.
+
+**I also wrote a `timeToMinutes` and deleted it before it shipped.** `weekdayBlock.ts` already
+exports one with identical rules and an identical null-on-unparseable contract. That is the rule
+this repo has a `tokens:check` because of, and I broke it on my own diff.
+
+### Three states for "qualified", and the one that matters
+
+`registrationOf` is already three-state: a current practising certificate, a lapsed one, or **none
+on file**. RS7 offers two buckets and no third.
+
+Keyed on the practising certificate rather than `highest_qualification_code`, deliberately — the
+code is free text against a Ministry list that ships empty, and `countCertificated` already has the
+currency rule (a null expiry is **not** current).
+
+The hours of somebody with no certificate on file go in `unknownMinutes` and are named. A service
+that has not linked its certificates would otherwise see every hour land in
+`StaffHourNotQualifiedCount`, which is a claim about its teachers rather than about its filing.
+
+### The drill, and two fixtures that could not see their own bugs
+
+7/7 after; 5/7 first pass.
+
+**"An incomplete day is split by qualification anyway" survived** because my fixture was a dangling
+sign-in and nothing else — its minutes are **zero**, so adding zero to the qualified figure looks
+identical to not adding it. The fixture needed a *completed* session on an incomplete day: signed in
+at 08:00, out at 12:00, in at 13:00 and never out. Four hours it genuinely knows, on a day it cannot
+total.
+
+**"The counted figure is allowed to go negative" survived** because a single interval's overlap is
+bounded by the session, so the clamp is unreachable. Two *overlapping* intervals reach it. 0094's
+exclusion constraint refuses those, so this cannot come from the database — but a pure function will
+one day be handed data from somewhere else, and a negative staff-hour figure on a Crown return is
+not something to leave to a constraint two layers away.
+
+**And fixing the first survivor killed my own regression test.** The new fixture has non-zero
+unresolved minutes, so the original defect — a gap keyed on `unresolvedMinutes > 0`, invisible when
+an incomplete day has zero — stopped reproducing. Both fixtures are kept: one asserts the hours are
+**held back**, the other asserts the gap **fires**. Two properties, two tests, and the drill is what
+made the difference visible.
+
+### The caveat I decided not to narrow
+
+The plan said 3B narrows `ratioInputCaveat()`, whose last clause admits *"an adult does not count
+while on a break or on non-contact time"*. **It stays.**
+
+`countedStaffHours` feeds §9-4's funding figures. The **live ratio** does not use it:
+`adults_present_now` (0040) counts, on the `derived` source, staff whose **latest** attendance row
+is `in`. Somebody at lunch has not signed out, so they are still counted — precisely what the caveat
+says.
+
+Narrowing it today would put a false sentence on three screens. This repo did that once already,
+this morning: `exportDisclaimer` spent a day telling managers the product could not record notice,
+the day after `0093` gave it exactly that, and a unit test held the sentence in place.
+
+So the remaining half of 3B is a migration teaching `adults_present_now` to exclude a person whose
+current time falls inside an off-floor interval — `derived` source only, since a declared centre
+types a number and there is nothing to subtract. The caveat narrows with it and not before.
+
 ## 2026-09-05 (fourth) — 3B's schema, and two drills that found more than the code
 
 `0094`, `staff_off_floor`. Schema only — the computation and `ratioInputCaveat()`'s narrowing are

@@ -5,6 +5,29 @@ says so.*
 
 ---
 
+2026-09-05 (fifth) — **§9-4's staff hours computed, and `rs7.ts`'s two staff figures stop being
+`null`.** `countedStaffHours` in `staffHours.ts`; see [[attendance-and-ratios]].
+
+    counted = paired staff attendance − the off-floor intervals 0094 records
+
+The pairing is `attendedHours` rather than a second copy: staff attendance has the same shape as
+children's and says so, and `pairDay`'s treatment of a missing sign-out — the day's total is
+**unknown** — is exactly right for a payroll-shaped figure on a Crown return.
+
+**Three states for qualified**, from `registrationOf`'s current practising certificate rather than
+the free-text qualification code that ships against an empty list. A person with **no certificate on
+file** goes in neither bucket: folding them into `StaffHourNotQualifiedCount` would turn a paperwork
+fact into a claim about a teacher.
+
+**7/7 mutations caught, 5 on the first pass**, and the two survivors were both fixtures that could
+not see the bug — an "incomplete day" whose minutes were zero, and a clamp unreachable with a single
+interval. Both now have fixtures that can.
+
+**The ratio caveat is NOT narrowed, deliberately.** `adults_present_now` counts by latest event, so
+somebody at lunch has not signed out and is still counted — the caveat remains true of the figure it
+sits beside. Narrowing it would repeat this morning's `exportDisclaimer` mistake in the opposite
+direction.
+
 2026-09-05 (fourth) — **`0094`: `staff_off_floor`, the hours an adult was present and not counted.**
 Schema only; the computation and the caveat narrowing follow. See [[attendance-and-ratios]].
 

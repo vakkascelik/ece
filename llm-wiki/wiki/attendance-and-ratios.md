@@ -57,8 +57,9 @@ drift in a ratio does not report itself as broken — it reports itself as compl
 
 ### `staff_off_floor` (0094) — the hours an adult was present and not counted
 
-**Schema only, 2026-09-05.** The caveat below still says an adult does not count while on a break,
-because nothing computes with this table yet — that is the next commit.
+**Schema 2026-09-05; the funding computation the same day; the ratio figure still does not use
+it.** `ratioInputCaveat()` below is **unchanged and still correct**, and that is a decision rather
+than an oversight — see *The caveat cannot be narrowed yet* at the end of this section.
 
 §9-4 wants staff hours *"at times when they were counted towards regulated (ratio) staff"*. Three
 tables each get close and none answers it: `staff_attendance_events` (0039) says when a person was
@@ -92,6 +93,22 @@ on non-contact time"* — a description, not a published code list — and §9-4
 per-person staff attendance at all**. There is nothing for these intervals to subtract from, so
 §9-4's two figures stay unavailable for such a centre and the return reports a named gap rather than
 a zero.
+
+#### The caveat cannot be narrowed yet, and narrowing it would be the familiar mistake
+
+`countedStaffHours` uses these intervals for **§9-4's funding figures**. The **live ratio** does
+not, and the reason is in `adults_present_now` (0040): on the `derived` source it counts staff whose
+**latest** `staff_attendance_events` row is `in`. Somebody at lunch has not signed out, so they are
+still counted — exactly what the caveat says.
+
+So the last clause — *"an adult does not count while on a break or on non-contact time"* — remains
+true of the figure it appears beside. Narrowing it now would put a false sentence on three screens,
+which this repo has already done once: `exportDisclaimer` spent a day telling managers the product
+could not record notice, the day after `0093` gave it exactly that.
+
+**The remaining half of 3B**, then: teach `adults_present_now` to exclude a person whose current
+time falls inside an off-floor interval, on the `derived` source only — a declared centre types a
+number and there is nothing to subtract. That is a migration, and the caveat narrows with it.
 
 #### Three things the drills found
 

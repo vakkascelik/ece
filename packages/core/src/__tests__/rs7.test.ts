@@ -297,8 +297,9 @@ describe('rs7DayCounts — §6-4, the one rule that changes a figure here', () =
 });
 
 describe('rs7DayCounts — what it refuses to produce', () => {
-  it('leaves both staff figures NULL, never zero', () => {
-    // A service reporting zero staff hours would be making a different and false statement.
+  it('leaves both staff figures NULL, never zero, when none were supplied', () => {
+    // A service reporting zero staff hours would be making a different and false statement —
+    // and a centre recording adult numbers as a typed total has none to supply.
     const r = rs7DayCounts({
       children: [fund('a', day('2026-08-03', 5), { dateOfBirth: OLDER })],
       datesOfBirth: new Map([['a', OLDER]]),
@@ -307,6 +308,59 @@ describe('rs7DayCounts — what it refuses to produce', () => {
     expect(r.days[0]?.staffHourQualified).toBeNull();
     expect(r.days[0]?.staffHourNotQualified).toBeNull();
     expect(r.assumptions.join(' ')).toContain('§9-4');
+  });
+
+  it('places supplied staff hours, rounded to the nearest hour as §9-4 directs', () => {
+    /*
+      §9-4's own example: "68 hours and 30 minutes would be rounded to 69 hours whereas 68
+      hours and 29 minutes would be rounded to 68 hours." Both, asserted directly.
+
+      `unknownMinutes` is in neither figure — those are the hours of somebody with no
+      practising certificate on file, and folding them into the not-qualified figure would turn
+      a paperwork fact into a claim about a teacher.
+    */
+    const r = rs7DayCounts({
+      children: [fund('a', day('2026-08-03', 5), { dateOfBirth: OLDER })],
+      datesOfBirth: new Map([['a', OLDER]]),
+      period,
+      staffHours: [
+        {
+          date: '2026-08-03',
+          qualifiedMinutes: 68 * 60 + 30,
+          notQualifiedMinutes: 68 * 60 + 29,
+          unknownMinutes: 480,
+          unresolvedMinutes: 0,
+        },
+      ],
+      staffHourGaps: ['1 person has no practising certificate on file'],
+    });
+
+    expect(r.days[0]?.staffHourQualified).toBe(69);
+    expect(r.days[0]?.staffHourNotQualified).toBe(68);
+    expect(r.assumptions.join(' ')).toContain('no practising certificate');
+    expect(r.assumptions.join(' ')).not.toContain('Staff hours are not produced');
+  });
+
+  it('keeps a date where staff worked and no child attended', () => {
+    // §9-4's figures do not depend on a child being there. Taking the dates from the children
+    // alone would drop a day an educator was on site with an empty roll.
+    const r = rs7DayCounts({
+      children: [],
+      datesOfBirth: new Map(),
+      period,
+      staffHours: [
+        {
+          date: '2026-08-04',
+          qualifiedMinutes: 300,
+          notQualifiedMinutes: 0,
+          unknownMinutes: 0,
+          unresolvedMinutes: 0,
+        },
+      ],
+    });
+    expect(r.days.map((d) => d.date)).toEqual(['2026-08-04']);
+    expect(r.days[0]?.staffHourQualified).toBe(5);
+    expect(r.days[0]?.subsidyFundedChildUnderTwo).toBe(0);
   });
 
   it('says nothing at all when there is no attendance', () => {

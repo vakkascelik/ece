@@ -387,6 +387,7 @@ export * from './funding';
  * `toHours` — that floors, and §9-2 rounds to nearest. See the file header and item 52.
  */
 export * from './rs7';
+export * from './staffHours';
 
 // Applications for employment. The one vocabulary shared with the public website, which
 // depends on this package and on nothing else in the monorepo.

@@ -53,18 +53,23 @@
  *      figure never runs high. See `sixFourOverlaps`.
  *
  * ═══════════════════════════════════════════════════════════════════════════
- * WHAT THIS FILE WILL NOT DO
+ * THE STAFF FIGURES ARE SUPPLIED, NOT COMPUTED HERE
  *
- * Produce a staff-hour figure. §9-4 wants hours *"at times when they were counted towards
- * regulated (ratio) staff"* and nothing records that yet — `staff_attendance_events` is a
- * two-state in/out and there is no notion of a break. Both staff figures are `null` with a
- * named gap, never `0`, because a service reporting zero staff hours would be making a
- * different and false statement.
+ * `countedStaffHours` in `./staffHours` answers §9-4 — paired staff attendance minus the
+ * off-floor intervals `0094` records — and this file only rounds and places the result. Kept
+ * separate because the two have nothing in common: one transposes children's funded hours
+ * across a period, the other subtracts intervals from a person's day.
+ *
+ * **A caller that supplies nothing still gets `null`, never `0`.** A service reporting zero
+ * staff hours would be making a different and false statement, and a centre whose
+ * `ratio_source` is `'declared'` records no per-person attendance at all — for that centre
+ * there is nothing to compute and the figure is genuinely unavailable.
  */
 
 import { ageInMonths } from './children';
 import type { ChildFunding } from './funding';
 import type { FundingPeriod } from './funding';
+import type { StaffDayTotals } from './staffHours';
 import { mondayOf } from './weekdayBlock';
 
 /**
@@ -229,6 +234,14 @@ export function rs7DayCounts(input: {
   plusTenTreatment?: PlusTenTreatment;
   /** §6-4's overlaps from `sixFourOverlaps`, if the caller computed them. */
   sixFourOverlapHours?: ReadonlyMap<string, number>;
+  /**
+   * §9-4's counted staff hours, from `countedStaffHours`. Omitted where they cannot be
+   * computed — a centre on `ratio_source = 'declared'` has no per-person attendance — and the
+   * two staff figures are then `null` on every date, with a gap saying why.
+   */
+  staffHours?: readonly StaffDayTotals[];
+  /** Anything `countedStaffHours` could not place, passed through to `assumptions`. */
+  staffHourGaps?: readonly string[];
   caps?: { maxHoursPerWeek: number; twentyHoursWeeklyCap: number };
 }): Rs7DayCounts {
   const caps = input.caps ?? { maxHoursPerWeek: 30, twentyHoursWeeklyCap: 20 };
@@ -287,7 +300,16 @@ export function rs7DayCounts(input: {
     }
   }
 
-  const dates = [...new Set(allocations.map((a) => a.date))].sort();
+  const staffByDate = new Map((input.staffHours ?? []).map((d) => [d.date, d]));
+
+  /*
+    Every date with children OR with staff. A date where the roll was empty and an educator was
+    on site is a real day on the return — §9-4's staff figures do not depend on a child being
+    there — and taking the dates from the allocations alone would drop it.
+  */
+  const dates = [
+    ...new Set([...allocations.map((a) => a.date), ...staffByDate.keys()]),
+  ].sort();
   const days: Rs7Day[] = [];
   const outOfRangeDates: string[] = [];
 
@@ -319,14 +341,25 @@ export function rs7DayCounts(input: {
       // `null` — no date of birth. The hours belong to neither bucket and are reported below.
     }
 
+    /*
+      §9-4 rounds these to the nearest hour in its own words — *"68 hours and 30 minutes would
+      be rounded to 69 hours whereas 68 hours and 29 minutes would be rounded to 68 hours"* —
+      which is the same rule §9-2 step 5 gives for the subsidy figures, stated twice in the
+      Handbook for two different totals. One function serves both.
+
+      `unknownMinutes` is in NEITHER figure. Those are the hours of somebody with no practising
+      certificate on file, and folding them into `staffHourNotQualified` would turn a paperwork
+      fact into a claim about a teacher's qualification.
+    */
+    const staff = staffByDate.get(date);
     const day: Rs7Day = {
       date,
       subsidyFundedChildUnderTwo: roundToNearestHour(underTwo),
       subsidyFundedChildTwoAndOver: roundToNearestHour(twoAndOver),
       twentyHoursFundedChild: roundToNearestHour(twentyHours),
       twentyHoursFundedChildPlusTen: roundToNearestHour(plusTen),
-      staffHourQualified: null,
-      staffHourNotQualified: null,
+      staffHourQualified: staff ? roundToNearestHour(staff.qualifiedMinutes / 60) : null,
+      staffHourNotQualified: staff ? roundToNearestHour(staff.notQualifiedMinutes / 60) : null,
     };
 
     /*
@@ -348,9 +381,12 @@ export function rs7DayCounts(input: {
 
   // ---- what had to be assumed, said plainly and only when it actually applied
 
-  assumptions.push(
-    'Staff hours are not produced. §9-4 wants hours at times when a person was counted towards regulated staff, and nothing records when an adult was off the floor, so both staff figures are blank rather than zero.',
-  );
+  if (input.staffHours === undefined) {
+    assumptions.push(
+      'Staff hours are not produced. §9-4 wants hours at times when a person was counted towards regulated staff; either this centre records adult numbers as a typed total rather than per person, or no staff attendance was supplied. Both staff figures are blank rather than zero.',
+    );
+  }
+  assumptions.push(...(input.staffHourGaps ?? []));
 
   if (cappedWeeks.size > 0) {
     assumptions.push(
