@@ -2624,6 +2624,45 @@ tables for both age bands, and the home-based schedule. The all-day bands were r
 product records `service_model` and `licence_type` (`0083`) and cannot assess against either, which
 is stated in the tranche assessment rather than implied.
 
+#### Re-measured 2026-09-05, and a better option appeared that this item had not considered
+
+Queried against `whois.srs.net.nz` on port 43 — the registry, not a registrar's search box, which
+this item records disagreeing with the registry twice in one day in both directions.
+
+| Name | State at 2026-09-05 |
+|---|---|
+| `doorway.co.nz` | **Unchanged.** `redemptionPeriod` + `pendingDelete`, `Updated Date` still 2026-07-04. Two months after it lapsed it has not been released |
+| `doorway.nz` | Registered since 2020, Netregistry placeholder. As before |
+| `salix.co.nz` | **Also in `redemptionPeriod` + `pendingDelete`**, created 2017-07-03. Same registrar as `doorway.co.nz` |
+| **`salix.nz`** | **Not found — unregistered.** Second-level `.nz`, the shortest form |
+| `doorwayhq` / `usedoorway` / `getdoorway` `.co.nz`, `salixhq.co.nz` | Not found |
+
+**The release date is still unconfirmed and this environment cannot confirm it.** The Domain Name
+Commission's expired-names policy page returns **HTTP 403** to the fetcher — the third host to
+refuse it, after Education Counts (2026-09-02) and legislation.govt.nz (2026-09-05, item 65). The
+"90 days, so early October" figure in this item remains an estimate nobody has checked, and it
+should be confirmed by a phone call to a registrar rather than inferred.
+
+**What changes the decision is not the date, it is that the applicant now has a legal name.** Salix
+Limited was confirmed registered on 2026-09-05, and `salix.nz` is free. That matters because this
+item's open risk has never been the domain — it is the **trade mark**, and classes 9, 41, 42 and 35
+have still never been searched. A company's own registered name carries none of that risk: the
+Companies Office has already refused any name too similar to an existing one, which is a clearance
+the product name has not had.
+
+There is also a deadline on having *a* hostname at all, and it is not this item's. `INF08` is
+`[FIX FIRST]` because Supabase's authentication redirect URL is one project-wide value, so every
+invitation and password-reset link currently lands on the **pilot customer's** hostname. The
+Ministry is to be invited as a tester. A Crown assessor's invitation link arriving at
+`little-pearls-production.up.railway.app` is the same class of finding as `AST06` and `AST09`.
+
+**So the sequencing is: the free IPONZ class search first, because it is the thing that can force a
+rename; a hostname that carries no naming risk second, because it is needed regardless; and
+`doorway.co.nz` last or never.** An Afternic-parked name that has already dropped once is watched by
+drop-catchers, so "wait for October and register it" is a plan that assumes winning a race against
+automation. Buying a brand domain before the class search is buying an asset that may have to be
+abandoned.
+
 ### 66. Our own public zone accepts TLS 1.0 and 1.1 — **OPEN, added 2026-09-05**
 
 Found by measuring rather than by reading: `AST26` had stood as *"we can commit to it, and we should
