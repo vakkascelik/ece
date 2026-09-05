@@ -6100,6 +6100,129 @@ select pg_temp.expect(
 );
 
 -- ===========================================================================
+-- STAFF OFF FLOOR (0094)
+--
+-- The hours an adult was present and NOT counted towards regulated staff. Two
+-- boundaries matter here and they are different from each other: a colleague may
+-- READ it, because the ratio surfaces need it and a person's presence is not
+-- private from the people they work beside; but only owner or manager may WRITE
+-- it, because marking somebody uncounted lowers a funding figure and a ratio
+-- assessment. An educator marking themselves off the floor is the case the write
+-- predicate exists to refuse.
+--
+-- And a parent reads none of it — the same absence `staff_attendance_events`
+-- asserts, and for the same reason.
+-- ===========================================================================
+
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+
+insert into public.staff_off_floor (id, staff_member_id, on_date, from_time, to_time, reason, recorded_by)
+values ('e9111111-1111-4111-8111-111111111111',
+        'd5555555-5555-4555-8555-555555555555',
+        current_date, '12:00', '13:00', 'Lunch',
+        '11111111-1111-4111-8111-111111111111');
+
+select pg_temp.expect(
+  (select count(*) from public.staff_off_floor
+    where staff_member_id = 'd5555555-5555-4555-8555-555555555555') = 1,
+  'an owner can record that somebody was off the floor'
+);
+
+-- THE ASSERTION THIS SECTION EXISTS FOR. An educator may read the row and may not
+-- write one — including about themselves. Marking yourself uncounted changes a
+-- funding figure, so it is a management act.
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+
+select pg_temp.expect(
+  (select count(*) from public.staff_off_floor) = 1,
+  'an educator READS a colleague being off the floor — the ratio surfaces need it'
+);
+
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.staff_off_floor (staff_member_id, on_date, from_time, to_time)
+    values ('d5555555-5555-4555-8555-555555555555', current_date, '15:00', '15:30');
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(
+    ok,
+    'an educator CANNOT mark themselves off the floor — it lowers a funding figure'
+  );
+end $$;
+
+do $$
+declare ok boolean := false;
+begin
+  begin
+    update public.staff_off_floor set to_time = '14:00'
+     where id = 'e9111111-1111-4111-8111-111111111111';
+    ok := not found;
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'nor edit one somebody else recorded');
+end $$;
+
+-- The overlap constraint, which is why the interval is a row rather than a note.
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.staff_off_floor (staff_member_id, on_date, from_time, to_time)
+    values ('d5555555-5555-4555-8555-555555555555', current_date, '12:30', '13:30');
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(
+    ok,
+    'one person CANNOT be off the floor twice over the same hours — the subtraction would double-count'
+  );
+end $$;
+
+-- `[)`, so an interval starting exactly when another ends is adjacent. A break to
+-- 13:00 and non-contact time from 13:00 are two facts about one afternoon.
+insert into public.staff_off_floor (staff_member_id, on_date, from_time, to_time, reason)
+values ('d5555555-5555-4555-8555-555555555555', current_date, '13:00', '13:30', 'Non-contact');
+select pg_temp.expect(
+  (select count(*) from public.staff_off_floor
+    where staff_member_id = 'd5555555-5555-4555-8555-555555555555') = 2,
+  'but one starting exactly when another ends is adjacent, not a clash'
+);
+
+-- An inverted interval is refused. `to_time > from_time` — an interval that ends
+-- before it starts would subtract a negative number of hours from a Crown return.
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.staff_off_floor (staff_member_id, on_date, from_time, to_time)
+    values ('d5555555-5555-4555-8555-555555555555', current_date + 1, '14:00', '13:00');
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'an interval that ends before it starts is refused');
+end $$;
+
+-- THE TENANT BOUNDARY. A manager at the other centre reads none of it.
+set local request.jwt.claims = '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.staff_off_floor) = 0,
+  'another centre reads NO off-floor intervals'
+);
+
+-- And a parent reads none, which is the absence this table shares with staff attendance.
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.staff_off_floor) = 0,
+  'a parent reads NO off-floor intervals'
+);
+
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+delete from public.staff_off_floor
+ where staff_member_id = 'd5555555-5555-4555-8555-555555555555';
+
+-- ===========================================================================
 -- SHIFTS AND LEAVE (0041)
 --
 -- What is PLANNED, as opposed to what happened. The assertion this section exists

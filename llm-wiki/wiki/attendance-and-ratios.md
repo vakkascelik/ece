@@ -55,6 +55,61 @@ drift in a ratio does not report itself as broken — it reports itself as compl
 
 ## Details
 
+### `staff_off_floor` (0094) — the hours an adult was present and not counted
+
+**Schema only, 2026-09-05.** The caveat below still says an adult does not count while on a break,
+because nothing computes with this table yet — that is the next commit.
+
+§9-4 wants staff hours *"at times when they were counted towards regulated (ratio) staff"*. Three
+tables each get close and none answers it: `staff_attendance_events` (0039) says when a person was
+*here*, `staff_count_events` (0010) is a centre-level number somebody typed, and `staff_leave`
+(0041) is day-granular so it cannot express a lunch break. `0010`'s own header called this out —
+modelling *"who counts toward a ratio while on their break"* is *"a real feature that belongs with
+the rest of centre operations, not smuggled in here"*.
+
+**It records the exceptions, not the counted intervals.** Counted hours are the paired
+`staff_attendance_events` **minus** these. The alternative was two new `attendance_kind` values,
+and that enum is `('in','out')` shared by three things: children's attendance, staff attendance,
+and the signature of `kiosk_sign_child(uuid, public.attendance_kind, …)`. Widening it would give
+children's attendance two states that can never apply to a child, and change a function signature
+the kiosk depends on, to model something that is neither an arrival nor a departure.
+
+It is also how the fact is captured today — the adult-count note field's placeholder is literally
+*"two on lunch break"*, which is the same information as free text nothing can read.
+
+**Read is every colleague; write is owner or manager.** `caller_is_staff_for_member` for select,
+because the ratio surfaces need it and a person's presence is not private from the people they work
+beside; `caller_may_roster` for the write verbs, because marking somebody uncounted lowers a funding
+figure and a ratio assessment. An educator marking *themselves* off the floor is the case the write
+predicate exists to refuse, and it is a named assertion.
+
+**`reason` is free text and deliberately not an enum.** Schedule 2 says *"at lunch, on a break, or
+on non-contact time"* — a description, not a published code list — and §9-4 does not care which.
+
+#### What it cannot do, and it is not a defect here
+
+`centres.ratio_source` defaults to `'declared'` (0040), and a declared centre records **no
+per-person staff attendance at all**. There is nothing for these intervals to subtract from, so
+§9-4's two figures stay unavailable for such a centre and the return reports a named gap rather than
+a zero.
+
+#### Three things the drills found
+
+- **3/4 policy mutations caught**, against the live database: a select policy opened to everybody, an
+  educator allowed to write, and the overlap constraint dropped.
+- **The fourth is an equivalent mutant, and the probe proved it rather than the argument.** Dropping
+  `staff_off_floor_times_ordered` alone still refuses an inverted interval — the exclusion
+  constraint's own `tsrange(from, to)` raises *"range lower bound must be less than or equal to
+  range upper bound"*. Dropping **both** accepts it. So the CHECK is redundant while the exclusion
+  exists; it is kept because it gives a comprehensible error instead of a bewildering one, and
+  because it survives the exclusion being dropped. No test is claimed to cover it.
+- **The migration's inline audit self-check did not run.** It skips with a notice when there are no
+  staff members, and this project has **zero** — measured. So the audit wiring was verified
+  separately instead, by inserting through a real staff member in a rolled-back transaction:
+  one `audit_events` row, `action = insert`, and the centre resolved correctly through
+  `staff_member_id`. That is the `0089` failure mode checked rather than assumed — and a self-check
+  that silently no-ops is worth naming, because it looks like coverage in a diff.
+
 ### Three ratio states, because two are not enough
 
 | State | Job |

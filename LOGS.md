@@ -7,6 +7,66 @@ itself, and from the wiki pages, which hold the durable *why*. This file is the 
 
 ---
 
+## 2026-09-05 (fourth) — 3B's schema, and two drills that found more than the code
+
+`0094`, `staff_off_floor`. Schema only — the computation and `ratioInputCaveat()`'s narrowing are
+the next commit.
+
+### The decision, and why the enum was the wrong door
+
+§9-4 wants staff hours *"at times when they were counted towards regulated (ratio) staff"*. The
+tempting shape is two new `attendance_kind` values, `off_floor` and `on_floor`, reusing the
+append-only event stream and its offline path.
+
+`attendance_kind` is `('in','out')` and it is used by **three** things: children's attendance, staff
+attendance, and the signature of `kiosk_sign_child(uuid, public.attendance_kind, timestamptz, uuid,
+uuid, text)`. Widening it would give children's attendance two values that can never apply to a
+child and change a function signature the kiosk depends on — to model something that is neither an
+arrival nor a departure.
+
+So the table records the **exceptions**, and counted hours are the paired attendance events minus
+them. That is also how the fact is captured today: the adult-count screen's note placeholder is
+literally *"two on lunch break"*, which is the same information as free text nothing can read.
+
+`0010` had already reached this conclusion and declined to act on it — *"who counts toward a ratio
+while on their break — a real feature that belongs with the rest of centre operations, not smuggled
+in here."* This is that feature, arriving where it belongs.
+
+### What the drills found
+
+**3/4 policy mutations caught** against the live database — a select policy opened to everybody, an
+educator allowed to write, the overlap constraint dropped.
+
+**The fourth survived, and it is genuinely equivalent.** Dropping `staff_off_floor_times_ordered`
+alone still refuses an inverted interval: the exclusion constraint builds
+`tsrange(from_time, to_time)` and Postgres raises *"range lower bound must be less than or equal to
+range upper bound"* before any CHECK is consulted. I did not want to argue that, so I probed it —
+dropped the CHECK alone (refused), dropped both (**accepted**). The CHECK is redundant while the
+exclusion exists and is kept anyway, because it gives a comprehensible error rather than a
+bewildering one and survives the exclusion being dropped. Recorded as an expected survivor, with no
+test claimed to cover it.
+
+**And the migration's inline audit self-check never ran.** I wrote it to insert a row and assert an
+`audit_events` row appeared — the `0089` failure mode, where a table shipped with a silent audit
+trigger. It skips with a notice when there are no staff members, and this project has **zero**,
+measured. So it printed a notice and passed, which in a diff looks exactly like coverage.
+
+Verified separately instead: a staff member and an off-floor row inserted in a rolled-back
+transaction produced **one** `audit_events` row, `action = insert`, with the centre resolved
+correctly through `staff_member_id`. That is the assertion the self-check was for, actually made.
+
+**The lesson is the shape, not the incident.** A self-check with an early return is a test that
+cannot fail on an empty database, and an empty database is exactly what a fresh CI project will be.
+The class-level audit-coverage assertion in `rls_isolation.sql` is what actually covers this table,
+and it is catalogue-level — it proves a trigger exists, not that it fires.
+
+### What this cannot do, and it is not a defect
+
+`centres.ratio_source` defaults to `'declared'`, and a declared centre records **no per-person staff
+attendance** — only the number somebody typed. There is nothing for these intervals to subtract
+from, so §9-4's two figures stay unavailable for such a centre. `rs7.ts` will report that as a named
+gap rather than a zero, which is the same contract the census keeps for its six blocked fields.
+
 ## 2026-09-05 (third) — 3A, and the element names nearly sent me the wrong way
 
 `rs7DayCounts` in `packages/core/src/rs7.ts`. The first real piece of the return.

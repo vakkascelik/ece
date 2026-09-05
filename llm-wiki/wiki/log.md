@@ -5,6 +5,25 @@ says so.*
 
 ---
 
+2026-09-05 (fourth) — **`0094`: `staff_off_floor`, the hours an adult was present and not counted.**
+Schema only; the computation and the caveat narrowing follow. See [[attendance-and-ratios]].
+
+§9-4 wants staff hours *"at times when they were counted towards regulated (ratio) staff"* and
+nothing recorded it. This records the **exceptions** — counted hours are the paired
+`staff_attendance_events` minus these — rather than widening `attendance_kind`, which is `('in','out')`
+and shared with children's attendance and with `kiosk_sign_child`'s signature.
+
+Read is every colleague (`caller_is_staff_for_member`); write is owner or manager
+(`caller_may_roster`), because marking somebody uncounted lowers a funding figure. **757/757** RLS
+assertions, **3/4 policy mutations caught** against the live database.
+
+**Two findings worth more than the table.** The fourth mutation is *equivalent*: dropping the
+`to_time > from_time` CHECK alone still refuses an inverted interval, because the exclusion
+constraint's own `tsrange` raises on it — proved by dropping both and watching it be accepted. And
+**the migration's inline audit self-check never ran**: it skips when there are no staff members and
+this project has zero. The audit wiring was verified separately instead — one `audit_events` row
+with the centre resolved through `staff_member_id`.
+
 2026-09-05 (third) — **3A: `rs7.ts`, the RS7 return's daily figures.** Item 52 **closes**; item 63
 opens; a new [[funding-and-billing]] section.
 
