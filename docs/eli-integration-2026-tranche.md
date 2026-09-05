@@ -192,7 +192,7 @@ plus an assertion plus the data entry nobody has done.
 | *"20 Hours ECE funding"* | `funding.ts` — 6/day and **30**/week per the Glossary, with the 20 Hours / Plus 10 split; the 36-to-72-month age band applied *as at each day*; `ineligibleDates`; daily cap before weekly; floors downward. Plus `absence.ts`: §6-5's three-week window, §6-6's suspension across a closure of two weeks or more, §7-7's twelve-week window, §6-5's stop on notice, §6-7's monthly check with three triggers and a four-month timeline, and §6-4's cross-child detection | **Met for the calculation; the flag is still `false`, and the reason has changed completely.** ~~§6-4 to §6-7 absence funding is not modelled~~ — all four rules landed 2026-09-04, and a permanently enrolled child with a recorded agreement is now funded from the **agreement** (§9-2 step 1) rather than the turnstile. `FUNDING_RULES_VERIFIED` remains `false` on four of nine flags: `hoursSource` (a permanent child with no recorded schedule still falls back to attendance and under-claims), `absence` (§6-4's double-claimed place is **reported, not deducted**), `sessionalRounding` (§9-2 gives one worked example and not a rule — unread, not unbuilt) and `rs7Rounding` (Phase 3). The product's one **knowing over-claim** — a claim running past the date a family gave notice — closed with `0093` |
 | *"attendance marking"* | `attendance_events` — append-only, `corrects` supersession, `client_uuid` idempotency, centre-timezone day boundary, §6-3 electronic verification built end to end across `0061`–`0065`, kiosk PIN as signature, mobile roll, offline outbox on both clients | **Met, and the strongest part of the product** |
 | *"annual ECE census (staff details and qualifications)"* | ~~`staff_members` and `staff_records` only~~ **Built 2026-09-02/03**: `0080`, `0081`, `census.ts`, the API layer and the `/census` screen | **Partial, and the remaining blocker is not software.** Every field has a column and a form. Six of them — gender, staff role, qualification, playcentre qualification, ethnicity, iwi — cannot hold a value until a Ministry code list is imported, so their inputs are disabled and say so. See below |
-| *"RS7 return (for example, calculation for funding periods)"* | `/funding` produces funded hours per child, with completeness banners, and a CSV labelled preparation | **Not built as an RS7 return.** None of the figures the return actually wants is produced — measured 2026-09-03 against the XSD, that is **nine distinct counts** (six per calendar date, three advance-monthly repeated over four months) plus **six declaration fields**. The figure previously stated here, "eleven", was not sourced |
+| *"RS7 return (for example, calculation for funding periods)"* | `/funding/rs7` and `/funding/rs7.csv` — the nine counts per period, the six-field declaration, and every assumption named on the screen and in the file. `/funding` keeps the per-child view | **Met as a calculation, 2026-09-05.** ~~None of the figures the return actually wants is produced~~ — **all nine now are**: six per calendar date (`rs7.ts`), three advance-monthly (`rs7AdvanceMonths`), plus the six declaration fields (`0096`). **What is NOT built is submission**, which is the wire format and is out of scope for this application by the Ministry's own words. Three figures rest on stated assumptions — items 56, 63 and 64 — and two are unavailable for a centre recording adults as a typed total rather than per person. Every one of those is disclosed with the figure rather than in a comment |
 | *"Waha Rumaki/PITA Return"* | Nothing. One mention in the whole repo, and it is a document title in a wiki table | **Not built.** Possibly out of scope — enquiry question 7 |
 
 ### Why the census is the hard one
@@ -309,19 +309,33 @@ assessed against the only ratio schedule that has been transcribed, the all-day 
 
 - On 2026-09-03 this paragraph said *"three of eight functionalities are absent"*; the census moved
   from absent to blocked-on-a-list in a day.
-- On 2026-09-05 three more rows moved: child enrolment and child booking schedule from **partial to
+- On 2026-09-05 three rows moved: child enrolment and child booking schedule from **partial to
   met** (`0085`–`0087`, `0093`), and 20 Hours ECE from *"met for attended hours, absence funding not
-  modelled"* to a modelled calculation with four named flags still false. That is **five met, one
-  blocked on the Ministry, two absent**.
+  modelled"* to a modelled calculation with four named flags still false.
+- **Later the same day the RS7 return moved from absent to met as a calculation** (`0094`–`0096`,
+  `rs7.ts`, `staffHours.ts`, `/funding/rs7`). That is **six met, one blocked on the Ministry, one
+  absent** — and the one absent is the Waha Rumaki/PITA return, which **cannot be started**: it is
+  not in the ELI schema at all but in the separate Teacher Data Collection 1.1, which we do not
+  hold, and whether a vendor must build it is enquiry question 5, unanswered.
 - ~~And the product cannot record which model a service is~~ — `0083` records `service_model` and
   `licence_type`, settable in Settings. What is missing is the ratio schedule behind two of the
   models, not the field.
 
-**The declaration still cannot be made, and the remaining reason is narrower and harder.** Every
-gap that closed was a gap this team could close alone. What is left is one absent return that is
-weeks of work (RS7), one that may be out of scope (PITA), one waiting on the Ministry (the code
-lists), and two service models that need ratio schedules transcribed from source. None of it is
-finished by another week of funding correctness.
+**The declaration still cannot be made, and what is left is now almost entirely outside this
+team's hands.** Every gap that closed was one this team could close alone, and after 2026-09-05
+that category is close to empty. What remains:
+
+| Remaining gap | Who can close it |
+|---|---|
+| The **PITA return** — not in the ELI schema; Teacher Data Collection 1.1, which we do not hold | The Ministry: send the spec, or answer question 5 saying it is out of scope |
+| Six **census fields** blocked on unpublished code lists | The Ministry |
+| Two **service models** with no ratio schedule transcribed (sessional, home-based) | Us — regulatory reading, and the only substantial build left |
+| Three **RS7 assumptions** (items 56, 63, 64) | The Ministry: the RS7 Return Specification 6.0, requested 2026-09-03 |
+| `AST06`/`AST09` — three environments, production data isolated | The owner: a second Supabase project |
+| The **four data-flow diagrams**, `[BLOCKED — spec]` | The Ministry: the NSI GINS specification |
+
+**The single highest-leverage action is no longer code.** Four of those six are answers to enquiries
+— one sent 2026-09-03 and unanswered, one drafted 2026-09-04 and **still unsent**.
 
 Worth watching in this document, because a gap table that improves faster than the product does is
 a gap table nobody should trust — and the failure mode ran the other way this time: the table sat
