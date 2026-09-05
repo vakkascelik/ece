@@ -90,6 +90,54 @@ export interface EnrolledSession {
   attendedMinutes?: number | null;
 }
 
+/**
+ * §7-7's two qualifying bases, transcribed from the section itself.
+ *
+ * *"A child qualifies if either: they have an ongoing learning support need … or they have a
+ * short-term illness or condition."* Not a vocabulary anybody here chose, and the CHECK in `0089`
+ * carries the same two values.
+ */
+export const EXEMPTION_BASES = ['ongoing_learning_support', 'short_term_illness'] as const;
+export type ExemptionBasis = (typeof EXEMPTION_BASES)[number];
+
+export const EXEMPTION_BASIS_LABELS: Record<ExemptionBasis, string> = {
+  ongoing_learning_support: 'Ongoing learning support need',
+  short_term_illness: 'Short-term illness or condition',
+};
+
+/**
+ * The three documents §7-7 accepts, and the rules between them are not symmetric.
+ *
+ * A short-term illness may be evidenced **only** by an EC13 — a Child Disability Allowance letter
+ * does not evidence a fortnight of chickenpox — and an IDP must carry its issue date, because
+ * §7-7 requires it *"issued within previous 6 months"* and without a date that condition cannot be
+ * answered at all. `0089` enforces both.
+ */
+export const EXEMPTION_EVIDENCE = ['idp', 'ec13', 'child_disability_allowance'] as const;
+export type ExemptionEvidence = (typeof EXEMPTION_EVIDENCE)[number];
+
+export const EXEMPTION_EVIDENCE_LABELS: Record<ExemptionEvidence, string> = {
+  idp: 'Individual Development Plan',
+  ec13: 'EC13 form',
+  child_disability_allowance: 'Child Disability Allowance documentation',
+};
+
+/** One recorded §7-7 exemption — a row of `absence_exemptions` (0089). */
+export interface AbsenceExemption {
+  id: string;
+  enrolmentId: string;
+  basis: ExemptionBasis;
+  evidence: ExemptionEvidence;
+  /** The date the evidence itself carries. Required for an IDP. */
+  evidenceDatedOn: string | null;
+  /** When the SERVICE completed its EC12. Not an approval date — nobody approves this. */
+  ec12CompletedOn: string;
+  exemptFrom: string;
+  /** Null is open-ended, which only an ongoing learning support need may be. */
+  exemptTo: string | null;
+  notes: string | null;
+}
+
 export const THREE_WEEK_RULE_DAYS = 21;
 export const EXEMPT_WINDOW_DAYS = 84;
 

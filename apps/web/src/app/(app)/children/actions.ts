@@ -27,6 +27,9 @@ import {
   reportAbsence,
   reportAbsenceRange,
   createChild,
+  addExemption as addExemptionRow,
+  deleteExemption as deleteExemptionRow,
+  endExemption as endExemptionRow,
   addScheduleBlock as addScheduleBlockRow,
   createEnrolment,
   saveChildAddress as saveChildAddressRow,
@@ -66,6 +69,10 @@ import {
   type HealthKind,
   type HealthSeverity,
   type ImmunisationStatus,
+  EXEMPTION_BASES,
+  EXEMPTION_EVIDENCE,
+  type ExemptionBasis,
+  type ExemptionEvidence,
 } from '@ece/core';
 import { actionError } from '@/lib/actionError';
 import { requireCapability, requireCtx } from '@/lib/auth';
@@ -1280,5 +1287,123 @@ export async function removeChildAddress(_prev: unknown, form: FormData): Promis
     return actionError(e, 'children.removeChildAddress');
   }
   revalidatePath(`/children/${childId}/whanau`);
+  return { ok: true };
+}
+
+/*
+  §7-7 EXEMPTIONS — the write path that did not exist until 2026-09-05.
+
+  `readFundingPeriod` has read `absence_exemptions` since 2026-09-04 to widen §6-5's window from
+  three weeks to twelve. Nothing could write it, so every window was three weeks and the product
+  under-claimed for every exempt child. Found by writing AST50's data-source mapping table, which
+  asks *where is this editable* for every parameter.
+
+  `manageCentre`, not `manageEnrolment`: `0089`'s policies are `caller_may_exempt`, which is owner
+  or manager, and a capability check looser than the policy produces a refusal at the database with
+  a confusing message rather than a clear one on the screen.
+*/
+export async function addExemption(_prev: unknown, form: FormData): Promise<Result> {
+  await requireCapability('manageCentre');
+  const db = await serverDb();
+
+  const childId = str(form, 'childId');
+  const enrolmentId = str(form, 'enrolmentId');
+  const basis = str(form, 'basis');
+  const evidence = str(form, 'evidence');
+  const evidenceDatedOn = str(form, 'evidenceDatedOn');
+  const ec12CompletedOn = str(form, 'ec12CompletedOn');
+  const exemptFrom = str(form, 'exemptFrom');
+  const exemptTo = str(form, 'exemptTo');
+
+  if (!childId || !enrolmentId) return { error: 'Missing enrolment.' };
+  if (!(EXEMPTION_BASES as readonly string[]).includes(basis)) {
+    return { error: 'Choose whether this is an ongoing learning support need or a short-term illness.' };
+  }
+  if (!(EXEMPTION_EVIDENCE as readonly string[]).includes(evidence)) {
+    return { error: 'Choose which document evidences this.' };
+  }
+  if (!ISO_DATE.test(ec12CompletedOn)) {
+    return { error: 'Give the date the service completed its EC12 form.' };
+  }
+  if (!ISO_DATE.test(exemptFrom)) return { error: 'Give the date the exemption starts.' };
+  if (exemptTo && !ISO_DATE.test(exemptTo)) return { error: 'That end date is not a date.' };
+  if (evidenceDatedOn && !ISO_DATE.test(evidenceDatedOn)) {
+    return { error: 'That evidence date is not a date.' };
+  }
+
+  /*
+    The three cross-field rules are §7-7's, and `0089` enforces every one of them. They are
+    checked here as well so the message names the rule rather than the constraint — and NOT
+    instead, because a form is not a boundary. `addExemptionRow` turns each violation into a
+    sentence too, so a hand-posted form gets the same answer.
+  */
+  if (basis === 'short_term_illness' && evidence !== 'ec13') {
+    return { error: '§7-7 evidences a short-term illness with an EC13 form and nothing else.' };
+  }
+  if (basis === 'short_term_illness' && !exemptTo) {
+    return {
+      error:
+        '§7-7 wants "an EC13 form specifying the exemption period", so a short-term exemption needs an end date.',
+    };
+  }
+  if (evidence === 'idp' && !evidenceDatedOn) {
+    return {
+      error:
+        'An Individual Development Plan needs its issue date — §7-7 requires one issued within the previous 6 months.',
+    };
+  }
+
+  try {
+    await addExemptionRow(db, {
+      enrolmentId,
+      basis: basis as ExemptionBasis,
+      evidence: evidence as ExemptionEvidence,
+      evidenceDatedOn: evidenceDatedOn || null,
+      ec12CompletedOn,
+      exemptFrom,
+      exemptTo: exemptTo || null,
+      notes: str(form, 'notes') || null,
+    });
+  } catch (e) {
+    return actionError(e, 'children.addExemption');
+  }
+  revalidatePath(`/children/${childId}/documents`);
+  return { ok: true };
+}
+
+export async function endExemption(_prev: unknown, form: FormData): Promise<Result> {
+  await requireCapability('manageCentre');
+  const db = await serverDb();
+
+  const childId = str(form, 'childId');
+  const id = str(form, 'exemptionId');
+  const exemptTo = str(form, 'exemptTo');
+
+  if (!childId || !id) return { error: 'Missing exemption.' };
+  if (!ISO_DATE.test(exemptTo)) return { error: 'Give the date the exemption ends.' };
+
+  try {
+    await endExemptionRow(db, id, exemptTo);
+  } catch (e) {
+    return actionError(e, 'children.endExemption');
+  }
+  revalidatePath(`/children/${childId}/documents`);
+  return { ok: true };
+}
+
+export async function removeExemption(_prev: unknown, form: FormData): Promise<Result> {
+  await requireCapability('manageCentre');
+  const db = await serverDb();
+
+  const childId = str(form, 'childId');
+  const id = str(form, 'exemptionId');
+  if (!childId || !id) return { error: 'Missing exemption.' };
+
+  try {
+    await deleteExemptionRow(db, id);
+  } catch (e) {
+    return actionError(e, 'children.removeExemption');
+  }
+  revalidatePath(`/children/${childId}/documents`);
   return { ok: true };
 }

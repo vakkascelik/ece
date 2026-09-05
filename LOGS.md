@@ -7,6 +7,54 @@ itself, and from the wiki pages, which hold the durable *why*. This file is the 
 
 ---
 
+## 2026-09-05 (tenth) — the rule that could not receive its input
+
+`ExemptionPanel`, and the reason it did not exist is worth more than the panel.
+
+### What the mapping table found
+
+AST50 asks, for every parameter of the RS7 return: its source, **where it is editable**, and a
+comment. That middle column is not bookkeeping. Filling it honestly meant checking each input, and
+three of them had no write path at all:
+
+| Table | The rule reading it | What that meant |
+|---|---|---|
+| `absence_exemptions` (0089) | §7-7's twelve-week window | every window was three weeks |
+| `enrolment_reconfirmations` (0092) | §6-7's third month | a third month was never unlocked |
+| `staff_off_floor` (0094) | §9-4's staff hours, and the ratio | nothing was ever subtracted |
+
+Each rule was implemented, mutation-tested, and wired into a reader that runs against the live
+schema. Each was reading a table nothing could fill. The tests passed because they supply their own
+inputs — which is what unit tests do, and is exactly why they could not see this.
+
+**All three fail towards claiming less**, which is the direction this product chooses everywhere,
+so nothing was over-claimed. But a rule that cannot receive its input is not a rule a service can
+rely on.
+
+### What the panel had to say, and not say
+
+§7-7 is **not an approval**. *"Services must complete an EC12 form (and EC13 where applicable) with
+supporting documentation, retained by the service and provided to the Ministry or Resourcing
+Auditors upon request."* Nothing is submitted; nothing comes back.
+
+So there is no status column, no "pending", and the date is named for what it is — the day the
+**service** completed its own form. A screen showing an exemption as *approved* would invent a
+decision nobody made, on the record a Resourcing Auditor asks for.
+
+The three cross-field rules are §7-7's own: a short-term illness is evidenced by an EC13 and nothing
+else; a short-term exemption needs an end date, because the section wants *"an EC13 form specifying
+the exemption period"*; an IDP needs its issue date, because *"issued within previous 6 months"* is
+otherwise unanswerable. They are stated in words on the form **and** enforced as CHECKs in `0089` —
+in words so the message names the rule, in the database so a hand-posted form gets the same answer.
+
+`manageCentre` rather than `manageEnrolment`, deliberately: `0089`'s policies are
+`caller_may_exempt`, which is owner or manager. A capability check looser than the policy produces a
+refusal at the database with a confusing message instead of a clear one on the screen.
+
+### Two to go
+
+`enrolment_reconfirmations` and `staff_off_floor`. Same shape of omission, same fix.
+
 ## 2026-09-05 (ninth) — the sighting, and the number it does not keep
 
 `0097`, `child_identity_documents`. Owner asked for this when the plan was written.

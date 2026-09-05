@@ -11,6 +11,7 @@ import {
   listConsents,
   listCustodyArrangements,
   listBookingSchedule,
+  listExemptionsForChild,
   listEnrolments,
   guardianPinStatus,
   listGuardiansOfChild,
@@ -41,6 +42,7 @@ import { ConsentPanel } from '../ConsentPanel';
 import { CustodyPanel } from '../CustodyPanel';
 import { DetailsForm } from '../DetailsForm';
 import { BookingSchedulePanel } from '../BookingSchedulePanel';
+import { ExemptionPanel } from '../ExemptionPanel';
 import { EnrolmentPanel } from '../EnrolmentPanel';
 import type { WitnessOption } from '../GiveMedicine';
 import { HealthPanel, type DosesToday } from '../HealthPanel';
@@ -480,13 +482,15 @@ export default async function ChildTabPage({
   // Documents: the paperwork. Consent decisions, the enrolment, the identity record, and
   // leaving — the things a manager opens sitting down, which is why they are behind a tab
   // rather than above the fold.
-  const [consents, history, requests, whanau, enrolments, schedule] = await Promise.all([
+  const [consents, history, requests, whanau, enrolments, schedule, exemptions] =
+    await Promise.all([
     listConsents(db, id),
     listConsentHistory(db, id),
     listConsentRequests(db, id),
     listGuardiansOfChild(db, id),
     listEnrolments(db, id),
     listBookingSchedule(db, [id]),
+    listExemptionsForChild(db, id),
   ]);
   const ownGuardianId = whanau.find((g) => g.guardian.userId === ctx.userId)?.guardian.id ?? null;
   const currentEnrolment = enrolments.find((e) => isEnrolmentCurrent(e, today));
@@ -587,6 +591,18 @@ export default async function ChildTabPage({
           `find`, not `[0]`: enrolments are newest-first but a child who left and came back has
           two rows, and the open one is not necessarily the first.
         */}
+        {/*
+          §7-7's exemptions, beside the agreement they scope to. The funding calculation has read
+          this table since 2026-09-04 and nothing could write it until 2026-09-05, so every
+          absence window was three weeks — see AST50's mapping table, which is what found it.
+        */}
+        <ExemptionPanel
+          childId={id}
+          enrolmentId={currentEnrolment?.id ?? null}
+          exemptions={exemptions}
+          canEdit={can(ctx.role, 'manageCentre')}
+          today={today}
+        />
         <BookingSchedulePanel
           guardians={signatories}
           childId={id}

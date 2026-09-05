@@ -5,6 +5,23 @@ says so.*
 
 ---
 
+2026-09-05 (tenth) — **§7-7's exemptions become recordable, and the reason they were not is the
+finding.** `ExemptionPanel` on the child record's Documents tab.
+
+`readFundingPeriod` has read `absence_exemptions` since 2026-09-04 to widen §6-5's window from
+three weeks to twelve. **Nothing could write it.** So the rule was implemented, mutation-tested and
+read against a table no screen could fill — every window was three weeks and the product
+under-claimed for every exempt child.
+
+Found by writing [AST50](../../docs/eli-application-answers.md)'s data-source mapping table, which
+asks *where is this editable* for every parameter. **Two more tables are in the same state**:
+`enrolment_reconfirmations` (§6-7's third month) and `staff_off_floor` (§9-4's staff hours).
+
+The panel says what §7-7 is and is not: no status, no "pending", no approval, and a date field named
+for the day the **service** completed its own EC12. Three cross-field rules are stated in words on
+the form and enforced as CHECKs in `0089` — stated so the message names the rule, enforced so a
+hand-posted form gets the same answer.
+
 2026-09-05 (ninth) — **`0097`: an identity document was sighted, and deliberately not which
 number.** Closes a `[GAP]` on `AST28`.
 
