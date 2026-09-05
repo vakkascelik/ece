@@ -952,6 +952,68 @@ emergency closure is claimable on *"actual booked hours"*, but that is a differe
 absence — its own eligibility, no window to run — so those days are excluded here too rather than
 misclassified as absences. Item 60 carries what remains.
 
+### The RS7 screen and export — 3D and 3E, 2026-09-05
+
+`/funding/rs7` and `/funding/rs7.csv`, plus `rs7_declarations` (`0096`). The return is now
+assemblable end to end: figures, staff hours, the §6-4 deduction and the declaration.
+
+**A different screen from `/funding`, and the difference is the axis.** `/funding` is per child —
+the figure a manager checks against one family's attendance, and where a wrong number gets
+noticed. This is per **calendar date**, which is the shape the return asks for. The transposition
+is not a view of the same data: rounding happens at the daily total across children, so the two
+screens legitimately disagree in the last decimal and a reader has to know which question each
+answers.
+
+**The period is the Ministry's, not a date range.** `/funding` deliberately lets an operator pick
+any range; this one offers only February, June and October the first, because
+`RS7PeriodStartDate` is `[0-9]{4}-(02|06|10)-01` in the public schema. Offering an arbitrary range
+would produce figures the Ministry cannot accept, which is worse than choosing for somebody. Two
+years are listed, because a return is prepared *after* its period ends.
+
+That also **wires `ministryFundingPeriods`**, which had been written, tested and unwired since
+2026-08-18 — and corrects the comment on `/funding` that called the Ministry's boundaries
+*"published figures this product does not know"*. It knows them; they are sourced to the RS7
+Return Specification 6.0 and corroborated by the XSD pattern.
+
+#### The declaration is six radio-and-text fields, and none of them is a checkbox
+
+**A checkbox posts nothing when unticked**, so a form built from checkboxes cannot tell *answered
+no* from *did not answer*. For an operational setting that distinction is pedantry; for a legal
+attestation about how a service pays its teachers it is the whole thing — an unsigned declaration
+is not a denial, and a checkbox would quietly turn one into the other the first time somebody
+opened the page and saved.
+
+So each attestation is three explicit choices with **Not stated** as the default, and the action
+maps a missing value to `null` rather than `false`. More clicks, and the only shape that can
+represent what is actually true.
+
+`0096` keys the declaration on **centre and period**, not on `centres`. On `centres` it would be a
+standing setting and last period's attestation would ride into this one — the product making the
+statement rather than the service.
+
+**Nothing on the screen explains what a parity step means.** The six values come from the
+Ministry's schema and this product does not know what they are; a helpful gloss would be inventing
+regulatory content in the place it matters most.
+
+#### The file has to carry its own caveats
+
+`csvDownload` gained `trailing` rows for this. A CSV emailed to an accountant loses every banner it
+came with, and these figures rest on allocations the Handbook does not make — so the assumptions
+ride at the foot of the file, escaped exactly as data cells are, because a caveat beginning with
+`=` is still a formula to a spreadsheet.
+
+**Staff hours are blank, never zero.** A service reporting zero staff hours is making a different
+and false statement, and an empty cell is what an unanswered figure looks like in a spreadsheet.
+There is now a **content test** asserting both — `/funding/export.csv` still has none, which is a
+gap inherited rather than introduced.
+
+#### One thing the e2e caught that nothing else would have
+
+The first run said an educator and a parent could both reach `/funding/rs7`. They cannot: the route
+was **404ing**, because Playwright was invoked directly and `npm run test:e2e` is
+`npm run build && playwright test`. A 404 leaves the URL unchanged, which reads exactly like a
+missing guard. Rebuilt, 25/25.
+
 ### RS7's daily figures — built 2026-09-05, and what they are counts *of*
 
 `rs7DayCounts` in `packages/core/src/rs7.ts`. Fourteen tests, **12/12 mutations caught** — nine on

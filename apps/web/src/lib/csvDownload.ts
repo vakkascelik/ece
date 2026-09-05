@@ -38,8 +38,22 @@ export function csvDownload<T>(input: {
   centreName: string;
   /** Today in the centre's timezone, resolved by the caller. Never `new Date()` here. */
   on: string;
+  /**
+   * Lines appended after the data — caveats that must not be lost when the file leaves the
+   * screen that carried them.
+   *
+   * ADDED FOR THE RS7 EXPORT, and the reason generalises. A CSV emailed to an accountant loses
+   * every banner it came with, and the RS7 figures rest on allocations the Handbook does not
+   * make — which days lose a capped week's excess, which of a week's hours are Plus 10. A file
+   * whose numbers look final while three of them rest on a stated assumption is a file somebody
+   * submits.
+   *
+   * After the rows rather than before, so the data stays machine-readable: a consumer that
+   * reads the header and then parses to the first blank line gets exactly the figures.
+   */
+  trailing?: (string | number | null | undefined)[][];
 }): Response {
-  const body = toCsv(input.rows, input.columns);
+  const body = toCsv(input.rows, input.columns, true, input.trailing);
   const filename = exportFilename(input.kind, input.centreName, input.on);
 
   return new Response(body, {

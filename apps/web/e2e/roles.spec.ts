@@ -160,6 +160,15 @@ const MATRIX: Array<{ path: string; guard: string; allowed: Record<Role, boolean
     allowed: { owner: true, manager: true, educator: false, parent: false },
   },
   {
+    // The RS7 return, per calendar date rather than per child. Same guard as `/funding`
+    // and for a stronger reason: the declaration on it is a legal attestation about how
+    // the service pays its teachers, and 0096's SELECT policy is owner-or-manager, so an
+    // educator would be refused the rows even if the route let them through.
+    path: '/funding/rs7',
+    guard: 'manageCentre',
+    allowed: { owner: true, manager: true, educator: false, parent: false },
+  },
+  {
     // The ECE Return's staffing section. An educator is excluded even though the screen
     // is largely about educators: 0081's read policy lets somebody see their OWN census
     // record, and nothing else at their centre, so a list of every colleague's age band

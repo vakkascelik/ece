@@ -103,10 +103,21 @@ function cell(raw: string | number | null | undefined): string {
  * An empty row set still emits the header line: a file with headings and no rows says
  * "nothing matched", while a zero-byte file says "the export is broken".
  */
-export function toCsv<T>(rows: T[], columns: CsvColumn<T>[], emitBom = true): string {
+export function toCsv<T>(
+  rows: T[],
+  columns: CsvColumn<T>[],
+  emitBom = true,
+  /**
+   * Lines after the data, each already a list of cells. Escaped exactly as a data cell is —
+   * a caveat beginning with a `-` or an `=` is still a formula to a spreadsheet, and a
+   * disclaimer that executes is a worse outcome than one that is not read.
+   */
+  trailing: (string | number | null | undefined)[][] = [],
+): string {
   const lines = [
     columns.map((c) => cell(c.header)).join(','),
     ...rows.map((row) => columns.map((c) => cell(c.value(row))).join(',')),
+    ...trailing.map((line) => line.map((value) => cell(value)).join(',')),
   ];
   return `${emitBom ? '﻿' : ''}${lines.join('\r\n')}\r\n`;
 }

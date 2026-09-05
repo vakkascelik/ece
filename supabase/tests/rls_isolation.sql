@@ -1579,6 +1579,132 @@ set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","r
 delete from public.enrolment_reconfirmations;
 
 -- ===========================================================================
+-- 0096 — the RS7 declaration
+--
+-- A legal attestation about how a service pays its teachers, made to the Crown. The
+-- boundary under test is narrower than most: owner or manager for **select** as well
+-- as the write verbs, because an educator has no reason to read their employer's
+-- salary declaration and the funding surface it sits behind is `manageCentre`.
+--
+-- The two CHECKs are transcriptions rather than opinions — the period start comes
+-- from the public schema's `RS7PeriodStartDate` pattern and the six parity steps from
+-- its enumeration — so getting either wrong would let a service record a declaration
+-- the Ministry's own schema would reject on submission.
+-- ===========================================================================
+
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+
+insert into public.rs7_declarations
+  (id, centre_id, period_start_date, salaries_attestation, parity_attestation,
+   parity_attestation_code, submitter_name, contact_number, designation, recorded_by)
+values ('ea111111-1111-4111-8111-111111111111',
+        'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        date '2026-06-01', true, true, 'STEP1-11',
+        'Aroha Ngata', '09 555 0100', 'Centre Manager',
+        '11111111-1111-4111-8111-111111111111');
+
+select pg_temp.expect(
+  (select count(*) from public.rs7_declarations) = 1,
+  'an owner can record the RS7 declaration'
+);
+
+-- One per centre per period. A second is an edit, not another statement.
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.rs7_declarations (centre_id, period_start_date)
+    values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', date '2026-06-01');
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'a second declaration for the same period is refused');
+end $$;
+
+-- The period start is the schema's, not ours: `[0-9]{4}-(02|06|10)-01`.
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.rs7_declarations (centre_id, period_start_date)
+    values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', date '2026-03-01');
+  exception when check_violation then ok := true;
+  end;
+  perform pg_temp.expect(
+    ok,
+    'a period start the RS7 schema does not allow is refused — Feb, Jun or Oct the first'
+  );
+end $$;
+
+-- The parity steps are the schema's enumeration, and nothing here knows what they mean.
+do $$
+declare ok boolean := false;
+begin
+  begin
+    update public.rs7_declarations set parity_attestation_code = 'STEP7'
+     where id = 'ea111111-1111-4111-8111-111111111111';
+  exception when check_violation then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'a parity step outside the schema''s six is refused');
+end $$;
+
+-- Blank is not an answer. `not null` would accept three spaces and say nothing.
+do $$
+declare ok boolean := false;
+begin
+  begin
+    update public.rs7_declarations set submitter_name = '   '
+     where id = 'ea111111-1111-4111-8111-111111111111';
+  exception when check_violation then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'a blank submitter name is refused rather than stored');
+end $$;
+
+-- NULL is not false. An unsigned declaration has not answered "no".
+update public.rs7_declarations set salaries_attestation = null
+ where id = 'ea111111-1111-4111-8111-111111111111';
+select pg_temp.expect(
+  (select salaries_attestation is null from public.rs7_declarations
+    where id = 'ea111111-1111-4111-8111-111111111111'),
+  'an attestation can be set back to NOT STATED, which is not the same as false'
+);
+update public.rs7_declarations set salaries_attestation = true
+ where id = 'ea111111-1111-4111-8111-111111111111';
+
+-- THE BOUNDARY THIS SECTION EXISTS FOR. An educator reads nothing.
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.rs7_declarations) = 0,
+  'an educator reads NO declaration — it is a statement about their employer''s salaries'
+);
+
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.rs7_declarations (centre_id, period_start_date)
+    values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', date '2026-10-01');
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'nor can an educator make one');
+end $$;
+
+-- A parent reads nothing either, and neither does another centre.
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.rs7_declarations) = 0,
+  'a parent reads NO declaration'
+);
+
+set local request.jwt.claims = '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.rs7_declarations) = 0,
+  'another centre reads NO declaration'
+);
+
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+delete from public.rs7_declarations;
+
+-- ===========================================================================
 -- 0089 — absence-rule exemptions (§7-7), and 0090's audit attribution
 --
 -- Two things are under test here and they are worth separating. The CHECK constraints are a

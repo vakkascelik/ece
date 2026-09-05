@@ -47,6 +47,11 @@ const EXPORTS: Array<{ path: string; why: string; allowed: Record<Role, boolean>
     allowed: { manager: true, educator: false, parent: false },
   },
   {
+    path: '/funding/rs7.csv',
+    why: 'manageCentre — the RS7 return itself, per date, with the declaration behind it',
+    allowed: { manager: true, educator: false, parent: false },
+  },
+  {
     path: '/children/export.csv',
     why: 'manageChildren — STRICTER than /children, which a parent may read',
     allowed: { manager: true, educator: false, parent: false },
@@ -215,4 +220,52 @@ test('the Xero export dates DD/MM/YYYY and guesses nothing about the chart of ac
   expect(res.headers()['content-disposition']).toContain(`xero-invoices-${today.slice(0, 7)}-`);
 
   await page.context().close();
+});
+
+/*
+  A CONTENT TEST FOR THE RS7 FILE, and `/funding/export.csv` still does not have one.
+
+  The route×role matrix proves who may download it. It does not prove the file says what it
+  must, and this file has two properties the matrix cannot see:
+
+    1. Staff hours are BLANK, not zero, where §9-4's figure cannot be computed. A service
+       reporting zero staff hours is making a different and false statement, and an empty cell
+       is what an unanswered figure looks like in a spreadsheet.
+    2. The assumptions ride in the file. A CSV emailed to an accountant loses every banner it
+       came with, and these figures rest on allocations the Handbook does not make.
+*/
+test('the RS7 file carries its caveats and leaves unknown staff hours blank', async ({
+  browser,
+}) => {
+  const t = await tenant();
+  const page = await signIn(browser, t.managerEmail, t.password);
+
+  const response = await page.request.get('/funding/rs7.csv', { maxRedirects: 0 });
+  expect(response.status()).toBe(200);
+  const body = await response.text();
+
+  // The BOM, as every export here carries.
+  expect(body.charCodeAt(0)).toBe(0xfeff);
+
+  const lines = body.replace(/^\ufeff/, '').split('\r\n');
+  expect(lines[0]).toBe(
+    'Date,Subsidy under 2,Subsidy 2 and over,20 Hours ECE,20 Hours ECE Plus 10,Staff hours qualified,Staff hours not qualified',
+  );
+
+  // The preparation sentence survives the file leaving the screen.
+  expect(body).toContain('Nothing has been submitted and this system cannot submit');
+
+  // §9-4's figures cannot be computed for a centre that records a typed adult total, and the
+  // file says so rather than printing a zero.
+  expect(body).toContain('Staff hours are not produced');
+
+  const data = lines.slice(1).filter((l) => /^\d{4}-\d{2}-\d{2},/.test(l));
+  for (const line of data) {
+    const cells = line.split(',');
+    // The last two columns are the staff figures. Blank, never `0`.
+    expect(cells[cells.length - 2]).toBe('');
+    expect(cells[cells.length - 1]).toBe('');
+  }
+
+  await page.close();
 });

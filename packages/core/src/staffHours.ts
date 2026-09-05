@@ -129,7 +129,18 @@ export function countedStaffHours(input: {
   staff: readonly {
     staffMemberId: string;
     events: HoursEvent[];
-    qualified: boolean | null;
+    /**
+     * Was this person a certificated teacher **on that date**, three-state.
+     *
+     * A predicate rather than a boolean because a practising certificate expires, and over a
+     * four-month funding period one plausibly expires mid-way. Hours before the expiry are
+     * qualified and hours after are not, and asking "are they certificated today" would
+     * reclassify the whole period by when the return happened to be run.
+     *
+     * The same rule `ageInMonths(dob, date)` follows for the age bands, and `replayDay` for
+     * the ratio: judge as at the day being counted, never as at now.
+     */
+    qualifiedOn: (date: string) => boolean | null;
   }[];
   offFloor: readonly OffFloorInterval[];
   timeZone: string;
@@ -188,7 +199,7 @@ export function countedStaffHours(input: {
   }
 
   const totals = new Map<string, StaffDayTotals>();
-  const qualifiedOf = new Map(input.staff.map((p) => [p.staffMemberId, p.qualified]));
+  const qualifiedOf = new Map(input.staff.map((p) => [p.staffMemberId, p.qualifiedOn]));
   const unknownPeople = new Set<string>();
 
   for (const row of people) {
@@ -214,7 +225,7 @@ export function countedStaffHours(input: {
       continue;
     }
 
-    const qualified = qualifiedOf.get(row.staffMemberId) ?? null;
+    const qualified = qualifiedOf.get(row.staffMemberId)?.(row.date) ?? null;
     if (qualified === true) day.qualifiedMinutes += row.countedMinutes;
     else if (qualified === false) day.notQualifiedMinutes += row.countedMinutes;
     else {

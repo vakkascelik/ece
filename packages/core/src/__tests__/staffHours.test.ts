@@ -36,7 +36,7 @@ const lunch = (over: Partial<OffFloorInterval> = {}): OffFloorInterval => ({
 describe('countedStaffHours — the subtraction', () => {
   it('takes an hour off the floor out of an eight-hour day', () => {
     const r = countedStaffHours({
-      staff: [{ staffMemberId: 'kaiako', events: fullDay('2026-08-03'), qualified: true }],
+      staff: [{ staffMemberId: 'kaiako', events: fullDay('2026-08-03'), qualifiedOn: () => true }],
       offFloor: [lunch()],
       timeZone: NZ,
     });
@@ -60,7 +60,7 @@ describe('countedStaffHours — the subtraction', () => {
       a cross-table check — so the intersection is what makes it safe.
     */
     const r = countedStaffHours({
-      staff: [{ staffMemberId: 'kaiako', events: fullDay('2026-08-03'), qualified: true }],
+      staff: [{ staffMemberId: 'kaiako', events: fullDay('2026-08-03'), qualifiedOn: () => true }],
       offFloor: [lunch({ fromTime: '15:00', toTime: '18:00' })],
       timeZone: NZ,
     });
@@ -70,7 +70,7 @@ describe('countedStaffHours — the subtraction', () => {
 
   it('ignores an interval recorded for a day the person did not work', () => {
     const r = countedStaffHours({
-      staff: [{ staffMemberId: 'kaiako', events: fullDay('2026-08-03'), qualified: true }],
+      staff: [{ staffMemberId: 'kaiako', events: fullDay('2026-08-03'), qualifiedOn: () => true }],
       offFloor: [lunch({ onDate: '2026-08-04' })],
       timeZone: NZ,
     });
@@ -81,7 +81,7 @@ describe('countedStaffHours — the subtraction', () => {
   it('ignores an interval belonging to somebody else', () => {
     // The off-floor rows arrive for a whole centre, so keying on the person is not decoration.
     const r = countedStaffHours({
-      staff: [{ staffMemberId: 'kaiako', events: fullDay('2026-08-03'), qualified: true }],
+      staff: [{ staffMemberId: 'kaiako', events: fullDay('2026-08-03'), qualifiedOn: () => true }],
       offFloor: [lunch({ staffMemberId: 'somebody-else' })],
       timeZone: NZ,
     });
@@ -100,7 +100,7 @@ describe('countedStaffHours — the subtraction', () => {
       leave to a constraint two layers away.
     */
     const r = countedStaffHours({
-      staff: [{ staffMemberId: 'kaiako', events: fullDay('2026-08-03'), qualified: true }],
+      staff: [{ staffMemberId: 'kaiako', events: fullDay('2026-08-03'), qualifiedOn: () => true }],
       offFloor: [
         lunch({ fromTime: '08:00', toTime: '16:00' }),
         lunch({ fromTime: '09:00', toTime: '15:00' }),
@@ -118,8 +118,8 @@ describe('countedStaffHours — the three qualification states', () => {
   it('splits qualified from not qualified', () => {
     const r = countedStaffHours({
       staff: [
-        { staffMemberId: 'registered', events: day, qualified: true },
-        { staffMemberId: 'unregistered', events: fullDay('2026-08-03'), qualified: false },
+        { staffMemberId: 'registered', events: day, qualifiedOn: () => true },
+        { staffMemberId: 'unregistered', events: fullDay('2026-08-03'), qualifiedOn: () => false },
       ],
       offFloor: [],
       timeZone: NZ,
@@ -132,6 +132,34 @@ describe('countedStaffHours — the three qualification states', () => {
     expect(r.gaps).toEqual([]);
   });
 
+  it('judges the certificate as at the date being counted, not as at today', () => {
+    /*
+      A practising certificate that expires mid-period. Hours before it lapse are qualified and
+      hours after are not — asking "are they certificated today" would reclassify a whole
+      four-month period by when the return happened to be run.
+
+      The same rule `ageInMonths(dob, date)` follows for the age bands.
+    */
+    const r = countedStaffHours({
+      staff: [
+        {
+          staffMemberId: 'lapses',
+          events: [...fullDay('2026-08-03'), ...fullDay('2026-08-10')],
+          qualifiedOn: (date) => date < '2026-08-07',
+        },
+      ],
+      offFloor: [],
+      timeZone: NZ,
+    });
+
+    const third = r.totals.find((d) => d.date === '2026-08-03');
+    const tenth = r.totals.find((d) => d.date === '2026-08-10');
+    expect(third?.qualifiedMinutes).toBe(480);
+    expect(third?.notQualifiedMinutes).toBe(0);
+    expect(tenth?.qualifiedMinutes).toBe(0);
+    expect(tenth?.notQualifiedMinutes).toBe(480);
+  });
+
   it('puts an unclassifiable person in NEITHER bucket, and says so', () => {
     /*
       THE ASSERTION THIS THREE-STATE EXISTS FOR. `null` means no practising certificate is on
@@ -139,7 +167,7 @@ describe('countedStaffHours — the three qualification states', () => {
       a claim about the person's teaching qualification, on a return to the Crown.
     */
     const r = countedStaffHours({
-      staff: [{ staffMemberId: 'nobody-linked', events: day, qualified: null }],
+      staff: [{ staffMemberId: 'nobody-linked', events: day, qualifiedOn: () => null }],
       offFloor: [],
       timeZone: NZ,
     });
@@ -173,7 +201,7 @@ describe('countedStaffHours — what it will not put in a figure', () => {
             ev('out', '2026-08-03T12:00:00+12:00'),
             ev('in', '2026-08-03T13:00:00+12:00'),
           ],
-          qualified: true,
+          qualifiedOn: () => true,
         },
       ],
       offFloor: [],
@@ -201,7 +229,7 @@ describe('countedStaffHours — what it will not put in a figure', () => {
         {
           staffMemberId: 'kaiako',
           events: [ev('in', '2026-08-03T08:00:00+12:00')],
-          qualified: true,
+          qualifiedOn: () => true,
         },
       ],
       offFloor: [],
@@ -215,7 +243,7 @@ describe('countedStaffHours — what it will not put in a figure', () => {
 
   it('names an interval it could not read rather than dropping it silently', () => {
     const r = countedStaffHours({
-      staff: [{ staffMemberId: 'kaiako', events: fullDay('2026-08-03'), qualified: true }],
+      staff: [{ staffMemberId: 'kaiako', events: fullDay('2026-08-03'), qualifiedOn: () => true }],
       offFloor: [lunch({ fromTime: 'lunchtime', toTime: 'afternoon' })],
       timeZone: NZ,
     });

@@ -51,9 +51,17 @@ export default async function FundingPage({
   const params = await searchParams;
   const today = todayInZone(ctx.centre.timezone);
 
-  // Defaults to the current calendar month. Deliberately *not* a guessed Ministry funding period —
-  // those have published boundaries this product does not know, and putting a wrong date range on
-  // an official-looking figure is worse than making the operator choose.
+  /*
+    Defaults to the current calendar month, and this range is deliberately free-form: this screen
+    is per child and is where a manager checks a figure against one family's attendance, which is
+    a question about whatever weeks they care about.
+
+    The comment here used to say the Ministry's boundaries were "published figures this product
+    does not know". **It knows them** — `ministryFundingPeriods` has been sourced to the RS7 Return
+    Specification 6.0 and the XSD's `RS7PeriodStartDate` pattern since 2026-08-18, and as of
+    2026-09-05 `/funding/rs7` uses them. The return's own screen offers only real periods; this one
+    stays free-form on purpose.
+  */
   const from = params.from ?? `${today.slice(0, 7)}-01`;
   const to = params.to ?? today;
 

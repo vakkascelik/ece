@@ -89,6 +89,68 @@ export type PlusTenTreatment =
   /** Only the first twenty come out. Risks double-counting the Plus 10 hours. */
   | 'deduct-twenty-only';
 
+/**
+ * The six pay-parity steps, verbatim from the public ELI schema's enumeration, retrieved
+ * 2026-09-03.
+ *
+ * **Nothing in this product knows what they mean, and nothing may guess.** A parity step is a
+ * legal statement by the service about how it pays its teachers; AGENTS §4's rule 5 lands here
+ * exactly. They are listed so a form can offer them and a CHECK can refuse an unlisted one —
+ * not so anything can reason about them.
+ */
+export const PARITY_ATTESTATION_CODES = [
+  'NOSTEP',
+  'STEP1',
+  'STEP1-6',
+  'STEP1-11',
+  'STP1-11P',
+  'STP1-11F',
+] as const;
+
+export type ParityAttestationCode = (typeof PARITY_ATTESTATION_CODES)[number];
+
+/**
+ * The RS7 `Declaration` — six fields, every one of them recorded from the service.
+ *
+ * Every field is nullable and **`null` means not stated**, which is what an unsigned
+ * declaration is. It is emphatically not `false`: a service that has not answered has not
+ * answered "no", and an attestation defaulted to false would be this product making a legal
+ * statement on the service's behalf.
+ */
+export interface Rs7Declaration {
+  /** `YYYY-MM-DD`, and always the first of February, June or October. */
+  periodStartDate: string;
+  salariesAttestation: boolean | null;
+  parityAttestation: boolean | null;
+  parityAttestationCode: ParityAttestationCode | null;
+  submitterName: string | null;
+  contactNumber: string | null;
+  designation: string | null;
+}
+
+/**
+ * Which of the declaration's six fields are still unanswered.
+ *
+ * Returned as field names rather than a boolean, because "the declaration is incomplete" is
+ * not something a manager can act on and "the parity step is not stated" is. The screen lists
+ * them; the return reports them as gaps.
+ */
+export function missingDeclarationFields(
+  declaration: Rs7Declaration | null,
+): string[] {
+  if (declaration === null) {
+    return ['the whole declaration — nothing has been recorded for this period'];
+  }
+  const missing: string[] = [];
+  if (declaration.salariesAttestation === null) missing.push('the salaries attestation');
+  if (declaration.parityAttestation === null) missing.push('the pay parity attestation');
+  if (declaration.parityAttestationCode === null) missing.push('the pay parity step');
+  if (declaration.submitterName === null) missing.push('who is submitting');
+  if (declaration.contactNumber === null) missing.push('a contact number');
+  if (declaration.designation === null) missing.push('their designation');
+  return missing;
+}
+
 /** One calendar date's six figures. Hours, rounded to the nearest whole number. */
 export interface Rs7Day {
   date: string;
@@ -118,6 +180,14 @@ export interface Rs7DayCounts {
   assumptions: string[];
   /** Dates where a figure exceeded the schema's `0..9999` bound. Reported, never clamped. */
   outOfRangeDates: string[];
+  /**
+   * The declaration as recorded, or `null` where none exists for the period. Carried through
+   * rather than merged into the days, because it is a statement about the return rather than
+   * about any date in it.
+   */
+  declaration: Rs7Declaration | null;
+  /** Which of the six declaration fields are unanswered. Empty when it is complete. */
+  missingDeclarationFields: string[];
 }
 
 /** The whole-hours rounding §9-2 step 5 and §9-4 both direct. Never exported — item 52. */
@@ -242,6 +312,8 @@ export function rs7DayCounts(input: {
   staffHours?: readonly StaffDayTotals[];
   /** Anything `countedStaffHours` could not place, passed through to `assumptions`. */
   staffHourGaps?: readonly string[];
+  /** The declaration for this period, from `rs7_declarations` (0096). */
+  declaration?: Rs7Declaration | null;
   caps?: { maxHoursPerWeek: number; twentyHoursWeeklyCap: number };
 }): Rs7DayCounts {
   const caps = input.caps ?? { maxHoursPerWeek: 30, twentyHoursWeeklyCap: 20 };
@@ -417,5 +489,26 @@ export function rs7DayCounts(input: {
     );
   }
 
-  return { period: input.period, days, plusTenTreatment, assumptions, outOfRangeDates };
+  /*
+    The declaration is reported and never inferred. A return whose attestations are unanswered
+    is incomplete, and saying which fields are missing is the difference between a manager
+    knowing what to do and being told the form is not finished.
+  */
+  const declaration = input.declaration ?? null;
+  const missing = missingDeclarationFields(declaration);
+  if (missing.length > 0) {
+    assumptions.push(
+      `The declaration is incomplete: ${missing.join(', ')}. Every one of those is a statement by the service and none can be derived from its records.`,
+    );
+  }
+
+  return {
+    period: input.period,
+    days,
+    plusTenTreatment,
+    assumptions,
+    outOfRangeDates,
+    declaration,
+    missingDeclarationFields: missing,
+  };
 }

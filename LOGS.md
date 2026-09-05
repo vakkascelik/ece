@@ -7,6 +7,77 @@ itself, and from the wiki pages, which hold the durable *why*. This file is the 
 
 ---
 
+## 2026-09-05 (seventh) — 3D and 3E, and the return assembles
+
+`0096`, `/funding/rs7`, `/funding/rs7.csv`. Phase 3's remaining pieces.
+
+### Why it is a separate screen
+
+`/funding` is per child. This is per calendar date. That is not a view of the same data: §9-2 step
+5 rounds the **daily total across children**, so the two screens legitimately differ in the last
+decimal and a reader has to know which question each answers. Putting both on one page would invite
+somebody to reconcile figures that are not meant to reconcile.
+
+The period is the Ministry's — February, June, October the first — because `RS7PeriodStartDate` is
+`[0-9]{4}-(02|06|10)-01` in the public schema. `/funding` stays free-form on purpose: it answers
+"what did this family do in these weeks", which is not a return.
+
+That finally **wires `ministryFundingPeriods`**, written and tested on 2026-08-18 and unwired since.
+And it falsifies a comment on `/funding` describing the Ministry's boundaries as *"published figures
+this product does not know"* — corrected in the same commit, because a stale comment two files from
+the code that disproves it is how the readiness table went ten commits stale this morning.
+
+### The declaration, and why every field is a radio group
+
+Six fields, none derivable. The design decision that took the longest is the smallest-looking:
+**no checkboxes**.
+
+A checkbox posts nothing when unticked. A form built from them cannot distinguish *answered no*
+from *did not answer*. For a room-temperature setting that is pedantry. For an attestation about how
+a service pays its teachers it is the entire point — an unsigned declaration is not a denial, and a
+checkbox would quietly convert one into the other the first time somebody opened the page and hit
+save.
+
+So three explicit choices per attestation, **Not stated** first and default, and the action maps a
+missing value to `null`. It is more clicks and it is the only shape that can hold what is true.
+
+`0096` keys on centre **and period**. On `centres` it would be a standing setting and last period's
+attestation would ride into this one, which would be the product making a statement to the Crown on
+the service's behalf.
+
+And nothing on the screen explains what a parity step means. The six values are the Ministry's; this
+product does not know what they signify, and a helpful gloss would be inventing regulatory content
+in the place it matters most.
+
+### The file has to carry its own caveats
+
+`csvDownload` gained `trailing` rows. A CSV emailed to an accountant loses every banner it came
+with, and these figures rest on three allocations the Handbook does not make. They ride at the foot
+of the file — escaped exactly as data cells are, because a caveat beginning with `=` is still a
+formula to a spreadsheet, and a disclaimer that executes is worse than one nobody reads.
+
+Staff hours are **blank, never zero**. A content test asserts both that and the assumptions,
+which `/funding/export.csv` still lacks — a gap inherited rather than introduced, and now named.
+
+### The failure that looked like a security hole
+
+The first e2e run reported that an educator and a parent could both reach `/funding/rs7`. That is
+the shape of a missing guard, and it was not one: the route was **404ing**, because I invoked
+Playwright directly and `npm run test:e2e` is `npm run build && playwright test`.
+
+**A 404 leaves the URL unchanged**, and the matrix asserts on the landed pathname — so an
+unrouted page and an unguarded page produce identical failures. Worth knowing before the next time
+it happens at speed: the manager rows *passed* in the same run, which is only possible if the page
+does not exist, because a genuinely unguarded page would let everybody in and pass everything.
+
+Rebuilt: 25/25.
+
+### Phase 3
+
+3A, 3B, 3C's helper, 3D, 3E — done. What remains of the return itself is 3C's advance-month counts,
+which need the operating-days helper joined to `service_model`, and the two figures that stay
+unavailable for a centre recording adult numbers as a typed total.
+
 ## 2026-09-05 (sixth) — the ratio subtracts the break, and the caveat finally moves
 
 `0095`. The half of 3B I said this morning could not be done yet.

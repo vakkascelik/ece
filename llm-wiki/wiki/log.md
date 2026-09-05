@@ -5,6 +5,31 @@ says so.*
 
 ---
 
+2026-09-05 (seventh) — **3D and 3E: the RS7 screen, the export and the declaration.** `0096`,
+`/funding/rs7`, `/funding/rs7.csv`. See [[funding-and-billing]].
+
+The return assembles end to end now — daily figures, §9-4 staff hours, §6-4's deduction and the
+six-field declaration.
+
+**Per calendar date, not per child**, which is why it is a separate screen: rounding happens at the
+daily total across children, so the two legitimately disagree in the last decimal. The period comes
+from `ministryFundingPeriods` — **finally wired**, and the `/funding` comment calling the Ministry's
+boundaries "published figures this product does not know" is corrected.
+
+**The declaration is radio groups, not checkboxes.** A checkbox posts nothing when unticked, so it
+cannot tell *answered no* from *did not answer* — for a legal attestation about teacher pay those
+are different statements, and a checkbox would turn one into the other the first time somebody
+saved. `0096` keys it on centre **and period**, so last period's attestation cannot ride into this
+one.
+
+`csvDownload` gained trailing rows so the assumptions survive the file leaving the screen, escaped
+as data cells because a caveat starting with `=` is still a formula. Staff hours are blank rather
+than zero, with a content test asserting it.
+
+**770/770** RLS assertions, 25/25 on the two e2e specs — after a first run that appeared to show an
+unguarded route and was a stale build: `npm run test:e2e` builds first, and a 404 leaves the URL
+unchanged, which reads exactly like a missing guard.
+
 2026-09-05 (sixth) — **`0095`: an adult on their break stops counting, and the caveat narrows with
 it.** See [[attendance-and-ratios]].
 

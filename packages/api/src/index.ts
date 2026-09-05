@@ -238,6 +238,7 @@ export * from './attendance';
 export * from './compliance';
 export * from './engagement';
 export * from './billing';
+export * from './rs7';
 export * from './recruitment';
 export * from './registers';
 export * from './facilities';
