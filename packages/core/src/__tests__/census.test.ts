@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   censusRow,
   blocksOn,
+  weekdaysOn,
+  type WeekdayBlock,
   contractedMinutes,
   eliWeekday,
   summariseCensus,
@@ -551,5 +553,45 @@ describe('summariseCensus', () => {
   it('carries the return date it was computed as at', () => {
     // Nothing in this module reads a clock; the date is the caller's.
     expect(summariseCensus([complete], certs, '2025-06-30').asAt).toBe('2025-06-30');
+  });
+});
+
+describe('weekdaysOn — item 53, the days a screen must show', () => {
+  const block = (weekday: number, over: Partial<WeekdayBlock> = {}): WeekdayBlock => ({
+    weekday,
+    fromTime: '09:00',
+    toTime: '15:00',
+    effectiveFrom: '2026-01-01',
+    effectiveTo: null,
+    ...over,
+  });
+
+  it('returns the weekdays effective on the date, ascending', () => {
+    expect(weekdaysOn([block(3), block(1)], '2026-08-03')).toEqual([1, 3]);
+  });
+
+  it('de-duplicates a weekday with two blocks, which is a sessional day', () => {
+    // A morning and an afternoon block on one Monday is one day the child attends, not two.
+    expect(
+      weekdaysOn(
+        [block(1, { fromTime: '09:00', toTime: '12:00' }), block(1, { fromTime: '13:00', toTime: '15:00' })],
+        '2026-08-03',
+      ),
+    ).toEqual([1]);
+  });
+
+  it('honours the effective window, so a superseded block does not vote', () => {
+    /*
+      The reason a screen can use this at all. `enrolments.days` has no history; the schedule
+      does, and showing a weekday from a block that ended last term would disagree with the
+      funded figure in the direction nobody would think to check.
+    */
+    expect(weekdaysOn([block(1, { effectiveTo: '2026-07-31' }), block(5)], '2026-08-03')).toEqual([
+      5,
+    ]);
+  });
+
+  it('returns nothing when no block covers the date, so a caller falls back', () => {
+    expect(weekdaysOn([block(1, { effectiveFrom: '2026-09-01' })], '2026-08-03')).toEqual([]);
   });
 });

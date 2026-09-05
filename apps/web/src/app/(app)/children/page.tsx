@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import {
+  listCentreBookingSchedule,
   listChildren,
   listConsentRequestsByChild,
   listConsentsByChild,
@@ -12,6 +13,7 @@ import {
   displayName,
   formatAge,
   formatDays,
+  weekdaysOn,
   hasCriticalCondition,
   isUnderTwo,
   missingConsents,
@@ -45,16 +47,38 @@ export default async function ChildrenPage() {
 
   // Five queries for the whole page rather than four per child. A roll of forty
   // otherwise costs 160 round trips to render one table.
-  const [children, healthByChild, consentsByChild, requestsByChild, enrolments] = await Promise.all([
+  const [children, healthByChild, consentsByChild, requestsByChild, enrolments, schedule] =
+    await Promise.all([
     listChildren(db, ctx.centre.id),
     listHealthByChild(db, ctx.centre.id),
     listConsentsByChild(db, ctx.centre.id),
     listConsentRequestsByChild(db, ctx.centre.id),
     listCurrentEnrolments(db, ctx.centre.id, todayInZone(ctx.centre.timezone)),
+    listCentreBookingSchedule(db, ctx.centre.id),
   ]);
 
   const enrolmentByChild = new Map<string, Enrolment>();
   for (const e of enrolments) enrolmentByChild.set(e.childId, e);
+
+  /*
+    WHICH DAYS, AND FROM WHERE — item 53.
+
+    `child_booking_schedule` is authoritative where a block exists; `enrolments.days` is the
+    coarse older form. Since 2026-09-04 the funding calculation reads the schedule, so a list
+    rendering `days` could disagree with the figure the money came from.
+
+    So: the schedule's weekdays where the child has any effective today, `days` otherwise, and
+    the column header says which. Deriving it here rather than in the row keeps the read in one
+    place — `blocksOn` is the one written-down effective-window rule and is not worth calling
+    per row.
+  */
+  const agreedDays = new Map<string, number[]>();
+  for (const child of children) {
+    const blocks = schedule.filter((b) => b.childId === child.id);
+    if (blocks.length === 0) continue;
+    const days = weekdaysOn(blocks, todayInZone(ctx.centre.timezone));
+    if (days.length > 0) agreedDays.set(child.id, days);
+  }
 
   const isParent = ctx.role === 'parent';
   const underTwo = children.filter((c) => isUnderTwo(c.dateOfBirth)).length;
@@ -113,6 +137,7 @@ export default async function ChildrenPage() {
                   key={child.id}
                   child={child}
                   enrolment={enrolmentByChild.get(child.id)}
+                  agreed={agreedDays.get(child.id)}
                   health={healthByChild.get(child.id) ?? []}
                   consents={consentsByChild.get(child.id) ?? []}
                   requests={requestsByChild.get(child.id) ?? []}
@@ -133,10 +158,13 @@ function ChildRow({
   health,
   consents,
   requests,
+  agreed,
   showConsentGap,
 }: {
   child: Child;
   enrolment: Enrolment | undefined;
+  /** The agreement's weekdays, where a booking-schedule block covers today. */
+  agreed: number[] | undefined;
   health: HealthCondition[];
   consents: ConsentState[];
   requests: ConsentRequest[];
@@ -172,7 +200,22 @@ function ChildRow({
           </>
         )}
       </td>
-      <td>{enrolment ? formatDays(enrolment.days) : <span className="empty">Not enrolled</span>}</td>
+      <td>
+        {/*
+          The agreement where there is one, and it says so. A bare number of days beside a
+          funded figure computed from a different pattern is the disagreement item 53 names.
+        */}
+        {agreed ? (
+          <>
+            {formatDays(agreed)}{' '}
+            <span className="flag flag-quiet">agreement</span>
+          </>
+        ) : enrolment ? (
+          formatDays(enrolment.days)
+        ) : (
+          <span className="empty">Not enrolled</span>
+        )}
+      </td>
       <td>
         <span className="inline">
           {/*

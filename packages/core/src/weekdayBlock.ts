@@ -194,6 +194,32 @@ export function timeToMinutes(value: string): number | null {
  * Null rather than 0 when nothing parses, so a caller can tell "no usable blocks" from "blocks
  * totalling nothing" — which are different sentences on a return.
  */
+/**
+ * The ISO weekdays a schedule covers on a given date, ascending and de-duplicated.
+ *
+ * ADDED FOR THE DISAGREEMENT, not for a new feature — [[unverified-claims]] item 53.
+ *
+ * Two things record which days a child attends: `enrolments.days` (0004, a `smallint[]`, the
+ * coarse older form) and `child_booking_schedule` (0085, effective-dated blocks with times).
+ * `0085`'s header states the rule — **where a block exists it is authoritative** — and until
+ * 2026-09-04 that rule cost nothing, because the table was empty and the two could not
+ * contradict each other.
+ *
+ * Then the funding calculation started reading the schedule while two screens went on rendering
+ * `enrolments.days`, so a children list could say Mon/Wed beside a funded figure derived from a
+ * Tue/Thu agreement, with nothing on either screen saying which the money came from.
+ *
+ * This is the cheap half of the fix: a screen with blocks in hand renders the days they say.
+ * The lossless backfill is still blocked on deciding what an unstated time means, and does not
+ * need deciding for a screen to stop disagreeing with a claim.
+ *
+ * A sessional service can have two blocks on one weekday — a morning and an afternoon — which is
+ * why this de-duplicates rather than counting.
+ */
+export function weekdaysOn<T extends WeekdayBlock>(blocks: T[], asAt: string): number[] {
+  return [...new Set(blocksOn(blocks, asAt).map((b) => b.weekday))].sort((a, b) => a - b);
+}
+
 export function blockMinutes(blocks: WeekdayBlock[]): number | null {
   let total = 0;
   let any = false;

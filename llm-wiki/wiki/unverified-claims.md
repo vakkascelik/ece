@@ -1962,7 +1962,7 @@ composition of a correct week.
 requested with the password in the enquiry sent 2026-09-03. A specification that states a daily
 figure almost certainly states how it is derived.
 
-### 53. Two places now record which days a child attends — **OPEN, added 2026-09-04, by construction rather than by accident**
+### 53. Two places now record which days a child attends — **NARROWED 2026-09-05; the screens no longer disagree**
 
 | | |
 |---|---|
@@ -1988,12 +1988,24 @@ gets interesting, because `days` carries no times and the new table requires the
 backfill cannot be lossless and has to decide what an unstated time means; (c) then, and only then,
 derive `formatDays` from the schedule and drop the column.
 
-**Step (b) is now the urgent one, not the tidy one.** While the table was empty the two sources
-could not contradict each other. Now that funding reads the schedule and two screens read `days`,
-every child who has one and not the other is a row where the screen and the money disagree. The
-cheapest honest interim — cheaper than the backfill, and it does not require deciding what an
-unstated time means — is for the screens that render `formatDays(enrolments.days)` to say so where a
-schedule block also exists, the way `hoursBasis` names the source of a funded figure.
+~~**Step (b) is now the urgent one, not the tidy one.**~~ **The interim shipped 2026-09-05 and the
+screens no longer disagree.**
+
+`weekdaysOn(blocks, asAt)` in `weekdayBlock.ts`, and both render sites use it: the children list and
+`EnrolmentPanel`. Where a booking-schedule block covers today, the row shows **the agreement's**
+weekdays and is flagged `agreement`; where none does, it falls back to `enrolments.days` exactly as
+before. So a screen can no longer show Mon/Wed beside a funded figure derived from a Tue/Thu
+agreement.
+
+It honours the effective window, which is the part that makes it safe to display: a block that
+ended last term does not vote. `enrolments.days` has no history at all, so a naive union over every
+block would have introduced a *new* disagreement in the direction nobody would check.
+
+**What is still open, and it is the original item.** Two places still RECORD the fact.
+`enrolments.days` is still written by the enrolment form and is still what a child with no schedule
+shows. Step (b) — the backfill — remains blocked on deciding what an unstated time means, and step
+(c) on it. What has gone is the *visible* contradiction, which was the part that could mislead
+somebody today.
 
 **Do not close it by deleting `enrolments.days` alone.** It is what two screens render today, and
 the enrolment form writes it.

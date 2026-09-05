@@ -550,6 +550,11 @@ export default async function ChildTabPage({
           guardians={signatories}
           childId={id}
           enrolments={enrolments}
+          /*
+            The agreement's own weekdays, so this panel cannot disagree with the funded figure —
+            item 53. The schedule is already read for the panel below it.
+          */
+          schedule={schedule}
           canEdit={can(ctx.role, 'manageEnrolment')}
           today={today}
         />

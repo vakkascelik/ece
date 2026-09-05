@@ -8,7 +8,9 @@ import {
   formatDays,
   isEnrolmentCurrent,
   WEEKDAY_LABELS,
+  weekdaysOn,
   type Enrolment,
+  type WeekdayBlock,
 } from '@ece/core';
 import { completeEnrolmentRecord, endEnrolment, fileEnrolment, type Result } from '../actions';
 
@@ -203,10 +205,19 @@ export function EnrolmentPanel({
   canEdit,
   today,
   guardians,
+  schedule,
 }: {
   childId: string;
   enrolments: Enrolment[];
   canEdit: boolean;
+  /**
+   * This child's booking-schedule blocks — `0085`, and authoritative where one exists.
+   *
+   * Passed in rather than read here because the panel below already reads them, and because
+   * the days this row shows must be the days the funding calculation used. Item 53: until
+   * 2026-09-05 this rendered `enrolments.days` while the money came from the schedule.
+   */
+  schedule: WeekdayBlock[];
   /** The date at the centre. Passed in rather than computed — see the child page. */
   today: string;
   /** This child's guardians, for the §6-1 signatory pickers. */
@@ -236,6 +247,7 @@ export function EnrolmentPanel({
           <tbody>
             {enrolments.map((e) => (
               <EnrolmentRow
+                agreed={weekdaysOn(schedule, today)}
                 key={e.id}
                 childId={childId}
                 enrolment={e}
@@ -273,9 +285,12 @@ function EnrolmentRow({
   canEdit,
   today,
   guardians,
+  agreed,
 }: {
   childId: string;
   enrolment: Enrolment;
+  /** The agreement's weekdays where a block covers `today`, else empty. */
+  agreed: number[];
   canEdit: boolean;
   today: string;
   guardians: SignatoryOption[];
@@ -306,7 +321,20 @@ function EnrolmentRow({
     <tr>
       <td>{enrolment.startDate}</td>
       <td>{enrolment.endDate ?? <span className="empty">open</span>}</td>
-      <td>{formatDays(enrolment.days)}</td>
+      <td>
+        {/*
+          The agreement where there is one, and it says so. `enrolments.days` is the coarse
+          older form and cannot carry times; a row showing it beside a funded figure derived
+          from the schedule is the disagreement item 53 names.
+        */}
+        {agreed.length > 0 ? (
+          <>
+            {formatDays(agreed)} <span className="flag flag-quiet">agreement</span>
+          </>
+        ) : (
+          formatDays(enrolment.days)
+        )}
+      </td>
       <td>
         {enrolment.fundedHoursPerWeek}
         {enrolment.twentyHoursEce && (

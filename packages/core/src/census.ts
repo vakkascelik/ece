@@ -47,12 +47,13 @@ import {
   blockMinutes,
   blocksOn,
   coversDate,
+  weekdaysOn,
   timeToMinutes,
   type WeekdayBlock,
 } from './weekdayBlock';
 
 // Re-exported so every existing importer of `@ece/core` keeps working unchanged.
-export { blockMinutes, blocksOn, coversDate, timeToMinutes, type WeekdayBlock };
+export { blockMinutes, blocksOn, coversDate, timeToMinutes, weekdaysOn, type WeekdayBlock };
 
 // ---------------------------------------------------------------------------
 // Sourced value domains
