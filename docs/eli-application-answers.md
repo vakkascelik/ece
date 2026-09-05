@@ -897,7 +897,18 @@ documented anywhere in this repository.~~ **Measured 2026-09-05**, every host we
 |---|---|---|---|---|---|
 | `…supabase.co` | the database, auth and file storage — every child record | **refused** | **refused** | `ECDHE-ECDSA-AES128-GCM-SHA256` | TLS 1.3, `TLS_AES_256_GCM_SHA384` |
 | `little-pearls-production.up.railway.app` | the console | **refused** | **refused** | `ECDHE-ECDSA-AES256-GCM-SHA384` | TLS 1.3, `TLS_AES_256_GCM_SHA384` |
-| `www.littlepearls.org.nz` | the public marketing site | **ACCEPTED** | **ACCEPTED** | `ECDHE-ECDSA-CHACHA20-POLY1305` | TLS 1.3, `TLS_AES_256_GCM_SHA384` |
+| `www.littlepearls.org.nz` | the customer's marketing site | **ACCEPTED** | **ACCEPTED** | `ECDHE-ECDSA-CHACHA20-POLY1305` | TLS 1.3, `TLS_AES_256_GCM_SHA384` |
+| `www.salixtech.co.nz` | **the vendor's own site** | refused | refused | **`ECDHE-RSA-AES256-GCM-SHA384`** | TLS 1.3, `TLS_AES_256_GCM_SHA384` |
+
+**The vendor's own domain already meets this requirement exactly, including the named cipher.** That
+row was added 2026-09-05 and it changes the shape of the answer: `ECDHE-RSA-AES256-GCM-SHA384` is
+the Ministry's endorsed suite verbatim, negotiable there because that host presents an **RSA**
+certificate where the other three present ECDSA. So the question below — whether an RSA suite can be
+served at all — is answered in the affirmative by a host we already run.
+
+It also settles what the one failing row costs to fix: **both are Cloudflare zones in the same
+account, and they differ only in the *Minimum TLS Version* setting.** One is already correct. The fix
+is copying a dropdown between two zones, not a negotiation with a provider.
 
 **Outbound**, which is what actually governs a future ESL client: the runtime is Node 24.16.0 on
 OpenSSL 3.5.6, and `tls.DEFAULT_MIN_VERSION` is **TLSv1.2** with a maximum of TLSv1.3. Our client
@@ -1470,6 +1481,18 @@ a demo service with tagged, invented data already exists behind an explicit envi
 is a single project-wide value, so every service's invitation and reset links currently land on the
 pilot service's hostname. That needs to be a hostname of our own before a second organisation — the
 Ministry included — is invited.
+
+**The hostname exists and the fix is configuration, not a purchase — established 2026-09-05.**
+`salixtech.co.nz` is registered to the vendor (created 18 May 2026, three days after Salix Limited
+was incorporated), status `ok`, on Cloudflare, and already served by the same Railway platform as the
+console. It resolves, redirects apex to `www`, and returns a company site. So the remaining work is
+pointing Supabase's redirect URL and the console's `ECE_PUBLIC_URL` at a vendor hostname rather than
+the customer's — which is `deploy:auth` and an environment variable, not a procurement question.
+
+Worth stating because it is the same answer to a different item: **that domain already meets `AST26`
+exactly**, refusing TLS 1.0 and 1.1 and negotiating `ECDHE-RSA-AES256-GCM-SHA384`, the Ministry's own
+named cipher. The vendor's posture is compliant on the vendor's domain; the non-compliant zone is the
+customer's marketing site.
 
 **INF09 — what the Ministry would need to provide for access.** An email address per tester, and
 whether they need owner, manager, educator or parent visibility. Nothing else.

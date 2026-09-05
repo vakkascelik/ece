@@ -2659,6 +2659,33 @@ As a **defensive hold** it is defensible: thirty dollars to stop somebody else t
 alternative if the name does clear. Nothing should be built on it, pointed at it, or configured to
 it until the class search is done.
 
+#### CORRECTED 2026-09-05, same day — **no domain needs buying at all. One already exists.**
+
+The recommendation above was to register `salix.nz`. That was written without knowing the owner
+already holds **`salixtech.co.nz`**, which the owner then said. Measured rather than taken on
+report:
+
+| | |
+|---|---|
+| Registry | Created **2026-05-18** — three days after Salix Limited was incorporated. Status `ok`, not expiring. Cloudflare nameservers |
+| Serving | `Server: railway-hikari` — the same platform as the console. Apex 308s to `www`, which returns 200 with `<title>Salix Limited — Software Development Company, New Zealand</title>` |
+| TLS | Refuses 1.0 and 1.1; negotiates `ECDHE-RSA-AES256-GCM-SHA384`. See item 66 |
+
+It is better than the thing being recommended, on every axis that mattered: `.co.nz` is the correct
+commercial second level rather than `.org.nz`'s non-profit signal, it carries the company's own name
+so there is no trade mark exposure to clear, it is already live on the right platform, and its TLS
+is already right where the customer's zone is not.
+
+**So `INF08`'s hostname problem needs configuration, not procurement**, and this item's remaining
+open work shrinks back to the one thing it was always about: **the IPONZ class search on 9, 41, 42
+and 35.** That decides whether *Doorway* survives as a product name. It has nothing to do with
+domains, and buying any is a way of appearing to act on this item without touching it.
+
+**The lesson, which is the reason this correction is written out rather than edited in:** three
+paragraphs of domain analysis were spent before anybody asked what the owner already owned. The
+register is good at recording what has not been *checked* and was, here, silent about what had not
+been *asked*. Cheapest possible question, asked last.
+
 **The release date is still unconfirmed and this environment cannot confirm it.** The Domain Name
 Commission's expired-names policy page returns **HTTP 403** to the fetcher — the third host to
 refuse it, after Education Counts (2026-09-02) and legislation.govt.nz (2026-09-05, item 65). The
@@ -2696,7 +2723,8 @@ operate.
 |---|---|---|---|
 | `…supabase.co` — the database, auth and every child record | refused | refused | TLS 1.3 |
 | `little-pearls-production.up.railway.app` — the console | refused | refused | TLS 1.3 |
-| **`www.littlepearls.org.nz`** — the public site | **accepted** | **accepted** | TLS 1.3 |
+| **`www.littlepearls.org.nz`** — the customer's public site | **accepted** | **accepted** | TLS 1.3 |
+| `www.salixtech.co.nz` — the vendor's own site | refused | refused | TLS 1.3 |
 
 The legacy handshakes negotiate `ECDHE-ECDSA-AES128-SHA` — CBC with a SHA-1 MAC, no AEAD — against
 the Ministry's stated NZISM floor of TLS 1.2 or above.
@@ -2704,6 +2732,15 @@ the Ministry's stated NZISM floor of TLS 1.2 or above.
 **It is ours, which is the part worth stating.** The hostname is served by Cloudflare in front of our
 own Next.js site (`Server: cloudflare`, `x-powered-by: Next.js`, a Google Trust Services certificate
 for `littlepearls.org.nz`). Cloudflare's *Minimum TLS Version* defaults to 1.0 and nobody changed it.
+
+**And the fix is now known to be one dropdown, because a correctly-configured zone already exists in
+the same account — added 2026-09-05.** `www.salixtech.co.nz`, the vendor's own site, refuses TLS 1.0
+and 1.1 and negotiates `ECDHE-RSA-AES256-GCM-SHA384` at TLS 1.2 — **the Ministry's endorsed cipher
+verbatim**, negotiable there because that host presents an RSA certificate where the other three
+present ECDSA. Two Cloudflare zones, same account, differing in one setting, one of them already
+right. That removes the last reason to treat this as anything but a five-minute change, and it
+answers the separate question `AST26` raised about whether the named RSA suite can be served at all:
+it already is.
 So this is not a third party's posture to disclose; it is a zone setting nobody looked at.
 
 **Why it is open rather than fixed.** Raising the minimum drops genuinely old clients — the

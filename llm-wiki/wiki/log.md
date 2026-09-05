@@ -5,6 +5,43 @@ says so.*
 
 ---
 
+2026-09-05 (nineteenth) — **Three paragraphs of domain analysis, and nobody had asked what was
+already owned.**
+
+A question about buying a domain produced a registry sweep, a drop-cycle analysis, a recommendation
+to register `salix.nz`, and a written argument against `doorway.org.nz`. Then the owner said they
+already hold **`salixtech.co.nz`**.
+
+Measured rather than taken on report: created 2026-05-18, three days after Salix Limited was
+incorporated; status `ok`; Cloudflare nameservers; `Server: railway-hikari`, the same platform as the
+console; apex 308s to `www`, which returns 200 with `<title>Salix Limited — Software Development
+Company, New Zealand</title>`.
+
+**It is better than the thing being recommended on every axis that mattered.** `.co.nz` is the
+correct commercial second level rather than `.org.nz`'s non-profit signal — which was the strongest
+argument written against `doorway.org.nz` an hour earlier. It carries the company's own name, so
+there is no trade mark exposure to clear. It is already live on the right platform.
+
+**And it moved two other items.** `INF08`'s `[FIX FIRST]` — every invitation and password-reset link
+landing on the *customer's* hostname, with the Ministry about to be invited as a tester — turns out
+to need configuration rather than procurement: `deploy:auth` and an environment variable.
+
+Then `AST26`, which is the better find. **`www.salixtech.co.nz` refuses TLS 1.0 and 1.1 and
+negotiates `ECDHE-RSA-AES256-GCM-SHA384` — the Ministry's endorsed cipher verbatim.** It can, where
+the other three hosts cannot, because it presents an **RSA** certificate where they present ECDSA.
+So the distinction written into that answer this morning — that the named RSA suite is structurally
+unavailable against an ECDSA certificate — now has its counterexample on a host we already run, and
+the vendor's own posture is compliant. It also collapses item 66: two Cloudflare zones in one
+account, differing in one *Minimum TLS Version* dropdown, and one of them is already right.
+
+**The lesson is not about domains.** The register is built to record what has not been *checked*, and
+it was silent about what had not been *asked*. The cheapest possible question — "what do you already
+have?" — was asked last, after three rounds of measurement that were individually correct and
+collectively unnecessary. Written out rather than edited away, because a correction that leaves no
+trace teaches nobody the order to ask things in.
+
+---
+
 2026-09-05 (eighteenth) — **The entity block closes, and the second thing kept out of the repository
 was kept out on judgement rather than on the rule.**
 
