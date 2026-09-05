@@ -5,6 +5,50 @@ says so.*
 
 ---
 
+2026-09-05 (twenty-first) — **The stale-tracker sweep, pulled forward from October, and the index
+was the worst offender.**
+
+Scheduled for the week before the code freeze. Done now instead, because the application will be
+written *from* these documents and four of them were describing a product that no longer exists.
+
+**Six stale claims, each measured before correcting:**
+
+| Where | Said | Is |
+|---|---|---|
+| [[unverified-claims]] item 48 | five met, one blocked, two absent | **six met, one blocked, one absent** |
+| [[unverified-claims]] item 6 | the absence rules are "still not implemented — all of it" | all four shipped 2026-09-04, mutation-tested, reconciled against live Postgres |
+| Tranche doc, §6 | 678 unit tests, 632 RLS assertions | **847** and **778** |
+| Tranche doc, `AST18`/`AST19` | 607 RLS, ~579 unit, 104 e2e, 17 security checks, CI failing on a 113.0kB bundle | 778 / 847 / 128 / 16, and that bundle failure was attributed and fixed on 2026-09-03 |
+| [[index]] | *"What is absent is the **RS7 return itself** — no `rs7.ts`"* | `rs7.ts` has existed since 2026-09-05 |
+| [[index]] | 681 unit, 656 RLS, 121 e2e | 847 / 778 / 128 |
+
+**The index was the one that mattered**, because it is the "Start here" page and its orientation
+block was added on 2026-09-04 *specifically to stop the index going stale* — with a note saying an
+index describing a fortnight-old product is worse than one that admits its date. It went stale in a
+day. The block now carries `0094`–`0097`, the corrected functionality count, and the observation
+that most of what remains is engineering practice rather than ELI features.
+
+**Two pages got banners rather than rewrites**, and that is a decision rather than laziness.
+[[production-readiness]] stops at `0078` and [[eli-integration]] at `0088`. What they still hold
+that nothing else does is the *mechanism* of what each phase found — a centre that could not be
+deleted, an accessibility audit that only works on pages with data in them, a restore drill that had
+to be run rather than believed. **Those findings do not age; their counts do.** So each says at the
+top exactly what it covers, where it stops, and which document to read for anything current.
+`production-readiness` was the sharper case: it carried a **2026-09-03 footer on 2026-08-31
+content**, which is the specific way a document becomes more dangerous than no document.
+
+**And the plan had the same disease.** Updating it to record E1 and E3 as done meant noticing its own
+context paragraph still quoted "24 `[GAP]` markers" — measured that morning, wrong by evening. It is
+30, and **the count went up**, which is not a regression: vague gaps were split into precise ones and
+one real defect was found by measuring rather than asserting. A gap list that only ever shrinks is a
+gap list nobody is still reading.
+
+The remaining known-stale document is `docs/roadmap-phases-8-13.md`, roughly 55 migrations behind. It
+is a *product* roadmap rather than an ELI one, nothing in the application cites it, and it is left
+for now — named here so it is a decision and not an oversight.
+
+---
+
 2026-09-05 (twentieth) — **Three half-finished things finished, and two of them were worse than
 recorded.**
 

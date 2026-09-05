@@ -226,7 +226,8 @@ word "qualification" appeared in this repo only in prose comments and one test f
 **Built on 2 and 3 September.** `0080` gives every Ministry code list an effective-dated home and
 ships it empty; `0081` adds the census record and the weekday contact-hours contract;
 `census.ts` assembles the staffing section and names every gap; and `/census` is the screen a
-manager fills it in on. 678 unit tests, 632 RLS assertions, and both mutation-tested.
+manager fills it in on. 847 unit tests, 778 RLS assertions (re-measured 2026-09-05), and both
+mutation-tested.
 
 **What is left is not software.** Six fields draw on unenumerated Ministry code lists that nobody
 here has obtained, so their inputs are disabled with the reason on the screen — the same treatment
@@ -299,7 +300,7 @@ harder than anything above.
 |---|---|---|
 | `AST06` | *"The Ministry expects a minimum of three environments: Development… Test… Production"* | **There is one, and it is production.** `docs/deploy-railway.md`: *"There is no staging environment. A second Railway service against a second Supabase project would be the honest way to have one, and it does not exist"* |
 | `AST09` | *"The Ministry expects SMS production data is isolated to the SMS production environment"* | **Local development runs against the production Supabase project.** There is no local Postgres; `.env.local` and the live project are the same `qdgforljvddgrxxymtug`. The RLS suite is designed to be safe against a live project because that is where it runs |
-| `AST18`, `AST19` | Recognised testing standards; a structured defect-management system | The suites are genuinely strong — **607 RLS assertions**, ~579 unit tests, 104 e2e checks against WCAG 2.2 AA, 17 live-schema security checks, and four purpose-built drills. **But CI has never once passed in 137 runs**: it fails on a 113.0kB-vs-106kB bundle budget, and the RLS, restore-drill, security-review and e2e jobs have never executed at all because their secrets are not in the repository. Every gate this product has is run by hand on one laptop. Defect management is three narrative markdown logs and git history — no tracker, no severity taxonomy, no defect-to-release traceability |
+| `AST18`, `AST19` | Recognised testing standards; a structured defect-management system | The suites are genuinely strong — **778 RLS assertions, 847 unit tests, 128 e2e checks against WCAG 2.2 AA, 16 live-schema security checks** and four purpose-built drills, all re-measured 2026-09-05 (this row read 607 / ~579 / 104 / 17 until then). **CI has still never passed in 137 runs**, but the reason has halved: the 113.0kB-vs-106kB bundle failure was attributed and fixed on 2026-09-03 — it was `next-intl`'s ICU parser reaching first-load from a provider in the root layout, and the budget now passes at 101.1kB against the same limit, which was not raised. What remains is that the RLS, restore-drill, security-review and e2e jobs have never executed at all, because pointing them at the only Supabase project we have would make GitHub Actions a third writer against the database holding children's records. Every gate is run by hand on one laptop. Defect management is three narrative markdown logs and git history — no tracker, no severity taxonomy, no defect-to-release traceability; written up 2026-09-05 in `engineering-practices.md` §4 |
 
 Also assessed, also absent: no uptime monitoring, no alerting, no log retention beyond Railway's
 default; point-in-time recovery not enabled, so the recovery point is **up to 24 hours** and a real

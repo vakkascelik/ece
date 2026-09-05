@@ -1,5 +1,15 @@
 # ELI integration
 
+> **THIS PAGE STOPS AT MIGRATION `0088` and predates the tranche work. Checked 2026-09-05.**
+>
+> The schema is at `0097` and the application draft is measured daily. What this page still holds
+> that nothing else does is *why* the public XSD mattered and what the interface asks for in
+> principle.
+>
+> For the current position: `docs/eli-integration-2026-tranche.md` measures the product against the
+> mandatory criteria, `docs/eli-application-answers.md` holds the draft answers, and [[log]] is
+> current.
+
 What the Ministry's interface actually asks for, and the fifteen minutes that turned a
 password-protected dependency into a public URL.
 

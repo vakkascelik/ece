@@ -1,5 +1,20 @@
 # Production readiness
 
+> **THIS PAGE DESCRIBES PHASE 6 AND STOPS AT MIGRATION `0078`. Checked 2026-09-05.**
+>
+> It is the page in this wiki most likely to be mistaken for a current statement of readiness,
+> because it carries a later date than its content: the footer said 2026-09-03 against material
+> that ends on 2026-08-31. The schema is at `0097`.
+>
+> **What it is still good for**, and it is why nothing here has been deleted: the *mechanism* of
+> each thing Phase 6 found — a centre that could not be deleted, an accessibility audit that only
+> works on pages with data in them, a restore drill that had to be run rather than believed. Those
+> findings do not age.
+>
+> **Do not read it for counts, coverage or what is built.** For those:
+> [[log]] is current, `docs/eli-application-answers.md` is measured, and
+> [[unverified-claims]] is the register of what is still unchecked.
+
 The phase whose job is to find out what is not true. It found two things nothing else
 could have.
 
@@ -294,4 +309,4 @@ exactly the error the corrected paragraph above committed.
 - [[tenancy-and-rls]] — the append-only guarantee that made a centre undeletable
 - [[conventions]] — where the audit and the budgets fit in the verification set
 
-*Last updated: 2026-09-03*
+*Content last updated: 2026-08-31. Staleness banner added 2026-09-05 — see the top.*

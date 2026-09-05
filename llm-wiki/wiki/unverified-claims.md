@@ -297,7 +297,7 @@ The caps were right. What the check found was a rule nobody had noticed was miss
 | **Confirmed 2026-08-18** | 20 Hours ECE at 6 hours per day and 20 per week, **for a child aged 3 or older and under 6** — a Ministry business rule, from the specifications the Ministry supplied. `DEFAULT_CAPS` was correct and its basis string now names the source |
 | **Also confirmed** | The three four-monthly funding periods: February–May, June–September, October–January. Now in `ministryFundingPeriods()`, offered rather than imposed — the period stays caller-supplied |
 | **Read 2026-08-18** | Chapter 6 sections **6-4, 6-5 and 6-7**. The absence rules are now sourced, and they are real: funding may be claimed for hours a **permanently enrolled** child did not attend. For a **casual or conditional** child it is attendance only, and a booked no-show must never be claimed |
-| **Still not implemented** | All of it. Funded hours come from attendance events, so an absent day contributes zero. For a casual child that is **exactly right**; for a permanently enrolled child it **under-claims** |
+| ~~**Still not implemented**~~ **BUILT 2026-09-04** | ~~All of it. Funded hours come from attendance events, so an absent day contributes zero.~~ §6-5's three-week window, §6-6's suspension across a closure, §6-7's monthly frequent-absence verdict and §7-7's twelve-week exemption all live in `absence.ts`, mutation-tested, with write paths on `/children` and `/roster` and a live-database reconciliation in `reconcile:funding` (37/37). §6-4's cross-child rule is **detected** in `funding.ts` and **deducted** in `rs7.ts`. What is still true: a permanently enrolled child with **no booking schedule** falls back to the attendance figure and under-claims, which is what `hoursBasis: "attendance-no-agreement"` exists to say out loud |
 | ~~**The blocker is the schema**~~ **Half-cleared 2026-09-03** | ~~`enrolments` has no permanent/casual distinction — the word "casual" appears nowhere in this repo — and 6-4 turns on precisely that axis.~~ `0084` adds `enrolment_type` with the three values transcribed from §6-4, a CHECK refusing a fourth, and **null meaning not stated rather than permanent** — so a child nobody has classified stays ineligible for absence funding, which is the direction that under-claims. What remains is the rules themselves: the three-week window (§6-5), its suspension while the service is closed (§6-6), the monthly frequent-absence check against the enrolment agreement (§6-7), a reconfirmation record that is a dated act by a named person, and the enrolment agreement as an effective-dated weekday pattern. Plus §6-4's cross-child rule, which no per-child calculation can express |
 | **How the product behaves** | `FUNDING_RULES_VERIFIED` stays **`false`**, and the disclaimer no longer says the caps are unchecked (they are checked). It now names the actual gap: the figures count attended hours only, and a service may be entitled to claim more |
 | **To close it** | Build it, or decide absence funding is out of scope and say so in the product. Building it needs an enrolment type, a three-week window per absence spell, monthly frequent-absence checks and a record of reconfirmations — a feature with decisions in it, not a patch |
@@ -1623,8 +1623,11 @@ functionalities and the four service-model requirements on that page:
 
 **Re-measured 2026-09-05, and every row below still holds.** What changed is outside this table:
 three functionalities moved from *partial* to *met* — child enrolment, child booking schedule and
-20 Hours ECE funding — so the eight now stand at **five met, one blocked on the Ministry, two
-absent**. The absent list is unchanged, which is the point of keeping it separate: the gaps that
+20 Hours ECE funding — so the eight now stand at ~~**five met, one blocked on the Ministry, two
+absent**~~ **six met, one blocked on the Ministry, one absent, re-measured 2026-09-05**: the RS7
+return moved from absent to met as a calculation the same day (`0094`–`0096`, `rs7.ts`,
+`staffHours.ts`, `/funding/rs7`), leaving Waha Rumaki/PITA as the only absent one — and it **cannot
+be started**, being in a specification nobody here holds. The absent list is unchanged, which is the point of keeping it separate: the gaps that
 closed were the ones this team could close alone, and the two that remain are a return nobody has
 started and a return that may be out of scope. See
 [the tranche assessment](../../docs/eli-integration-2026-tranche.md), whose own table had gone ten

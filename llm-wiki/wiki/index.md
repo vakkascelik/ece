@@ -18,10 +18,13 @@ and [`../schema.md`](../schema.md) for the page template.
 
 Added 2026-09-04, because this index sat three weeks out of date while four migrations landed, and
 an index that describes a product from a fortnight ago is worse than one that admits its own date.
+**Re-measured 2026-09-05** — it had gone stale again in a day, which is the argument for the numbers
+living in the tools that print them rather than here.
 
 **The product is built and deployed.** Ten phases; the first tenant exists; every gate passes —
-typecheck, lint, 681 unit tests, `test:rls` at 656 assertions, `review:security` 16/16,
-`drill:restore` 6/6, `check:bundle` within budget, a 121-test end-to-end and accessibility suite.
+typecheck, lint, **847 unit tests**, `test:rls` at **778 assertions**, `review:security` 16/16,
+`drill:restore` 6/6, `check:bundle` within budget at 101.1kB, a **128-test** end-to-end and
+accessibility suite, plus `reconcile:funding` 37/37 and `drill:rowcap` 9/9 against live Postgres.
 
 **What is in progress is ELI readiness**, against a Ministry tranche closing 5pm Friday 30 October
 2026 with **one** place, decided on a readiness assessment. The plan runs in phases and the
@@ -36,17 +39,32 @@ completed ones are schema:
 | `0087` | the last two §6-1 fields: hours enrolled at another service, and a dated parent signature |
 | `0088`–`0091` | `service_closures`, `absence_exemptions`, the audit attribution they needed, and the emergency-closure fields that make a closed day claimable |
 | `0092`–`0093` | §6-7's reconfirmation record, and the notice date that closed this product's one knowing over-claim |
+| `0094`–`0095` | `staff_off_floor` — the hours an adult was present and **not counted** — and `adults_present_now` teaching the live ratio to subtract them |
+| `0096`–`0097` | `rs7_declarations`, the six statements only a service can make; and `child_identity_documents`, that a document was sighted and deliberately not its number |
 
 **And the phases past the schema are no longer only schema.** All four absence rules (§6-4 to §6-7),
 §7-7's exemption window and §9-2's hours source are implemented in `packages/core`, mutation-tested,
-and read by `/funding`. What is absent is the **RS7 return itself** — no `rs7.ts`, and no XML
-anywhere in this repo — plus the Waha Rumaki/PITA return.
+read by `/funding`, and reconciled against live Postgres by `reconcile:funding`.
+
+~~What is absent is the **RS7 return itself** — no `rs7.ts`~~ — **built 2026-09-05.** `rs7.ts`
+produces the nine counts, `staffHours.ts` computes §9-4's staff hours net of off-floor time,
+`/funding/rs7` and `/funding/rs7.csv` render and export them, and §6-4's double-claimed place is
+**deducted** there rather than merely reported. **There is still no XML anywhere in this repo**, by
+design: the Ministry's own page puts interface work *after* acceptance.
 
 **The honest summary is that the gap is not code quality.** Of the Ministry's eight mandatory
-functionalities, three are met, three partial and two absent, and the application's first
-declaration — *"your SMS meets the SMS Development Criteria"* — **cannot be signed truthfully
-today**. [[unverified-claims]] item 48 is that measurement and it is deliberately on the register
-rather than only in a plan.
+functionalities, ~~three are met, three partial and two absent~~ **six are met, one is blocked on a
+Ministry code list and one is absent** (Waha Rumaki/PITA, which cannot be started — it is in a
+specification nobody here holds). The application's first declaration — *"your SMS meets the SMS
+Development Criteria"* — **still cannot be signed truthfully**, and what remains is now almost
+entirely outside this team's hands. [[unverified-claims]] item 48 is that measurement and it is
+deliberately on the register rather than only in a plan.
+
+**What is left is mostly not ELI features.** The draft application carries ~30 live `[GAP]` markers
+and only a handful are missing domain functionality; the rest are ordinary engineering practice —
+one environment and it is production, a restore runbook nobody has executed, an audit log with no
+interface, CI that has never passed. Four of them were written down for the first time on
+2026-09-05 in `docs/engineering-practices.md`.
 
 **Read [[funding-and-billing]] and [[unverified-claims]] items 52 to 62 before touching a funding
 figure.** Five days of reading the ECE Funding Handbook against this code found that the funded-hours
@@ -235,4 +253,6 @@ fundable and the closures table cannot say which days those are.
   app is ready to deploy. Its Stage 0 (ten conversations, zero code) was never run — recorded in
   [[unverified-claims]], and still the weakest evidence under any pricing decision.
 
-*Index last updated: 2026-09-04*
+*Index last updated: 2026-09-05.* Two pages carry staleness banners rather than corrections —
+[[production-readiness]] stops at `0078` and [[eli-integration]] at `0088`. Both were left standing
+because the *mechanisms* they record do not age; neither should be read for counts or coverage.
