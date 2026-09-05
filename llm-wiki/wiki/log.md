@@ -5,6 +5,23 @@ says so.*
 
 ---
 
+2026-09-05 (ninth) — **`0097`: an identity document was sighted, and deliberately not which
+number.** Closes a `[GAP]` on `AST28`.
+
+`child_identity_documents` — the `sighted_by`/`sighted_at` pairing from `0011` and `0036`, on the
+child record. A guardian **reads** their own child's sighting and cannot **record** one: a sighting
+is the service asserting it checked.
+
+**It does not store the document number**, and that is the decision in the migration. A practising
+certificate number is a professional registration a teacher puts on a wall; a child's passport
+number is not, and whether the NSI interface transmits one is in a specification we do not hold and
+have asked for.
+
+The kind is an unresolvable `LookupCode` — `code_sets` gains an `identity_document` domain and ships
+it empty, like the census's six. **778/778** RLS assertions, **4/4** policy mutations caught,
+including one that would have refused an unresolvable code and made the product wait on the
+Ministry to be usable.
+
 2026-09-05 (eighth) — **3C: `AdvanceMonthCounts`, and Phase 3's figures are complete.** New
 [[funding-and-billing]] section; register item 64 opens.
 

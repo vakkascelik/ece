@@ -7,6 +7,69 @@ itself, and from the wiki pages, which hold the durable *why*. This file is the 
 
 ---
 
+## 2026-09-05 (ninth) — the sighting, and the number it does not keep
+
+`0097`, `child_identity_documents`. Owner asked for this when the plan was written.
+
+### What it is for
+
+`AST28` wants the data flow that creates an NSN **with an identity document present**. The
+application answers said, plainly, that there is no identity-document verification anywhere in the
+product — so the *"document not present"* path was the only one we could describe, which is the
+wrong way round.
+
+The pattern already existed twice: `sighted_by` and `sighted_at` with a pairing CHECK, in
+`staff_records` (0011) and immunisation (0036). `0011`'s comment is the whole rule — *"A timestamp
+with nobody attached is not evidence."*
+
+### The decision in this migration is what it omits
+
+**It does not store the document number.** Not the birth certificate registration number, not the
+passport number.
+
+`staff_records` stores a `reference` and that is right there: a practising certificate number is a
+professional registration a teacher publishes on a wall. A child's passport number is not that, and
+this database already holds a great deal about a four-year-old.
+
+Whether the NSI interface *transmits* a document number is in the NSI GINS specification, which we
+do not hold and which is in the list requested with the password on 2026-09-03. If it does, that is
+a migration written against a read specification with a stated purpose — which is the opposite of
+storing it now in case it turns out to be wanted.
+
+What identity verification actually needs to evidence is that a person **sighted** a document, which
+kind, and when. That is what a service would be asked for, and it is what the table holds.
+
+### Two boundaries, and they are different
+
+A guardian **reads** their own child's sighting — `caller_may_see_child`, the same predicate
+`child_addresses` uses. A guardian **cannot record** one — `caller_may_enrol`.
+
+That asymmetry is the point rather than an accident of copying. A sighting is the **service**
+asserting that somebody looked at a document. A parent asserting their own child's identity was
+verified is exactly what an identity check exists to prevent, and the mutation drill has it: opening
+the insert policy to `caller_may_see_child` is caught.
+
+### The mutation worth having
+
+4/4, and the fourth is the interesting one: **adding a CHECK enumerating two plausible document
+kinds**. It is caught, because an assertion says an unresolvable code IS accepted.
+
+That sounds backwards until you remember the census. `0080` reserves nine `LookupCode` domains and
+ships every one empty, because the Ministry has not published the lists — and a product that refuses
+a code it cannot resolve is a product nobody can use until a third party acts. So `identity_document`
+becomes the tenth reserved domain, ships empty, and a value in it is a readiness gap the product
+reports rather than a write it rejects.
+
+Inventing three plausible values would have been worse here than in most places. A wrong
+identity-document vocabulary on a Crown interface is not a cosmetic mistake.
+
+### What it does not unblock
+
+The four data-flow diagrams. `AST27`–`AST30` are `[BLOCKED — spec]` and stay that way — they cannot
+be drafted from public material, because the public schema carries `NationalStudentNumber` as a
+field and says nothing about how it is obtained. This closes the `[GAP]` about our own data, which
+is the half we could close alone.
+
 ## 2026-09-05 (eighth) — 3C, and the question the schema does not answer
 
 `rs7AdvanceMonths`. The last of Phase 3's figures.

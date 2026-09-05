@@ -1579,6 +1579,119 @@ set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","r
 delete from public.enrolment_reconfirmations;
 
 -- ===========================================================================
+-- 0097 — child identity documents
+--
+-- The evidence that somebody sighted a document, for AST28's "identification
+-- document is present" path. Two boundaries, and they are not the same one: a
+-- guardian may READ their own child's sighting through `caller_may_see_child`,
+-- and only somebody who may enrol may RECORD one — because a sighting is an
+-- assertion by the SERVICE that a person looked at a document, and a parent
+-- asserting their own child's identity was verified is the thing it exists to
+-- prevent.
+--
+-- And the constraint that carries the meaning: half a sighting is not evidence.
+-- ===========================================================================
+
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+
+insert into public.child_identity_documents
+  (id, child_id, kind, sighted_by, sighted_at, note, recorded_by)
+values ('eb111111-1111-4111-8111-111111111111',
+        'a1111111-1111-4111-8111-111111111111',
+        null,
+        '11111111-1111-4111-8111-111111111111', now(),
+        'Sighted at enrolment',
+        '11111111-1111-4111-8111-111111111111');
+
+select pg_temp.expect(
+  (select count(*) from public.child_identity_documents) = 1,
+  'an owner can record that a child''s identity document was sighted'
+);
+
+-- THE CONSTRAINT THAT CARRIES THE MEANING. 0011's words: "A timestamp with nobody
+-- attached is not evidence."
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.child_identity_documents (child_id, sighted_at)
+    values ('a1111111-1111-4111-8111-111111111111', now());
+  exception when check_violation then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'a sighting date with nobody attached is refused');
+end $$;
+
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.child_identity_documents (child_id, sighted_by)
+    values ('a1111111-1111-4111-8111-111111111111',
+            '11111111-1111-4111-8111-111111111111');
+  exception when check_violation then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'and a sighter with no date is refused too — the pair or neither');
+end $$;
+
+-- The kind is an unresolvable LookupCode, bounded but not enumerated. A value longer
+-- than the bound could not be serialised, so it is refused here rather than at the
+-- interface.
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.child_identity_documents (child_id, kind)
+    values ('a1111111-1111-4111-8111-111111111111', 'A_VERY_LONG_DOCUMENT_KIND');
+  exception when check_violation then ok := true;
+  end;
+  perform pg_temp.expect(ok, 'a code past the LookupCode length bound is refused');
+end $$;
+
+-- But an UNRESOLVABLE code is accepted, because the list is not published. Refusing it
+-- would make the product unusable until the Ministry publishes, which is the census's
+-- lesson and the reason 0080 ships nine empty domains.
+insert into public.child_identity_documents (child_id, kind)
+values ('a1111111-1111-4111-8111-111111111111', 'BIRTHCERT');
+select pg_temp.expect(
+  (select count(*) from public.child_identity_documents) = 2,
+  'an unresolvable code IS accepted — the list is not published, and a rejected write is not the answer'
+);
+
+-- THE BOUNDARY THIS SECTION EXISTS FOR. A parent reads their own child's row and
+-- cannot write one: a sighting is the service asserting it checked, and a parent
+-- asserting their own child's identity was verified is exactly the wrong direction.
+set local request.jwt.claims = '{"sub":"33333333-3333-4333-8333-333333333333","role":"authenticated"}';
+
+select pg_temp.expect(
+  (select count(*) from public.child_identity_documents) = 2,
+  'a guardian READS their own child''s identity sighting'
+);
+
+do $$
+declare ok boolean := false;
+begin
+  begin
+    insert into public.child_identity_documents (child_id, kind)
+    values ('a1111111-1111-4111-8111-111111111111', 'PASSPORT');
+  exception when others then ok := true;
+  end;
+  perform pg_temp.expect(
+    ok,
+    'a guardian CANNOT record one — the sighting is the service asserting it checked'
+  );
+end $$;
+
+-- And another centre reads none of it.
+set local request.jwt.claims = '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}';
+select pg_temp.expect(
+  (select count(*) from public.child_identity_documents) = 0,
+  'another centre reads NO identity sightings'
+);
+
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+delete from public.child_identity_documents;
+
+-- ===========================================================================
 -- 0096 — the RS7 declaration
 --
 -- A legal attestation about how a service pays its teachers, made to the Crown. The

@@ -781,11 +781,23 @@ drafted from public material — the public schema carries `NationalStudentNumbe
 What can be stated now, because it is about our data rather than the interface:
 
 - `children.moe_nsn` exists, is nullable and is **unique per service**.
-- `[GAP]` There is **no identity-document verification anywhere in the product** — no
-  birth-certificate or passport field, no sighted-by/sighted-at pair on the child record, though
-  that exact pattern is used for immunisation and staff records. AST28's "identification document is
-  not present" path is therefore the *only* path we could implement today, which is the wrong way
-  round.
+- ~~`[GAP]` There is **no identity-document verification anywhere in the product**~~ — **built
+  2026-09-05, `0097`.** `child_identity_documents` records that a document was sighted, which kind,
+  by whom and when, using the same `sighted_by`/`sighted_at` pairing CHECK as `staff_records`
+  (0011) and immunisation (0036). A guardian may read their own child's sighting and may **not**
+  record one: a sighting is the service asserting it checked, and a parent asserting their own
+  child's identity was verified is the direction the policy exists to prevent.
+
+  **It deliberately does not store the document number.** A practising certificate number is a
+  professional registration; a child's passport number is not, and whether the NSI interface
+  transmits one is in the NSI GINS specification, which we do not hold and have asked for. If it
+  does, that is a migration made against a read specification — the opposite of storing it now in
+  case.
+
+  The document **kind** is an unresolvable `LookupCode`: `code_sets` now reserves an
+  `identity_document` domain and ships it **empty**, exactly as it does for the census's six. So
+  AST28's "document present" path is describable, and what remains unanswerable about it is the
+  interface rather than our record.
 - On whether an NSI record overrides ours (AST27's second half): our position would be that the NSI
   is authoritative for legal name and date of birth and the SMS record is updated from it, with the
   change recorded in the audit trail and the *preferred* name — a separate column — left alone,
