@@ -2635,7 +2635,29 @@ this item records disagreeing with the registry twice in one day in both directi
 | `doorway.nz` | Registered since 2020, Netregistry placeholder. As before |
 | `salix.co.nz` | **Also in `redemptionPeriod` + `pendingDelete`**, created 2017-07-03. Same registrar as `doorway.co.nz` |
 | **`salix.nz`** | **Not found — unregistered.** Second-level `.nz`, the shortest form |
+| `doorway.org.nz`, `doorway.net.nz` | Not found — still unregistered, re-verified against the registry after the owner reported it |
 | `doorwayhq` / `usedoorway` / `getdoorway` `.co.nz`, `salixhq.co.nz` | Not found |
+
+**`doorway.org.nz` is available and is still not the answer, for three reasons that have nothing to
+do with its price.**
+
+1. **`.org.nz` is the wrong signal for a commercial vendor**, and here it is actively confusing. The
+   pilot customer is `littlepearls.org.nz` and the contact mailbox is `pif.org.nz` — both genuine
+   non-profits. The application spends real effort establishing that the **centre** is the agency
+   under the Privacy Act and that Salix Limited is the agent holding data on its behalf. Putting the
+   vendor on `.org.nz` blurs precisely the distinction being argued.
+2. **It does not buy the thing that is at risk.** If the unrun class search finds a `DOORWAY` mark in
+   9, 42 or 41, the name goes and the domain with it. Buying inside the Doorway family before that
+   search is doing the cheap half of a decision whose expensive half is unmade.
+3. **It leaves us on `.org.nz` while a speculator holds the `.co.nz`.** New Zealanders type `.co.nz`
+   for a commercial product. That is a permanent low-grade tax, and on this product it is worse than
+   cosmetic: **authentication and password-reset mail would come from `doorway.org.nz` while
+   `doorway.co.nz` is parked by whoever catches it in the drop** — a look-alike-domain surface
+   created for ourselves, on a system that emails parents about their children.
+
+As a **defensive hold** it is defensible: thirty dollars to stop somebody else taking the obvious
+alternative if the name does clear. Nothing should be built on it, pointed at it, or configured to
+it until the class search is done.
 
 **The release date is still unconfirmed and this environment cannot confirm it.** The Domain Name
 Commission's expired-names policy page returns **HTTP 403** to the fetcher — the third host to
