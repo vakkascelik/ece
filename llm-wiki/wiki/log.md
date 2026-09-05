@@ -5,6 +5,53 @@ says so.*
 
 ---
 
+2026-09-05 (twentieth) — **Three half-finished things finished, and two of them were worse than
+recorded.**
+
+**The mobile roll was labelling every child "Not enrolled".** Item 53 had this down as the
+remaining disagreement — a day pattern rendered unqualified on the phone. It was not showing the
+wrong days; `ChildCard` reads
+`enrolment ? formatDays(enrolment.days) : 'Not enrolled'`, and **both call sites pass
+`enrolment={undefined}`** and always have, because `useRoll` fetches children, attendance, health
+and the adult count and nothing else. One reachable branch, on a roll composed entirely of enrolled
+children.
+
+Removed rather than wired: wiring it means fetching enrolments *and* `child_booking_schedule` down
+the mobile path with an offline story, and rendering `enrolments.days` there would reproduce the
+very disagreement item 53 names. The roll answers who is here now. **A prop no caller has ever
+supplied is not a feature with a bug, it is a design that was never finished, and a ternary is very
+good at hiding which of those you have.**
+
+**`OffFloorPanel` got the test its own label comment was written for.** That panel carries a note
+explaining that `Who` collided with the leave form's and that `getByLabel` matches on substring — a
+fix made twice against an assertion that never ran. The spec now drives it in a browser: an
+interval names the person (the page joins through `staff_members`; if that join drifts the panel
+keeps working and stops saying whose break it was), and an overlapping second is refused **in
+words**. Mutating the message translation out of `addOffFloorInterval` kills exactly that test and
+nothing else. The translation matters for an arithmetic reason rather than a manners one: two
+overlapping intervals each subtract their own overlap, so the same half hour comes off a §9-4
+return twice.
+
+**Item 59 was closed on one screen and open on the next.** `/reports` got the operating calendar;
+`/reports/trends` did not, and the defect does not announce itself — both trend summaries called
+`averageOverOpenDays` with no calendar *and discarded the `basis` it returned*. Twelve weeks of
+averages on the flattering denominator, with no field on the page able to say so, next door to a
+report that says so explicitly.
+
+The size of it, from the new test: five weekdays averaging 30.0 on the proxy; add the Saturday the
+service operated and nobody came, and it is **25.0** over six. Not rounding — a manager reading
+"we average thirty" instead of "twenty-five", from one empty Saturday.
+
+**And that one has a general form worth keeping.** `occupancy.ts` carries the comment *"a screen
+must render this"* about `averageBasis`. One screen did. The helper cannot enforce it, because a
+caller is free to destructure two fields out of four and throw the rest away — which is exactly
+what both trend functions did. **A contract expressed as a returned field is a contract only where
+somebody reads the field.**
+
+713 unit tests (up 3), 128 e2e (up 1), and the Metro bundle re-exported because mobile changed.
+
+---
+
 2026-09-05 (nineteenth) — **Three paragraphs of domain analysis, and nobody had asked what was
 already owned.**
 

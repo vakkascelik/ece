@@ -5,6 +5,7 @@ import {
   summariseWeekdayPattern,
 } from '../attendanceTrend';
 import type { DayAttendance } from '../occupancy';
+import type { OperatingDays } from '../closures';
 
 const day = (date: string, children: number): DayAttendance => ({ date, children });
 
@@ -46,8 +47,75 @@ describe('summariseWeeklyAttendance', () => {
   it('reports null rather than zero for a week with no attendance', () => {
     const weeks = summariseWeeklyAttendance([day('2026-08-08', 0), day('2026-08-09', 0)]);
     expect(weeks).toEqual([
-      { weekStart: '2026-08-03', weekEnd: '2026-08-09', daysWithAttendance: 0, averageChildren: null },
+      {
+        weekStart: '2026-08-03',
+        weekEnd: '2026-08-09',
+        daysWithAttendance: 0,
+        averageChildren: null,
+        averageBasis: 'attendance-proxy',
+        denominatorDays: 0,
+      },
     ]);
+  });
+
+
+  /*
+    THE OPERATING CALENDAR, AND WHY THESE TWO CASES ARE THE WHOLE CHANGE.
+
+    Both functions in this module called `averageOverOpenDays` with no calendar and threw away the
+    `basis` it returned, so every figure on the trends screen was on the attendance proxy and the
+    screen had no way to say so. That is the flattering denominator item 59 was opened to remove,
+    still in place one level up.
+
+    Week 2 of the fixture is Mon 3 Aug to Sun 9 Aug: five weekdays at 30, 36, 24, 28, 32 and a
+    weekend at zero. On the proxy the denominator is "days anybody came" = 5, giving 30.0. Tell it
+    the service also operated on the Saturday and the denominator becomes 6 — the same attendance,
+    a real zero in the divisor, and 25.0.
+
+    Five points against six is not a rounding difference. It is the difference between a manager
+    reading "we average thirty" and "we average twenty-five", from one Saturday nobody came.
+  */
+  const weekTwoOperating: OperatingDays = {
+    basis: 'schedule',
+    weekdays: [1, 2, 3, 4, 5, 6],
+    dates: [
+      '2026-08-03',
+      '2026-08-04',
+      '2026-08-05',
+      '2026-08-06',
+      '2026-08-07',
+      '2026-08-08', // the Saturday: open, and nobody came
+    ],
+    closedDates: [],
+  };
+
+  it('divides by the days the service operated, not the days anybody came', () => {
+    const weeks = summariseWeeklyAttendance(twoWeeks, weekTwoOperating);
+    const weekTwo = weeks.find((w) => w.weekStart === '2026-08-03')!;
+
+    expect(weekTwo.averageBasis).toBe('operating-days');
+    expect(weekTwo.denominatorDays).toBe(6);
+    // 150 children over 6 operating days. The proxy says 30.0 over 5.
+    expect(weekTwo.averageChildren).toBe(25);
+    // Unchanged and deliberately still reported: how many days actually had anybody.
+    expect(weekTwo.daysWithAttendance).toBe(5);
+  });
+
+  it('falls back to the proxy, named, when no schedule covers the range', () => {
+    // `unknown` is `operatingDays()` refusing to guess rather than reporting no operating days,
+    // and the distinction decides the denominator — an empty `dates` treated as authoritative
+    // would make every average null.
+    const unknown: OperatingDays = {
+      basis: 'unknown',
+      weekdays: [],
+      dates: [],
+      closedDates: [],
+    };
+    const weeks = summariseWeeklyAttendance(twoWeeks, unknown);
+    const weekTwo = weeks.find((w) => w.weekStart === '2026-08-03')!;
+
+    expect(weekTwo.averageBasis).toBe('attendance-proxy');
+    expect(weekTwo.averageChildren).toBe(30);
   });
 
   it('puts a Sunday in the week that started the Monday before it, not the next one', () => {
@@ -56,12 +124,44 @@ describe('summariseWeeklyAttendance', () => {
     // it would compute a negative offset and land Sunday in the FOLLOWING week's bucket.
     const weeks = summariseWeeklyAttendance([day('2026-08-09', 5)]); // a lone Sunday
     expect(weeks).toEqual([
-      { weekStart: '2026-08-03', weekEnd: '2026-08-09', daysWithAttendance: 1, averageChildren: 5 },
+      {
+        weekStart: '2026-08-03',
+        weekEnd: '2026-08-09',
+        daysWithAttendance: 1,
+        averageChildren: 5,
+        averageBasis: 'attendance-proxy',
+        denominatorDays: 1,
+      },
     ]);
   });
 });
 
 describe('summariseWeekdayPattern', () => {
+  it('carries the basis through per weekday, so a screen can say which denominator it got', () => {
+    // The calendar is passed whole and `averageOverOpenDays` intersects it with each weekday's
+    // bucket, which is why bucketing first and filtering second is correct rather than merely
+    // convenient. Saturday is in the calendar with no attendance, so it averages a real zero
+    // instead of reporting null.
+    const operating: OperatingDays = {
+      basis: 'schedule',
+      weekdays: [1, 2, 3, 4, 5, 6],
+      dates: ['2026-08-03', '2026-08-08'],
+      closedDates: [],
+    };
+    const pattern = summariseWeekdayPattern(twoWeeks, operating);
+
+    const saturday = pattern.find((p) => p.weekday === 6)!;
+    expect(saturday.averageBasis).toBe('operating-days');
+    expect(saturday.denominatorDays).toBe(1);
+    expect(saturday.averageChildren).toBe(0);
+    // Nobody came, and that is a different fact from the service being shut.
+    expect(saturday.daysWithAttendance).toBe(0);
+
+    // Sunday is in neither the calendar nor the attendance, so it has nothing to divide by.
+    const sunday = pattern.find((p) => p.weekday === 7)!;
+    expect(sunday.averageChildren).toBeNull();
+  });
+
   it('returns all seven weekdays, Monday first, even when some had no data', () => {
     const pattern = summariseWeekdayPattern(twoWeeks);
     expect(pattern.map((p) => p.weekday)).toEqual([1, 2, 3, 4, 5, 6, 7]);

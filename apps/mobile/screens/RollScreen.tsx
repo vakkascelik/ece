@@ -107,7 +107,6 @@ export function RollScreen() {
             // the door cannot fix a missing consent, so surfacing it here would be noise in the
             // one place that must stay scannable.
             consents={[]}
-            enrolment={undefined}
             showConsentGaps={false}
             present={item.present}
             since={item.since}

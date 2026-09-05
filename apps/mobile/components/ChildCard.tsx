@@ -4,13 +4,11 @@ import {
   compareBySeverity,
   displayName,
   formatAge,
-  formatDays,
   initials,
   isUnderTwo,
   missingConsents,
   type Child,
   type ConsentState,
-  type Enrolment,
   type HealthCondition,
 } from '@ece/core';
 import { color, font, radius, space, theme } from '../theme';
@@ -33,7 +31,6 @@ export function ChildCard({
   child,
   conditions,
   consents,
-  enrolment,
   showConsentGaps,
   present = false,
   since = null,
@@ -43,7 +40,6 @@ export function ChildCard({
   child: Child;
   conditions: HealthCondition[];
   consents: ConsentState[];
-  enrolment: Enrolment | undefined;
   showConsentGaps: boolean;
   present?: boolean;
   since?: string | null;
@@ -136,14 +132,36 @@ export function ChildCard({
         </View>
       )}
 
-      <View style={[theme.row, { marginTop: space['3'] }]}>
-        <Text style={styles.meta}>
-          {enrolment ? formatDays(enrolment.days) : 'Not enrolled'}
-        </Text>
-        {gaps.length > 0 && (
+      {/*
+        THE ENROLMENT LINE IS GONE, AND IT WAS SAYING SOMETHING FALSE ON EVERY CARD.
+
+        It read `enrolment ? formatDays(enrolment.days) : 'Not enrolled'`. **Both call sites pass
+        `enrolment={undefined}`** — `RollScreen` and `TamarikiScreen`, since the prop was added —
+        and neither ever fetched an enrolment, because `useRoll` loads children, attendance, health
+        and the adult count and nothing else. So the ternary had exactly one reachable branch and
+        every child on the roll was labelled **"Not enrolled"**, on a screen whose entire contents
+        are enrolled children.
+
+        Removed rather than wired, and the choice is deliberate. Wiring it means fetching enrolments
+        AND `child_booking_schedule` down the mobile path — because as of 2026-09-04 funding computes
+        from the schedule, so rendering `enrolments.days` here would reproduce on the phone the exact
+        disagreement [[unverified-claims]] item 53 names on the web: a day pattern beside a figure
+        the money came from a different pattern. That is a real feature with an offline story, not a
+        label.
+
+        And the day pattern is not what this screen is for. The roll answers who is here now; an
+        educator at the door cannot act on which weekdays a child is booked. The same judgement the
+        child record made about an empty "Learning" tab: a line that cannot be made true is worse
+        than an absent one.
+
+        The row survives for the consent flag, and now renders only when there is one — previously
+        it was always present because the false text always filled it.
+      */}
+      {gaps.length > 0 && (
+        <View style={[theme.row, { marginTop: space['3'] }]}>
           <Flag tone="warn">{`${gaps.length} consent${gaps.length === 1 ? '' : 's'} unanswered`}</Flag>
-        )}
-      </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -172,5 +190,4 @@ const styles = StyleSheet.create({
   criticalName: { fontSize: font.size.mobileBase, fontWeight: font.weight.semibold, color: color.ink },
   plan: { fontSize: font.size.base, color: color.ink, marginTop: space['1'] },
   noPlan: { fontSize: font.size.base, color: color.breach, marginTop: space['1'] },
-  meta: { fontSize: font.size.base, color: color.inkMuted },
 });

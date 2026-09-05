@@ -2017,6 +2017,33 @@ somebody today.
 **Do not close it by deleting `enrolments.days` alone.** It is what two screens render today, and
 the enrolment form writes it.
 
+#### The mobile half, 2026-09-05 — and it was worse than an unqualified label
+
+The web fix left `apps/mobile/components/ChildCard.tsx` rendering
+`enrolment ? formatDays(enrolment.days) : 'Not enrolled'`, which this item had recorded as the
+remaining disagreement — a day pattern on the roll educators actually carry, unqualified.
+
+**It was not showing the wrong days. It was showing "Not enrolled" under every child.** Both call
+sites — `RollScreen` and `TamarikiScreen` — pass `enrolment={undefined}`, and always have;
+`useRoll` fetches children, attendance, health and the adult count and nothing else. So the ternary
+had one reachable branch, and every child on a roll composed entirely of enrolled children was
+labelled as not enrolled.
+
+**Removed rather than wired.** Wiring it means fetching enrolments *and* `child_booking_schedule`
+down the mobile path with an offline story attached — and rendering `enrolments.days` there would
+reproduce on the phone the exact disagreement this item names. The day pattern is also not what the
+roll is for: it answers who is here now, and an educator at the door cannot act on which weekdays a
+child is booked. Same judgement the child record made about an empty "Learning" tab.
+
+The `enrolment` prop, the `Enrolment` and `formatDays` imports and the orphaned `meta` style went
+with it. The consent row now renders only when there is a consent gap — it was previously always
+present because the false text always filled it.
+
+**What this says about the item generally:** a prop that no caller has ever supplied is not a
+feature with a bug, it is a design that was never finished, and a ternary is very good at hiding
+which of those you have. The web fix was found by reading the code; this one was found by asking
+what the callers actually pass.
+
 ### 54. The funded-hours figure over-states for a child with no 20 Hours attestation — **CLOSED 2026-09-04, the same day it was opened**
 
 | | |
@@ -2435,6 +2462,30 @@ actual fix; the arithmetic was never the hard part.
 
 **9/9 mutations caught.** Phase 3C consumes the same helper for RS7's `AdvanceMonthCounts`, which
 is why it lives in `closures.ts` rather than in `occupancy.ts` where its first consumer is.
+
+#### It was closed on one screen and left open on the next — fixed 2026-09-05
+
+`/reports` got the calendar. **`/reports/trends` did not**, and nobody noticed because the defect
+does not announce itself: `summariseWeeklyAttendance` and `summariseWeekdayPattern` both called
+`averageOverOpenDays` with no calendar *and discarded the `basis` it returned*, so twelve weeks of
+averages were on the attendance proxy and the page had no field with which to say so. Two reports
+reading the same attendance could print different averages with nothing on either explaining why.
+
+Both functions now take an optional `OperatingDays` and return `averageBasis` and
+`denominatorDays`, and the trends page passes the calendar and renders the sentence — the same one
+`/reports` makes, deliberately, because a reader moving between them should not have to work out
+that they were computed differently.
+
+**The size of it, from the new test:** week two of the fixture is five weekdays averaging 30.0 on
+the proxy. Tell it the service also operated on the Saturday nobody came, and the denominator goes
+from five to six and the average to **25.0**. That is not a rounding difference; it is a manager
+reading "we average thirty" instead of "we average twenty-five", from one empty Saturday.
+
+**The general lesson, and it is the reason this is filed under a CLOSED item rather than a new
+one:** `occupancy.ts` carries the comment *"a screen must render this"* about `averageBasis`. One
+screen did. The helper could not enforce it, because a caller is free to destructure two fields out
+of four and throw the rest away — which is exactly what both trend functions did. **A contract
+expressed as a returned field is a contract only where somebody reads the field.**
 
 ### 60. An approved emergency closure is FUNDABLE, and `0088` could not tell one from a term break — **CLOSED on the schema 2026-09-04**
 

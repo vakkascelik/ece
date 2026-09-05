@@ -13,8 +13,9 @@
  * the summary.
  */
 
-import type { DayAttendance } from './occupancy';
+import type { AverageBasis, DayAttendance } from './occupancy';
 import { averageOverOpenDays } from './occupancy';
+import type { OperatingDays } from './closures';
 import { shiftLocalDate } from './children';
 import { isoWeekdayOf, mondayOf } from './weekdayBlock';
 
@@ -24,8 +25,21 @@ export interface WeekAttendance {
   /** Sunday, `YYYY-MM-DD`. */
   weekEnd: string;
   daysWithAttendance: number;
-  /** Mean children per day across the days that had any. Null when the week had none. */
+  /** Mean children per day over `denominatorDays`. Null when there is nothing to average. */
   averageChildren: number | null;
+  /**
+   * Which denominator produced `averageChildren`. **Returned, never inferred from the numbers**,
+   * and carried here for the reason `occupancy.ts` carries it: the two bases give different
+   * figures from identical attendance and a reader cannot tell them apart from the figure.
+   *
+   * Added 2026-09-05. Both functions in this file called `averageOverOpenDays` with no operating
+   * calendar and discarded the `basis` it returned, so every week and every weekday on the trends
+   * screen was silently on the attendance proxy — the exact flattering denominator item 59 was
+   * opened to remove, still in place one level up, on a screen that had no way to say so.
+   */
+  averageBasis: AverageBasis;
+  /** The denominator actually used. Equals `daysWithAttendance` on the proxy basis. */
+  denominatorDays: number;
 }
 
 /**
@@ -35,7 +49,18 @@ export interface WeekAttendance {
  * function buckets whatever it is given and does not itself decide what counts as
  * complete, the same separation `dayWindow` and its caller keep for a single day.
  */
-export function summariseWeeklyAttendance(days: readonly DayAttendance[]): WeekAttendance[] {
+export function summariseWeeklyAttendance(
+  days: readonly DayAttendance[],
+  /**
+   * The centre's operating calendar over the whole range, from `operatingDays()`.
+   *
+   * Optional so no existing caller changes behaviour by upgrading — omitting it yields the
+   * attendance proxy, which is what this function did unconditionally before. The same calendar
+   * is passed for every week: `averageOverOpenDays` intersects it with the days it is given, so
+   * bucketing first and filtering second is correct.
+   */
+  operating?: OperatingDays | null,
+): WeekAttendance[] {
   const byWeek = new Map<string, DayAttendance[]>();
   for (const day of days) {
     const start = mondayOf(day.date);
@@ -48,8 +73,18 @@ export function summariseWeeklyAttendance(days: readonly DayAttendance[]): WeekA
     .sort()
     .map((weekStart) => {
       const weekDays = byWeek.get(weekStart)!;
-      const { daysWithAttendance, averageChildren } = averageOverOpenDays(weekDays);
-      return { weekStart, weekEnd: shiftLocalDate(weekStart, 6), daysWithAttendance, averageChildren };
+      const { daysWithAttendance, averageChildren, basis, denominatorDays } = averageOverOpenDays(
+        weekDays,
+        operating,
+      );
+      return {
+        weekStart,
+        weekEnd: shiftLocalDate(weekStart, 6),
+        daysWithAttendance,
+        averageChildren,
+        averageBasis: basis,
+        denominatorDays,
+      };
     });
 }
 
@@ -58,6 +93,9 @@ export interface WeekdayAttendance {
   weekday: number;
   daysWithAttendance: number;
   averageChildren: number | null;
+  /** Which denominator produced `averageChildren`. See `WeekAttendance.averageBasis`. */
+  averageBasis: AverageBasis;
+  denominatorDays: number;
 }
 
 /**
@@ -69,7 +107,10 @@ export interface WeekdayAttendance {
  * own — `averageOverOpenDays` excludes them from every weekday's denominator the same way
  * it excludes them from a week's.
  */
-export function summariseWeekdayPattern(days: readonly DayAttendance[]): WeekdayAttendance[] {
+export function summariseWeekdayPattern(
+  days: readonly DayAttendance[],
+  operating?: OperatingDays | null,
+): WeekdayAttendance[] {
   const byWeekday = new Map<number, DayAttendance[]>();
   for (const day of days) {
     const weekday = isoWeekdayOf(day.date);
@@ -79,8 +120,11 @@ export function summariseWeekdayPattern(days: readonly DayAttendance[]): Weekday
   }
 
   return Array.from({ length: 7 }, (_, i) => i + 1).map((weekday) => {
-    const { daysWithAttendance, averageChildren } = averageOverOpenDays(byWeekday.get(weekday) ?? []);
-    return { weekday, daysWithAttendance, averageChildren };
+    const { daysWithAttendance, averageChildren, basis, denominatorDays } = averageOverOpenDays(
+      byWeekday.get(weekday) ?? [],
+      operating,
+    );
+    return { weekday, daysWithAttendance, averageChildren, averageBasis: basis, denominatorDays };
   });
 }
 

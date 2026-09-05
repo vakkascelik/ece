@@ -127,3 +127,79 @@ test('the forecast never claims the ratio tables have been checked', async ({ pa
   // And it must not quietly become a figure derived from what actually happened.
   await expect(page.getByText(/never from who actually turned up/)).toBeVisible();
 });
+
+/**
+ * Off-floor intervals — `staff_off_floor` (0094), and the panel that writes them.
+ *
+ * **This spec exists because the panel was hardened for a test nobody wrote.** Its label reads
+ * `Staff member` and carries a comment explaining that `Who` collided with the leave form's and
+ * that Playwright's `getByLabel` matches on substring — a fix made twice, against an assertion
+ * that never ran. The panel shipped 2026-09-05 with server actions, RLS assertions and unit
+ * coverage of `countedStaffHours`, and nothing that opened it in a browser.
+ *
+ * Two properties are worth one, and neither is "the insert works":
+ *
+ * 1. **The overlap refusal reaches the person who caused it as a sentence.** Postgres says
+ *    `violates exclusion constraint "staff_off_floor_no_overlap"`. `addOffFloorInterval`
+ *    translates it, and the reason it must is arithmetic rather than manners: two overlapping
+ *    intervals each subtract their own overlap, so the same half hour comes off a staff-hour
+ *    figure — and a §9-4 return — twice. Same shape as the `shifts_no_overlap` case above.
+ * 2. **The row renders the person, not their id.** `staff_off_floor` has no `centre_id` and no
+ *    name; the page joins through `staff_members`. If that join drifts the panel still works and
+ *    silently stops saying whose break it was.
+ */
+async function recordOffFloor(page: Page) {
+  const done = page.waitForResponse(
+    (r) => r.request().method() === 'POST' && new URL(r.url()).pathname.startsWith('/roster'),
+  );
+  // `exact`, because `Record leave` is on this same page and Playwright's accessible-name
+  // matching is substring-and-case-insensitive by default. The panel's own label comment
+  // records the identical trap one element over.
+  await page.getByRole('button', { name: 'Record', exact: true }).click();
+  await done;
+}
+
+test('an off-floor interval names the person, and an overlapping second is refused in words', async ({
+  page,
+}) => {
+  await addPerson(page, 'Sam Onbreak');
+  await visit(page, '/roster');
+
+  const panel = page.locator('section').filter({ hasText: 'Off the floor' }).last();
+  await expect(panel.getByRole('heading', { name: 'Off the floor' })).toBeVisible();
+  await expect(panel.getByText('Nothing recorded for these days.')).toBeVisible();
+
+  // --- recorded, and it says whose break it was ------------------------------------
+  await panel.getByLabel('Staff member').selectOption({ label: 'Sam Onbreak' });
+  await panel.getByLabel('From').fill('12:00');
+  await panel.getByLabel('To').fill('12:30');
+  await panel.getByLabel('Why').fill('Lunch');
+  await recordOffFloor(page);
+
+  const row = panel.getByRole('row').filter({ hasText: 'Sam Onbreak' });
+  await expect(row).toHaveCount(1);
+  await expect(row).toContainText('12:00');
+  await expect(row).toContainText('12:30');
+  await expect(row).toContainText('Lunch');
+
+  // --- the overlap is refused, and the refusal is a sentence -------------------------
+  await panel.getByLabel('Staff member').selectOption({ label: 'Sam Onbreak' });
+  await panel.getByLabel('From').fill('12:15');
+  await panel.getByLabel('To').fill('12:45');
+  await recordOffFloor(page);
+
+  const alert = panel.getByRole('alert');
+  await expect(alert).toContainText('overlapping interval');
+  // The arithmetic, not an apology: a manager told only "constraint violated" goes looking for a
+  // duplicate that does not exist.
+  await expect(alert).toContainText('same half hour');
+  // Never the raw Postgres text. `23P01` and the constraint name are for a log, not a person.
+  await expect(alert).not.toContainText('23P01');
+  await expect(alert).not.toContainText('staff_off_floor_no_overlap');
+  // And nothing was written — one row, still.
+  await expect(panel.getByRole('row').filter({ hasText: 'Sam Onbreak' })).toHaveCount(1);
+
+  // --- removable, because a break logged against the wrong person removes hours worked ---
+  await row.getByRole('button', { name: 'Remove' }).click();
+  await expect(panel.getByText('Nothing recorded for these days.')).toBeVisible();
+});

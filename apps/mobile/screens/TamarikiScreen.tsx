@@ -112,7 +112,6 @@ export function TamarikiScreen() {
               child={item}
               conditions={health.get(item.id) ?? []}
               consents={theirConsents}
-              enrolment={undefined}
               // The one screen where a consent gap is actionable by the person reading it.
               showConsentGaps
             />

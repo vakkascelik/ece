@@ -1,7 +1,8 @@
 import Link from 'next/link';
-import { readAttendanceByDay } from '@ece/api';
+import { listCentreBookingSchedule, listServiceClosures, readAttendanceByDay } from '@ece/api';
 import {
   completeWeeksBefore,
+  operatingDays,
   shiftLocalDate,
   summariseWeekdayPattern,
   summariseWeeklyAttendance,
@@ -47,9 +48,33 @@ export default async function TrendsPage() {
   for (let d = rangeStart; d <= rangeEnd; d = shiftLocalDate(d, 1)) dates.push(d);
   const days = dates.map((date) => ({ date, ...dayWindow(date, ctx.centre.timezone) }));
 
-  const attendance = await readAttendanceByDay(db, ctx.centre.id, days);
-  const weeks = summariseWeeklyAttendance(attendance);
-  const weekdayPattern = summariseWeekdayPattern(attendance);
+  /*
+    THE OPERATING CALENDAR, ADDED 2026-09-05 — and until then this page was quietly on the
+    flattering denominator the occupancy report next door had already stopped using.
+
+    Both summaries called `averageOverOpenDays` with no calendar, so a day the service was open
+    and nobody came was dropped from the divisor rather than counted as the zero it is. That is
+    the defect [[unverified-claims]] item 59 was opened for, closed on `/reports` and left in
+    place here — and worse than merely being wrong, the page had no field to say which basis it
+    had used, so the two reports could disagree with no way to see why.
+
+    Three reads rather than one, matching `/reports` exactly: the same two facts are recorded
+    separately, and `operatingDays` refuses to guess where no schedule is effective.
+  */
+  const [attendance, closures, blocks] = await Promise.all([
+    readAttendanceByDay(db, ctx.centre.id, days),
+    listServiceClosures(db, ctx.centre.id),
+    listCentreBookingSchedule(db, ctx.centre.id),
+  ]);
+
+  const operating = operatingDays({
+    blocks,
+    closures,
+    from: rangeStart,
+    to: rangeEnd,
+  });
+  const weeks = summariseWeeklyAttendance(attendance, operating);
+  const weekdayPattern = summariseWeekdayPattern(attendance, operating);
 
   const openWeeks = weeks.filter((w) => w.averageChildren !== null);
   const earliest = openWeeks[0] ?? null;
@@ -107,6 +132,35 @@ export default async function TrendsPage() {
               week of {latest!.weekStart}
             </span>
           </div>
+        )}
+
+        {/*
+          WHICH DENOMINATOR, in words, and the same sentence the occupancy report makes — because
+          the two pages read the same attendance and would otherwise print different averages with
+          nothing on either explaining the difference.
+
+          Taken from the weeks rather than held separately: every week on this page is computed
+          from one calendar, so the first week's basis is the page's basis, and deriving it here
+          means it cannot drift from the figures beside it.
+        */}
+        {openWeeks.length > 0 && (
+          <p className="sub" style={{ margin: '0.5rem 0 0', fontSize: '0.8125rem' }}>
+            {weeks[0]?.averageBasis === 'operating-days' ? (
+              <>
+                Averages are over the days your booking schedule says you operated, closures
+                excluded — so a day you were open and nobody came counts as a zero, because it is
+                one.
+              </>
+            ) : (
+              <>
+                Averages are over the days that had any attendance,{' '}
+                <strong>because no booking schedule covers this period</strong> — so a day you were
+                open and nobody came is not counted at all, and these figures read higher than they
+                would against a real calendar. Record a booking schedule and they will be over the
+                days you operate.
+              </>
+            )}
+          </p>
         )}
         {busiestWeekday && busiestWeekday.averageChildren !== null && (
           <p className="sub" style={{ margin: '0.5rem 0 0', fontSize: '0.8125rem' }}>
