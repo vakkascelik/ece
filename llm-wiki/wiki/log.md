@@ -5,6 +5,58 @@ says so.*
 
 ---
 
+2026-09-05 (thirteenth) — **The reconciliation drill covers the agreement path, and found two
+defects in itself getting there.**
+
+`reconcile:funding` passed 16/16, then 18/18, while touching **none** of the absence work. Its two
+children have no booking schedule, so `childFunding` took the attendance branch and §6-5, §6-6,
+§6-7, §9-2's hours source and every line of `rs7.ts` were verified by unit tests and mutation drills
+and by nothing else — all written against fixtures by the same hand that wrote the rules. That hole
+was recorded in the plan rather than left for someone to find, because quoting the score as cover
+for the absence work would have been true and misleading.
+
+Child C is permanently enrolled with five booking blocks over a **six-day** window — six consecutive
+days hold each weekday exactly once, so the enrolled sessions are exactly the five dates named and
+the arithmetic stays checkable by eye. Attended 12h, absent 17.5h, funded 29.5h. **37/37.**
+
+**The load-bearing assertion is that more is funded than was attended**, which the attendance basis
+cannot produce. Mutating `permanent` to `false` — the one line that switches the agreement branch
+off — kills eleven assertions including every named one. Two survive it vacuously, which is why the
+§6-7 check asserts the rule **ran and allowed** the months rather than that it refused nothing: an
+empty `frequentAbsence` means §6-7 was never applied at all.
+
+**The drill's own window arithmetic was wrong, in the direction that says "fine".** It converted a
+local date with `` `${date}T00:00:00Z` `` — **midday** in Auckland — so the first day of every
+period lost its morning, and the end bound was wrong in the other direction and by the wrong kind of
+bound too, the query being half-open. Invisible for a month because no fixture had an event near a
+boundary. It surfaced when Child C's window opened on a day it attended from 09:00: six hours
+reported where twelve were recorded, and the first suspicion fell on the §9-2 branch, which was
+fine. The product never had this bug — `dayWindow()` reads the offset properly — and `nzAt()` in the
+same script already did too. Third instance of a verification script being recruited into the thing
+it exists to catch; [[conventions]] now carries the general form, which is that **setup code is not
+verified by the thing it sets up**.
+
+**35/35 was not good enough, and the reason is item 52.** Every figure was a whole number, so §9-2
+step 5's *"0.5 or above should be rounded up"* was asserted by numbers that round the same under any
+rule — including the flooring `toHours` that item 52 exists to keep out of `rs7.ts`. One block is
+now five and a half hours long. Flooring `roundToNearestHour` fails that assertion and only that
+one; removing the 20 Hours deduction fails it at 11 instead of 6. Item 52's closure was backed by
+unit tests alone until today.
+
+**And `scripts/` was typechecked by nothing at all.** Not a workspace, no tsconfig, `tsx` strips
+types and checks none — so the directory holding `test-rls.ts`, `restore-drill.ts`,
+`security-review.ts` and `migrate.ts` was the least verified code in the repo. Found when a bad
+import sailed through a clean `npm run typecheck`. Closed with `scripts/tsconfig.json`; every
+existing script already passed, measured before wiring it in, and `moduleDetection: "force"` is
+required because several scripts have no import or export and collide on their private `die()`.
+Mutation-tested: a deliberate type error takes the gate from 0 to 2.
+
+**Item 54's disclosure is discharged.** It recorded that the drill had never been watched to pass
+because it demanded a named person's password. That requirement was itself the defect, fixed
+2026-09-04; the corrected arithmetic now passes against live Postgres, watched.
+
+---
+
 2026-09-05 (twelfth) — **`OffFloorPanel`, and all three missing write paths are closed.**
 
 The last of the three AST50's mapping table found. §9-4's staff hours and — since `0095` — the live
@@ -6386,4 +6438,4 @@ the code that reads it.
 fails with `relation "post_comments" already exists` — a confusing error about the wrong problem.
 Not fixed here, because it is unrelated to the defect this session was for.
 
-*Log last updated: 2026-08-31*
+*Log last updated: 2026-09-05*

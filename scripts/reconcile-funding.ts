@@ -13,6 +13,11 @@
  * a day over the cap, a week over the cap, a split day, a correction, a missing sign-out, and a
  * child without the 20 Hours attestation.
  *
+ * **Child C, added 2026-09-05, reconciles the AGREEMENT basis** — §9-2 step 1, the absence rules
+ * and the RS7 transposition. Until then this script passed 16/16 while none of that was touched by
+ * any live-database check, and the plan said so in as many words rather than letting the score
+ * stand as cover for it.
+ *
  *   ECE_ALLOW_DEMO_SEED=yes npm run reconcile:funding
  *
  * `ECE_DRILL_PASSWORD` is no longer required. It provisions its own manager account on a
@@ -22,7 +27,13 @@
 
 import { randomUUID } from 'node:crypto';
 import { createAnonClient, createServiceClient, readFundingPeriod } from '@ece/api';
-import { DEFAULT_CAPS, type FundingPeriod } from '@ece/core';
+import {
+  coversDate,
+  DEFAULT_CAPS,
+  isoWeekdayOf,
+  rs7DayCounts,
+  type FundingPeriod,
+} from '@ece/core';
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -394,12 +405,39 @@ async function main() {
   const to = nzAt(0, 12).date;
   const period: FundingPeriod = { label: `${from} to ${to}`, from, to };
 
+  /*
+    ═══════════════════════════════════════════════════════════════════════════
+    THE BOUNDS ARE NEW ZEALAND MIDNIGHTS, NOT UTC ONES — corrected 2026-09-05
+
+    This passed `new Date(`${from}T00:00:00Z`)` and `${to}T23:59:59Z`. Both were wrong, and
+    wrong in the direction that makes a funding drill say "fine":
+
+      • `${from}T00:00:00Z` is **midday** in Auckland, not midnight. Every event before noon on
+        the first day of a period was outside the window and silently absent from the figures.
+      • `.gte(fromUtc).lt(toUtc)` is half-open (`billing.ts:836`), so the end bound wants the
+        start of the day AFTER the last one — not `23:59:59` of the last, and certainly not
+        `23:59:59Z`, which is 11:59 the following morning in Auckland.
+
+    Neither ever showed, because Child A's earliest event is day -9 inside a window starting at
+    day -13, and nothing is written for today. Luck, twice. It surfaced the moment Child C's
+    period began on a day it actually attended, at 09:00 — the drill reported six hours where
+    twelve were recorded, and the first suspicion was the §9-2 agreement branch, which was fine.
+
+    This is the second time this file has been recruited into the thing it exists to catch. The
+    first is recorded above, on Child B: hand arithmetic that asserted a four-hour over-statement
+    was correct. `AGENTS.md §5` carries it as a standing lesson and it has now cost twice.
+
+    `nzAt` already reads the real offset from `Intl` rather than assuming +12, so the correct
+    instants were available in this file the whole time.
+    ═══════════════════════════════════════════════════════════════════════════
+  */
   const summary = await readFundingPeriod(staff, {
     centreId: centre.id,
     period,
     timeZone: centre.timezone,
-    fromUtc: new Date(`${from}T00:00:00Z`).toISOString(),
-    toUtc: new Date(`${to}T23:59:59Z`).toISOString(),
+    fromUtc: nzAt(13, 0).iso,
+    // Start of tomorrow in Auckland: the exclusive end of today.
+    toUtc: nzAt(-1, 0).iso,
   });
 
   const a = summary.children.find((c) => c.childId === childId);
@@ -466,6 +504,392 @@ async function main() {
     'the total is the sum of the children',
   );
   check(summary.verified === false, 'and the figures are marked unverified against the Funding Handbook');
+
+  /*
+   * ─────────────────────────────────────────────────────────────────────────
+   * CHILD C — THE AGREEMENT BASIS, AND THE HOLE THIS SECTION EXISTS TO FILL
+   *
+   * Everything above reconciles the ATTENDANCE basis. Until 2026-09-05 that was the whole script,
+   * and it passed 16/16 while §6-5, §6-6, §6-7, §9-2's hours source and the entire RS7
+   * transposition were checked by **nothing but unit tests and mutation drills** — every one of
+   * them written against fixtures by the same hand that wrote the rules. A fixture cannot
+   * contradict the person who wrote it. Live Postgres can.
+   *
+   * WHY IT RUNS LAST, WHICH IS NOT COSMETIC. A permanently enrolled child with a booking schedule
+   * is funded from the agreement whether or not they ever attend, so the moment Child C exists it
+   * contributes hours to any period covering it — and `summary.totalFundedHours` above is asserted
+   * to be exactly `a.fundedHours + b.fundedHours`. Creating this child earlier would break a
+   * correct assertion. It is created after that assertion has been made, and the re-run guard for
+   * Child A above fires before any of this on a second run.
+   *
+   * A SIX-DAY WINDOW, deliberately, and it is its own period. `enrolledSessions` emits one session
+   * per matching weekday per date in range, so a fortnight contains each weekday twice and every
+   * figure doubles in a way that would hide an off-by-one. Six consecutive days contain each
+   * weekday exactly once, so the sessions below are exactly the four dates named.
+   *
+   * Child C ("Agreement"), permanently enrolled, four years old, NO 20 Hours attestation.
+   * A booking-schedule block on the weekday of each of days -6 to -2 — four of six hours, and
+   * one deliberately of five and a half.
+   *
+   *   day -6   attended 09:00–15:00   → 6h, from the AGREEMENT and not from the turnstile
+   *   day -5   attended 09:00–15:00   → 6h
+   *   day -4   ABSENT                 → 6h,   claimable — day 1 of §6-5's three-week window
+   *   day -3   ABSENT                 → 6h,   claimable — day 2 of it
+   *   day -2   ABSENT   09:00–14:30   → 5.5h, claimable — day 3
+   *   day -1                          → no block, so no session, so nothing at all
+   *
+   *     attended = 12h     two days actually present, exactly as agreed
+   *     absence  = 17.5h   three enrolled days missed, all inside the window
+   *     funded   = 29.5h   five enrolled sessions, attended or not
+   *
+   * Neither cap can bite: no day exceeds six hours and 29.5 is under the 30-hour weekly one even
+   * if every session falls in one ISO week. So unlike Child A there is no nondeterminism to
+   * reason around, and unlike Child B there is nothing here that a cap could be hiding.
+   *
+   * THE HALF HOUR ON DAY -2 IS THE POINT OF ITS EXISTENCE, and it was added after the first run
+   * of this section passed 35/35. Every figure was a whole number, so §9-2 step 5 — *"round the
+   * total to the nearest whole number… 0.5 or above should be rounded up"* — was asserted by
+   * numbers that round the same way under any rule. Item 52 is specifically about NOT reusing
+   * `toHours`, which floors; a drill in which flooring and rounding agree cannot see the
+   * difference. Five and a half hours is the smallest fixture that can.
+   *
+   * §6-7 cannot refuse these months either: `assessFrequentAbsence` returns `claimable` for
+   * every month at run index 1 and 2, and a six-day window touches at most two calendar months.
+   * That is the rule doing nothing, which is worth asserting — see the `frequentAbsence` check.
+   * ─────────────────────────────────────────────────────────────────────────
+   */
+  console.log('\n  --- Child C: the agreement basis, over its own six-day window ---');
+
+  const cFrom = nzAt(6, 12).date;
+  const cTo = nzAt(1, 12).date;
+  const cPeriod: FundingPeriod = { label: `${cFrom} to ${cTo}`, from: cFrom, to: cTo };
+
+  /*
+    Five weekdays, one of them short. Six consecutive days hold five distinct weekdays, so each
+    of these produces exactly one session — the property the whole six-day window was chosen for.
+  */
+  const agreedBlocks = [
+    { daysAgo: 6, from: '09:00', to: '15:00' },
+    { daysAgo: 5, from: '09:00', to: '15:00' },
+    { daysAgo: 4, from: '09:00', to: '15:00' },
+    { daysAgo: 3, from: '09:00', to: '15:00' },
+    { daysAgo: 2, from: '09:00', to: '14:30' },
+  ];
+  const enrolledOn = agreedBlocks.map((b) => nzAt(b.daysAgo, 9).date);
+  const scheduleFrom = nzAt(20, 9).date;
+
+  /*
+    A closure deletes an enrolled session — `enrolledSessions` skips a closed day, correctly, and
+    §6-6 then suspends the three-week window over it. Every figure below would be wrong by six
+    hours and the failure would look like an arithmetic bug rather than a fixture problem. So the
+    guard names it, using `coversDate` rather than a hand-written comparison: that is the one
+    written-down copy of the effective-window rule and it decides boundary days the same way the
+    calculation does.
+  */
+  const { data: closureRows } = await staff
+    .from('service_closures')
+    .select('starts_on, ends_on, reason_code')
+    .eq('centre_id', centre.id);
+  for (const cl of (closureRows ?? []) as {
+    starts_on: string;
+    ends_on: string | null;
+    reason_code: string | null;
+  }[]) {
+    const hit = enrolledOn.find((d) => coversDate(cl.starts_on, cl.ends_on, d));
+    if (hit) {
+      die(
+        `A service closure (${cl.reason_code ?? 'no reason recorded'}, ${cl.starts_on} to ` +
+          `${cl.ends_on ?? 'open'}) covers ${hit}, which is one of the four days this section's\n` +
+          `  hand arithmetic depends on. Remove it, or run this drill on a different day.`,
+      );
+    }
+  }
+
+  const { data: agreementRow } = await admin
+    .from('children')
+    .select('id')
+    .eq('centre_id', centre.id)
+    .eq('first_name', 'Agreement')
+    .maybeSingle();
+  let agreementId = (agreementRow as { id: string } | null)?.id ?? null;
+  if (!agreementId) {
+    const born = new Date();
+    born.setFullYear(born.getFullYear() - 4);
+    const { data, error } = await admin
+      .from('children')
+      .insert({
+        centre_id: centre.id,
+        first_name: 'Agreement',
+        last_name: 'Demo-Seed',
+        date_of_birth: born.toISOString().slice(0, 10),
+      })
+      .select('id')
+      .single();
+    if (error) die(`Creating the agreement child failed: ${error.message}`);
+    agreementId = (data as { id: string }).id;
+  }
+
+  /*
+    `enrolment_type: 'permanent'` is the whole switch. `childFunding` consults the agreement only
+    for a permanent child — §9-2 step 2 and §6-4 both say attendance is the rule for a casual or
+    conditional one — so the same schedule under `casual` would produce the attendance figure and
+    every assertion below would fail by exactly the absence hours. Worth knowing when one does.
+  */
+  const { data: cEnrolled } = await admin
+    .from('enrolments')
+    .select('id')
+    .eq('child_id', agreementId)
+    .maybeSingle();
+  if (!cEnrolled) {
+    const { error } = await admin.from('enrolments').insert({
+      child_id: agreementId,
+      centre_id: centre.id,
+      start_date: scheduleFrom,
+      twenty_hours_ece: false,
+      funded_hours_per_week: 0,
+      days: [1, 2, 3, 4, 5],
+      enrolment_type: 'permanent',
+    });
+    if (error) die(`Enrolling the agreement child failed: ${error.message}`);
+  }
+
+  /*
+    The agreement itself. Inserted through the service role because `0085`'s write policy is
+    `caller_may_manage_children`, which a manager holds — but the child was created by the service
+    role too, and mixing the two here would make a policy failure look like a fixture failure.
+    The reconciliation that matters is done on the READ path, as the drill account.
+
+    A duplicate insert is a `23P01` from the GiST exclusion constraint, which on a re-run means the
+    block is already there. Tolerated by name, not by swallowing every error: an insert that fails
+    for any other reason still kills the drill.
+  */
+  for (const block of agreedBlocks) {
+    const { error } = await admin.from('child_booking_schedule').insert({
+      child_id: agreementId,
+      weekday: isoWeekdayOf(nzAt(block.daysAgo, 9).date),
+      from_time: block.from,
+      to_time: block.to,
+      effective_from: scheduleFrom,
+    });
+    if (error && !/child_booking_schedule_no_overlap/.test(error.message)) {
+      die(`Recording the agreement failed: ${error.message}`);
+    }
+  }
+
+  const { count: alreadyC } = await staff
+    .from('attendance_events')
+    .select('id', { count: 'exact', head: true })
+    .eq('child_id', agreementId);
+  if ((alreadyC ?? 0) > 0) {
+    die(
+      `The agreement child already has ${alreadyC} attendance events, so a re-run would double\n` +
+        `  the figures. Purge and re-seed exactly as for Child A above.`,
+    );
+  }
+
+  for (const day of [6, 5]) {
+    await add(agreementId, 'in', nzAt(day, 9));
+    await add(agreementId, 'out', nzAt(day, 15));
+  }
+
+  const cSummary = await readFundingPeriod(staff, {
+    centreId: centre.id,
+    period: cPeriod,
+    timeZone: centre.timezone,
+    // Auckland midnights, for the reason recorded at the fourteen-day read above. This is the
+    // period that exposed it: `cFrom` is a day the child attended from 09:00.
+    fromUtc: nzAt(6, 0).iso,
+    toUtc: nzAt(0, 0).iso,
+  });
+
+  const c = cSummary.children.find((x) => x.childId === agreementId);
+  if (!c) {
+    die(
+      'The agreement child did not appear in the summary at all. `readFundingPeriod` drops a child\n' +
+        '  contributing nothing, so this means the agreement produced no sessions — check the\n' +
+        '  booking-schedule blocks and the enrolment window rather than the arithmetic.',
+    );
+  }
+
+  check(
+    c.hoursBasis === 'agreement',
+    `the figure comes from the agreement, not the turnstile (got ${c.hoursBasis})`,
+  );
+  check(
+    c.enrolmentType === 'permanent',
+    `and it is a permanent enrolment, which is what makes §9-2 step 1 apply (got ${c.enrolmentType})`,
+  );
+  check(c.attendedHours === 12, `attended is 12.00 by hand (got ${c.attendedHours})`);
+  check(
+    c.absenceHours === 17.5,
+    `and 17.50 more is claimed absence — three enrolled days missed inside §6-5's window (got ${c.absenceHours})`,
+  );
+  check(
+    c.fundedHours === 29.5,
+    `funded is 29.50: five enrolled sessions, attended or not (got ${c.fundedHours})`,
+  );
+  /*
+    THE ASSERTION THAT SEPARATES THE TWO BASES, and the reason this section exists.
+
+    On attendance this child is funded 12 hours; on the agreement, 24. A regression that quietly
+    reverted §9-2 step 1 — the change that closed item 55 — would halve a Crown claim, and every
+    unit test in `funding.test.ts` would still pass, because each of them supplies its own
+    agreement and would simply be testing a function nobody calls that way any more.
+  */
+  check(
+    c.fundedHours > c.attendedHours,
+    `and MORE is funded than was attended (${c.fundedHours} > ${c.attendedHours}), which is only possible starting from the agreement`,
+  );
+  check(
+    c.unclaimableAbsences.length === 0,
+    `no absence was refused — both are days old (got ${c.unclaimableAbsences.map((u) => u.reason).join('; ') || 'none'})`,
+  );
+  check(
+    Object.keys(c.absenceHoursByDate).length === 3 &&
+      c.absenceHoursByDate[nzAt(4, 9).date] === 6 &&
+      c.absenceHoursByDate[nzAt(3, 9).date] === 6 &&
+      c.absenceHoursByDate[nzAt(2, 9).date] === 5.5,
+    'the three claimed absences are on the days the child was enrolled and did not come, at the agreed hours for each',
+  );
+  check(
+    c.attendedOutsideAgreement.length === 0,
+    `nothing was attended outside the agreement (got ${c.attendedOutsideAgreement.join(', ') || 'none'})`,
+  );
+  /*
+    §6-7 RAN AND ALLOWED IT, which is a different statement from "§6-7 did not refuse anything" —
+    and `unclaimableAbsences` alone cannot tell them apart. An empty `frequentAbsence` would mean
+    the rule was never applied, which is exactly the failure mode a passing drill would hide.
+  */
+  check(
+    c.frequentAbsence.length > 0 && c.frequentAbsence.every((m) => m.claimable),
+    `§6-7 assessed ${c.frequentAbsence.length} calendar month(s) and refused none, at run index 1 or 2`,
+  );
+
+  /*
+   * ─────────────────────────────────────────────────────────────────────────
+   * RS7, TRANSPOSED — the last link in the chain, on one date
+   *
+   * Day -3 is chosen because it is the only date in this window where **nobody else has any
+   * hours**: Child A's events fall on days -6, -5 and -2, and Child B's on -9 and -8, outside it
+   * altogether. So the whole figure on that date is Child C's claimed absence.
+   *
+   * That makes a single number an end-to-end check of six separate pieces of machinery: the
+   * booking schedule produced a session, §6-5 classified the absence as claimable, §9-2 funded it
+   * from the agreement rather than the turnstile, `ageInMonths` put it in the two-and-over bucket
+   * as at that date, §9-2 step 5 rounded the daily total to the nearest hour, and the
+   * transposition put it on the right calendar date.
+   *
+   * Six hours, on one date, for a child who was not there.
+   * ─────────────────────────────────────────────────────────────────────────
+   */
+  const { data: dobRows } = await staff
+    .from('children')
+    .select('id, date_of_birth')
+    .in(
+      'id',
+      cSummary.children.map((x) => x.childId),
+    );
+  const dobs = new Map<string, string | null>(
+    ((dobRows ?? []) as { id: string; date_of_birth: string | null }[]).map((r) => [
+      r.id,
+      r.date_of_birth,
+    ]),
+  );
+
+  const rs7 = rs7DayCounts({ children: cSummary.children, datesOfBirth: dobs, period: cPeriod });
+  const absentDate = nzAt(3, 9).date;
+  const rs7Day = rs7.days.find((d) => d.date === absentDate);
+
+  console.log('\n  --- RS7: the same hours, transposed onto the return ---');
+  check(
+    rs7Day !== undefined,
+    `the return has a row for ${absentDate}, a day one child was enrolled and absent and nobody else was there`,
+  );
+  check(
+    rs7Day?.subsidyFundedChildTwoAndOver === 6,
+    `and it reports 6 subsidy hours for a child who was not present (got ${rs7Day?.subsidyFundedChildTwoAndOver})`,
+  );
+  check(
+    rs7Day?.subsidyFundedChildUnderTwo === 0,
+    `with nothing in the under-two figure — the band is judged as at that date (got ${rs7Day?.subsidyFundedChildUnderTwo})`,
+  );
+  check(
+    rs7Day?.twentyHoursFundedChild === 0 && rs7Day?.twentyHoursFundedChildPlusTen === 0,
+    'and nothing in either 20 Hours figure, because this child has no attestation',
+  );
+  /*
+    BLANK, NOT ZERO. The three-state contract this product applies everywhere, on the one field
+    where a zero would be a false statement to the Crown: it would say the service was staffed by
+    nobody. `null` says the hours are not produced, and the assumption below says why.
+  */
+  check(
+    rs7Day?.staffHourQualified === null && rs7Day?.staffHourNotQualified === null,
+    'both staff figures are BLANK rather than zero, because no staff hours were supplied',
+  );
+  check(
+    rs7.assumptions.some((a) => a.includes('§9-4')),
+    'and the return says so in words rather than leaving the gap unexplained',
+  );
+  /*
+    ─────────────────────────────────────────────────────────────────────────
+    DAY -2, WHERE THE ROUNDING AND THE 20 HOURS DEDUCTION BOTH SHOW
+
+    Two children have hours on this date and they land in different buckets, which is what makes
+    it worth asserting:
+
+      Child C   5.5h   unattested, so the whole of it is subsidy, two-and-over
+      Child A   5h     attested, so §9-2's two-and-over step takes it out again — *"less any
+                       hours for children claimed as 20 Hours ECE"* — and it appears in the
+                       20 Hours figure instead
+
+    So `subsidyFundedChildTwoAndOver` is 5.5 rounded, and **`Math.round` gives 6 where `toHours`
+    would floor to 5.** That one hour is the whole of item 52, and until day -2 existed nothing
+    in this drill could tell the two rules apart.
+
+    A's five hours are deterministic despite the ISO-week split the Child A comment warns about:
+    A is funded ten hours across this window, so the week's first twenty are never exhausted and
+    all of it is 20 Hours ECE however the weeks fall. Under `deduct-both` — the default, and the
+    reading that cannot double-count — both components come out of the two-and-over figure, so
+    A contributes nothing to it either way.
+    ─────────────────────────────────────────────────────────────────────────
+  */
+  const shortDate = nzAt(2, 9).date;
+  const shortDay = rs7.days.find((d) => d.date === shortDate);
+  check(
+    shortDay?.subsidyFundedChildTwoAndOver === 6,
+    `on ${shortDate} five and a half hours round UP to 6 — §9-2 step 5, not the flooring \`toHours\` does (got ${shortDay?.subsidyFundedChildTwoAndOver})`,
+  );
+  check(
+    shortDay?.twentyHoursFundedChild === 5,
+    `and the attested child's five hours are in the 20 Hours figure instead, deducted out of the subsidy one (got ${shortDay?.twentyHoursFundedChild})`,
+  );
+
+  check(
+    rs7.outOfRangeDates.length === 0,
+    `no figure exceeded the schema's 0..9999 bound (got ${rs7.outOfRangeDates.join(', ') || 'none'})`,
+  );
+  /*
+    ONE MESSAGE, NOT SIX — and this assertion said six until the drill was run.
+
+    `missingDeclarationFields(null)` returns a single entry naming the whole declaration, which
+    is the right behaviour and the reason to assert the decision rather than the count: a manager
+    who has recorded nothing needs one instruction, and six field names would read as six
+    separate problems. Six entries is what a PARTLY filled declaration returns.
+
+    Asserting `length === 6` was a guess about an implementation, made while writing the drill
+    and not checked against the function. It is left recorded here rather than quietly swapped,
+    because the lesson is the one AGENTS §5 already carries: assert the decision, not a number
+    that happens to be true.
+  */
+  check(
+    rs7.declaration === null && rs7.missingDeclarationFields.length === 1,
+    `nothing is recorded for this period, so the return names the whole declaration once rather than six fields (got ${rs7.missingDeclarationFields.length})`,
+  );
+  check(
+    rs7.assumptions.some((a) => a.includes('The declaration is incomplete')),
+    'and it says so in the assumptions, where a reader of the figures will see it',
+  );
+
 
   const passed = results.filter(Boolean).length;
   console.log(`\n  ${passed}/${results.length} reconciliation checks passed`);

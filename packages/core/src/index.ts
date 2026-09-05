@@ -387,13 +387,19 @@ export * from './funding';
  * `toHours` — that floors, and §9-2 rounds to nearest. See the file header and item 52.
  */
 /*
-  The two month helpers, named explicitly rather than `export * from './weekdayBlock'`.
+  Three names, explicit rather than `export * from './weekdayBlock'`.
 
   That module's other exports already reach the package through `census.ts`, which re-exports the
-  four it needs, and a blanket star here would collide with them. Two names is the smaller thing
-  than rearranging a working re-export to suit a third consumer.
+  five it needs, and a blanket star here would collide with them. Naming what a consumer asks for
+  stays the smaller thing than rearranging a working re-export to suit it.
+
+  `isoWeekdayOf` joined them on 2026-09-05 for `reconcile:funding`, which derives a booking
+  schedule from dates counted back from today and so has to convert one. It could have carried
+  its own three-line copy; `weekdayBlock.ts`'s header records what four copies of `mondayOf` cost
+  when they drifted, and a drill that verifies the calculation using its own copy of a rule the
+  calculation applies is the exact failure `drill:offline` had on 2026-09-04.
 */
-export { lastDayOf, nextMonth } from './weekdayBlock';
+export { isoWeekdayOf, lastDayOf, nextMonth } from './weekdayBlock';
 
 export * from './rs7';
 export * from './staffHours';

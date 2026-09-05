@@ -1572,14 +1572,76 @@ offered a place" is a question families ask.
 ECE_ALLOW_DEMO_SEED=yes npm run reconcile:funding
 ```
 
-Writes a fortnight whose correct answer is worked out **by hand in the script's comments** — a day
-over the cap, a split day, a correction, a missing sign-out, and a child without the attestation —
-then compares. Expected values are arithmetic a reader can check, not a snapshot, which would only
-prove the code agrees with itself. 13/13 as at 2026-08-04.
+Writes attendance whose correct answer is worked out **by hand in the script's comments**, then
+compares. Expected values are arithmetic a reader can check, not a snapshot, which would only prove
+the code agrees with itself. **37/37 as at 2026-09-05** (13/13 on 2026-08-04, 18/18 after the caps
+were corrected on 2026-09-04).
+
+It covers two periods and two bases, because those are two different calculations:
+
+| | |
+|---|---|
+| **A fortnight, attendance basis** — Children A and B | A day over the cap, a split day, a correction, a missing sign-out, and a child without the attestation |
+| **Six days, agreement basis** — Child C | §9-2 step 1, §6-5's three-week window, §6-7's monthly verdict, and the whole RS7 transposition |
 
 It refuses to run twice against the same child, because attendance is append-only and a second run
 would double the figures. Clearing it needs `seed:demo -- --purge`, which cascades from the children —
 attendance cannot be deleted by the app or the service role at all.
+
+#### The agreement half, and why it had to exist — 2026-09-05
+
+Until this was added the drill passed **while touching none of the absence work**. Its two children
+have no booking schedule, so `childFunding` took the attendance branch and §6-5, §6-6, §6-7, §9-2's
+hours source and every line of `rs7.ts` were verified by unit tests and mutation drills and by
+nothing else — all of them written against fixtures by the same hand that wrote the rules. A fixture
+cannot contradict its author. Live Postgres can. Quoting the score as cover for the absence work
+would have been true and misleading, which is why the plan carried it as a known hole rather than
+letting the number stand.
+
+Child C is permanently enrolled with five booking-schedule blocks in a **six-day** window — chosen
+because six consecutive days hold each weekday exactly once, so the enrolled sessions are exactly
+the five dates named and the arithmetic stays checkable by eye. Two days attended, three missed:
+
+```
+attended = 12h     absence = 17.5h     funded = 29.5h
+```
+
+The load-bearing assertion is that **more is funded than was attended**, which cannot happen on the
+attendance basis at all. Mutating `childFunding`'s `permanent` flag to `false` — one line, the
+switch that turns the agreement branch off — kills eleven of the thirty-seven, including every named
+one. Two supporting checks survive that mutation vacuously (`unclaimableAbsences` and
+`attendedOutsideAgreement` are both empty on an attendance basis), which is why the §6-7 check
+asserts that the rule **ran and allowed** the months rather than that it refused nothing: an empty
+`frequentAbsence` means §6-7 was never applied, and that is exactly the failure a passing drill
+would otherwise hide.
+
+**One block is five and a half hours long, and that is the entire reason it exists.** The first
+version of this section passed 35/35 with every figure a whole number, so §9-2 step 5's *"0.5 or
+above should be rounded up"* was being asserted by numbers that round the same under any rule —
+including the flooring `toHours` that [[unverified-claims]] item 52 is specifically about not
+reusing. Five and a half hours is the smallest fixture that can tell them apart. Flooring
+`roundToNearestHour` now fails that one assertion and only that one; removing the 20 Hours deduction
+fails it too, at 11 instead of 6.
+
+#### Two defects the agreement half found in the drill itself
+
+**The window bounds were UTC midnights.** The script passed `` `${from}T00:00:00Z` `` as `fromUtc`,
+which is **midday in Auckland**, so every event before noon on a period's first day fell outside the
+window and vanished from the figures; `` `${to}T23:59:59Z` `` was wrong twice over, since the query
+is half-open (`.gte(fromUtc).lt(toUtc)`) and wants the start of the following day. Neither ever
+showed: Child A's earliest event is day -9 in a window starting at day -13, and nothing is ever
+written for today. Luck, twice. It surfaced the moment Child C's period began on a day it actually
+attended, at 09:00 — the drill reported six hours where twelve were recorded, and the first
+suspicion fell on the §9-2 agreement branch, which was fine.
+
+The app never had this bug: `dayWindow()` in `apps/web/src/lib/` reads the real offset and returns
+`[fromUtc, toUtc)`. The drill hand-rolled its own conversion. **That is the third time this file has
+been recruited into the thing it exists to catch** — see [[conventions]].
+
+**An assertion guessed at an implementation.** `missingDeclarationFields(null)` returns *one* entry
+naming the whole declaration, not six; a manager who has recorded nothing needs one instruction, and
+six field names read as six separate problems. Six is what a partly-filled declaration returns. The
+assertion now pins that decision instead of the count.
 
 That constraint also broke a first version of the assertion: it expected `unresolvedChildCount === 1`
 and got 4, because other demo children carried unpaired events from earlier probe runs that could not

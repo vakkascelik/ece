@@ -1,0 +1,44 @@
+/*
+  `scripts/` was typechecked by NOTHING until 2026-09-05.
+
+  `npm run typecheck` is `npm run typecheck --workspaces --if-present`, and this directory is not
+  a workspace — it has no package.json and never had a tsconfig. So `tsx` stripped the types at
+  run time and no compiler ever looked at them. That is a hole in the gate rather than a style
+  point, because of what lives here: `test-rls.ts`, `restore-drill.ts`, `security-review.ts`,
+  `drill-rowcap.ts`, `migrate.ts` and `reconcile-funding.ts`. The verification machinery was the
+  least verified code in the repo.
+
+  Found while extending `reconcile:funding` to cover the agreement path: a bad import sailed
+  through `npm run typecheck` clean, which is exactly the failure AGENTS §5's lesson 4 records
+  about `vitest run` — a green gate that never read the file.
+
+  Measured before wiring it in: every existing script passes. This adds a gate, not a backlog.
+
+  `moduleDetection: "force"` because several scripts have no import or export at all —
+  `cloudflare-stage-d.ts`, `deploy-auth-config.ts`, `sweep-audit-tenants.ts` — so TypeScript
+  treats them as global scripts and their private `die()` and `ok()` helpers collide across
+  files with TS2393. They are run as ESM by `node --import tsx`, so forcing module scope is the
+  accurate description of how they actually execute, not a workaround.
+
+  The `paths` point at source rather than at each package's build output, the same way
+  `packages/api/tsconfig.json` does, so a script is checked against the code in this commit
+  rather than against whatever `dist/` was last built from.
+*/
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "moduleDetection": "force",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "types": ["node"],
+    "paths": {
+      "@ece/core": ["../packages/core/src/index.ts"],
+      "@ece/api": ["../packages/api/src/index.ts"]
+    }
+  },
+  "include": ["**/*.ts"]
+}

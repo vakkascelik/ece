@@ -1931,6 +1931,13 @@ in the mutation drill and both are caught.
 `toHours` floors both to 2. That is asserted separately, because a "round to nearest" that happened
 to floor would pass every other test here.
 
+**And since 2026-09-05 it is also asserted against live Postgres**, which the closure above was not.
+`reconcile:funding` gives its agreement child one booking block of five and a half hours and asserts
+the RS7 figure for that date is 6. Flooring `roundToNearestHour` returns 5 and fails that assertion
+and no other. Worth the addition for a specific reason: the first version of that section passed
+35/35 with every figure a whole number, so it could not have told the two rules apart at all — a
+drill in which flooring and rounding agree is not evidence about which one is running.
+
 ### 63. RS7's daily figures need three allocations the Handbook does not make — **OPEN, added 2026-09-05**
 
 Everywhere else this product **reports rather than adjusts** when a rule is ambiguous. That option
@@ -2040,11 +2047,15 @@ defect: the unit test *"does not cap a child without the attestation"* expected 
 attestation`, which was hand arithmetic **verifying a four-hour over-statement** in a script whose
 entire purpose is catching that.
 
-**The reconcile drill was NOT run**, and that is a real gap in this closure rather than a formality:
-it needs `ECE_DRILL_PASSWORD`, the demo centre owner's own login, which is not available here. Its
-hand arithmetic is updated and it typechecks; nobody has watched it pass. Same disclosure as
-[[design-system]] made for the same reason. To run it:
-`ECE_ALLOW_DEMO_SEED=yes ECE_DRILL_PASSWORD=… npm run reconcile:funding`.
+~~**The reconcile drill was NOT run**, and that is a real gap in this closure rather than a
+formality: it needs `ECE_DRILL_PASSWORD`, the demo centre owner's own login, which is not available
+here. Its hand arithmetic is updated and it typechecks; nobody has watched it pass.~~
+
+**RUN 2026-09-05, and the gap is closed.** The password requirement was itself the defect — the
+drill now provisions its own manager account on a `.invalid` address with a fresh random password
+each run, so `ECE_ALLOW_DEMO_SEED=yes npm run reconcile:funding` is the whole command. The corrected
+arithmetic for this item — `funded is 12.00`, both eight-hour days capped — passes against live
+Postgres, watched. Same disclosure as [[design-system]] made for the same reason, now discharged.
 
 **What Phase 2b has to get right, and it is more than adding a cap:** §9-2 calculates the
 2-and-over subsidy *"less any hours for children claimed as 20 Hours ECE"*, so the four RS7 child

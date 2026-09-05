@@ -1033,6 +1033,54 @@ asserting a figure the product also computed — that one is worth keeping, beca
 is an *independent* derivation of the answer. A regex copied from the implementation is not
 independent of anything; it is the implementation, one revision stale.
 
+### A drill's own setup arithmetic is part of the drill
+
+`reconcile-funding.ts` converted a local date to a UTC instant with `` `${date}T00:00:00Z` ``. In
+Auckland that is **midday**, so the first day of every period it read was missing its morning. The
+end bound was wrong in the other direction and by the wrong kind of bound as well — the query is
+half-open `[fromUtc, toUtc)`, so it wants the start of the day *after* the last one, not
+`23:59:59` of the last.
+
+The product does not have this bug. `dayWindow()` reads the offset from `Intl`, corrects once for
+the two days a year when it changes mid-day, and returns a half-open pair. The drill hand-rolled a
+conversion instead of reaching for it, and the file already contained a correct one — `nzAt()` in
+the same script reads the real offset for exactly this reason.
+
+**It was invisible for a month** because no fixture had an event near a period boundary. It
+surfaced only when a new child's window opened on a day it attended from 09:00: the drill reported
+half the recorded hours and the first suspicion fell on the calculation, which was correct.
+
+The general form, and it is the third instance in this file: **a verification script has setup
+code, and setup code is not verified by the thing it sets up.** Hand arithmetic that is an
+independent derivation of the answer is the point of a drill; a hand-rolled *conversion* silently
+changes what the answer is about. Reach for the shared helper in a drill exactly as in the product,
+or use the one the script already has.
+
+### `scripts/` was typechecked by nothing at all, for months
+
+`npm run typecheck` is `npm run typecheck --workspaces --if-present`, and `scripts/` is not a
+workspace — no `package.json`, no `tsconfig.json`. `tsx` strips types at run time and checks
+nothing. So the directory holding `test-rls.ts`, `restore-drill.ts`, `security-review.ts`,
+`drill-rowcap.ts`, `migrate.ts` and `reconcile-funding.ts` — **the verification machinery** — was
+the least verified code in the repo.
+
+Found by accident: an import of a helper that `@ece/core` does not re-export sailed through a clean
+`npm run typecheck`. That is the same shape as the standing lesson about `vitest run` not
+typechecking, one level further out — a green gate that never opened the file.
+
+Closed 2026-09-05 with `scripts/tsconfig.json` and one more clause on the root script. Two things
+worth knowing before doing the same elsewhere:
+
+- **Every existing script already passed.** Measured before wiring it in, because a gate that
+  arrives with a backlog gets disabled rather than fixed.
+- **`moduleDetection: "force"` is required**, not cosmetic. Several scripts have no import or
+  export at all, so TypeScript treats them as global scripts and their private `die()` and `ok()`
+  helpers collide across files with TS2393. They are run as ESM by `node --import tsx`, so forcing
+  module scope describes how they actually execute.
+
+Mutation-tested by giving one script a deliberate type error and confirming `npm run typecheck`
+goes from 0 to 2.
+
 ### A refusal message is an interface, so read it rather than reasoning about it
 
 Every rule in `classifyWriteFailure` matches text a database emits. Three of them matched text no
