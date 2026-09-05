@@ -5,6 +5,49 @@ says so.*
 
 ---
 
+2026-09-05 (fifteenth) — **The transport posture was measured for the first time, and one of three
+hosts fails it.**
+
+`AST26` had stood as *"we can commit to it, and we should verify rather than commit — what our
+runtime negotiates has never been measured, and no TLS version or cipher is documented anywhere in
+this repository."* Measuring it took twenty minutes.
+
+**`www.littlepearls.org.nz` accepts TLS 1.0 and TLS 1.1**, at `ECDHE-ECDSA-AES128-SHA` — CBC, SHA-1
+MAC, no AEAD — against the Ministry's stated NZISM floor of 1.2. The database and the console both
+refuse legacy protocols and default to TLS 1.3. The failing host is served by Cloudflare in front of
+our own Next.js site, so it is **a zone setting nobody looked at** (*Minimum TLS Version*, which
+Cloudflare leaves at 1.0), not a third party's posture. Register item 66; raised as an owner decision
+because raising the floor drops genuinely old visitors and those are the customer's.
+
+**The measurement itself needed correcting twice, which is the methodological half.** The first probe
+used `grep -c "Cipher is"` to decide whether a handshake succeeded — but OpenSSL prints
+`Cipher is (NONE)` on a *failed* handshake, so every host looked like it accepted TLS 1.0. The second
+probe passed `-tls1` and got TLS 1.3 back: the local OpenSSL's own `MinProtocol` was overriding the
+flag, so it was measuring the client rather than the server. Only pinning `-min_protocol` and
+`-max_protocol` together with `@SECLEVEL=0` asked the question that was intended. **Two plausible
+wrong answers before the right one, from the same tool.**
+
+**And the endorsed cipher turned out to be a distinction rather than a yes or no.**
+`ECDHE-RSA-AES256-GCM-SHA384` is an RSA suite; all three hosts present ECDSA P-256 certificates, and
+an RSA suite cannot be negotiated against an ECDSA certificate at all. What is negotiated instead is
+`ECDHE-ECDSA-AES256-GCM-SHA384` — same key exchange, same AES-256-GCM, same SHA-384. Supabase can
+serve the exact named suite because it presents an RSA certificate as well. The answer says so rather
+than writing "compliant" against a string our certificates cannot produce.
+
+**`AST10` closed the other way — by reading rather than measuring.** Encryption at rest is now quoted
+verbatim from `supabase.com/security` with the date, *"All customer data is encrypted at rest with
+AES-256 and in transit via TLS"*, alongside SOC 2 Type 2, HIPAA and ISO 27001. A search result
+summarised it first and was **not** used as the source: the page was fetched and quoted, per the
+standing rule that a summariser once dropped six words and inverted a section. The answer states
+plainly that a vendor's published claim read on a date is not a verification by us — we do not hold
+the SOC 2 report and cannot measure disk encryption from outside.
+
+The general finding is in item 66 and it is the one to keep: **three documents described the
+transport posture and all three described it as committable rather than measured.** None was wrong;
+none had been checked. Two hosts turned out better than claimed and one worse.
+
+---
+
 2026-09-05 (fourteenth) — **Four assessed items answered by writing down the practice, and one
 self-reported defect withdrawn because it was not real.**
 

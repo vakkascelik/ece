@@ -388,10 +388,32 @@ Transport: HTTPS only, with `Strict-Transport-Security` set for two years includ
 The headers are set by the application as well as the host, because "the host does it" is an
 assumption about a deployment.
 
-`[GAP]` **Encryption at rest is not documented in this repository and we will not assert it on the
-Ministry's form on the strength of what a platform probably does.** Supabase's encryption posture
-must be read from its documentation and its contract, recorded, and cited here — `[FIX FIRST]`,
-an hour's work, and the Ministry has stated the expectation explicitly.
+~~`[GAP]` **Encryption at rest is not documented in this repository and we will not assert it on the
+Ministry's form on the strength of what a platform probably does.**~~ **Read and cited 2026-09-05**,
+from the provider's own published security page (`https://supabase.com/security`) rather than from a
+search result or an assumption:
+
+> "All customer data is encrypted at rest with AES-256 and in transit via TLS."
+
+> "Sensitive information like access tokens and keys are encrypted at the application level before
+> they are stored in the database."
+
+The same page states that Supabase is **SOC 2 Type 2 compliant, HIPAA compliant and ISO 27001
+certified**, and that "when you create a project in an AWS region, your Postgres database, Auth
+service, and Storage objects are hosted in that region" — which is what AST03's Sydney
+(`ap-southeast-2`) answer rests on.
+
+**And the distinction this product exists to make: that is a vendor's published claim, read on a
+date, not a verification by us.** We have not seen a key-management attestation, we do not hold the
+SOC 2 report, and we cannot measure disk encryption from outside. So it is quoted and attributed
+rather than restated as our own assurance. What we *can* measure, we did — the transport half is
+measured host by host under AST26, including one of our own hostnames that fails it.
+
+`[GAP]` **Still true and not softened:** the service key that bypasses Row Level Security is
+required in the hosting environment because invitation acceptance calls the authentication admin
+API; the platform's build system bakes environment variables into image layers, so image access is
+key access; and neither that key nor the account-wide token used by the migration runner has ever
+been rotated.
 
 `[GAP]` Also disclosed: the service key that bypasses RLS is required in the hosting environment
 because invitation acceptance calls the authentication admin API, and the platform's build system
@@ -843,11 +865,48 @@ never been rotated. A rotation schedule and a decision about where ESL credentia
 plausibly not in that platform at all — are prerequisites, not details.
 
 **AST26 — transport encryption and cipher used to communicate with ESL.** The Ministry states the
-requirement: NZISM, TLS 1.2 or above, endorsed cipher
-`ECDHE-RSA-AES256-GCM-SHA384`. `[BLOCKED — spec]`/`[FIX FIRST]` We can commit to it, and we should
-*verify* rather than commit: what our runtime negotiates has never been measured, and no TLS
-version or cipher is documented anywhere in this repository. Measuring it against the ESL test
-endpoint is the real answer, and that needs the endpoint.
+requirement: NZISM, TLS 1.2 or above, endorsed cipher `ECDHE-RSA-AES256-GCM-SHA384`.
+
+~~`[FIX FIRST]` what our runtime negotiates has never been measured, and no TLS version or cipher is
+documented anywhere in this repository.~~ **Measured 2026-09-05**, every host we operate, with
+`openssl s_client` pinning one protocol version at a time. The inbound results:
+
+| Host | What it carries | TLS 1.0 | TLS 1.1 | TLS 1.2 | Default |
+|---|---|---|---|---|---|
+| `…supabase.co` | the database, auth and file storage — every child record | **refused** | **refused** | `ECDHE-ECDSA-AES128-GCM-SHA256` | TLS 1.3, `TLS_AES_256_GCM_SHA384` |
+| `little-pearls-production.up.railway.app` | the console | **refused** | **refused** | `ECDHE-ECDSA-AES256-GCM-SHA384` | TLS 1.3, `TLS_AES_256_GCM_SHA384` |
+| `www.littlepearls.org.nz` | the public marketing site | **ACCEPTED** | **ACCEPTED** | `ECDHE-ECDSA-CHACHA20-POLY1305` | TLS 1.3, `TLS_AES_256_GCM_SHA384` |
+
+**Outbound**, which is what actually governs a future ESL client: the runtime is Node 24.16.0 on
+OpenSSL 3.5.6, and `tls.DEFAULT_MIN_VERSION` is **TLSv1.2** with a maximum of TLSv1.3. Our client
+side therefore already meets the floor by default rather than by configuration.
+
+`[GAP]` **One host fails the requirement and it is ours to fix.** `www.littlepearls.org.nz`
+negotiates TLS 1.0 and TLS 1.1, at `ECDHE-ECDSA-AES128-SHA` — CBC with a SHA-1 MAC and no AEAD. It
+is served by Cloudflare in front of our own Next.js site, so this is a **zone setting we control**
+(*Minimum TLS Version*, which Cloudflare leaves at 1.0 by default) and not a third party's posture.
+No child record travels that hostname — the console and the database are the other two rows, and
+both refuse legacy protocols — but the Ministry's expectation is about the vendor's posture, and
+"the non-compliant one is only the brochure" is a weak answer when the fix is one setting.
+`[OWNER]` It is raised as a decision rather than done, because raising the minimum drops genuinely
+old clients, and that is the customer's call about their own visitors.
+
+**On the endorsed cipher specifically, the honest answer is a distinction rather than a yes or a
+no.** `ECDHE-RSA-AES256-GCM-SHA384` is an **RSA** suite. All three hosts present **ECDSA** (P-256)
+certificates, and an RSA cipher suite cannot be negotiated against an ECDSA certificate at all — so
+on two of the three the named string is structurally unavailable, and what is negotiated instead is
+`ECDHE-ECDSA-AES256-GCM-SHA384`: the same key exchange, the same AES-256-GCM, the same SHA-384, with
+ECDSA authentication in place of RSA. Supabase *can* serve the exact named suite, verified by
+forcing it — it presents an RSA certificate alongside the ECDSA one.
+
+We will not write "compliant" against a cipher string our certificates cannot produce. If the
+Ministry requires that exact suite end to end, it requires an RSA certificate on the ESL-facing
+client, which is a certificate decision we would make on request and can state now rather than
+discover during integration.
+
+`[BLOCKED — spec]` What remains genuinely unmeasurable is the ESL side: what the Ministry's
+endpoint offers, and therefore what is actually negotiated between us. That needs the endpoint, and
+the endpoint needs the specification.
 
 ---
 

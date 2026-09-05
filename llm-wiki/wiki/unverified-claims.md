@@ -2624,6 +2624,42 @@ tables for both age bands, and the home-based schedule. The all-day bands were r
 product records `service_model` and `licence_type` (`0083`) and cannot assess against either, which
 is stated in the tranche assessment rather than implied.
 
+### 66. Our own public zone accepts TLS 1.0 and 1.1 — **OPEN, added 2026-09-05**
+
+Found by measuring rather than by reading: `AST26` had stood as *"we can commit to it, and we should
+verify rather than commit — what our runtime negotiates has never been measured."* Measuring it took
+twenty minutes with `openssl s_client`, pinning one protocol version at a time across every host we
+operate.
+
+| Host | TLS 1.0 | TLS 1.1 | Default |
+|---|---|---|---|
+| `…supabase.co` — the database, auth and every child record | refused | refused | TLS 1.3 |
+| `little-pearls-production.up.railway.app` — the console | refused | refused | TLS 1.3 |
+| **`www.littlepearls.org.nz`** — the public site | **accepted** | **accepted** | TLS 1.3 |
+
+The legacy handshakes negotiate `ECDHE-ECDSA-AES128-SHA` — CBC with a SHA-1 MAC, no AEAD — against
+the Ministry's stated NZISM floor of TLS 1.2 or above.
+
+**It is ours, which is the part worth stating.** The hostname is served by Cloudflare in front of our
+own Next.js site (`Server: cloudflare`, `x-powered-by: Next.js`, a Google Trust Services certificate
+for `littlepearls.org.nz`). Cloudflare's *Minimum TLS Version* defaults to 1.0 and nobody changed it.
+So this is not a third party's posture to disclose; it is a zone setting nobody looked at.
+
+**Why it is open rather than fixed.** Raising the minimum drops genuinely old clients — the
+population is small and it is not ours to decide, because those are the customer's visitors looking
+up a childcare centre. `[OWNER]`, one setting, and the trade-off should be stated to them rather than
+made for them.
+
+**Mitigating, and deliberately not used as a reason to leave it:** no child record travels that
+hostname. The console and the database are the other two rows and both refuse legacy protocols. But
+the Ministry's expectation is about the vendor's posture, and *"the non-compliant one is only the
+brochure"* is a weak answer when the fix is a dropdown.
+
+**The general finding, which outlasts this one.** Three separate documents in this repository
+described the transport posture, and all three described it as *committable* rather than *measured*.
+None was wrong; none had been checked. A claim nobody has measured is the same object whether it
+turns out true or false — and here two of three hosts were better than claimed and one was worse.
+
 ## See Also
 
 - [[eli-integration]] — the public schema, the event catalogue, and items 47 and 48
@@ -2639,4 +2675,4 @@ is stated in the tranche assessment rather than implied.
 - [[reporting]] — occupancy, attendance trends, and enquiry conversion
 - [[deployment]] — item 41's detail: the three CI jobs and what each one skips
 
-*Last updated: 2026-09-03*
+*Last updated: 2026-09-05*
