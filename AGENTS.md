@@ -158,6 +158,14 @@ remembered later.
 
 ## 7. Standing constraints
 
+- **This repository is public.** Verified 2026-09-05, not assumed — an unauthenticated request to
+  the GitHub API returns 200. Everything written here is published: policies, the complete register
+  of what nobody has checked, the breach runbook, a named customer. That is a deliberate decision
+  and it is also a **filter on every commit**. Nothing goes in that identifies a person or
+  authenticates an organisation — no credential, no key, no tax or identity number. The test that
+  settled the last one: an NZBN is on a public register by design and may be recorded; an IRD
+  number is on none and may not, and the fact that a form might one day want it is not a reason to
+  keep it here.
 - **Never commit `.env.local` or `.backups/`.** The latter holds a pre-wipe dump of the previous
   occupant of this database, including user emails and forum posts.
 - **The service-role key never goes near the mobile workspace or a browser bundle.** Expo inlines
@@ -171,4 +179,4 @@ remembered later.
 - **Update the wiki before committing**, never after — it is the last gate in §5, with a table
   of what to touch when.
 
-*Last updated: 2026-08-05*
+*Last updated: 2026-09-05*
