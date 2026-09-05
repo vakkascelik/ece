@@ -5,6 +5,24 @@ says so.*
 
 ---
 
+2026-09-05 (eleventh) — **§6-7's reconfirmations become recordable.** `ReconfirmationPanel`, the
+second of the three write paths AST50's mapping table found missing.
+
+Read by the funding calculation since 2026-09-04 to decide whether a **third month** of a
+frequent-absence pattern may be claimed; writable only now. So a third month was never unlocked,
+and the product under-claimed for every service that had done the paperwork.
+
+**Two outcomes, not degrees of one thing.** *Affirmed* says the absences were incidental; *revised*
+says the agreement was wrong — and satisfies month four's *"must be changed"* only when the new days
+are recorded on the **agreement** panel. This row deliberately does not touch the schedule: two
+sources for one fact is how a claim stops being answerable, and the form says so on screen.
+
+**Repeats are allowed here and refused everywhere else.** §6-7 expects a persisting pattern to be
+reconfirmed again, so `0092` carries only one-per-day. A screen offering to "update" the existing
+one would model the opposite of the rule.
+
+One left: `staff_off_floor`.
+
 2026-09-05 (tenth) — **§7-7's exemptions become recordable, and the reason they were not is the
 finding.** `ExemptionPanel` on the child record's Documents tab.
 

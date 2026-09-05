@@ -27,6 +27,8 @@ import {
   reportAbsence,
   reportAbsenceRange,
   createChild,
+  addReconfirmation as addReconfirmationRow,
+  deleteReconfirmation as deleteReconfirmationRow,
   addExemption as addExemptionRow,
   deleteExemption as deleteExemptionRow,
   endExemption as endExemptionRow,
@@ -69,6 +71,8 @@ import {
   type HealthKind,
   type HealthSeverity,
   type ImmunisationStatus,
+  RECONFIRMATION_OUTCOMES,
+  type ReconfirmationOutcome,
   EXEMPTION_BASES,
   EXEMPTION_EVIDENCE,
   type ExemptionBasis,
@@ -1403,6 +1407,88 @@ export async function removeExemption(_prev: unknown, form: FormData): Promise<R
     await deleteExemptionRow(db, id);
   } catch (e) {
     return actionError(e, 'children.removeExemption');
+  }
+  revalidatePath(`/children/${childId}/documents`);
+  return { ok: true };
+}
+
+/*
+  §6-7 RECONFIRMATIONS — the second write path found missing by AST50's mapping table.
+
+  `readFundingPeriod` has read `enrolment_reconfirmations` since 2026-09-04 to decide whether a
+  third month of a frequent-absence pattern may be claimed. Nothing could write it, so a third
+  month was never unlocked and the product under-claimed for every service that had done the
+  paperwork.
+
+  `manageCentre`, matching `0092`'s `caller_may_exempt` policies — the same reasoning as the
+  exemption actions above.
+*/
+export async function addReconfirmation(_prev: unknown, form: FormData): Promise<Result> {
+  await requireCapability('manageCentre');
+  const db = await serverDb();
+
+  const childId = str(form, 'childId');
+  const enrolmentId = str(form, 'enrolmentId');
+  const guardianId = str(form, 'guardianId');
+  const confirmedOn = str(form, 'confirmedOn');
+  const outcome = str(form, 'outcome');
+  const method = str(form, 'method');
+  const detail = str(form, 'detail');
+
+  if (!childId || !enrolmentId) return { error: 'Missing enrolment.' };
+  if (!guardianId) return { error: 'Choose which parent or guardian confirmed it.' };
+  if (!ISO_DATE.test(confirmedOn)) return { error: 'Give the date they confirmed it.' };
+  if (!(RECONFIRMATION_OUTCOMES as readonly string[]).includes(outcome)) {
+    return { error: 'Choose whether the agreement stands or the days and times have changed.' };
+  }
+  if (!['portal', 'kiosk', 'paper'].includes(method)) {
+    return { error: 'Choose how it was confirmed.' };
+  }
+
+  /*
+    §6-7 wants revised days documented, and `0092` refuses a revision with no note. Stated here so
+    the message names the rule; enforced there so a hand-posted form gets the same answer.
+
+    Note what this does NOT do: it does not change the booking schedule. §6-7's month four says the
+    agreement "must be changed to match the child's attendance", and that change is a new
+    `child_booking_schedule` block made on the panel below — recording it in two places would give
+    a funding claim two sources for one fact.
+  */
+  if (outcome === 'revised' && !detail.trim()) {
+    return {
+      error:
+        'A revised agreement has to say what changed. Record the new days and times on the agreement below as well.',
+    };
+  }
+
+  try {
+    await addReconfirmationRow(db, {
+      enrolmentId,
+      guardianId,
+      confirmedOn,
+      outcome: outcome as ReconfirmationOutcome,
+      method: method as 'portal' | 'kiosk' | 'paper',
+      detail: detail || null,
+    });
+  } catch (e) {
+    return actionError(e, 'children.addReconfirmation');
+  }
+  revalidatePath(`/children/${childId}/documents`);
+  return { ok: true };
+}
+
+export async function removeReconfirmation(_prev: unknown, form: FormData): Promise<Result> {
+  await requireCapability('manageCentre');
+  const db = await serverDb();
+
+  const childId = str(form, 'childId');
+  const id = str(form, 'reconfirmationId');
+  if (!childId || !id) return { error: 'Missing reconfirmation.' };
+
+  try {
+    await deleteReconfirmationRow(db, id);
+  } catch (e) {
+    return actionError(e, 'children.removeReconfirmation');
   }
   revalidatePath(`/children/${childId}/documents`);
   return { ok: true };

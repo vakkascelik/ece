@@ -138,6 +138,42 @@ export interface AbsenceExemption {
   notes: string | null;
 }
 
+/**
+ * §6-7's two reconfirmation outcomes, and they are not degrees of one thing.
+ *
+ * *"Signed, dated confirmation from parents/guardians either affirming the agreement remains valid
+ * or documenting revised attendance days/times."*
+ *
+ * **Affirmed** says the absences were incidental and the agreement was right. **Revised** says the
+ * agreement was wrong, and satisfies month four's *"the enrolment agreement must be changed to
+ * match the child's attendance"* — by a new `child_booking_schedule` block, not by this row.
+ *
+ * Both unlock a third-month claim. The distinction matters for what happens next, not for the
+ * claim, which is why `assessFrequentAbsence` takes only the dates.
+ */
+export const RECONFIRMATION_OUTCOMES = ['affirmed', 'revised'] as const;
+export type ReconfirmationOutcome = (typeof RECONFIRMATION_OUTCOMES)[number];
+
+export const RECONFIRMATION_OUTCOME_LABELS: Record<ReconfirmationOutcome, string> = {
+  affirmed: 'The agreement still stands',
+  revised: 'The days or times have changed',
+};
+
+/** One recorded §6-7 reconfirmation — a row of `enrolment_reconfirmations` (0092). */
+export interface EnrolmentReconfirmation {
+  id: string;
+  enrolmentId: string;
+  /** Who confirmed it. §6-7 wants a named parent or guardian, not "the family". */
+  guardianId: string;
+  guardianName: string | null;
+  confirmedOn: string;
+  outcome: ReconfirmationOutcome;
+  /** `portal`, `kiosk` or `paper` — the same enum attendance verification uses (0061). */
+  method: 'portal' | 'kiosk' | 'paper';
+  /** What changed, in words. Required when the outcome is `revised`. */
+  detail: string | null;
+}
+
 export const THREE_WEEK_RULE_DAYS = 21;
 export const EXEMPT_WINDOW_DAYS = 84;
 

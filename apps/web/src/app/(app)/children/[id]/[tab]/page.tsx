@@ -12,6 +12,7 @@ import {
   listCustodyArrangements,
   listBookingSchedule,
   listExemptionsForChild,
+  listReconfirmationsForChild,
   listEnrolments,
   guardianPinStatus,
   listGuardiansOfChild,
@@ -43,6 +44,7 @@ import { CustodyPanel } from '../CustodyPanel';
 import { DetailsForm } from '../DetailsForm';
 import { BookingSchedulePanel } from '../BookingSchedulePanel';
 import { ExemptionPanel } from '../ExemptionPanel';
+import { ReconfirmationPanel } from '../ReconfirmationPanel';
 import { EnrolmentPanel } from '../EnrolmentPanel';
 import type { WitnessOption } from '../GiveMedicine';
 import { HealthPanel, type DosesToday } from '../HealthPanel';
@@ -482,7 +484,7 @@ export default async function ChildTabPage({
   // Documents: the paperwork. Consent decisions, the enrolment, the identity record, and
   // leaving — the things a manager opens sitting down, which is why they are behind a tab
   // rather than above the fold.
-  const [consents, history, requests, whanau, enrolments, schedule, exemptions] =
+  const [consents, history, requests, whanau, enrolments, schedule, exemptions, reconfirmations] =
     await Promise.all([
     listConsents(db, id),
     listConsentHistory(db, id),
@@ -491,6 +493,7 @@ export default async function ChildTabPage({
     listEnrolments(db, id),
     listBookingSchedule(db, [id]),
     listExemptionsForChild(db, id),
+    listReconfirmationsForChild(db, id),
   ]);
   const ownGuardianId = whanau.find((g) => g.guardian.userId === ctx.userId)?.guardian.id ?? null;
   const currentEnrolment = enrolments.find((e) => isEnrolmentCurrent(e, today));
@@ -596,6 +599,18 @@ export default async function ChildTabPage({
           this table since 2026-09-04 and nothing could write it until 2026-09-05, so every
           absence window was three weeks — see AST50's mapping table, which is what found it.
         */}
+        {/*
+          §6-7's reconfirmations, beside the agreement they unlock a claim against. Same story as
+          the exemptions above: read by the funding calculation since 2026-09-04, writable since
+          2026-09-05.
+        */}
+        <ReconfirmationPanel
+          childId={id}
+          enrolmentId={currentEnrolment?.id ?? null}
+          reconfirmations={reconfirmations}
+          guardians={signatories}
+          canEdit={can(ctx.role, 'manageCentre')}
+        />
         <ExemptionPanel
           childId={id}
           enrolmentId={currentEnrolment?.id ?? null}

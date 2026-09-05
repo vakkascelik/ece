@@ -7,6 +7,48 @@ itself, and from the wiki pages, which hold the durable *why*. This file is the 
 
 ---
 
+## 2026-09-05 (eleventh) — the third month, unlocked
+
+`ReconfirmationPanel`. Second of the three write paths that were missing.
+
+### The money it was costing
+
+§6-7's timeline: month one, note and claim. Month two, re-check and claim. **Month three, the
+absences may only be claimed if the agreement has been reconfirmed.** Month four, not claimable at
+all and the agreement must change.
+
+`readFundingPeriod` has read `enrolment_reconfirmations` since 2026-09-04 to answer exactly that
+question. Nothing could write it. So the answer was always *no reconfirmation exists*, month three
+was never unlocked, and a service that had done the paperwork got a smaller claim than it was owed.
+
+### Two outcomes, and keeping them apart
+
+*"Either affirming the agreement remains valid or documenting revised attendance days/times."*
+
+**Affirmed** says the absences were incidental. **Revised** says the agreement was wrong. Both
+unlock month three, which is why `assessFrequentAbsence` takes only the dates — but they mean
+different things next, and month four's *"the enrolment agreement must be changed"* is satisfied by
+a new `child_booking_schedule` block rather than by this row.
+
+So the panel records the *conversation* and refuses to record the *pattern*. The form says it in
+words: record the new days on the agreement below as well. Writing them here too would give a
+funding claim two sources for one fact, which is the failure item 53 exists about.
+
+### The divergence worth keeping
+
+Every other dated table in this product refuses overlapping periods — exemptions, closures, booking
+schedule blocks. This one must not. §6-7 expects a persisting pattern to be reconfirmed **again**,
+so `0092` has no period and no exclusion constraint, only one per agreement per day.
+
+`0092`'s header already recorded that an exclusion constraint copied out of habit would have refused
+exactly what the rule asks for. The screen had the same temptation in a different form — offering to
+*update* the existing reconfirmation rather than add another — and it does not.
+
+### One left
+
+`staff_off_floor`: §9-4's staff hours, and the only one of the three that also moves a live ratio
+figure rather than a funding one.
+
 ## 2026-09-05 (tenth) — the rule that could not receive its input
 
 `ExemptionPanel`, and the reason it did not exist is worth more than the panel.
