@@ -31,15 +31,27 @@ is that it does not assert what it has not checked.
 | Document Completed By | `[OWNER]` |
 | Date Submitted for Review | `[OWNER]` |
 | Primary Contact Person / Contact Details | `[OWNER]` |
-| Registered office / company location | `[OWNER]` — field 8. It is on the public Companies Office register and is **not** in this repository; it must be copied from the register rather than guessed |
+| Registered office / company location | **Supplied by the owner 2026-09-05 and deliberately held outside this repository.** Field 8 is answered; the address goes in the submitted form. See the note below |
 
-**Two identifiers were supplied and only one is written down, deliberately.** The NZBN is above
-because the New Zealand Business Number register is public by design — anyone can look up Salix
-Limited and read it — and the form may want it. **The company's IRD number was also supplied and is
-deliberately absent from this repository**, which is public: an IRD number is a tax identifier used
-to establish identity with Inland Revenue and with third parties, it is not on any public register,
-and **the application form does not ask for one.** If a later Ministry document does, it goes in the
-submitted file and not into version control.
+**Three facts were supplied and one is written down, deliberately.** The NZBN is above because the
+New Zealand Business Number register is public by design — anyone can look up Salix Limited and read
+it — and the form may want it.
+
+**The company's IRD number is absent from this repository**, which is public: an IRD number is a tax
+identifier used to establish identity with Inland Revenue and with third parties, it is not on any
+public register, and **the application form does not ask for one.**
+
+**The registered office is absent too, and that one is a judgement rather than a rule.** It *is* on
+the public Companies Office register, so by the test in `AGENTS.md §7` — on a public register,
+therefore recordable — it could go in. It is not going in, because the test is a shorthand for the
+purpose behind it and the purpose is *nothing that identifies a person*. A one-director company's
+registered office is usually somebody's home, and this one has the shape of one. Being already
+public is a real mitigation and it is not the same exposure: a register you have to query is not a
+public git repository that is cloned, indexed, scraped and trained on.
+
+Nothing is lost by keeping it out. The application form is not version-controlled, so the address
+goes in the document that is sent. **The rule is about what gets published, not about what is
+disclosed to the Ministry** — they are entitled to all three of these and get all three.
 
 ---
 

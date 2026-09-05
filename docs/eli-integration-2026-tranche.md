@@ -163,13 +163,19 @@ the applicant confirms:
    owner from the Inland Revenue registration notice. So fields 5 and 6 are answerable and were
    the largest of the `[OWNER]` blocks on the form.
 
-   **Field 8, the company's location, is still open**: it sits on the public Companies Office
-   register and is not in this repository, so it is copied from the register rather than
-   reconstructed from the `pif.org.nz` contact address the documents use.
+   **Field 8, the company's location, was supplied the same day and is deliberately not recorded
+   here.** It is on the public Companies Office register, so the shorthand test in `AGENTS.md §7`
+   would admit it — but a one-director company's registered office is usually somebody's home, and
+   the purpose behind that test is *nothing that identifies a person*. Already-public is a real
+   mitigation and not the same exposure: a register you have to query is not a public git
+   repository that is cloned, indexed and scraped.
 
-   The company's IRD number was supplied alongside the NZBN and is **deliberately not recorded in
-   this repository, which is public.** The NZBN is public-register data by design; an IRD number is
-   a tax identifier on no public register, and the application form does not ask for one.
+   The company's IRD number was supplied alongside the NZBN and is likewise **not recorded in this
+   repository, which is public.** The NZBN is public-register data by design; an IRD number is a
+   tax identifier on no public register, and the application form does not ask for one.
+
+   **All three go to the Ministry.** The form is not version-controlled, and the rule is about what
+   gets published rather than about what is disclosed to an assessor entitled to it.
 
 2. **The existing-relationship declaration.** Field 9: *"Do you or the company have any existing
    relationship with the Ministry of Education (e.g. software support, licensee of ECE service)"*.

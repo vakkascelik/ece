@@ -5,6 +5,34 @@ says so.*
 
 ---
 
+2026-09-05 (eighteenth) — **The entity block closes, and the second thing kept out of the repository
+was kept out on judgement rather than on the rule.**
+
+The registered office arrived, so form fields 5, 6 and 8 are all answered and the largest `[OWNER]`
+block on the assessment is gone.
+
+**It is not recorded here, and the interesting part is that the rule written yesterday would have
+admitted it.** `AGENTS.md §7` now says: on a public register, therefore recordable — which is how
+the NZBN got in and the IRD number stayed out. A company's registered office *is* on the public
+Companies Office register, so the shorthand says yes.
+
+The shorthand is a proxy for the purpose, and the purpose is *nothing that identifies a person*. A
+one-director company's registered office is usually somebody's home, and this one has the shape of
+one. Already-public is a real mitigation and it is not the same exposure: **a register you have to
+query is not a public git repository that is cloned, indexed, scraped and trained on.**
+
+Worth writing down because it is the first time one of these tests has been *overridden* rather than
+applied, and a shorthand nobody is willing to override is a shorthand that will eventually be wrong
+in the expensive direction. The general form: when a rule and the reason for the rule disagree,
+follow the reason and say so in the same breath, so the next reader does not conclude the rule was
+forgotten.
+
+Nothing is lost. The application form is not version-controlled, so the address and the IRD number
+are typed into the document that is sent. **The rule governs what gets published, not what is
+disclosed to an assessor entitled to it** — the Ministry gets all three.
+
+---
+
 2026-09-05 (seventeenth) — **The applicant has a legal identity, and one of the two identifiers it
 came with is deliberately not written down.**
 
