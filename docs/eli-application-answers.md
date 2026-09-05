@@ -1072,12 +1072,69 @@ right shapes for both; neither is built.
 
 **AST50 — the RS7 data-source table.**
 
-`[GAP]` **None of the return's parameters is currently produced.** What exists is per-child funded
-hours over an operator-chosen period, with caps, an age band and completeness reporting. The return
-wants **per-calendar-date counts** — subsidy-funded under two, subsidy-funded two and over, 20
-Hours funded, 20 Hours plus ten, and staff hours split qualified and not qualified — plus forward
-monthly counts of all-day, sessional and parent-led days, and a declaration including the pay
-parity attestation code.
+~~`[GAP]` **None of the return's parameters is currently produced.**~~ **All of them are, as of
+2026-09-05.** The table below is the data-source mapping the template asks for: for every parameter,
+its source, where it is editable, and a comment. No field is left blank.
+
+`/funding/rs7` renders these figures and `/funding/rs7.csv` exports them. Neither submits anything,
+and every label on both says *preparation*.
+
+### The nine counts
+
+| Parameter | Source | Where editable | Comment |
+|---|---|---|---|
+| `SubsidyFundedChildUnderTwoCount` | `rs7.ts`, from `childFunding`'s daily capped hours where `ageInMonths(dob, date) < 24` | Attendance: the roll, the kiosk and the mobile app. Date of birth: the child record. The agreement: the child record's Documents tab | Age is judged **as at the date being counted**, never as at today — a child who turned two in March was under two in February. Rounded to the nearest whole hour at the daily total across children, per §9-2 step 5 |
+| `SubsidyFundedChildTwoAndOverCount` | As above, for children two and over, **less the hours claimed as 20 Hours ECE** | As above | §9-2 says *"less any hours for children claimed as 20 Hours ECE"* and does not say whether Plus 10 hours are included in that deduction. We deduct **both**, which under-claims, and the return states which reading produced the figure. Unresolved — see the questions at the end of this document |
+| `TwentyHoursFundedChildCount` | `rs7.ts`, the first twenty funded hours of each ISO week for an attested child | The 20 Hours attestation: the child record's enrolment panel | §9-3 gives the split **weekly**; RS7 wants it **daily**. We allocate in date order, which preserves the weekly totals the Handbook does state. Disclosed on every return |
+| `TwentyHoursFundedChildPlusTenCount` | As above, the remainder up to the 30-hour weekly cap | As above | Same daily allocation, same disclosure |
+| `StaffHourQualifiedCount` | `staffHours.ts` — paired `staff_attendance_events` minus `staff_off_floor` intervals, for a person holding a current practising certificate **on that date** | Staff attendance: the staff screen. Practising certificates: the staff records screen. **Off-floor intervals: NOT EDITABLE — see the gap below** | §9-4 wants hours *"at times when they were counted towards regulated (ratio) staff"*. Rounded to the nearest hour per §9-4's own worked example. **Blank, never zero**, for a service that records adult numbers as a typed total rather than per person |
+| `StaffHourNotQualifiedCount` | As above, for a person with a practising certificate that has lapsed | As above | A person with **no** certificate on file is in **neither** figure and is named as a gap — folding them here would turn a paperwork fact into a claim about a teacher |
+| `AllDayDaysCount` | `rs7AdvanceMonths` — forward operating days from `child_booking_schedule` minus `service_closures`, where `centres.service_model` is `all_day` | Service model: Settings. Closures: Settings. The agreement: the child record | **Blank, not zero**, where the service model is unrecorded or no schedule covers the months: zero forward operating days is a statement that the service is closing |
+| `SessionalDaysCount` | As above, where `service_model` is `sessional` | As above | As above |
+| `ParentLedDaysCount` | As above, where `service_model` is `parent_led` | As above | As above |
+
+### The six declaration fields
+
+Every one is **recorded from the service and none is derived**. `rs7_declarations`, keyed on centre
+**and period** so that one period's attestation cannot carry into the next.
+
+| Parameter | Source | Where editable | Comment |
+|---|---|---|---|
+| `RegisteredTeachersSalariesAttestation` | `rs7_declarations.salaries_attestation` | `/funding/rs7` | Three-state. **NULL is "not stated", which is not "no"** — an unsigned declaration is not a denial. Entered as a radio group with an explicit *Not stated*, because a checkbox posts nothing when unticked and cannot represent the difference |
+| `RegisteredTeachersParityAttestation` | `rs7_declarations.parity_attestation` | `/funding/rs7` | As above |
+| `RegisteredTeachersParityAttestationCode` | `rs7_declarations.parity_attestation_code` | `/funding/rs7` | Constrained to the schema's six values (`NOSTEP`, `STEP1`, `STEP1-6`, `STEP1-11`, `STP1-11P`, `STP1-11F`). **Nothing in the product knows what a parity step means and nothing offers guidance on choosing one** — it is a legal statement by the service about teacher salaries |
+| `SubmitterName` | `rs7_declarations.submitter_name` | `/funding/rs7` | Recorded from whoever submits. Blank is refused rather than stored |
+| `ContactNumber` | `rs7_declarations.contact_number` | `/funding/rs7` | As above |
+| `Designation` | `rs7_declarations.designation` | `/funding/rs7` | As above |
+
+### The envelope
+
+| Parameter | Source | Where editable | Comment |
+|---|---|---|---|
+| `PeriodStartDate` | `ministryFundingPeriods()` — February, June and October the first | Chosen on `/funding/rs7` from the real periods; **not** a free date range | Matches the schema's `[0-9]{4}-(02\|06\|10)-01` pattern. Offering an arbitrary range would produce a return the Ministry cannot accept |
+| `RS7ReturnEntityId` | `N/A` — not produced | `N/A` | A vendor-minted entity id belongs to the **interface**, which is developed after acceptance. Our supersession model already mints stable ids for the events that have them |
+
+### The gap this table surfaced, which is the reason the template asks the question
+
+**Three inputs the calculation reads have no way to be entered through the product.** The rules are
+implemented and mutation-tested; the data collection for them is not built:
+
+| Table | The rule that reads it | Consequence today |
+|---|---|---|
+| `staff_off_floor` (0094) | §9-4's staff hours, and the live ratio | Nothing is subtracted, so counted hours equal hours present |
+| `absence_exemptions` (0089) | §7-7's twelve-week absence window | Every window is three weeks; the product **under-claims** |
+| `enrolment_reconfirmations` (0092) | §6-7's third-month claim | A third month is never unlocked; the product **under-claims** |
+
+All three read paths exist and are exercised by tests against the live schema. All three error in the
+direction of claiming less, which is the direction we choose everywhere — but a rule that cannot
+receive its input is not a rule a service can rely on, and we would rather say so here than have it
+found. Screens for these are the immediate next work.
+
+### What the return still cannot do
+
+Submit. That is the interface, and the Ministry's own guidance is that the integration components
+are developed **after** acceptance. Every label on the screen and every line in the file says
+preparation.
 
 **The count, measured rather than recalled (2026-09-03).** This answer previously said *"thirteen
 parameters"* while three other documents said *"eleven"*; neither was sourced. Against the schema at
@@ -1098,13 +1155,21 @@ preparation figure never overstates what a service may claim. That is the right 
 current screen and the wrong behaviour for RS7, so the two cannot share a rounding helper. Recorded
 before any RS7 code was written.
 
-Three distinct blockers, worth separating because they are not the same size:
+Three distinct blockers were recorded here on 2026-09-03. **Two are closed and the third changed
+shape**, and they are left in place rather than deleted because the sizing turned out to be right
+and that is worth showing:
 
-1. **A transposition.** Per-child-per-period to per-date-per-category. Our code already evaluates
-   age bands as at a given day, both for the funding age band and for the live ratio split, so this
-   is real work but not new thinking.
-2. **The staff data does not exist.** The two staff-hour counts need a qualification column. Same
-   blocker as AST47.
+1. ~~**A transposition.** Per-child-per-period to per-date-per-category.~~ **Built 2026-09-05 —
+   `rs7.ts`.** As predicted, real work and not new thinking: the age bands were already evaluated
+   as at a given day. What was *not* predicted is that §9-2 rounds the **daily total across
+   children**, so a per-child implementation gives a different answer — three children at 2.5 hours
+   are 8, not 9, and not the 6 our floor-rounding helper would give.
+2. ~~**The staff data does not exist.**~~ **Built 2026-09-05 — `0094`, `0095`, `staffHours.ts`.**
+   The qualification split keys on a **current practising certificate as at the date counted**, not
+   on the census qualification code, which is free text against a list the Ministry has not
+   published. What the sizing missed is that hours *present* are not hours *counted*: §9-4 wants
+   time when a person counted towards regulated staff, so `staff_off_floor` records the exceptions
+   and the ratio subtracts them too.
 3. ~~**The service model does not exist.**~~ **Half built 2026-09-03 — `0083`.** All-day,
    sessional and parent-led day counts need a service type on `centres`, and `service_model` now
    holds exactly those three values, settable in Settings, so the RS7 advance counts have their
@@ -1116,9 +1181,10 @@ And one thing we will not do: the pay parity attestation codes are a legal state
 about teacher salaries. We will build the mechanism to record and transmit the service's own
 attestation; we will not derive or default it.
 
-**What is worth saying alongside all of that**, because it is the reason to trust the arithmetic
-when it is built: this product's funding calculation is deliberately conservative and states its
-own limits. Every rounding decision floors. The daily cap is applied before the weekly one, because
+**What is worth saying alongside all of that**, because it is the reason to trust the arithmetic:
+this product's funding calculation is deliberately conservative and states its own limits. Every
+rounding decision in the *preparation* figures floors — RS7's own figures round to nearest, in a
+function that is not exported so the two can never be confused. The daily cap is applied before the weekly one, because
 the other order over-claims by making one day's excess transferable to another. A day whose record
 is broken is **excluded and named, never estimated** — the dates are listed, not counted. A period
 the records do not cover reports as *not covered* rather than as zero, in three states where null is
