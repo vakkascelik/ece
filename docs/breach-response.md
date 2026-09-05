@@ -106,7 +106,7 @@ cause can follow, and the families' ability to protect themselves cannot.
 | | |
 |---|---|
 | Centre privacy officer | *(a centre adopting this fills this in)* |
-| Salix | vakkas@pif.org.nz |
+| Salix Limited (NZBN 9429053674067) | vakkas@pif.org.nz |
 | Office of the Privacy Commissioner | privacy.org.nz · NotifyUs |
 | Supabase support | via the project dashboard |
 

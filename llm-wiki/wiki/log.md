@@ -5,6 +5,33 @@ says so.*
 
 ---
 
+2026-09-05 (seventeenth) — **The applicant has a legal identity, and one of the two identifiers it
+came with is deliberately not written down.**
+
+The owner supplied Inland Revenue's registration notice. The applicant is **Salix Limited**, a New
+Zealand registered company, **NZBN 9429053674067**, incorporated 15 May 2026. That closes the
+largest `[OWNER]` block on the assessment form — fields 5 and 6, the company name and whether it is
+registered here — which [[unverified-claims]] and the tranche document had both refused to guess at.
+Field 8, the registered office, stays open: it is on the public Companies Office register and is
+copied from there rather than reconstructed from the `pif.org.nz` address the documents use.
+
+**The notice carried an IRD number as well, and it is not in this repository.** The repository is
+public — verified, not assumed: an unauthenticated `GET` on the GitHub API returns 200. An NZBN is
+public-register data by design, so anyone can look up Salix Limited and read it, and the form may
+want it. An IRD number is a tax identifier on no public register, used to establish identity with
+Inland Revenue and with third parties, and **the application form does not ask for one.** If a later
+Ministry document does, it goes in the submitted file rather than into version control. Recorded
+here so the absence reads as a decision and not as an oversight somebody helpfully corrects.
+
+**Two customer-facing documents gained the legal entity**, which is the part with substance beyond
+the form. [[privacy-and-retention]]'s statement and the breach runbook both named *Salix* — a
+trading name with nothing behind it. A family reading a privacy statement should be able to
+identify who holds their child's records and, if it came to it, who the services agreement is with;
+a trading name answers neither. The company is now named on first use, with the short form kept for
+the rest.
+
+---
+
 2026-09-05 (sixteenth) — **`0097` becomes a feature. It had been a schema for a day, and the
 application already said it was built.**
 

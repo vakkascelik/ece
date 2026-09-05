@@ -25,11 +25,21 @@ is that it does not assert what it has not checked.
 
 | Field | Value |
 |---|---|
-| Name of Organisation | `[OWNER]` — the repo names the vendor *Salix*; whether the applicant is Salix or Pearl of the Islands Foundation, and whether it is a registered NZ company, is not recorded here |
+| Name of Organisation | **Salix Limited** — a New Zealand registered company, NZBN **9429053674067**, incorporated 15 May 2026. Confirmed by the owner 2026-09-05 from the Inland Revenue registration notice. This row read `[OWNER]` until then |
+| Registered in New Zealand? | **Yes.** The form asks it as a yes/no and the answer is evidenced rather than assumed |
 | Name of SMS | **Doorway** — `[FIX FIRST]` the name has never been trademark- or domain-checked (recorded in `unverified-claims`). Worth five minutes before it goes on a Crown application |
 | Document Completed By | `[OWNER]` |
 | Date Submitted for Review | `[OWNER]` |
 | Primary Contact Person / Contact Details | `[OWNER]` |
+| Registered office / company location | `[OWNER]` — field 8. It is on the public Companies Office register and is **not** in this repository; it must be copied from the register rather than guessed |
+
+**Two identifiers were supplied and only one is written down, deliberately.** The NZBN is above
+because the New Zealand Business Number register is public by design — anyone can look up Salix
+Limited and read it — and the form may want it. **The company's IRD number was also supplied and is
+deliberately absent from this repository**, which is public: an IRD number is a tax identifier used
+to establish identity with Inland Revenue and with third parties, it is not on any public register,
+and **the application form does not ask for one.** If a later Ministry document does, it goes in the
+submitted file and not into version control.
 
 ---
 

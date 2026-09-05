@@ -158,12 +158,18 @@ the applicant confirms:
 
 **Two things nobody in this repo can decide, and both belong on the form:**
 
-1. **The legal entity.** Fields 5, 6 and 8 ask for a company name, whether it is registered in New
-   Zealand, and its location. The product is referred to throughout this repo as *Salix*
-   ([privacy-statement](privacy-statement.md), [breach-response](breach-response.md)), whose
-   contact address is a `pif.org.nz` mailbox. Whether Salix is a registered New Zealand company,
-   and whether it or Pearl of the Islands Foundation is the applicant, is not recorded anywhere in
-   this repo and must not be guessed on a form.
+1. ~~**The legal entity.**~~ **ANSWERED 2026-09-05.** The applicant is **Salix Limited**, a New
+   Zealand registered company, NZBN **9429053674067**, incorporated 15 May 2026 — confirmed by the
+   owner from the Inland Revenue registration notice. So fields 5 and 6 are answerable and were
+   the largest of the `[OWNER]` blocks on the form.
+
+   **Field 8, the company's location, is still open**: it sits on the public Companies Office
+   register and is not in this repository, so it is copied from the register rather than
+   reconstructed from the `pif.org.nz` contact address the documents use.
+
+   The company's IRD number was supplied alongside the NZBN and is **deliberately not recorded in
+   this repository, which is public.** The NZBN is public-register data by design; an IRD number is
+   a tax identifier on no public register, and the application form does not ask for one.
 
 2. **The existing-relationship declaration.** Field 9: *"Do you or the company have any existing
    relationship with the Ministry of Education (e.g. software support, licensee of ECE service)"*.

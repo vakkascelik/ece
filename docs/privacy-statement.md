@@ -9,7 +9,13 @@ matters.
 
 Under the Privacy Act 2020, the **agency** that collects personal information carries
 the obligations. When a family gives a centre their child's allergies, the agency is
-**the centre**. Salix runs the software the centre uses to hold it.
+**the centre**. **Salix Limited** — a New Zealand registered company, NZBN
+9429053674067 — runs the software the centre uses to hold it, and is called *Salix*
+for short from here on.
+
+The company is named rather than the product because a family reading this should be
+able to identify who holds their child's records and, if it came to it, who the
+services agreement is with. Naming only a trading name would leave both unanswerable.
 
 The Act treats information held by one agency **as agent for** another as being held by
 the principal, not the agent — so the centre remains the agency answerable to a family
