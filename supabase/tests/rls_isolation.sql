@@ -6072,6 +6072,73 @@ select pg_temp.expect(
 );
 
 /*
+ * 0095 — AN ADULT ON THEIR BREAK DOES NOT COUNT.
+ *
+ * Two people are signed in at this point. Putting one of them inside an off-floor
+ * interval that spans the centre's current wall clock must drop the count to one, and
+ * an interval that does NOT span it must leave the count alone.
+ *
+ * The clock is the centre's own, computed the way 0095 computes it, because PostgREST
+ * connects as UTC and New Zealand is half a day ahead — a `current_time` here would put
+ * the morning's breaks on the wrong side of midnight and this assertion would pass or
+ * fail depending on the hour the suite is run.
+ */
+-- Recorded by the OWNER: `caller_may_roster` refuses an educator, which the section above
+-- asserts directly. The educator remains the reader, and reads it through the function.
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+insert into public.staff_off_floor (staff_member_id, on_date, from_time, to_time, reason)
+select 'd5555555-5555-4555-8555-555555555555',
+       (now() at time zone ce.timezone)::date,
+       greatest((now() at time zone ce.timezone)::time - interval '30 minutes', time '00:00:00'),
+       least((now() at time zone ce.timezone)::time + interval '30 minutes', time '23:59:59'),
+       'On a break right now'
+  from public.centres ce
+ where ce.id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+select pg_temp.expect(
+  public.adults_present_now('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') = 1,
+  'somebody inside an off-floor interval RIGHT NOW does not count towards the ratio'
+);
+
+set local role postgres;
+delete from public.staff_off_floor
+ where staff_member_id = 'd5555555-5555-4555-8555-555555555555';
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+
+select pg_temp.expect(
+  public.adults_present_now('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') = 2,
+  'and removing the interval puts them back'
+);
+
+/*
+ * An interval on the same day that does NOT contain the current time changes nothing.
+ * Without this, a bug that ignored the times entirely — excluding anybody with any
+ * off-floor row today — would pass the assertion above.
+ */
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","role":"authenticated"}';
+insert into public.staff_off_floor (staff_member_id, on_date, from_time, to_time, reason)
+select 'd5555555-5555-4555-8555-555555555555',
+       (now() at time zone ce.timezone)::date,
+       time '00:00:00', time '00:01:00',
+       'A minute after midnight, long over'
+  from public.centres ce
+ where ce.id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+   and (now() at time zone ce.timezone)::time > time '00:01:00';
+
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+select pg_temp.expect(
+  public.adults_present_now('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') = 2,
+  'an off-floor interval that has already ended does NOT remove them'
+);
+
+set local role postgres;
+delete from public.staff_off_floor;
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"55555555-5555-4555-8555-555555555555","role":"authenticated"}';
+
+/*
  * THE ASSERTION MOST LIKELY TO BE "FIXED" LATER.
  *
  * A derived centre where nobody has signed in reports zero. It looks like a bug and

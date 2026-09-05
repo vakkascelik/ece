@@ -57,9 +57,9 @@ drift in a ratio does not report itself as broken — it reports itself as compl
 
 ### `staff_off_floor` (0094) — the hours an adult was present and not counted
 
-**Schema 2026-09-05; the funding computation the same day; the ratio figure still does not use
-it.** `ratioInputCaveat()` below is **unchanged and still correct**, and that is a decision rather
-than an oversight — see *The caveat cannot be narrowed yet* at the end of this section.
+**Schema, funding computation and ratio exclusion all 2026-09-05, in that order and hours apart.**
+`0095` is what finally lets `ratioInputCaveat()` narrow, and the sentence moved only when the
+behaviour did.
 
 §9-4 wants staff hours *"at times when they were counted towards regulated (ratio) staff"*. Three
 tables each get close and none answers it: `staff_attendance_events` (0039) says when a person was
@@ -94,21 +94,35 @@ per-person staff attendance at all**. There is nothing for these intervals to su
 §9-4's two figures stay unavailable for such a centre and the return reports a named gap rather than
 a zero.
 
-#### The caveat cannot be narrowed yet, and narrowing it would be the familiar mistake
+#### `0095` — the ratio subtracts it, and only then does the caveat move
 
-`countedStaffHours` uses these intervals for **§9-4's funding figures**. The **live ratio** does
-not, and the reason is in `adults_present_now` (0040): on the `derived` source it counts staff whose
-**latest** `staff_attendance_events` row is `in`. Somebody at lunch has not signed out, so they are
-still counted — exactly what the caveat says.
+For four hours on 2026-09-05 the table fed §9-4's funding figures and **nothing else**: the live
+ratio still counted the person at lunch, because `adults_present_now` looks at the *latest*
+attendance row and somebody on a break has not signed out. The caveat was left alone in that window
+deliberately — retiring it then would have put a false sentence on three screens, which is the
+mistake `exportDisclaimer` made the same morning in the other direction.
 
-So the last clause — *"an adult does not count while on a break or on non-contact time"* — remains
-true of the figure it appears beside. Narrowing it now would put a false sentence on three screens,
-which this repo has already done once: `exportDisclaimer` spent a day telling managers the product
-could not record notice, the day after `0093` gave it exactly that.
+`0095` adds the exclusion, **on the `derived` source only**: a declared centre types a total and has
+nothing per-person to subtract, so 0040's no-blending rule stands untouched. Half-open
+`[from_time, to_time)`, matching the exclusion constraint — at exactly 13:00 the person is back on
+the floor, and an inclusive bound would make two adjacent intervals both current for one instant.
 
-**The remaining half of 3B**, then: teach `adults_present_now` to exclude a person whose current
-time falls inside an off-floor interval, on the `derived` source only — a declared centre types a
-number and there is nothing to subtract. That is a migration, and the caveat narrows with it.
+The times come from the centre's own wall clock (`now() at time zone ce.timezone`) rather than
+`current_time`, for the reason AGENTS §4 rule 3 gives: PostgREST connects as UTC and New Zealand is
+half a day ahead, so the morning's breaks would land on yesterday.
+
+**The caveat now says which is which** rather than claiming a flat limitation: where adults are
+counted from their own sign-ins a recorded break is already excluded; where the number is typed in,
+the person typing it must exclude them.
+
+**2/2 mutations caught**, and the second is the one worth having: an implementation that ignored the
+interval's *times* — excluding anybody with any off-floor row that day — still passes "somebody on a
+break right now does not count". It fails only on the assertion about an interval that has already
+ended, which is why that assertion exists.
+
+`0095`'s own inline self-check creates a centre, a member, a sign-in and an interval spanning the
+current wall clock, asserts the count drops by exactly one, and puts back the `ratio_source` it
+borrowed. Unlike `0094`'s, it cannot silently skip.
 
 #### Three things the drills found
 

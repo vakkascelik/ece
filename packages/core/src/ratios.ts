@@ -22,8 +22,11 @@
  *   - Regulation 44A, letting spare under-2 capacity offset the 2-and-over count.
  *   - Regulation 54(4), the sibling rules.
  *   - Who counts. The schedule says every person present aged under 6 counts as a
- *     child — including a staff member's own child, who is not on any roll — and an
- *     adult does not count while at lunch, on a break, or on non-contact time.
+ *     child — including a staff member's own child, who is not on any roll. The adult
+ *     half of that sentence stopped being a gap on the DERIVED source on 2026-09-05:
+ *     `0094` records when somebody is off the floor and `0095` subtracts it from
+ *     `adults_present_now`. A declared centre still types a total, and the caveat
+ *     now says which is which.
  *
  * The last one is the sharpest, because it is about the **inputs** rather than the
  * tables: this product derives the child count from attendance events for enrolled
@@ -202,8 +205,26 @@ function adultsRequiredFor(underTwo: number, twoAndOver: number, under: RatioTab
  * Not a disclaimer about the tables — those are verified. This is about the inputs,
  * and it stays true no matter how carefully the bands are checked: the roll counts
  * enrolled children who were signed in, and the schedule counts every person present
- * aged under 6, including a staff member's own child. The adult count is typed by a
- * person, and an adult on a break does not count.
+ * aged under 6, including a staff member's own child.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * THE BREAK CLAUSE NARROWED, 2026-09-05 — and only after the behaviour changed
+ *
+ * It read *"an adult does not count while on a break or on non-contact time"* as a flat
+ * limitation, and it was true: `adults_present_now` counted, on the `derived` source,
+ * anybody whose most recent attendance row was `in`, and somebody at lunch has not
+ * signed out.
+ *
+ * `0094` gave that fact a table and `0095` taught the function to subtract it, so on
+ * the derived source a recorded break is now excluded. On the **declared** source it is
+ * not, and cannot be: that number is typed by a person and there is nothing per-person
+ * to subtract. So the sentence now says which is which rather than claiming either.
+ *
+ * **It was not narrowed when `0094` shipped**, four hours earlier, because the table
+ * fed §9-4's funding figures and nothing else — the ratio still counted the person at
+ * lunch. Retiring the clause then would have put a false sentence on three screens, the
+ * mistake `exportDisclaimer` made the same morning in the other direction.
+ * ─────────────────────────────────────────────────────────────────────────────
  *
  * TODO(ratios): non-enrolled under-6s have nowhere to be recorded. A "visitors under
  * 6" count on the attendance screen would close it and is a schema change, not a
@@ -248,7 +269,9 @@ export function ratioInputCaveat(): string {
     'sessional, home-based or hospital-based service is on a different schedule and this figure ' +
     'does not apply to it. ' +
     'Counts children signed in today. Schedule 2 also counts any other person present aged under 6, ' +
-    'including a staff member’s own child, and an adult does not count while on a break or on non-contact time.'
+    'including a staff member’s own child. An adult does not count while at lunch, on a break or on ' +
+    'non-contact time: where this centre counts adults from their own sign-ins, a recorded break is ' +
+    'already excluded; where the number is typed in, exclude them as you type it.'
   );
 }
 

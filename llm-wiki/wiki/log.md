@@ -5,6 +5,22 @@ says so.*
 
 ---
 
+2026-09-05 (sixth) — **`0095`: an adult on their break stops counting, and the caveat narrows with
+it.** See [[attendance-and-ratios]].
+
+`0094` gave the fact a table and `countedStaffHours` used it for §9-4's funding figures. For four
+hours the **live ratio** still counted the person at lunch — `adults_present_now` reads the *latest*
+attendance row and somebody on a break has not signed out. `0095` subtracts it, on the `derived`
+source only, half-open `[from, to)`, against the centre's own wall clock.
+
+**Only now does `ratioInputCaveat()` change**, and it says which is which rather than dropping the
+clause: a recorded break is excluded where adults come from sign-ins; where the number is typed, the
+person typing excludes them.
+
+**760/760** RLS assertions, **2/2** mutations caught — including an implementation that ignores the
+interval's times, which passes the obvious assertion and fails only the one about an interval that
+has already ended.
+
 2026-09-05 (fifth) — **§9-4's staff hours computed, and `rs7.ts`'s two staff figures stop being
 `null`.** `countedStaffHours` in `staffHours.ts`; see [[attendance-and-ratios]].
 

@@ -7,6 +7,69 @@ itself, and from the wiki pages, which hold the durable *why*. This file is the 
 
 ---
 
+## 2026-09-05 (sixth) — the ratio subtracts the break, and the caveat finally moves
+
+`0095`. The half of 3B I said this morning could not be done yet.
+
+### The order was the point
+
+Three commits, hours apart, and the sequence matters more than any of them:
+
+1. `0094` — the table. §9-4's funding figures could use it; the ratio could not.
+2. `countedStaffHours` — the funding computation. Still nothing on the ratio.
+3. `0095` — `adults_present_now` subtracts it. **Now** the caveat is false, so now it changes.
+
+In the window between (1) and (3) the caveat stayed exactly as written, and I said so at the time
+rather than quietly narrowing it. `exportDisclaimer` spent a day this morning telling managers the
+product could not record notice, the day after `0093` gave it exactly that — with a unit test
+holding the sentence in place. Doing the same thing in the opposite direction, four hours after
+writing that up, would have been hard to defend.
+
+### What 0095 actually does
+
+On the `derived` source only, a person is not counted if the centre's current wall clock falls
+inside one of their off-floor intervals. Half-open `[from_time, to_time)` — the same bound as the
+exclusion constraint, so at exactly 13:00 the person is back on the floor and two adjacent intervals
+are never both current.
+
+The clock is `now() at time zone ce.timezone`, not `current_time`. AGENTS §4 rule 3: PostgREST
+connects as UTC and New Zealand is half a day ahead, so the morning's breaks would land on
+yesterday's date and the exclusion would silently never fire before noon.
+
+The `declared` branch is untouched. That centre types a total and there is nothing per-person to
+subtract, so 0040's rule — the two sources never blend and never fall back — stands.
+
+**`security invoker`, unchanged, and the new read being invoker-scoped too is the point.**
+`staff_off_floor`'s select policy is `caller_is_staff_for_member`, exactly like
+`staff_attendance_events`. A caller who cannot see the attendance cannot see the exclusions either,
+so both answer the same way. A definer read would have let somebody who can see neither still be
+affected by one — the same room, a different number, depending on who asked.
+
+### The mutation worth having
+
+2/2 caught, and the second is the one that justifies an extra assertion. An implementation that
+forgot the *time* comparison — excluding anybody with any off-floor row that day — still passes
+*"somebody on a break right now does not count"*. It fails only on *"an off-floor interval that has
+already ended does NOT remove them"*, which exists for exactly that reason.
+
+The first mutation is the state of the world an hour ago, which makes it a regression test for the
+migration itself.
+
+### And this self-check could not skip
+
+`0094`'s inline check took its "no staff members" early return and printed a notice, which in a diff
+looks like coverage. `0095`'s creates everything it needs — a centre on the derived source, a member,
+a sign-in, an interval spanning the current wall clock — asserts the count drops by **exactly one**,
+and puts back the `ratio_source` it borrowed.
+
+That last part matters: a self-check that leaves a centre on a different ratio source than it chose
+would change a live figure in order to prove a point about a live figure.
+
+### 3B is done
+
+Schema, funding computation, ratio exclusion, caveat. Next is 3D — the six declaration fields, all
+of which are statements by the service and none of which may be derived.
+
 ## 2026-09-05 (fifth) — §9-4 computed, and a caveat I decided not to narrow
 
 `countedStaffHours` in `packages/core/src/staffHours.ts`, and `rs7.ts` now places the result.
