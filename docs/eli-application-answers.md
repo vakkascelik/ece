@@ -435,7 +435,7 @@ Retention: **indefinite**, and by design it could not be otherwise without a mig
 always quietly there.
 
 *What a Ministry auditor can see, and this is where the answer weakens.* Through the product: a
-printable evidence binder, ratio history, per-register views and six CSV exports. The binder
+printable evidence binder, ratio history, per-register views and seven CSV exports. The binder
 **deliberately never says "compliant"** — it opens by stating what it is derived from and what it
 cannot show: ratio history comes from sign-in events, so a child present but never signed in does
 not appear, and "no breach recorded" is not a guarantee ratios were kept; adult counts are figures
@@ -450,7 +450,7 @@ service and filterable by date and entity, is a small piece of work and the righ
 question; it is not built today.
 
 `[FIX FIRST]` Our own customer-facing privacy statement tells families that "176 automated
-assertions test this on every change". The suite is at **607**. The number understates the product
+assertions test this on every change". The suite is at **778** as at 2026-09-05, and the privacy statement should not quote a number that moves every week — it should say the suite exists and where the current count is printed. The number understates the product
 and is still an unmaintained figure in a document a family reads.
 
 **AST13 — data integrity, and which users can alter records.**
@@ -527,7 +527,7 @@ AST46.
 ## SMS Version Control
 
 **AST15 — version control on production.** Git, single `main` branch, linear history, hosted on
-GitHub. Every schema change is a numbered, forward-only SQL migration — 79 to date, no gaps, none
+GitHub. Every schema change is a numbered, forward-only SQL migration — 97 to date, no gaps, none
 ever removed. `[OWNER]` **the repository is public**, which is a deliberate decision and one the
 Ministry should hear from us rather than discover: no credential is in it, but every policy, our
 complete catalogue of what nobody has checked, our breach runbook and a named customer are.
@@ -560,9 +560,9 @@ is a new migration, and the status command tells you what you are rolling back o
 
 | Suite | Scale | What it proves |
 |---|---|---|
-| Unit | **678 tests across 47 files**, Vitest — measured by running them on 2026-09-03, not counted from source, across five workspaces (core 554, web 67, site 40, api 11, ai 6). The previous figure here was 631 across 46 files on 2026-09-02; the difference is the census suite | Ratios, funding, hours, roll, CSV, redaction, the offline queue, capabilities, date handling, the ECE Return's staffing section |
-| **RLS isolation** | **634 assertions**, one self-contained 8,880-line SQL script — the count is the one the runner prints, measured 2026-09-03 (previously stated as 607 over 8,435 lines) | Two services and two members, each impersonated exactly as the API layer would by setting the role and the JWT claims; neither can read *or write* the other's rows, in both directions; guardianship inside a service; and six catalogue-driven class assertions that cover tables which do not exist yet |
-| End-to-end and accessibility | Playwright + axe-core. **119 passing as at 2026-09-03** — see the disclosure below | 21 screens across owner and parent sessions against **WCAG 2.2 AA with all six axe tags**, on a production build, with data seeded — because auditing an empty page measures nothing. The role matrix in the same suite proves an educator cannot open the office screens and a parent cannot open another family's child by URL: the second tenant boundary, checked at the HTTP layer as well as in Postgres |
+| Unit | **844 tests across 52 files**, Vitest — measured by running them on 2026-09-05, not counted from source, across five workspaces (core 710, web 67, site 40, api 21, ai 6). Previously 678 across 47 files on 2026-09-03; the difference is the four absence rules, the RS7 return and the staff-hour calculation | Ratios, funding, hours, roll, CSV, redaction, the offline queue, capabilities, date handling, the ECE Return's staffing section, **the RS7 per-date and advance-month counts, staff hours net of off-floor time, and the operating calendar** |
+| **RLS isolation** | **778 assertions**, one self-contained 11,110-line SQL script — the count is the one the runner prints, measured 2026-09-05 (previously 634 over 8,880 lines on 2026-09-03, and 607 before that). The rise is four new tenant-scoped tables: `staff_off_floor`, `rs7_declarations`, `child_identity_documents` and the §6-7 reconfirmations | Two services and two members, each impersonated exactly as the API layer would by setting the role and the JWT claims; neither can read *or write* the other's rows, in both directions; guardianship inside a service; and six catalogue-driven class assertions that cover tables which do not exist yet |
+| End-to-end and accessibility | Playwright + axe-core. **125 passing as at 2026-09-05** — see the disclosure below. Previously 119 on 2026-09-03 | **47 accessibility audits** — 37 staff screens, four unauthenticated pages and six phone-width checks of the shell — across owner and parent sessions against **WCAG 2.2 AA with all six axe tags**, on a production build, with data seeded — because auditing an empty page measures nothing. The role matrix in the same suite proves an educator cannot open the office screens and a parent cannot open another family's child by URL: the second tenant boundary, checked at the HTTP layer as well as in Postgres |
 | Live-schema security review | 17 checks | RLS enabled everywhere; a policy on every reachable table; append-only grants; definer functions with pinned search paths; the consent gate restrictive; invitation hashes unreadable; no public storage bucket; `anon` holding no grants |
 | Purpose-built drills | 4 | The offline queue against live PostgreSQL (10/10); the PostgREST row cap (1,200 events, exactly 50.00 hours); a full extract-and-reload restore (6/6 over 12,930 rows and 72 tables); documentation link integrity |
 | Budgets | gzipped bytes | First-load JS, CSS and middleware, per app |
@@ -617,7 +617,7 @@ update did not silently match nothing; it is not evidence that anything was writ
 
 The cause was a missing column privilege. Migration `0066` added `incidents.room_id` without adding
 it to the column-scoped UPDATE grant, so **no incident draft could be corrected between 2026-08-28
-and `0082`** — on a compliance record. The end-to-end suite is now **119 passing, 0 failing**, and
+and `0082`** — on a compliance record. The end-to-end suite is now **125 passing, 0 failing** (measured 2026-09-05; 119 on 2026-09-03), and
 the RLS suite carries an assertion that fails against a database without `0082`.
 
 **Two honest lessons, and both are arguments for the test environment `AST06` asks for.**
@@ -893,7 +893,7 @@ must change:
 | An attestation date and **per-weekday hours** for 20 Hours | **Half done — `0084`** added `twenty_hours_attested_on`/`_by`, paired by a CHECK. The per-weekday split is still absent |
 | ~~A service closure record~~ | **Done — `0088`**, plus `0091`'s `claimed_as_emergency` and three-state ERO approval, because §7-5 makes an approved emergency closure claimable and a term break not |
 | ~~A service type on `centres`~~ | **Done — `0083`.** `licence_type` and `service_model`, settable in Settings. RS7's advance counts now have their axis; the **ratio schedules** for sessional and home-based are still untranscribed, which is a different gap |
-| The entire staff/census surface | Eleven of fifteen fields have no column |
+| ~~The entire staff/census surface~~ | ~~Eleven of fifteen fields have no column~~ — **built 2026-09-02/03**, `0080`/`0081`; see AST47. What remains is the six fields blocked on unpublished Ministry code lists |
 | `EntityId` columns for children and enrolments | See AST42 |
 
 **AST39 — XML message creation and validation before sending to InfoHub, and informing the user of
@@ -966,7 +966,7 @@ claiming 243 — diagnosed as a dump of the browser's offline cache rather than 
 
 **AST46 — exporting a service's data when it leaves.**
 
-`[GAP]` **There is no self-service export-everything path.** What exists: six per-domain CSV
+`[GAP]` **There is no self-service export-everything path.** What exists: seven per-domain CSV
 exports, each re-checking authorisation itself (and two deliberately *stricter* than the screen
 they sit beside — a parent reads the children screen and sees one child, but a *file* leaves the
 product and sits in a downloads folder), printable views, and an operator-run whole-database extract
@@ -1087,7 +1087,7 @@ and every label on both says *preparation*.
 | `SubsidyFundedChildTwoAndOverCount` | As above, for children two and over, **less the hours claimed as 20 Hours ECE** | As above | §9-2 says *"less any hours for children claimed as 20 Hours ECE"* and does not say whether Plus 10 hours are included in that deduction. We deduct **both**, which under-claims, and the return states which reading produced the figure. Unresolved — see the questions at the end of this document |
 | `TwentyHoursFundedChildCount` | `rs7.ts`, the first twenty funded hours of each ISO week for an attested child | The 20 Hours attestation: the child record's enrolment panel | §9-3 gives the split **weekly**; RS7 wants it **daily**. We allocate in date order, which preserves the weekly totals the Handbook does state. Disclosed on every return |
 | `TwentyHoursFundedChildPlusTenCount` | As above, the remainder up to the 30-hour weekly cap | As above | Same daily allocation, same disclosure |
-| `StaffHourQualifiedCount` | `staffHours.ts` — paired `staff_attendance_events` minus `staff_off_floor` intervals, for a person holding a current practising certificate **on that date** | Staff attendance: the staff screen. Practising certificates: the staff records screen. **Off-floor intervals: NOT EDITABLE — see the gap below** | §9-4 wants hours *"at times when they were counted towards regulated (ratio) staff"*. Rounded to the nearest hour per §9-4's own worked example. **Blank, never zero**, for a service that records adult numbers as a typed total rather than per person |
+| `StaffHourQualifiedCount` | `staffHours.ts` — paired `staff_attendance_events` minus `staff_off_floor` intervals, for a person holding a current practising certificate **on that date** | Staff attendance: the staff screen. Practising certificates: the staff records screen. Off-floor intervals: `/roster`, beside shifts and leave | §9-4 wants hours *"at times when they were counted towards regulated (ratio) staff"*. Rounded to the nearest hour per §9-4's own worked example. **Blank, never zero**, for a service that records adult numbers as a typed total rather than per person |
 | `StaffHourNotQualifiedCount` | As above, for a person with a practising certificate that has lapsed | As above | A person with **no** certificate on file is in **neither** figure and is named as a gap — folding them here would turn a paperwork fact into a claim about a teacher |
 | `AllDayDaysCount` | `rs7AdvanceMonths` — forward operating days from `child_booking_schedule` minus `service_closures`, where `centres.service_model` is `all_day` | Service model: Settings. Closures: Settings. The agreement: the child record | **Blank, not zero**, where the service model is unrecorded or no schedule covers the months: zero forward operating days is a statement that the service is closing |
 | `SessionalDaysCount` | As above, where `service_model` is `sessional` | As above | As above |
@@ -1116,14 +1116,16 @@ Every one is **recorded from the service and none is derived**. `rs7_declaration
 
 ### The gap this table surfaced, which is the reason the template asks the question
 
-**Three inputs the calculation reads have no way to be entered through the product.** The rules are
-implemented and mutation-tested; the data collection for them is not built:
+Writing this mapping honestly meant answering *where is this editable* for every parameter, and
+three of them had no answer. **Three inputs the calculation read had no way to be entered through
+the product.** The rules were implemented and mutation-tested; the data collection for them was not
+built:
 
-| Table | The rule that reads it | Consequence today |
+| Table | The rule that reads it | What that meant |
 |---|---|---|
-| `staff_off_floor` (0094) | §9-4's staff hours, and the live ratio | Nothing is subtracted, so counted hours equal hours present |
-| `absence_exemptions` (0089) | §7-7's twelve-week absence window | Every window is three weeks; the product **under-claims** |
-| `enrolment_reconfirmations` (0092) | §6-7's third-month claim | A third month is never unlocked; the product **under-claims** |
+| `staff_off_floor` (0094) | §9-4's staff hours, and the live ratio | Nothing was subtracted, so counted hours equalled hours present |
+| `absence_exemptions` (0089) | §7-7's twelve-week absence window | Every window was three weeks; the product **under-claimed** |
+| `enrolment_reconfirmations` (0092) | §6-7's third-month claim | A third month was never unlocked; the product **under-claimed** |
 
 ~~Screens for these are the immediate next work.~~ **All three were built the same day**, and the
 table above is left in place rather than deleted because the honest thing to show is that our own
@@ -1135,9 +1137,11 @@ data-source mapping found them:
 | `enrolment_reconfirmations` | The same tab — who confirmed, when, and whether the agreement stands or changed |
 | `staff_off_floor` | `/roster`, beside shifts and leave, which share its `caller_may_roster` predicate |
 
-All three errored in the direction of claiming less, which is the direction we choose everywhere.
-But a rule that cannot receive its input is not a rule a service can rely on, and the reason we are
-describing it rather than having it found is that the template's middle column asks the question.
+All three read paths existed and were exercised by tests against the live schema — which is exactly
+why nothing caught it sooner: **a unit test supplies its own inputs.** All three errored in the
+direction of claiming less, which is the direction we choose everywhere. But a rule that cannot
+receive its input is not a rule a service can rely on, and the reason we are describing it rather
+than having it found is that the template's middle column asks the question.
 
 ### What the return still cannot do
 
@@ -1217,7 +1221,12 @@ word "under-claiming" for the same thing. Our funding surfaces also state, uncon
 use of this system does not remove the service's responsibility to comply and that a person must
 review and validate the figures before submitting them.
 
-**AST51 — RS7 generation, transmission and storage.** `[GAP]`/`[BLOCKED — spec]`. The period
+**AST51 — RS7 generation, transmission and storage.** **Generation and storage: built
+2026-09-05.** `rs7.ts` produces the nine counts, `rs7_declarations` (`0096`) stores the six
+declaration fields against the centre and the period, and `/funding/rs7` and `/funding/rs7.csv`
+render and export them. **Transmission: `[BLOCKED — spec]`** — that is the XML and the InfoHub
+interface, which the Ministry's own guidance places *after* acceptance, and there is no XML
+anywhere in this codebase by design.. The period
 boundaries are known and confirmed twice: the funding periods helper returns February–May,
 June–September and October–January, and the public schema restricts the RS7 period start to the
 pattern `[0-9]{4}-(02|06|10)-01`.
@@ -1248,13 +1257,14 @@ Two things must be settled before a number goes in a box. First, whether the int
 precedes or follows selection — the page says the SMS must already be developed to the
 specifications and the template asks for development durations, and those cannot both mean what
 they say. Second, the durations for the ECE Return, RS7 and Teacher Data components are dominated by
-work that is **not** interface work at all: the staff and census surface, the service-type model,
+work that is **not** interface work at all: ~~the staff and census surface, the service-type model,~~ **both built** (`0080`/`0081` on
+2026-09-03, `0083`, and the staff-hour half by `0094`/`0095` on 2026-09-05) — leaving only
 and the sessional and home-based ratio tables. Estimating the interface without them would produce
 a number that is wrong in the direction that matters.
 
 **What we can say with a straight face:** our own roadmap estimates the staff surface at 15–20
-engineering days, and we have delivered 79 migrations and a working multi-tenant product with a
-607-assertion isolation suite over roughly a month of concentrated work. That is the basis on which
+engineering days, and we have delivered 97 migrations and a working multi-tenant product with a
+778-assertion isolation suite over roughly a month of concentrated work. That is the basis on which
 we would estimate, and we would rather give the Ministry a defensible estimate a fortnight late
 than a comfortable one now.
 

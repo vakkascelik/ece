@@ -2582,6 +2582,37 @@ what"*. A mutation removing that disclosure is in the drill and is caught.
 in the enquiry sent 2026-09-03. A specification that defines a forward count almost certainly says
 what it counts forward from. Failing that, it is a one-line question for the next enquiry.
 
+### 65. The sessional and home-based ratio schedules cannot be transcribed from here — **OPEN, added 2026-09-05**
+
+`ratios.ts` transcribes **only** the all-day centre-based tables, and `assessRatio` takes both
+tables as arguments *precisely* so another service type can supply different ones — a design
+recorded in that file since 2026-09-03, with the note that **no caller anywhere passes them**. So
+a sessional or home-based service reading this product gets a confident figure computed from a
+schedule that does not govern it, and `ratioInputCaveat()` says so on every ratio surface.
+
+Closing that is Phase 6 of the plan, and it is **blocked on retrieval, not on effort**.
+
+| | |
+|---|---|
+| **Attempted** | 2026-09-05. `https://www.legislation.govt.nz/regulation/public/2008/0204/latest/dlm1412637.html` — Schedule 2, the page the all-day bands were read from on 2026-06-29 — and the whole-instrument page |
+| **Result** | **HTTP 403 Forbidden**, both. The host refuses the fetcher |
+| **What was NOT done** | Transcribing the bands from a search-result snippet, or from memory. Either would be inventing regulatory content, which [AGENTS.md §7] forbids by name — and a ratio table decides whether a room is legally staffed, so being confidently wrong here puts a service in breach or tells it a breach is fine |
+
+**This is the second host to refuse.** Education Counts answered two fetch attempts on 2026-09-02
+with a Cloudflare challenge and *"was not retrieved"*, which is why nine code-set domains ship
+empty. The pattern is worth naming: **a source this product must read row by row is not always a
+source this environment can reach**, and the honest response is a recorded gap rather than a
+plausible table.
+
+**To close it:** somebody opens the page in a browser and pastes Schedule 2 in full — the sessional
+tables for both age bands, and the home-based schedule. The all-day bands were read that way on
+2026-06-29 and that reading found a rule nobody knew was missing (*"Up to 3 children of mixed ages
+… 1"*), so the row-by-row method has already earned its cost once here.
+
+**Until then** the caveat stands unchanged and `assessRatio`'s table parameters stay unused. The
+product records `service_model` and `licence_type` (`0083`) and cannot assess against either, which
+is stated in the tranche assessment rather than implied.
+
 ## See Also
 
 - [[eli-integration]] — the public schema, the event catalogue, and items 47 and 48
