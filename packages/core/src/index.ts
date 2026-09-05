@@ -380,7 +380,13 @@ export * from './enquiry';
 // How enquiries become enrolments, and the one question the schema cannot answer —
 // see the file for why this is not a strict "waitlist conversion rate".
 export * from './enquiryFunnel';
-export * from './funding';
+export * from './funding';
+
+/**
+ * The RS7 return's daily counts. Kept separate from `./funding` because it must NOT reuse
+ * `toHours` — that floors, and §9-2 rounds to nearest. See the file header and item 52.
+ */
+export * from './rs7';
 
 // Applications for employment. The one vocabulary shared with the public website, which
 // depends on this package and on nothing else in the monorepo.

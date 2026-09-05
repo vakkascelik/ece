@@ -148,7 +148,7 @@ Push anything, or re-run the last workflow. Three jobs:
 | Job | Expect | If not |
 |---|---|---|
 | `typecheck · lint · tests · build` | **Pass.** It touches no database and has been green by hand since 2026-09-03 | A real defect; nothing to do with secrets |
-| `RLS isolation` | `92 applied / 0 pending`, `741/741`, `6/6`, `16/16` | Check `migrate -- --status` first: a migration file edited after being applied fails here, and it means the schema under test is not the schema in the commit |
+| `RLS isolation` | `93 applied / 0 pending`, `748/748`, `6/6`, `16/16` (counts as at 2026-09-05 — they grow, and a first run failing on a NUMBER rather than an assertion means this line is stale, not your setup) | Check `migrate -- --status` first: a migration file edited after being applied fails here, and it means the schema under test is not the schema in the commit |
 | `e2e · accessibility` | `124 passed`, ~9 minutes | It seeds and drops its own tenant, so a failure here leaves nothing behind |
 
 **The two credentialled jobs are serialised** by the only `needs:` in `ci.yml`, and that is

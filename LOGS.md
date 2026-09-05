@@ -7,6 +7,98 @@ itself, and from the wiki pages, which hold the durable *why*. This file is the 
 
 ---
 
+## 2026-09-05 (third) — 3A, and the element names nearly sent me the wrong way
+
+`rs7DayCounts` in `packages/core/src/rs7.ts`. The first real piece of the return.
+
+### The question I had to settle before writing a line
+
+`SubsidyFundedChildUnderTwoCount`. `TwentyHoursFundedChildCount`. Those names read like
+**headcounts**, and building this module around counting children rather than hours would have
+produced a plausible, complete, entirely wrong return.
+
+They are hours. Four of the six are sourced directly:
+
+- §14-4 names two of them *"daily total of 20 Hours ECE Funded Hours"*.
+- §9-4 rounds the staff figures *"to the nearest hour… 68 hours and 30 minutes would be rounded to
+  69 hours"*.
+- §9-2 step 4: *"Add together the claimable hours for each day"*.
+
+And the Glossary explains the naming rather than contradicting it: a **funded child hour** is *"an
+occupied child-place that is funded for 1 hour"*, so `SubsidyFundedChild…Count` counts funded child
+*hours*. `StaffHourQualifiedCount` makes the construction plain — it is a count of `StaffHour`.
+
+Nothing to register. But it was worth an hour of reading before an hour of typing, and the
+alternative was a register item admitting the whole module might be counting the wrong thing.
+
+### Item 52 closes, with three numbers
+
+Rounding is to nearest, **at the aggregate**. Three children attending 2.5 hours on one day:
+
+| | |
+|---|---|
+| rounded per child | 3 + 3 + 3 = **9** |
+| per child via `toHours` | 2 + 2 + 2 = **6** |
+| aggregate, rounded once | 7.5 → **8** |
+
+Only 8 is what §9-2 asks for, and both wrong answers are mutations in the drill. `roundToNearestHour`
+is deliberately **not exported**, and there is no shared helper with a `mode` parameter — item 52
+named that as the tempting middle path and the worst of the three.
+
+A fourth assertion the item did not anticipate: 2.4 hours and 2.5 hours must land on different
+integers. `toHours` floors both to 2, so a "round to nearest" that quietly floored would pass every
+other test in the file.
+
+### Item 63 opens, and it is the honest version of a rule I usually get to avoid
+
+This product reports rather than adjusts when a rule is ambiguous. **That option does not exist
+here.** RS7 asks for a *daily* figure and the Handbook's rules are *weekly*, so a projection onto
+days is forced — the choice is "assume and disclose" or "produce nothing".
+
+Three allocations, all chronological, all returned in `assumptions` and only when they actually
+applied:
+
+1. Which days lose the excess when a week hits 30 hours. `funding.ts` refuses to answer this and
+   says why.
+2. Which of a week's hours are 20 Hours ECE and which are Plus 10. §9-3 gives the weekly split and
+   no daily one.
+3. Which replacement child loses hours under §6-4. Largest first, so the figure cannot run high.
+
+Their directions differ and that is worth stating: (1) and (3) under-claim or are neutral; (2)
+changes no total at all — it moves hours between two figures that are both on the return.
+
+### The drill found three missing tests, and one of them taught me something
+
+12/12 after, 9/12 before. The survivors:
+
+- **A child on their second birthday.** `< 24` months versus `<= 24` moves them between two subsidy
+  figures at different rates, for one day, and nothing else could see it.
+- **A figure past the schema's 9999 bound.** No fixture was near it. Now one has 1,700 children at
+  six hours — built by replicating one *real* `childFunding` result so every field keeps the shape
+  the product produces.
+- **The §6-4 tie-break**, and this is the interesting one. My first test had two casual children at
+  5 and 3 hours with a 5-hour overlap, and largest-first and smallest-first give **the same total**.
+  At the aggregate the tie-break only changes an answer when the candidates sit in **different
+  buckets** — one under two, one not. That makes the decision I recorded in the plan smaller than
+  I claimed it was, which is worth knowing: the attribution matters, the tie-break among
+  interchangeable candidates mostly does not.
+
+### And a real defect the tests caught while I wrote them
+
+With `twentyRemaining` at zero for an unattested child, `plusTen = hours - twentyHours` made
+**every one of their hours "Plus 10"**. An unattested child has neither entitlement; their hours are
+subsidy and nothing else, which is exactly what `childFunding` already reports for the period.
+
+The tests saw it because they assert against **real `childFunding` results** rather than hand-built
+objects. A fixture written by hand would have encoded my misunderstanding on both sides of the
+assertion and passed. It is now mutation #10, kept as a regression.
+
+### Next
+
+3B — the staff hours, which are `null` here and will stay `null` until an off-floor interval table
+exists. And the Plus 10 question is still sitting in an unsent draft; until it is answered the
+two-and-over figure carries a stated default that under-claims.
+
 ## 2026-09-05 (second) — the operating calendar, and the first piece of RS7's spine
 
 First code task of the rewritten plan, chosen because it is the only Phase 3 dependency that also

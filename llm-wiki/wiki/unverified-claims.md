@@ -1874,7 +1874,7 @@ correctly, plumbed through three modules correctly, and has produced a single ha
 for the life of the product. **Grep for who actually passes it** before believing a design is
 service-type-aware.
 
-### 52. RS7 needs round-to-nearest and every hours figure in this product floors — **OPEN, added 2026-09-03, before any RS7 code was written**
+### 52. RS7 needs round-to-nearest and every hours figure in this product floors — **CLOSED 2026-09-05**
 
 | | |
 |---|---|
@@ -1906,9 +1906,61 @@ summing gives a different answer, and it is the answer a per-child calculation w
 produce. `RS7DayCount` being an integer 0-9999 is consistent with a rounded total, not with a sum of
 rounded parts.
 
-So item 52 now has two parts: RS7 must not reuse `toHours` (which floors), **and** it must round at
-the aggregate rather than at the child. Both are properties of an `rs7.ts` that does not exist yet,
-which is why this stays open.
+So item 52 now has two parts: RS7 must not reuse `toHours` (which floors), **and** it must round
+at the aggregate rather than at the child.
+
+**CLOSED 2026-09-05 — `packages/core/src/rs7.ts` does both, and the drill proves it does.**
+
+`roundToNearestHour` is **not exported**, so nothing outside that file can reuse it and no shared
+helper with a `mode` parameter exists — the tempting middle path, and the one that puts the choice
+at a call site where it gets got wrong once, silently.
+
+The aggregate half is asserted with three children attending 2.5 hours each on one day:
+
+| | |
+|---|---|
+| per child, rounded first | 3 + 3 + 3 = **9** |
+| per child through `toHours` | 2 + 2 + 2 = **6** |
+| aggregate, rounded once | 7.5 → **8** |
+
+Three answers from the same attendance, and only 8 is what §9-2 asks for. Both wrong answers are
+in the mutation drill and both are caught.
+
+**A third figure this item did not anticipate:** §9-2's step 5 rounds *"0.5 or above… up"* and
+*"0.4 or below… down"*, so a 2.4-hour day and a 2.5-hour day must land on different integers.
+`toHours` floors both to 2. That is asserted separately, because a "round to nearest" that happened
+to floor would pass every other test here.
+
+### 63. RS7's daily figures need three allocations the Handbook does not make — **OPEN, added 2026-09-05**
+
+Everywhere else this product **reports rather than adjusts** when a rule is ambiguous. That option
+is not available in `rs7.ts`, and the reason is structural rather than a lapse: **RS7 asks for a
+daily figure and the Handbook's rules are weekly.** A projection onto days is forced, so the choice
+is not "assume or report" but "assume and disclose, or produce nothing at all".
+
+All three are chronological — hours are claimed as they occur — which is the only order that
+preserves the weekly totals the Handbook *does* state. Each is returned in `assumptions` and only
+when it actually applied to the period.
+
+| # | The allocation | What the Handbook says |
+|---|---|---|
+| 1 | **Which days lose the excess when a week hits the 30-hour cap.** The later days do. | §9-2 states the maximum and never says which days go. `funding.ts:449` refuses a `fundedByDate` for exactly this reason and says so |
+| 2 | **Which of a week's hours are 20 Hours ECE and which are Plus 10.** The first twenty, in date order. | §9-3 caps 20 Hours at 20 a week and calls Plus 10 *"the remainder (up to 30 hours)"* — a weekly split, with no daily one |
+| 3 | **Which replacement child loses hours under §6-4.** The largest claim first. | §7-7 names *which side* goes (*"without claiming funding for that replacement child"*); it does not choose among several candidates |
+
+**Why (3) is smaller than it looks, which the mutation drill established rather than argument.**
+At the aggregate the tie-break only changes an answer when the candidates sit in **different
+buckets** — two two-and-over casual children lose the same five hours from the same figure
+whichever is picked. It matters when one is under two and the other is not, and that case is now
+asserted. Largest-first is chosen so the figure can never run high.
+
+**Direction of each:** (1) and (3) under-claim or are neutral. (2) does not change any total — it
+moves hours between two figures that are both on the return, so a wrong daily split misstates the
+composition of a correct week.
+
+**To close it:** the RS7 Return Specification 6.0, which we do not hold — it is in the list
+requested with the password in the enquiry sent 2026-09-03. A specification that states a daily
+figure almost certainly states how it is derived.
 
 ### 53. Two places now record which days a child attends — **OPEN, added 2026-09-04, by construction rather than by accident**
 

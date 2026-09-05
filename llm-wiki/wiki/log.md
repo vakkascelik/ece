@@ -5,6 +5,29 @@ says so.*
 
 ---
 
+2026-09-05 (third) — **3A: `rs7.ts`, the RS7 return's daily figures.** Item 52 **closes**; item 63
+opens; a new [[funding-and-billing]] section.
+
+**The six figures are hours, not children** — the element names say `…ChildCount` and the Glossary's
+*"funded child hour"* explains why. Four of the six are sourced directly to §14-4, §9-4 and §9-2, so
+there was nothing to guess and nothing to register.
+
+Item 52 closes: rounding is **to nearest, at the aggregate**, in a function that is not exported so
+nothing can reuse it, and with no shared helper carrying a `mode`. Three children at 2.5 hours give
+**9** rounded per child, **6** through `toHours`, and **8** done correctly. Both wrong answers are in
+the drill.
+
+Item 63 opens, and it is structural rather than a lapse: **RS7 wants a daily figure and the
+Handbook's rules are weekly**, so three allocations are forced — which days lose a capped week's
+excess, which of a week's hours are 20 Hours versus Plus 10, and which replacement child loses hours
+under §6-4. All chronological, all disclosed in `assumptions`, none silent.
+
+**12/12 mutations caught** — nine first pass. The three survivors were missing tests: a child on
+their second birthday, a §6-4 tie-break where the candidates sit in different age buckets, and a
+figure past the schema's 9999 bound.
+
+Staff hours are `null` and never `0`; §9-4's input does not exist until 3B.
+
 2026-09-05 (second) — **the operating calendar, and item 59 closes.** `operatingDays()` in
 `packages/core/src/closures.ts`; [[reporting]] updated.
 

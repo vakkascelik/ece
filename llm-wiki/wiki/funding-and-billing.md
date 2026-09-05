@@ -952,6 +952,51 @@ emergency closure is claimable on *"actual booked hours"*, but that is a differe
 absence — its own eligibility, no window to run — so those days are excluded here too rather than
 misclassified as absences. Item 60 carries what remains.
 
+### RS7's daily figures — built 2026-09-05, and what they are counts *of*
+
+`rs7DayCounts` in `packages/core/src/rs7.ts`. Fourteen tests, **12/12 mutations caught** — nine on
+the first pass, and the three survivors were missing boundary tests rather than surviving code.
+
+**The six figures are HOURS, not children**, which the element names actively obscure —
+`SubsidyFundedChildUnderTwoCount` reads like a headcount. Checked rather than assumed, and four of
+the six are sourced directly:
+
+- §14-4 names two of them *"daily total of 20 Hours ECE Funded Hours (20 Hours ECE)"* and *"…(Plus
+  10)"*.
+- §9-4 says of the staff figures *"Round the total to the nearest hour. For example: 68 hours and
+  30 minutes would be rounded to 69 hours"*.
+- §9-2's step 4 is *"Add together the claimable hours for each day"*.
+
+The Glossary explains the naming: a **funded child hour** is *"an occupied child-place that is
+funded for 1 hour"*. `StaffHourQualifiedCount` makes the construction obvious once seen — it is a
+count of `StaffHour`.
+
+**It takes `ChildFunding` results, not raw events**, so every rule already applied to them — the
+caps, all four absence rules, §9-2's hours source — applies here without being reimplemented. What
+this module adds is the transposition: per child per period becomes per date per category.
+
+**Three things it produces that `funding.ts` deliberately does not**, all covered by item 63: a
+per-date figure where a week was capped, a per-date 20 Hours / Plus 10 split, and the §6-4
+deduction actually applied rather than reported.
+
+**Two things it refuses.** Both staff figures are `null` and never `0` — a service reporting zero
+staff hours would be making a different and false statement, and §9-4's input does not exist until
+3B. And a figure past the schema's `0..9999` bound is **reported, never clamped**: clamping would
+send a number the service cannot reconcile against its own records, and an overflow is far likelier
+to be a defect here than a real day.
+
+**Item 56 is implemented behind a stated default.** `plusTenTreatment` defaults to `deduct-both`,
+which **under-claims** — of the two readings only that one cannot double-count on a Crown return.
+The chosen reading is returned with the figures so a screen can say which produced them, and so the
+return can be recomputed when the Ministry answers. On the test fixture the two readings differ by
+**ten hours a week for one child**.
+
+**One defect the tests caught during development**, kept in the drill as a regression: with
+`twentyRemaining` at zero for an unattested child, the subtraction made *every* one of their hours
+"Plus 10". An unattested child has neither entitlement — their hours are subsidy and nothing else,
+which is what `childFunding` reports for the period. The tests saw it because they assert against
+real `childFunding` results rather than hand-built fixtures.
+
 ### §6-4's cross-child rule — detected, attributed, and still not deducted
 
 **2026-09-04.** `sixFourOverlaps({ children, licensedPlaces })`, rendered on `/funding` beside the
