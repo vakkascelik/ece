@@ -17,6 +17,7 @@ import {
   guardianPinStatus,
   listGuardiansOfChild,
   listHealthConditions,
+  listIdentityDocuments,
   listImmunisation,
   listMembers,
   listMedications,
@@ -36,6 +37,7 @@ import { requireCtx } from '@/lib/auth';
 import { serverDb } from '@/lib/supabase';
 import { HelpNote } from '../../../HelpNote';
 import { AddressPanel } from '../AddressPanel';
+import { IdentityDocumentsPanel } from '../IdentityDocumentsPanel';
 import { ArchivePanel } from '../ArchivePanel';
 import { BookingsPanel } from '../BookingsPanel';
 import { ConfirmPanel } from '../ConfirmPanel';
@@ -484,8 +486,19 @@ export default async function ChildTabPage({
   // Documents: the paperwork. Consent decisions, the enrolment, the identity record, and
   // leaving — the things a manager opens sitting down, which is why they are behind a tab
   // rather than above the fold.
-  const [consents, history, requests, whanau, enrolments, schedule, exemptions, reconfirmations] =
-    await Promise.all([
+  const canEnrol = can(ctx.role, 'manageEnrolment');
+  const [
+    consents,
+    history,
+    requests,
+    whanau,
+    enrolments,
+    schedule,
+    exemptions,
+    reconfirmations,
+    identityDocuments,
+    docMembers,
+  ] = await Promise.all([
     listConsents(db, id),
     listConsentHistory(db, id),
     listConsentRequests(db, id),
@@ -494,6 +507,19 @@ export default async function ChildTabPage({
     listBookingSchedule(db, [id]),
     listExemptionsForChild(db, id),
     listReconfirmationsForChild(db, id),
+    /*
+      Unconditional, and 0097's select policy is what decides who sees it: `caller_may_see_child`,
+      so a guardian reads their own child's sightings. That is right — "the centre has seen my
+      child's birth certificate" is a fact about their own record.
+    */
+    listIdentityDocuments(db, [id]),
+    /*
+      Conditional, and this follows the health tab's precedent verbatim: **a guardian has no
+      business enumerating the staff list.** The member list exists only to turn a `sighted_by`
+      into a name, so it is loaded for somebody who may record a sighting and for nobody else. A
+      guardian sees that a document was sighted and on what date, without a staff email attached.
+    */
+    canEnrol ? listMembers(db, ctx.centre.id) : Promise.resolve([]),
   ]);
   const ownGuardianId = whanau.find((g) => g.guardian.userId === ctx.userId)?.guardian.id ?? null;
   const currentEnrolment = enrolments.find((e) => isEnrolmentCurrent(e, today));
@@ -644,6 +670,35 @@ export default async function ChildTabPage({
           </HelpNote>
         </div>
         <DetailsForm child={child} readOnly={!canManage} />
+      </div>
+
+      <div className="section">
+        <IdentityDocumentsPanel
+          childId={id}
+          canEdit={canEnrol}
+          /*
+            Formatted here, in the CENTRE'S timezone, and that is the whole reason these rows are
+            built rather than passed through. `sightedAt` is a UTC instant; slicing its date part
+            renders yesterday for anything sighted before noon in New Zealand, on the record whose
+            entire purpose is saying when somebody looked.
+
+            The email rather than a name is what this product holds — `centre_members` has no
+            display name. An id `docMembers` cannot resolve is a colleague who has since left:
+            `0097` nulls `sighted_by` on user deletion, so "nobody sighted it" and "somebody did and
+            we cannot name them" stay distinguishable, which is why `sightedLabel` rather than
+            `sightedBy` decides which the panel shows.
+          */
+          documents={identityDocuments.map((d) => ({
+            id: d.id,
+            kind: d.kind,
+            sightedLabel: d.sightedAt ? when.format(new Date(d.sightedAt)) : null,
+            sightedBy:
+              d.sightedBy === null
+                ? null
+                : (docMembers.find((m) => m.userId === d.sightedBy)?.email ?? null),
+            note: d.note,
+          }))}
+        />
       </div>
 
       {canManage && !child.archivedAt && (

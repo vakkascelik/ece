@@ -42,6 +42,8 @@ import {
   linkGuardian,
   recordAdministration,
   recordConsent,
+  recordIdentityDocument as recordIdentityDocumentRow,
+  deleteIdentityDocument as deleteIdentityDocumentRow,
   requestConsent,
   recordImmunisation,
   recordVerification,
@@ -61,6 +63,7 @@ import {
   GENDERS,
   HEALTH_KINDS,
   HEALTH_SEVERITIES,
+  IDENTITY_DOCUMENT_KIND_MAX,
   IMMUNISATION_STATUSES,
   REQUIRED_CONSENTS,
   todayInZone,
@@ -1489,6 +1492,76 @@ export async function removeReconfirmation(_prev: unknown, form: FormData): Prom
     await deleteReconfirmationRow(db, id);
   } catch (e) {
     return actionError(e, 'children.removeReconfirmation');
+  }
+  revalidatePath(`/children/${childId}/documents`);
+  return { ok: true };
+}
+
+/*
+  IDENTITY DOCUMENTS — the write path `0097` shipped without, on 2026-09-05.
+
+  `manageEnrolment`, not `manageChildren`, and the reason is that this must agree with the
+  database rather than merely be defensible: `0097`'s insert policy is `caller_may_enrol`, exactly
+  as `child_addresses` (0086) is, and `saveChildAddress`'s action above gates on `manageEnrolment`
+  for the same reason. A capability that let somebody past this guard and into an RLS refusal
+  would produce "nothing was written" for a person the screen had just invited to write.
+*/
+export async function recordIdentityDocument(_prev: unknown, form: FormData): Promise<Result> {
+  await requireCapability('manageEnrolment');
+  const db = await serverDb();
+
+  const childId = str(form, 'childId');
+  const kind = str(form, 'kind');
+  const note = str(form, 'note');
+  const sighted = bool(form, 'sighted');
+
+  if (!childId) return { error: 'Missing child.' };
+
+  /*
+    Bounded here as well as in the database, and the message differs from the CHECK's on purpose:
+    `child_identity_documents_kind_within_lookup_bound` is true but says nothing a person can act
+    on. Ten characters is not a form's preference — it is the `LookupCode` bound from the NSI
+    specification, which is also why there is no enumeration to validate against.
+  */
+  if (kind.length > IDENTITY_DOCUMENT_KIND_MAX) {
+    return {
+      error: `The document type is a Ministry code and has to be ${IDENTITY_DOCUMENT_KIND_MAX} characters or fewer.`,
+    };
+  }
+
+  /*
+    A row that records neither a type nor a sighting nor a note asserts nothing at all. Refused
+    here rather than in the database, because it is a judgement about usefulness and not a rule
+    anybody published — 0097 deliberately permits every column to be null.
+  */
+  if (!kind && !sighted && !note) {
+    return {
+      error:
+        'Record something: the document type, that you sighted it, or a note. An empty entry says nothing about this child.',
+    };
+  }
+
+  try {
+    await recordIdentityDocumentRow(db, { childId, kind, sighted, note });
+  } catch (e) {
+    return actionError(e, 'children.recordIdentityDocument');
+  }
+  revalidatePath(`/children/${childId}/documents`);
+  return { ok: true };
+}
+
+export async function removeIdentityDocument(_prev: unknown, form: FormData): Promise<Result> {
+  await requireCapability('manageEnrolment');
+  const db = await serverDb();
+
+  const childId = str(form, 'childId');
+  const id = str(form, 'documentId');
+  if (!childId || !id) return { error: 'Missing record.' };
+
+  try {
+    await deleteIdentityDocumentRow(db, id);
+  } catch (e) {
+    return actionError(e, 'children.removeIdentityDocument');
   }
   revalidatePath(`/children/${childId}/documents`);
   return { ok: true };

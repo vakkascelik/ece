@@ -5,6 +5,70 @@ says so.*
 
 ---
 
+2026-09-05 (sixteenth) — **`0097` becomes a feature. It had been a schema for a day, and the
+application already said it was built.**
+
+The identity-document table shipped that morning with four verb-split policies, a grant, an audit
+trigger and ninety assertions in `rls_isolation.sql` — and **nothing that could put a row in it**.
+Its commit touched four files: the migration, the RLS suite and two documents. The `AST28` answer
+was updated the same day to say the identity path was built. It was not.
+
+**The RLS suite passing is not the same as the feature existing, and it cannot be**: the suite
+writes its own rows with the service role, precisely so it can test a policy without an application
+in the way. So it was green against a table with no reader, no writer and no screen. `staff_off_floor`
+(0094) had the same shape and reached a UI three commits later; this one was found by a plan audit
+asking what could write to each new table, not by anybody using it.
+
+Now: `packages/api/src/identityDocuments.ts`, two server actions, a panel on the child record's
+**Documents** tab — whose own comment had promised "the identity record" since before the table
+existed — and `apps/web/e2e/identity.spec.ts`.
+
+**The one structural decision is that it is a list and not a slot.** `child_addresses` sits beside
+it with identical policies, and there the identity of a row is `(child_id, kind)` and a save
+upserts. Here there is no unique constraint and there must not be: re-checking a passport next year
+is a second act by a second person, not a correction of the first, and an entry that overwrote last
+year's check would destroy exactly the part an auditor reads. So `deleteIdentityDocument` takes an
+`id`. `childAddresses.ts` records the mirror hazard — two writers disagreeing about what identifies
+a row means the save replaces one the delete cannot find.
+
+**`sighted_by` is the caller and cannot be anybody else**, and `sighted_at` is now rather than a
+date field. Both follow `addStaffRecord` and `recordImmunisation`, and both are refusals rather than
+conveniences: a form that nominated who did the looking would turn a first-hand assertion into
+hearsay attributed to a colleague, and a back-dated sighting is a different claim that 0097's CHECK
+cannot tell from a real one. If a colleague sighted the document, they record it — and the panel
+says so, rather than leaving it to be discovered from an audit row.
+
+**A date bug, found by writing the test and not by reading the code.** The panel first rendered
+`sightedAt.slice(0, 10)` — the date part of the stored UTC instant. New Zealand is twelve or
+thirteen hours ahead, so a passport checked at nine on Tuesday morning would have displayed as
+Monday, on the record whose entire purpose is saying when somebody looked. Fixed the way
+`ImmunisationPanel` already did it: the server formats in the centre's timezone, the client renders.
+[[conventions]] has said since August that **every date bug in this repository has come from
+computing a calendar day in the wrong zone**; this is one more.
+
+**And the test's own limit is written into the test**, because it would otherwise be overclaimed.
+Mutating the page back to the slice kills it — but on the *format*, "5 Sep 2026" against
+"2026-09-05", which holds at any hour. The *timezone* half only bites between New Zealand midnight
+and noon; the run that proved the mutation was at 16:41, when the two dates agreed and only the
+shape did not. So a second, structural assertion was added: no cell in that table may look like an
+ISO date, which is the shape of the bug rather than one of its instances.
+
+**A guardian reads and does not write**, and is not shown a colleague's email. The member list is
+loaded only for somebody who may record a sighting — the same call the health tab already makes
+about its witness picker, in its own words: *"a guardian has no business enumerating the staff
+list."* Asserted in the spec, because a privacy decision nobody tests is a privacy decision one
+refactor from being undone.
+
+**The restore-and-rerun trap fired again**, worth recording because it is now three for three. After
+the mutation the source was restored and the spec re-run **without rebuilding**, so Playwright
+tested the mutant and reported a failure against clean code. The same shape as `/funding/rs7`
+appearing unguarded when it was simply 404ing. `npm run test:e2e` builds first for this reason;
+running the CLI directly is faster and silently skips it.
+
+127 e2e pass, up from 125, with no new accessibility violations on a tab that gained a form.
+
+---
+
 2026-09-05 (fifteenth) — **The transport posture was measured for the first time, and one of three
 hosts fails it.**
 

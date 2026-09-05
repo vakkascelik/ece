@@ -930,6 +930,17 @@ What can be stated now, because it is about our data rather than the interface:
   record one: a sighting is the service asserting it checked, and a parent asserting their own
   child's identity was verified is the direction the policy exists to prevent.
 
+  **A correction to this bullet, recorded rather than quietly edited, because the mistake is the
+  interesting part.** When it was first written the same day, the table existed and **nothing could
+  write to it** — no read path, no write path, no screen. The claim "built" rested on a migration
+  with policies, a grant and ninety assertions in the isolation suite, all of which passed against a
+  table no application could reach: the RLS suite writes its own rows with the service role,
+  precisely so it can test a policy without an application in the way. **A schema is not a feature,
+  and a green isolation suite cannot tell the two apart.** The reachable version — an API module,
+  two server actions, a panel on the child record's Documents tab and an end-to-end test that drives
+  it in a browser — landed later the same day, and the end-to-end test is the part that makes this
+  sentence checkable by somebody who does not trust it.
+
   **It deliberately does not store the document number.** A practising certificate number is a
   professional registration; a child's passport number is not, and whether the NSI interface
   transmits one is in the NSI GINS specification, which we do not hold and have asked for. If it

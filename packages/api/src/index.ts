@@ -269,6 +269,12 @@ export * from './bookingSchedule';
 // a different write predicate and a different identity rule from everything beside it.
 export * from './childAddresses';
 
+// That an identity document was sighted (0097). Beside `childAddresses` because it shares that
+// table's policies exactly, and separate from it because it does not share its identity rule: an
+// address is two named slots, a sighting is a list of acts. The module header records that this
+// layer did not exist for a day and why that was not caught.
+export * from './identityDocuments';
+
 // Service closures (0088). Centre-scoped rather than child-scoped, and the only table in
 // this package whose read policy is plain centre membership - a family needs to know the
 // centre is shut next Thursday.

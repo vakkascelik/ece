@@ -178,6 +178,46 @@ export interface ChildAddress {
 /** The schema's `String100` bound, enforced in the database and re-checked on the form. */
 export const ADDRESS_FIELD_MAX = 100;
 
+/**
+ * That somebody looked at a document proving who a child is — `child_identity_documents` (0097).
+ *
+ * **A LIST, NOT A SLOT**, which is the one structural difference from `ChildAddress` above. An
+ * address has two named kinds and `(child_id, kind)` is its identity; a sighting is an *act*, and
+ * re-sighting a document next year is a second act by a second person rather than a correction of
+ * the first. So `id` is the identity here, many rows per child are normal, and the history is the
+ * point — `AST28` asks whether an identification document is present, and an answer that overwrote
+ * last year's check could not say who verified it or when.
+ *
+ * **THE DOCUMENT NUMBER IS DELIBERATELY ABSENT**, and 0097 argues it at length: a practising
+ * certificate number is a professional registration, a child's passport number is not, and whether
+ * the NSI interface transmits one is in a specification nobody here holds. Recording that a
+ * passport was sighted is the evidence; recording the passport number is a decision that needs a
+ * source.
+ *
+ * `sightedBy` and `sightedAt` are a pair or neither — 0011's rule in 0011's words, *"a timestamp
+ * with nobody attached is not evidence"*, enforced by a CHECK rather than by convention.
+ */
+export interface ChildIdentityDocument {
+  id: string;
+  childId: string;
+  /**
+   * The document type. **A `LookupCode` from the NSI specification, which nobody here has read**,
+   * so it is free text bounded at ten characters with no enumeration and no foreign key —
+   * `code_sets` reserves the domain and ships it empty. Null means the kind was not stated, which
+   * is different from a blank string and is why the column is nullable rather than defaulted.
+   */
+  kind: string | null;
+  /** Who looked at it. Null only when nothing has been sighted — see the pairing rule above. */
+  sightedBy: string | null;
+  sightedAt: string | null;
+  note: string | null;
+  recordedAt: string;
+  recordedBy: string | null;
+}
+
+/** `kind` is a `LookupCode`: 1–10 characters. The database bounds it; the form says so first. */
+export const IDENTITY_DOCUMENT_KIND_MAX = 10;
+
 export interface Enrolment {
   id: string;
   childId: string;
