@@ -2681,6 +2681,42 @@ open work shrinks back to the one thing it was always about: **the IPONZ class s
 and 35.** That decides whether *Doorway* survives as a product name. It has nothing to do with
 domains, and buying any is a way of appearing to act on this item without touching it.
 
+#### The class search cannot be run from this environment — attempted 2026-09-05
+
+| Route | Result |
+|---|---|
+| IPONZ *Trade Mark Check*, `app.iponz.govt.nz/app/TradeMarkCheck` | 302 to a session-bound ASP.NET page that then **redirect-loops** a cookieless fetcher. `?targetApp=TM` returns 404 |
+| IPONZ API, `portal.api.business.govt.nz/api/iponz` | A `POST /trademarksearch` SOAP operation exists and is **not open**: RealMe login plus a generated subscription key. That is the owner's identity credential and is not something an agent should hold |
+| WIPO Global Brand Database | A single-page app. Every candidate API path returns the application shell; TMview does not resolve |
+
+**This is the fourth host to refuse this environment in four days** — Education Counts (2026-09-02,
+Cloudflare challenge), legislation.govt.nz (2026-09-05, 403, item 65), the Domain Name Commission
+(2026-09-05, 403) and now IPONZ. The pattern named in item 65 holds and is worth restating: **a
+source this product must read is not always a source this environment can reach**, and the honest
+response is a recorded gap rather than a plausible answer. A fabricated trade mark result would be
+the worst example of that this repository could produce.
+
+#### What the existing evidence already settles, which narrows what the search is for
+
+The 2026-08-11 check was unfiltered, **ordered closest-match-first**, and returned `STAPLES RODWAY`
+at the top with no identical `DOORWAY` among the results seen. If a `DOORWAY` word mark existed on
+the register **in any class**, a closest-first matcher would rank it first. It did not.
+
+So the class search is very unlikely to answer *"does somebody already own DOORWAY"* — the evidence
+says no. What it answers is the different and still-open question: **whether a *similar* mark in
+classes 9, 41, 42 or 35 would block a registration, or create a confusion risk in the field this
+product actually trades in.** Those are two different risks and this item has been conflating them:
+
+- **Freedom to operate** — can we use the name? On present evidence, low risk. No identical mark, no
+  business trading as Doorway on either `.nz` domain, and the name is currently off the customer's
+  public site.
+- **Registrability** — could we register it, and could a near mark be asserted against us? Unknown,
+  and this is what the class search is for.
+
+Neither is closed by a domain purchase, and neither is closed by this note. **The free tool is a
+screen and not an opinion** — that was true when this item was written and is still true; a paid
+IPONZ search or an advisor is what produces a clearance.
+
 **The lesson, which is the reason this correction is written out rather than edited in:** three
 paragraphs of domain analysis were spent before anybody asked what the owner already owned. The
 register is good at recording what has not been *checked* and was, here, silent about what had not
