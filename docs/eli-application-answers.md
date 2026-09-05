@@ -59,12 +59,27 @@ remainder use caret ranges against a committed lockfile. A documented version-co
 is recorded in the manifest itself: Expo 57 / RN 0.86 is the first pairing that runs React 19,
 which is what lets both applications share one logic layer.
 
-`[GAP]` **There is no automated dependency-update tooling** — no Renovate, no Dependabot — and no
-written upgrade policy. What stands in its place is a nine-command verification gate that must pass
-before any change is considered done (typecheck, lint, unit tests, the RLS isolation suite, token
-generation, documentation links, performance budgets, a live-schema security review, and a
-production build), plus conditional gates for the mobile bundle, the offline queue, many-row reads
-and schema changes. Adding Renovate is a day's work and would strengthen this answer materially.
+~~`[GAP]` **There is no automated dependency-update tooling** — no Renovate, no Dependabot — and no
+written upgrade policy.~~ **CLOSED 2026-09-05** — the policy is
+[engineering-practices.md](engineering-practices.md) §2 and the automation is
+`.github/dependabot.yml`.
+
+Weekly, Auckland time, at most five open branches, **grouped by blast radius rather than by
+ecosystem**: framework packages that can move the served bundle and the CSP nonce path; the data
+layer, because a Supabase client bump can change how PostgREST paging and error codes surface and
+this product parses both; and tooling, which cannot reach production. Security advisories are taken
+as raised rather than batched into the weekly run.
+
+No dependency change is exempt from the nine-command gate (typecheck, lint, unit tests, the RLS
+isolation suite, token generation, documentation links, performance budgets, a live-schema security
+review, and a production build), plus the conditional gates for the mobile bundle, the offline
+queue, many-row reads and schema changes. `check:bundle` and `review:security` exist precisely
+because an upgrade can move a served bundle or a database grant without changing a line of our own
+code.
+
+**Stated plainly because it is true: nothing has run through it yet.** The configuration lands
+2026-09-05 and the first batch arrives the following Monday. Until one has been taken end to end
+this is a policy with automation attached rather than a demonstrated practice.
 
 **INF01 — other integrated software.**
 
@@ -117,22 +132,48 @@ answer and stays open for a month is not blocked; it is unowned.
 Browser-based, server-rendered; no locally installed client. The console is one Next.js process
 serving React Server Components — there is no separate API tier beyond a health check.
 
-`[GAP]` **No browser support matrix is documented.** There is no `browserslist` entry anywhere in
-the repository, so the effective target is Next.js 15's default. What is *tested* is narrower and
-deliberate: the automated accessibility and end-to-end suite runs on Chromium only, at 1440×900,
-`en-NZ`, `Pacific/Auckland`, against a production build, with the reasoning recorded — the layout is
-one grid and one flex row, and running the same rules three times measures the test runner rather
-than the application. The public site is separately audited at 390px and 1440px.
+~~`[GAP]` **No browser support matrix is documented.**~~ **CLOSED 2026-09-05** — see
+[engineering-practices.md](engineering-practices.md) §1.
 
-Stating a matrix and testing against it is a small, honest improvement and should precede
-submission.
+**The declared target** is now a `browserslist` key in the root manifest:
+`chrome 64, edge 79, firefox 67, opera 51, safari 12`. Those five are not a preference — they are
+Next.js 15.3.9's own default, read from `modern-browserslist-target.js` and written down, so
+declaring them **changed no served byte**. Verified rather than assumed: the bundle budgets are
+identical either side of the change, 101.1kB gzip first-load JS for the console and 104.3kB for the
+public site. The value of declaring it is that a future framework upgrade can no longer move our
+compilation target silently.
+
+**What is tested is narrower, and we do not claim otherwise.** Chromium only, at 1440×900 desktop
+and 390×780 phone, `en-NZ`, `Pacific/Auckland`, against a production build rather than a dev server.
+The reasoning is recorded in the Playwright config: the layout is one grid and one flex row, and
+running the same rule set through three engines measures the test runner rather than the
+application. Firefox, WebKit and any real device are **not** exercised.
+
+The distinction is the answer: the target states what the build compiles for, the matrix states what
+has been exercised, and the gap between them is named rather than closed by assertion.
 
 **INF02 — supported devices, and whether a parent may sign a child in or out.**
 
 Web console: any modern browser, responsive to a phone (the desktop side rail collapses to a
-drawer below 768px). `[FIX FIRST]` the console does not export an explicit viewport declaration,
-where the public site does and carries a comment calling it the single most important line in the
-app. One line, and it should be added before anybody demonstrates the console on a phone.
+drawer below 768px).
+
+~~`[FIX FIRST]` the console does not export an explicit viewport declaration, where the public site
+does and carries a comment calling it the single most important line in the app. One line, and it
+should be added before anybody demonstrates the console on a phone.~~
+
+**WITHDRAWN 2026-09-05 — there was no defect, and the way this was written is the mistake worth
+keeping.** The console does not *export* a viewport declaration, which is what was checked; it does
+*serve* one, which is what matters and was not. Measured by starting the production server and
+reading the response: `/login` returns
+`<meta name="viewport" content="width=device-width, initial-scale=1"/>` — byte-identical to what the
+public site declares by hand. Next.js 15.3.9 supplies exactly that from `createDefaultViewport()`
+when a layout exports nothing, so adding the export would have changed no served byte.
+
+The public site declares it explicitly anyway, and should keep doing so: that file's comment records
+that the customer's previous site had no viewport tag at all, and an explicit line is a defence
+against a framework default changing under it. But the console was never broken on a phone, and an
+application to the Crown nearly carried a self-reported weakness that measurement disproved in two
+minutes.
 
 Mobile: Android and iOS from one binary, portrait-locked, iPad supported, following the system
 light/dark setting. Minimum OS versions are Expo 57 / RN 0.86 defaults and are not pinned or
@@ -449,9 +490,13 @@ evidence and **not** currently true of the audit trail. A read-only audit view, 
 service and filterable by date and entity, is a small piece of work and the right answer to this
 question; it is not built today.
 
-`[FIX FIRST]` Our own customer-facing privacy statement tells families that "176 automated
-assertions test this on every change". The suite is at **778** as at 2026-09-05, and the privacy statement should not quote a number that moves every week — it should say the suite exists and where the current count is printed. The number understates the product
-and is still an unmaintained figure in a document a family reads.
+~~`[FIX FIRST]` Our own customer-facing privacy statement tells families that "176 automated
+assertions test this on every change".~~ **FIXED 2026-09-05.** The suite was at **778** that day,
+so the figure understated the product by a factor of four in a document a family reads — but it was
+replaced rather than corrected. A count that moves every week does not belong in a privacy
+statement: whoever updates it once will not update it again, which is how it reached 176 against
+778. The statement now says the isolation suite re-tests the boundary on every change and runs as
+its own gate, which is the durable claim and the one a family can actually use.
 
 **AST13 — data integrity, and which users can alter records.**
 
@@ -533,7 +578,23 @@ Ministry should hear from us rather than discover: no credential is in it, but e
 complete catalogue of what nobody has checked, our breach runbook and a named customer are.
 
 `[GAP]` There is no branch protection, no review requirement, no code owners and no pull-request
-template; the project has had one author.
+template; the project has had one author. **Written up 2026-09-05** in
+[engineering-practices.md](engineering-practices.md) §3, which separates the two things this gap
+actually contains — because they have different answers.
+
+**A review requirement is ceremony here and we will not install it to score a mark.** With one
+contributor it is a person reviewing themselves, and a process performed on oneself is the kind
+bypassed the first time it is inconvenient. What stands in its place is stated and evidenced: nine
+verification gates run locally before every commit, an append-only decision log updated *before*
+the commit rather than after, a 65-item register of everything unverified, and a migration runner
+that refuses to proceed when a file has changed after being applied.
+
+**The irreversibility controls are a different matter and their absence is a real risk.** Nothing
+today prevents a force-push or a branch deletion on `main` — on the repository that is this
+product's only record of its own development. `[OWNER]` The recommendation is to enable branch
+protection for **force-push and deletion only**, without a pull-request requirement: it costs
+nothing, contradicts no working practice, and removes the one failure mode here that cannot be
+undone.
 
 **AST16 — process and triggers for moving code between environments.** Push to `main` triggers the
 CI workflow and the hosting platform builds from the same repository. **Migrations are applied from
@@ -575,17 +636,26 @@ than skipping** when no connection is configured, because a green run that silen
 is worse than a red one.
 
 `[GAP]` **The disclosure that has to accompany all of it: continuous integration has never passed —
-137 runs, zero successes.** The first job fails on a performance budget, 113.0kB first-load
-JavaScript against a 106kB limit, recorded as pre-existing and still unattributed. The other two
-jobs fail at their credential guards, because the database URL and service key are not in
-repository secrets — so **the RLS suite, the restore drill, the security review and the entire
-accessibility audit have never run in CI at all.** Every gate this product has is run by hand on one
-machine, and reported that way, which is how it stayed honest and also why nobody noticed.
+137 runs, zero successes.** Two causes, and **one of them is now fixed**:
 
-A CI that has been red for its whole existence carries no signal; the 137th failure is
-indistinguishable from the first real one. `[FIX FIRST]` — the credentials belong in secrets and the
-7kB belongs attributed, not waived. Raising the limit to make it pass is the move our own
-contributor rules forbid by name.
+- ~~The first job fails on a performance budget, 113.0kB first-load JavaScript against a 106kB
+  limit, recorded as pre-existing and still unattributed.~~ **Attributed and fixed.** The excess was
+  `NextIntlClientProvider` in the root layout, which put the entire `@formatjs` ICU MessageFormat
+  parser into the first-load bundle of every route — including `/login`, in a product whose only
+  non-English message file is `[mi] `-prefixed English. Moving the provider to the one route whose
+  components call `useTranslations` took it to **101.1kB against the same 106kB limit**, re-measured
+  2026-09-05. The limit was not raised; raising it is the move our own contributor rules forbid by
+  name.
+- The other two jobs still fail at their credential guards, because the database URL and service key
+  are not in repository secrets — so **the RLS suite, the restore drill, the security review and the
+  entire accessibility audit have never run in CI at all.** That is blocked on the second Supabase
+  project rather than on a decision about secrets: pointing CI at the only project we have would
+  make GitHub Actions a third writer against the database holding children's records, on every push.
+  See [ci-secrets-and-second-project.md](ci-secrets-and-second-project.md).
+
+Every gate this product has is run by hand on one machine, and reported that way, which is how it
+stayed honest and also why nobody noticed. A CI that has been red for its whole existence carries no
+signal; the 137th failure is indistinguishable from the first real one.
 
 **A disclosure worth reading, and it resolved the same day.** On 2026-09-03, trying to verify a new
 screen, we found the end-to-end and accessibility suite had been failing entirely for six days —
@@ -639,10 +709,12 @@ test at all.**
 
 `[GAP]` Honest answer: **there is no defect tracker.** What exists is three dated narrative
 registers — a session log, an append-only wiki change log where correcting an earlier entry means a
-new entry saying so, and a 46-item numbered register of everything the product asserts that nobody
-has verified, each item carrying its state and what would close it. Defects are traced to a
-commit and, for schema issues, to a migration number, and our contributor rules require that a
-found defect be written up **with its mechanism** in the same commit as the fix, before the commit.
+new entry saying so, and a numbered register of everything the product asserts that nobody has
+verified, each item carrying its state and what would close it: **65 items, 52 open, as at
+2026-09-05** (this sentence read "46-item" until then, which is the weakness it describes,
+demonstrated on itself). Defects are traced to a commit and, for schema issues, to a migration
+number, and our contributor rules require that a found defect be written up **with its mechanism**
+in the same commit as the fix, before the commit.
 
 That has caught real things — including three tables whose audit triggers fired and wrote nothing
 for months, because the rows carried no resolvable tenant key, while both the test suite and the
@@ -650,7 +722,18 @@ security review reported them covered. Nothing was backfilled, because the rows 
 and inventing plausible actors would be worse than the gap.
 
 But it is prose. There is no severity taxonomy, no defect-to-release traceability and no queryable
-state. Adopting an issue tracker is a day and would make this answer defensible instead of candid.
+state. **Three specific weaknesses, written up 2026-09-05** in
+[engineering-practices.md](engineering-practices.md) §4: "open" and "closed" are prose, so an item
+can be closed in one document and open in another — and was, register item 48 describing the
+functionality table as it stood two days earlier; nothing carries an assignee, so an item waiting on
+the Ministry looks like one waiting on nobody; and it is not readable from outside, so a Ministry
+auditor asking for open defects would be handed a 2,600-line markdown file.
+
+`[OWNER]` The recommendation is **not** to replace the register — recording what has not been
+verified is the thing this project does unusually well — but to add GitHub Issues beside it and
+split the two jobs: the register tracks *claims*, Issues track *work*. The one rule carried across
+is that an item is closed by a commit saying what closed it, never by editing the entry to remove
+the problem.
 
 ## Disaster Recovery and Business Continuity
 

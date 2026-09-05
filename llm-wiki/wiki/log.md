@@ -5,6 +5,57 @@ says so.*
 
 ---
 
+2026-09-05 (fourteenth) — **Four assessed items answered by writing down the practice, and one
+self-reported defect withdrawn because it was not real.**
+
+The plan was restructured first, and the restructure changed what the work *is*: the application
+carries **24 `[GAP]` markers and only four are ELI functionality.** The rest are ordinary
+engineering practice — no dependency policy, no browser matrix, no branch protection, no defect
+tracker — assessed items an assessor marks, most costing hours. That is where the remaining month's
+marginal return sits, not in more ELI features, and the previous plan's structure hid it entirely.
+
+**`AST04` closed, and the interesting half is what it did not need.** `browserslist` now declares
+`chrome 64, edge 79, firefox 67, opera 51, safari 12` — not a preference but Next.js 15.3.9's own
+default, read from `modern-browserslist-target.js`. Declaring it changed **no served byte**, proven
+rather than assumed: first-load JS 101.1kB before and after for the console, 104.3kB for the site,
+CSS and middleware likewise identical. The value is pinning, not targeting — a framework upgrade can
+no longer move our compilation target in silence.
+
+**`AST02` closed.** `.github/dependabot.yml`, weekly, grouped by **blast radius rather than
+ecosystem**: framework (can move the bundle and the CSP nonce path), data (a Supabase bump changes
+how PostgREST paging and error codes surface, and this product parses both), tooling (cannot reach
+production). Security advisories are not batched. Stated plainly in the answer: nothing has run
+through it yet, so it is a policy with automation attached rather than a demonstrated practice.
+
+**`AST15` and `AST19` written up rather than closed**, because the honest answer to each is a split.
+A review requirement with one contributor is a person reviewing themselves, and a process performed
+on oneself is bypassed the first time it is inconvenient — so it is refused rather than installed to
+score a mark. But **force-push and branch deletion on `main` are unguarded**, on the repository that
+is this product's only record of its own development, and that is a real irreversible failure mode
+recommended for branch protection *without* a pull-request requirement. Same shape for defects: the
+register is the thing this project does unusually well and should not be replaced; what it is bad at
+is being a queue.
+
+**And a self-reported defect was withdrawn.** The draft said the console *"does not export an
+explicit viewport declaration … one line, and it should be added before anybody demonstrates the
+console on a phone."* It does not export one; it **serves** one — Next supplies the identical tag by
+default. Measured by starting the production server and reading `/login`. The console was never
+broken on a phone.
+
+That is now a heading in [[conventions]], because the general form is sharper than the instance:
+**an overstated capability gets caught when somebody tries the feature; an overstated gap never
+does.** It reads as candour, it flatters the writer, and nobody goes looking for evidence that a
+problem is absent. It is the strictly more durable error.
+
+Three stale figures corrected in the same pass: the privacy statement told families that "176
+automated assertions" test tenant isolation when the suite was at 778 — **replaced rather than
+updated**, because a count that moves weekly does not belong in a document a family reads and
+whoever updates it once will not update it twice. `AST19` said "46-item register" against 65 items,
+52 open. And the CI disclosure still blamed a 113.0kB bundle failure that was attributed and fixed
+on 2026-09-03.
+
+---
+
 2026-09-05 (thirteenth) — **The reconciliation drill covers the agreement path, and found two
 defects in itself getting there.**
 

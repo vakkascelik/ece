@@ -167,6 +167,11 @@ fundable and the closures table cannot say which days those are.
 
 ## Production readiness
 
+- [docs/engineering-practices.md](../../docs/engineering-practices.md) — browsers, dependencies,
+  change control and defects, written down because four assessed items ask what the practice *is*
+  and "there is one, it is undocumented" is indistinguishable on a form from having none. Includes
+  the declared browser target that changed no served byte, and why a review requirement performed
+  on oneself is ceremony while a force-push prohibition is not
 - [[production-readiness]] — the phase that found a centre could not be deleted, what an
   accessibility audit of an empty page is worth, and why a restore drill has to be
   mutation-tested

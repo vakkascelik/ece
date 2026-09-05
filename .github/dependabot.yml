@@ -1,0 +1,72 @@
+# Dependency updates, and the reason this file exists rather than a quarterly reminder.
+#
+# AST02 asks how dependencies are kept current. The honest answer before 2026-09-05 was
+# "by hand, when something breaks" - there was no schedule, no policy and no automation,
+# on a product holding under-5 medical records. That is the gap this closes.
+#
+# WEEKLY, NOT DAILY. One contributor runs nine verification gates by hand on every commit
+# (see AGENTS.md section 5). A daily cadence would produce more update branches than there
+# are working days to gate them, and an ignored bot is worse than no bot: it trains the
+# reader to skip the one notification that mattered.
+#
+# GROUPED, because fifteen separate patch bumps is fifteen separate full gate runs. The
+# groups below are drawn on blast radius rather than on ecosystem - a Next or React bump
+# can move the bundle budget and the CSP nonce path, so it gets its own review, while lint
+# and type packages cannot reach production at all.
+#
+# SECURITY UPDATES ARE NOT GROUPED and not weekly. GitHub raises those separately and
+# immediately regardless of the schedule below; grouping them would delay the only class
+# of update that has a clock on it.
+version: 2
+updates:
+  - package-ecosystem: npm
+    # One lockfile at the root covers every workspace, so one entry covers apps/* and
+    # packages/* too. A per-workspace entry here would open duplicate branches against the
+    # same package-lock.json and conflict with each other.
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: Pacific/Auckland
+    open-pull-requests-limit: 5
+    groups:
+      # Framework and runtime. Anything here can change the served bundle, the security
+      # headers or the render model, so it is reviewed on its own and gated in full.
+      framework:
+        patterns:
+          - next
+          - react
+          - react-dom
+          - "@types/react*"
+          - expo
+          - expo-*
+          - react-native
+      # The data layer. A Supabase client bump can change how PostgREST paging and error
+      # codes surface, and this product parses both - see classifyWriteFailure.
+      data:
+        patterns:
+          - "@supabase/*"
+          - pg
+      # Cannot reach production. Safe to take together.
+      tooling:
+        patterns:
+          - typescript
+          - vitest
+          - eslint
+          - eslint-*
+          - "@typescript-eslint/*"
+          - "@playwright/*"
+          - playwright
+          - tsx
+          - dotenv-cli
+    commit-message:
+      prefix: "chore(deps)"
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+      timezone: Pacific/Auckland
+    commit-message:
+      prefix: "chore(ci)"

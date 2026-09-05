@@ -1033,6 +1033,35 @@ asserting a figure the product also computed — that one is worth keeping, beca
 is an *independent* derivation of the answer. A regex copied from the implementation is not
 independent of anything; it is the implementation, one revision stale.
 
+### A gap you have not measured is a claim, and it can be wrong in your own favour's opposite
+
+The rule in this repo is *do not assert what you have not checked*, and it has always been applied
+to capabilities. It applies identically to **weaknesses**, and that direction had never been
+tested until 2026-09-05.
+
+The ELI application draft carried a self-reported defect: *"the console does not export an explicit
+viewport declaration … one line, and it should be added before anybody demonstrates the console on
+a phone."* Both halves of the first clause are true and the conclusion is false. The console does
+not *export* a viewport — which is what somebody grepped for — and it does *serve* one, which is
+what a phone acts on. Next.js 15.3.9's `createDefaultViewport()` returns
+`width: device-width, initialScale: 1` whenever a layout exports nothing, byte-identical to what
+`apps/site` writes by hand.
+
+Measured, not read: start the production server, `curl /login`, and the tag is there. Two minutes.
+Nobody had spent them, and a document going to the Crown carried a fabricated weakness.
+
+**Why this is worth a heading rather than a correction.** An overstated capability gets caught —
+somebody tries the feature. An overstated *gap* never does: it reads as candour, it flatters the
+writer's honesty, and no one goes looking for evidence that a problem is absent. It is the
+strictly more durable error, and the only defence is to measure the absence the same way you would
+measure the presence.
+
+The same audit found the sibling case: a browser-support gap recorded as "no `browserslist` entry,
+so the effective target is Next.js 15's default". True — and the fix was to write down the five
+values that default already resolves to, verified against the bundle budgets, which came back
+identical to the byte. A gap worth one line of config is not the same as a gap worth a paragraph
+of apology.
+
 ### A drill's own setup arithmetic is part of the drill
 
 `reconcile-funding.ts` converted a local date to a UTC instant with `` `${date}T00:00:00Z` ``. In
