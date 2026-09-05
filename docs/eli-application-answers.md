@@ -27,7 +27,7 @@ is that it does not assert what it has not checked.
 |---|---|
 | Name of Organisation | **Salix Limited** — a New Zealand registered company, NZBN **9429053674067**, incorporated 15 May 2026. Confirmed by the owner 2026-09-05 from the Inland Revenue registration notice. This row read `[OWNER]` until then |
 | Registered in New Zealand? | **Yes.** The form asks it as a yes/no and the answer is evidenced rather than assumed |
-| Name of SMS | **Doorway** — `[FIX FIRST]` the name has never been trademark- or domain-checked (recorded in `unverified-claims`). Worth five minutes before it goes on a Crown application |
+| Name of SMS | **Doorway** — ~~`[FIX FIRST]` never trademark- or domain-checked~~. **Screened 2026-09-05:** IPONZ *Trade Mark Check* returned 19 marks, closest-first, topped by `STAPLES RODWAY`; all 19 reviewed, **no identical `DOORWAY` and nothing confusable.** An identical mark sorts first in that ordering, so its absence at the top is the finding. Still a free pre-application screen rather than a clearance — the paid IPONZ search is the next step and is a commercial decision, not a blocker on this application |
 | Document Completed By | `[OWNER]` |
 | Date Submitted for Review | `[OWNER]` |
 | Primary Contact Person / Contact Details | `[OWNER]` |

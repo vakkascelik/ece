@@ -509,7 +509,7 @@ email.
 | **Still unverified** | That the mailer sends anything at all, and that the message arrives |
 | **To close it** | Request a reset for a real account on the live project; check the mailbox and the auth logs. Before real centres depend on it, configure custom SMTP and verify again |
 
-### 19. The product name has not been cleared
+### 19. The product name has not been cleared — **NARROWED 2026-09-05, and the residual risk is now named rather than open-ended**
 
 The design handoff gives the product a working name, **Doorway**, and says in its own first
 paragraph that the name has not been trademark- or domain-checked.
@@ -2716,6 +2716,50 @@ product actually trades in.** Those are two different risks and this item has be
 Neither is closed by a domain purchase, and neither is closed by this note. **The free tool is a
 screen and not an opinion** — that was true when this item was written and is still true; a paid
 IPONZ search or an advisor is what produces a clearance.
+
+#### RUN BY THE OWNER, 2026-09-05 — and two of this item's three open reasons close
+
+The owner ran IPONZ *Trade Mark Check* on **doorway** and reviewed the results in full.
+
+| | |
+|---|---|
+| **Results** | **19 trade marks, closest matches first** — down from the 25 the unfiltered August run returned |
+| **Top match** | `STAPLES RODWAY` (Baker Tilly Staples Rodway New Zealand Limited), again |
+| **Owner's reading of all 19** | *"they are irrelevant, not doorway"* — no identical mark, and none judged confusable |
+| **Others sighted** | `Do Ray Me Music Tuition Studio Ltd` (a device mark, music tuition — the only result in an education field, matching phonetically on *do-ray* / *door-way*), and `Deerway`, which the August run also returned |
+
+**`STAPLES RODWAY` ranking first is the finding, not the footnote.** In a closest-matches-first
+ordering an identical `DOORWAY` sorts first. Twice now the matcher has put a mark sharing four
+trailing letters at the top, which is it reporting that nothing nearer exists. What was *"very
+unlikely, and that is not the same claim as checked"* in August is now checked.
+
+**Two of the three reasons this item stayed open are closed.** No class was selected → the result
+count dropped from 25 to 19, which is what a filter does. Only 8 of 25 results were seen → all 19
+were read this time.
+
+**One is not, and cannot be.** *This is the free pre-application check.* IPONZ's own page offers
+"get IPONZ to search… a small fee applies" as the next step. A screen is not an opinion, and no
+number of screens becomes one.
+
+**One detail was not captured and is recorded as such rather than assumed:** which classes were
+ticked. The 25→19 drop is consistent with 9, 41, 42 and 35 having been selected as this item asked,
+but nobody wrote it down, and **this entry's own history is a check recorded as done that had not
+been** — the August "doorway.co.nz is available" line, which the registry contradicted the same day.
+So: if the class selection ever matters evidentially, it needs re-running with a screenshot.
+
+#### The residual risk, split three ways, because "not cleared" was hiding three different things
+
+| | |
+|---|---|
+| **Freedom to operate** — may we use the name? | **Low, and now checked rather than assumed.** No identical mark on the register, nothing confusable in the results, no business trading as *Doorway* on either `.nz` domain, and the name is off the customer's public site |
+| **Registrability** — could we register it, could a near mark be asserted at us? | **Looks clear on the same evidence, and it is an examiner's call, not ours.** The only result in an education field is a four-word device mark for children's music tuition |
+| **Unregistered rights** — passing off, Fair Trading Act | **Untouched, and no register search can touch it.** Nothing appears on a register for an unregistered right. This has never been addressed and is not a gap the tool was ever going to close |
+
+**Practical position: the name is safe enough to keep building on, and that is a change from where
+this entry started.** What would justify a paid search or an advisor is a commercial event, not a
+technical one — raising money on the brand, printing it on something expensive, or opposing somebody
+else. Until then this is a screened name with a named residual, which is a materially different
+thing from an unchecked one.
 
 **The lesson, which is the reason this correction is written out rather than edited in:** three
 paragraphs of domain analysis were spent before anybody asked what the owner already owned. The
